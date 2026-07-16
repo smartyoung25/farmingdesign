@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>케이스 비교 뷰</title><style>
+  :root{--bg:#f4f6f8;--card:#fff;--ink:#1a2330;--muted:#6b7787;--line:#e3e8ee;
+    --brand:#1f7a4d;--brand-soft:#e8f3ec;--ok:#1f7a4d;--warn:#b8860b;--bad:#c0392b;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Malgun Gothic",sans-serif;line-height:1.55;}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px;}
+  header.top{background:var(--brand);color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:22px;}
+  header.top h1{margin:0 0 6px;font-size:22px;}
+  header.top .sub{opacity:.9;font-size:14px;}
+  section.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 24px;margin-bottom:18px;}
+  .axis{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--brand);
+    background:var(--brand-soft);padding:3px 10px;border-radius:20px;margin-bottom:12px;}
+  h2{font-size:17px;margin:0 0 14px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .badge{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;}
+  .badge.ok{color:var(--ok);background:#e8f3ec;}
+  .badge.warn{color:var(--warn);background:#fbf3dc;}
+  .badge.bad{color:var(--bad);background:#fbe6e3;}
+  .tag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap;}
+  .tag.실측{color:var(--ok);background:#e8f3ec;}
+  .tag.추정{color:var(--warn);background:#fbf3dc;}
+  .tag.확인요망{color:var(--bad);background:#fbe6e3;}
+  .tag.부분{color:var(--warn);background:#fbf3dc;}
+  .tag.미검증{color:#7a5cff;background:#efeaff;}
+  code{font-size:12px;background:#f2f5f8;padding:1px 5px;border-radius:5px;}
+  a.report-link{display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;
+    text-decoration:none;color:var(--ink);background:#fafbfc;}
+  a.report-link:hover{border-color:var(--brand);}
+  a.report-link .t{font-weight:600;}
+  a.report-link .d{color:var(--muted);font-size:13px;}
+  .note{font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
+  .prov li{margin-bottom:4px;font-size:12.5px;color:var(--muted);}
+</style></head>
+<body><div class="wrap">
+  <header class="top"><h1>케이스 비교 뷰</h1>
+    <div class="sub">3개 케이스 · 4축 핵심 KPI 나란히 비교 · 계산 출처 엔진 단일</div></header>
+  <section class="card"><span class="axis">경제성·시공·설계</span>
+    <h2>핵심 KPI 대조</h2>
+    <table><thead><tr><th>케이스</th><th class='num'>단위공사비</th><th>벤치마크</th><th class='num'>난방/㎡</th><th class='num'>ROI</th><th class='num'>Payback</th><th class='num'>NPV(억)</th><th class='num'>IRR</th><th class='num'>실질ROI</th></tr></thead><tbody><tr><td>춘천 — 토마토 / 유리 (신규)</td><td class='num'>203,134</td><td><span class='badge ok'>정상</span></td><td class='num'>133</td><td class='num'>14.2%</td><td class='num'>7.1년</td><td class='num'>4.27</td><td class='num'>16.2%</td><td class='num'>28.3%</td></tr><tr><td>우민재 — 토마토 / 필름 (신규, 2023)</td><td class='num'>239,842</td><td><span class='badge ok'>정상</span></td><td class='num'>103</td><td class='num'>11.0%</td><td class='num'>9.1년</td><td class='num'>2.02</td><td class='num'>11.9%</td><td class='num'>—</td></tr><tr><td>원채원 — 토마토 / 유리 (신규)</td><td class='num'>203,134</td><td><span class='badge ok'>정상</span></td><td class='num'>96</td><td class='num'>14.2%</td><td class='num'>7.1년</td><td class='num'>4.27</td><td class='num'>16.2%</td><td class='num'>28.3%</td></tr></tbody></table>
+  </section>
+  <section class="card"><span class="axis">근거 대장 (주입값)</span>
+    <h2>케이스 주입값 기준시점 · 상태 태그</h2>
+    <ul class="prov"><li><b>춘천 — 토마토 / 유리 (신규)</b> · 기준시점 2026-07 (주입 시세 기준시점) · 미검증: snow_cm=<span class='tag 확인요망'>확인요망</span>, wind_ms=<span class='tag 확인요망'>확인요망</span>, opex=<span class='tag 추정'>추정</span>, total_construction_cost=<span class='tag 추정'>추정</span></li><li><b>우민재 — 토마토 / 필름 (신규, 2023)</b> · 기준시점 2023-08 (설계 원문) · 2026-07-16 (엔진 CAPEX분해 반영) · 미검증: snow_cm=<span class='tag 확인요망'>확인요망</span>, wind_ms=<span class='tag 확인요망'>확인요망</span>, surface_area_m2=<span class='tag 추정'>추정</span>, t_min=<span class='tag 확인요망'>확인요망</span>, base_yield_kg_m2=<span class='tag 추정'>추정</span>, price_won_per_kg=<span class='tag 추정'>추정</span>, fitness_pct=<span class='tag 추정'>추정</span>, opex=<span class='tag 추정'>추정</span>, subsidy_rate=<span class='tag 확인요망'>확인요망</span></li><li><b>원채원 — 토마토 / 유리 (신규)</b> · 기준시점 2026-07 (주입 시세 기준시점) · 미검증: opex=<span class='tag 추정'>추정</span></li></ul>
+    <p class="note">태그: <span class="tag 실측">실측</span> ·
+      <span class="tag 추정">추정</span> · <span class="tag 확인요망">확인요망</span>. 실측 외 항목만 표기.</p>
+  </section>
+  <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-07-16 04:30</div>
+</div></body></html>

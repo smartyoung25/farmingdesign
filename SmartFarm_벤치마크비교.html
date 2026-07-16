@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>실측 벤치마크 비교</title><style>
+  :root{--bg:#f4f6f8;--card:#fff;--ink:#1a2330;--muted:#6b7787;--line:#e3e8ee;
+    --brand:#1f7a4d;--brand-soft:#e8f3ec;--ok:#1f7a4d;--warn:#b8860b;--bad:#c0392b;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Malgun Gothic",sans-serif;line-height:1.55;}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px;}
+  header.top{background:var(--brand);color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:22px;}
+  header.top h1{margin:0 0 6px;font-size:22px;}
+  header.top .sub{opacity:.9;font-size:14px;}
+  section.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 24px;margin-bottom:18px;}
+  .axis{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--brand);
+    background:var(--brand-soft);padding:3px 10px;border-radius:20px;margin-bottom:12px;}
+  h2{font-size:17px;margin:0 0 14px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .badge{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;}
+  .badge.ok{color:var(--ok);background:#e8f3ec;}
+  .badge.warn{color:var(--warn);background:#fbf3dc;}
+  .badge.bad{color:var(--bad);background:#fbe6e3;}
+  .tag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap;}
+  .tag.실측{color:var(--ok);background:#e8f3ec;}
+  .tag.추정{color:var(--warn);background:#fbf3dc;}
+  .tag.확인요망{color:var(--bad);background:#fbe6e3;}
+  .tag.부분{color:var(--warn);background:#fbf3dc;}
+  .tag.미검증{color:#7a5cff;background:#efeaff;}
+  code{font-size:12px;background:#f2f5f8;padding:1px 5px;border-radius:5px;}
+  a.report-link{display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;
+    text-decoration:none;color:var(--ink);background:#fafbfc;}
+  a.report-link:hover{border-color:var(--brand);}
+  a.report-link .t{font-weight:600;}
+  a.report-link .d{color:var(--muted);font-size:13px;}
+  .note{font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
+  .prov li{margin-bottom:4px;font-size:12.5px;color:var(--muted);}
+</style></head>
+<body><div class="wrap">
+  <header class="top"><h1>실측 벤치마크 비교 (시공축)</h1>
+    <div class="sub">엔진 ACTUALS 7건 · 총액÷면적 → 피복별 밴드 대조</div></header>
+  <section class="card"><span class="axis">시공축</span>
+    <h2>단위 공사비 밴드 대조</h2>
+    <table><thead><tr><th>농가</th><th>피복</th><th class='num'>면적(㎡)</th>
+      <th class='num'>총공사비(원)</th><th class='num'>단위(원/㎡)</th>
+      <th class='num'>밴드(원/㎡)</th><th>판정</th></tr></thead>
+      <tbody><tr><td>공주장원리</td><td>필름</td><td class='num'>3,759</td><td class='num'>450,000,000</td><td class='num'>119,713</td><td class='num'>115,000~240,000</td><td><span class='badge ok'>정상</span></td></tr><tr><td>한일그린텍</td><td>필름</td><td class='num'>3,202</td><td class='num'>480,636,000</td><td class='num'>150,105</td><td class='num'>115,000~240,000</td><td><span class='badge ok'>정상</span></td></tr><tr><td>당진이상근</td><td>필름</td><td class='num'>3,030</td><td class='num'>512,480,000</td><td class='num'>169,135</td><td class='num'>115,000~240,000</td><td><span class='badge ok'>정상</span></td></tr><tr><td>원채원</td><td>유리</td><td class='num'>3,456</td><td class='num'>702,030,000</td><td class='num'>203,134</td><td class='num'>180,000~230,000</td><td><span class='badge ok'>정상</span></td></tr><tr><td>이두희</td><td>필름</td><td class='num'>2,736</td><td class='num'>582,455,045</td><td class='num'>212,886</td><td class='num'>115,000~240,000</td><td><span class='badge ok'>정상</span></td></tr><tr><td>최혁진</td><td>불소필름</td><td class='num'>3,459</td><td class='num'>930,000,000</td><td class='num'>268,864</td><td class='num'>230,000~310,000</td><td><span class='badge ok'>정상</span></td></tr><tr><td>우민재</td><td>필름</td><td class='num'>2,323</td><td class='num'>557,152,000</td><td class='num'>239,842</td><td class='num'>115,000~240,000</td><td><span class='badge ok'>정상</span></td></tr></tbody></table>
+    <p class="note">밴드: 필름 115,000~240,000 / 유리 180,000~230,000 / 불소필름 230,000~310,000 (원/㎡).</p>
+  </section>
+  <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-07-16 04:30</div>
+</div></body></html>

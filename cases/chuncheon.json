@@ -1,0 +1,28 @@
+{
+  "case_id": "chuncheon",
+  "title": "춘천 — 토마토 / 유리 (신규)",
+  "as_of": "2026-07 (주입 시세 기준시점)",
+  "notes": "원채원과 규모/피복/주입값 동일, 지역 기인 변수만 춘천으로 교체 → 기후·설계강도 차이 효과 분리.",
+  "input": {
+    "business_type": "신규", "crop": "토마토", "region": "강원(춘천)", "area_m2": 3456,
+    "cover": "유리", "snow_cm": 40, "wind_ms": 30, "surface_area_m2": 5000,
+    "t_target": 10, "t_min": -14.7, "fr": 0.7, "base_yield_kg_m2": 38.5,
+    "price_won_per_kg": 2500, "fitness_pct": 95, "opex": 186420000,
+    "total_construction_cost": 702030000, "subsidy_rate": 0.5
+  },
+  "provenance": {
+    "t_min":                     {"status": "실측", "source": "건축물에너지절약설계기준 별표7 / 대한설비공학회 표준기상(춘천) -14.7°C"},
+    "snow_cm":                   {"status": "확인요망", "source": "강원 춘천 내재해형 설계강도 통상값 40cm — 농사로 '원예특작시설 내재해형 기준' 지정값 확인 필요"},
+    "wind_ms":                   {"status": "확인요망", "source": "강원 춘천 통상값 30m/s — 지정값 확인 필요"},
+    "opex":                      {"status": "추정", "source": "baseline 동일값 — 한랭지 난방연료비 상향 개연 [추정]"},
+    "total_construction_cost":   {"status": "추정", "source": "baseline 동일값 — 적설대응 구조비 상향 개연 [추정]"},
+    "price_won_per_kg":          {"status": "실측", "source": "KAMIS 주입값"}
+  },
+  "site": {
+    "region_name": "강원(춘천)",
+    "design_load_source": "REGION_DESIGN_LOAD 매핑표 미구축(P0-b 진행중) — siting_design_load('강원(춘천)')는 현재 None 반환, 통상값(snow_cm 40/wind_ms 30)을 그대로 사용",
+    "design_load_status": "확인요망(기존 provenance와 동일 — 농사로 내재해형 기준 지정값 확인 필요)",
+    "landuse_zone": "미확인(판단성 — 컨설팅 시 개별 확인 필요)",
+    "grid_connection_note": "미확인"
+  }
+}

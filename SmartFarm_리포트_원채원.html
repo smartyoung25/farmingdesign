@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SmartFarm 4축 리포트 — 토마토 / 충남</title>
+<style>
+  :root {
+    --bg:#f4f6f8; --card:#fff; --ink:#1a2330; --muted:#6b7787;
+    --line:#e3e8ee; --brand:#1f7a4d; --brand-soft:#e8f3ec;
+    --ok:#1f7a4d; --warn:#b8860b; --bad:#c0392b;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Malgun Gothic",sans-serif; line-height:1.55; }
+  .wrap { max-width:920px; margin:0 auto; padding:28px 20px 64px; }
+  header.top { background:var(--brand); color:#fff; border-radius:14px;
+    padding:22px 26px; margin-bottom:22px; }
+  header.top h1 { margin:0 0 6px; font-size:22px; }
+  header.top .sub { opacity:.9; font-size:14px; }
+  header.top .gen { opacity:.7; font-size:12px; margin-top:10px; }
+  section.card { background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:20px 24px; margin-bottom:18px; }
+  .axis { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.04em;
+    color:var(--brand); background:var(--brand-soft); padding:3px 10px;
+    border-radius:20px; margin-bottom:12px; }
+  h2 { font-size:17px; margin:0 0 14px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:12.5px; }
+  .row { display:flex; justify-content:space-between; padding:7px 0;
+    border-bottom:1px dashed var(--line); font-size:14px; }
+  .row:last-child { border-bottom:0; }
+  .row .lbl { color:var(--muted); }
+  .row .val { font-variant-numeric:tabular-nums; font-weight:600; }
+  .badge { font-size:12px; font-weight:700; padding:3px 10px; border-radius:20px; }
+  .badge.ok { color:var(--ok); background:#e8f3ec; }
+  .badge.warn { color:var(--warn); background:#fbf3dc; }
+  .badge.bad { color:var(--bad); background:#fbe6e3; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px; margin-top:6px; }
+  .kpi { background:#fafbfc; border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; }
+  .kpi.highlight { background:var(--brand-soft); border-color:#cfe6d8; }
+  .kpi-label { font-size:12.5px; color:var(--muted); }
+  .kpi-label .sub { font-size:11px; }
+  .kpi-value { font-size:22px; font-weight:700; margin-top:4px;
+    font-variant-numeric:tabular-nums; }
+  .note { font-size:12.5px; color:var(--muted); margin-top:18px;
+    padding-top:14px; border-top:1px solid var(--line); }
+  details { margin-top:10px; font-size:13px; }
+  details summary { cursor:pointer; color:var(--muted); }
+  details pre { background:#f7f9fb; border:1px solid var(--line); border-radius:8px;
+    padding:12px; overflow:auto; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>SmartFarm 4축 리포트 — 토마토 / 신규</h1>
+    <div class="sub">충남 · 3,456㎡ (1,045평) · 유리</div>
+    <div class="gen">생성 2026-07-02 14:35 · 계산 출처: smartfarm_engine (단일)</div>
+  </header>
+
+  <section class="card">
+    <span class="axis">설계축</span>
+    <h2>내재해형 규격 선정 (지역 설계강도 충족)</h2>
+    <div class="row"><span class="lbl">지역 설계강도</span>
+      <span class="val">적설심 30cm · 풍속 35m/s</span></div>
+    <div class="row"><span class="lbl">충족 규격 수</span>
+      <span class="val">11종</span></div>
+    <table>
+      <thead><tr><th>형식</th><th>최소사양</th><th>설계강도</th></tr></thead>
+      <tbody><tr><td>연동</td><td>07-연동-1</td><td>설계적설심 53cm · 설계풍속 40m/s</td></tr><tr><td>단동</td><td>10-단동-4</td><td>설계적설심 41cm · 설계풍속 35m/s</td></tr><tr><td>광폭</td><td>10-광폭-1(아치)</td><td>설계적설심 33cm · 설계풍속 40m/s</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <span class="axis">설계 · 시공축</span>
+    <h2>난방부하 (실측 이중검증)</h2>
+    <div class="row"><span class="lbl">최대난방부하</span>
+      <span class="val">330,190 kcal/h (96 kcal/h·㎡)</span></div>
+    <div class="row"><span class="lbl">난방기 용량</span>
+      <span class="val">363,209 kcal/h</span></div>
+    <div class="row"><span class="lbl">실측 대조 (기준 231 × 0.41)</span>
+      <span class="badge ok">정상</span></div>
+  </section>
+
+  <section class="card">
+    <span class="axis">시공축</span>
+    <h2>총공사비 벤치마크 대조</h2>
+    <div class="row"><span class="lbl">총공사비</span>
+      <span class="val">702,030,000원</span></div>
+    <div class="row"><span class="lbl">단위 공사비</span>
+      <span class="val">203,134원/㎡</span></div>
+    <div class="row"><span class="lbl">유리 밴드 180,000~230,000</span>
+      <span class="badge ok">정상</span></div>
+  </section>
+
+  <section class="card">
+    <span class="axis">경제성축</span>
+    <h2>생산 · 수익 · 투자지표</h2>
+    <div class="row"><span class="lbl">환경적합도 → 수율조정</span>
+      <span class="val">95% → +0%</span></div>
+    <div class="row"><span class="lbl">생산량 × 단가</span>
+      <span class="val">133,056 kg × 2,500원</span></div>
+    <div class="row"><span class="lbl">매출</span>
+      <span class="val">332,640,000원</span></div>
+    <div class="row"><span class="lbl">OPEX · 감가상각</span>
+      <span class="val">186,420,000원 · 46,802,000원</span></div>
+    <div class="row"><span class="lbl">영업이익</span>
+      <span class="val">99,418,000원</span></div>
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label">ROI</div>
+        <div class="kpi-value">14.2%</div></div>
+      <div class="kpi"><div class="kpi-label">투자회수기간</div>
+        <div class="kpi-value">7.1년</div></div>
+      <div class="kpi"><div class="kpi-label">NPV (10y·5%)</div>
+        <div class="kpi-value">4.27억</div></div>
+      <div class="kpi"><div class="kpi-label">IRR</div>
+        <div class="kpi-value">16.2%</div></div>
+      
+        <div class="kpi highlight">
+          <div class="kpi-label">실질 ROI <span class="sub">(보조금 50% 반영)</span></div>
+          <div class="kpi-value">28.3%</div>
+        </div>
+    </div>
+  </section>
+
+  <div class="note">
+    ※ 단가·노임·유가·총공사비는 조회 시점 실측 <b>주입값</b> 기준(엔진은 시세를 조회하지 않음).
+    ROI·NPV·IRR은 <b>추정치</b>이며 투자 확정조언이 아님. 모든 수치의 계산 출처는 smartfarm_engine 단일.
+    <details>
+      <summary>입력값 원문 보기</summary>
+      <pre>business_type = 신규
+crop = 토마토
+region = 충남
+area_m2 = 3456
+cover = 유리
+snow_cm = 30
+wind_ms = 35
+surface_area_m2 = 5000
+t_target = 10
+t_min = -7.8
+fr = 0.7
+base_yield_kg_m2 = 38.5
+price_won_per_kg = 2500
+fitness_pct = 95
+opex = 186420000
+total_construction_cost = 702030000
+subsidy_rate = 0.5</pre>
+    </details>
+  </div>
+</div>
+</body>
+</html>
