@@ -38,20 +38,29 @@
   a.report-link .d{color:var(--muted);font-size:13px;}
   .note{font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
   .prov li{margin-bottom:4px;font-size:12.5px;color:var(--muted);}
+  .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;}
+  .row:last-child{border-bottom:0;}
+  .row .lbl{color:var(--muted);}
+  .row .val{font-variant-numeric:tabular-nums;font-weight:600;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:6px;}
+  .kpi{background:#fafbfc;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .kpi.highlight{background:var(--brand-soft);border-color:#cfe6d8;}
+  .kpi-label{font-size:12.5px;color:var(--muted);}
+  .kpi-value{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;}
 </style></head>
 <body><div class="wrap">
   <header class="top"><h1>케이스 비교 뷰</h1>
     <div class="sub">3개 케이스 · 4축 핵심 KPI 나란히 비교 · 계산 출처 엔진 단일</div></header>
   <section class="card"><span class="axis">경제성·시공·설계</span>
     <h2>핵심 KPI 대조</h2>
-    <table><thead><tr><th>케이스</th><th class='num'>단위공사비</th><th>벤치마크</th><th class='num'>난방/㎡</th><th class='num'>ROI</th><th class='num'>Payback</th><th class='num'>NPV(억)</th><th class='num'>IRR</th><th class='num'>실질ROI</th></tr></thead><tbody><tr><td>춘천 — 토마토 / 유리 (신규)</td><td class='num'>203,134</td><td><span class='badge ok'>정상</span></td><td class='num'>133</td><td class='num'>14.2%</td><td class='num'>7.1년</td><td class='num'>4.27</td><td class='num'>16.2%</td><td class='num'>28.3%</td></tr><tr><td>우민재 — 토마토 / 필름 (신규, 2023)</td><td class='num'>239,842</td><td><span class='badge ok'>정상</span></td><td class='num'>103</td><td class='num'>11.0%</td><td class='num'>9.1년</td><td class='num'>2.02</td><td class='num'>11.9%</td><td class='num'>—</td></tr><tr><td>원채원 — 토마토 / 유리 (신규)</td><td class='num'>203,134</td><td><span class='badge ok'>정상</span></td><td class='num'>96</td><td class='num'>14.2%</td><td class='num'>7.1년</td><td class='num'>4.27</td><td class='num'>16.2%</td><td class='num'>28.3%</td></tr></tbody></table>
+    <table><thead><tr><th>케이스</th><th class='num'>단위공사비</th><th>벤치마크</th><th class='num'>난방/㎡</th><th class='num'>ROI</th><th class='num'>Payback</th><th class='num'>NPV(억)</th><th class='num'>IRR</th><th class='num'>실질ROI</th></tr></thead><tbody><tr><td>춘천 — 토마토 / 유리 (신규)</td><td class='num'>203,134</td><td><span class='badge ok'>정상</span></td><td class='num'>133</td><td class='num'>14.2%</td><td class='num'>7.1년</td><td class='num'>4.27</td><td class='num'>16.2%</td><td class='num'>28.3%</td></tr><tr><td>우민재 — 토마토 / 필름 (신규, 2023)</td><td class='num'>239,842</td><td><span class='badge ok'>정상</span></td><td class='num'>48</td><td class='num'>11.0%</td><td class='num'>9.1년</td><td class='num'>2.02</td><td class='num'>11.9%</td><td class='num'>—</td></tr><tr><td>원채원 — 토마토 / 유리 (신규)</td><td class='num'>203,134</td><td><span class='badge ok'>정상</span></td><td class='num'>96</td><td class='num'>14.2%</td><td class='num'>7.1년</td><td class='num'>4.27</td><td class='num'>16.2%</td><td class='num'>28.3%</td></tr></tbody></table>
   </section>
   <section class="card"><span class="axis">근거 대장 (주입값)</span>
     <h2>케이스 주입값 기준시점 · 상태 태그</h2>
-    <ul class="prov"><li><b>춘천 — 토마토 / 유리 (신규)</b> · 기준시점 2026-07 (주입 시세 기준시점) · 미검증: snow_cm=<span class='tag 확인요망'>확인요망</span>, wind_ms=<span class='tag 확인요망'>확인요망</span>, opex=<span class='tag 추정'>추정</span>, total_construction_cost=<span class='tag 추정'>추정</span></li><li><b>우민재 — 토마토 / 필름 (신규, 2023)</b> · 기준시점 2023-08 (설계 원문) · 2026-07-16 (엔진 CAPEX분해 반영) · 미검증: snow_cm=<span class='tag 확인요망'>확인요망</span>, wind_ms=<span class='tag 확인요망'>확인요망</span>, surface_area_m2=<span class='tag 추정'>추정</span>, t_min=<span class='tag 확인요망'>확인요망</span>, base_yield_kg_m2=<span class='tag 추정'>추정</span>, price_won_per_kg=<span class='tag 추정'>추정</span>, fitness_pct=<span class='tag 추정'>추정</span>, opex=<span class='tag 추정'>추정</span>, subsidy_rate=<span class='tag 확인요망'>확인요망</span></li><li><b>원채원 — 토마토 / 유리 (신규)</b> · 기준시점 2026-07 (주입 시세 기준시점) · 미검증: opex=<span class='tag 추정'>추정</span></li></ul>
+    <ul class="prov"><li><b>춘천 — 토마토 / 유리 (신규)</b> · 기준시점 2026-07 (주입 시세 기준시점) · 미검증: opex=<span class='tag 추정'>추정</span>, total_construction_cost=<span class='tag 추정'>추정</span></li><li><b>우민재 — 토마토 / 필름 (신규, 2023)</b> · 기준시점 2023-08 (설계 원문) · 2026-07-16 (엔진 CAPEX분해 반영) · 미검증: surface_area_m2=<span class='tag 추정'>추정</span>, t_min=<span class='tag 확인요망'>확인요망</span>, fr=<span class='tag 확인요망'>확인요망</span>, base_yield_kg_m2=<span class='tag 추정'>추정</span>, price_won_per_kg=<span class='tag 추정'>추정</span>, fitness_pct=<span class='tag 추정'>추정</span>, opex=<span class='tag 추정'>추정</span>, subsidy_rate=<span class='tag 확인요망'>확인요망</span></li><li><b>원채원 — 토마토 / 유리 (신규)</b> · 기준시점 2026-07 (주입 시세 기준시점) · 미검증: opex=<span class='tag 추정'>추정</span></li></ul>
     <p class="note">태그: <span class="tag 실측">실측</span> ·
       <span class="tag 추정">추정</span> · <span class="tag 확인요망">확인요망</span>. 실측 외 항목만 표기.</p>
   </section>
   <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>
-<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-07-16 04:30</div>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-07-22 22:54</div>
 </div></body></html>

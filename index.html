@@ -38,11 +38,20 @@
   a.report-link .d{color:var(--muted);font-size:13px;}
   .note{font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
   .prov li{margin-bottom:4px;font-size:12.5px;color:var(--muted);}
+  .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;}
+  .row:last-child{border-bottom:0;}
+  .row .lbl{color:var(--muted);}
+  .row .val{font-variant-numeric:tabular-nums;font-weight:600;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:6px;}
+  .kpi{background:#fafbfc;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .kpi.highlight{background:var(--brand-soft);border-color:#cfe6d8;}
+  .kpi-label{font-size:12.5px;color:var(--muted);}
+  .kpi-value{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;}
 </style></head>
 <body><div class="wrap">
   <header class="top"><h1>SmartFarm 진단·운영 리포트</h1>
     <div class="sub">진단 · 설계 · 시공 · 경제성 4축 · 계산 출처 smartfarm_engine 단일</div></header>
   <section class="card"><span class="axis">리포트 목록</span>
-    <h2>바로가기</h2><a class='report-link' href='SmartFarm_리포트_chuncheon.html'><span class='t'>춘천 — 토마토 / 유리 (신규)</span><span class='d'>4축 종합 · ROI 14.2% · 실질ROI 28.3%</span></a><a class='report-link' href='SmartFarm_리포트_uminjae.html'><span class='t'>우민재 — 토마토 / 필름 (신규, 2023)</span><span class='d'>4축 종합 · ROI 11.0%</span></a><a class='report-link' href='SmartFarm_리포트_wonchaewon.html'><span class='t'>원채원 — 토마토 / 유리 (신규)</span><span class='d'>4축 종합 · ROI 14.2% · 실질ROI 28.3%</span></a><a class='report-link' href='SmartFarm_케이스비교.html'><span class='t'>▶ 케이스 비교 뷰</span><span class='d'>3개 케이스 KPI 대조 + 근거</span></a><a class='report-link' href='SmartFarm_벤치마크비교.html'><span class='t'>▶ 실측 벤치마크 비교</span><span class='d'>7건 · 시공축 밴드 대조</span></a><a class='report-link' href='SmartFarm_CAPEX분해.html'><span class='t'>▶ CAPEX 공종 카테고리 분해</span><span class='d'>2건 실측 청킹 · 9개 표준 카테고리</span></a><a class='report-link' href='SmartFarm_근거대장.html'><span class='t'>▶ 엔진 상수 근거대장</span><span class='d'>P0 provenance · 엔진과 자동 대조</span></a></section>
-<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-07-16 13:26</div>
+    <h2>바로가기</h2><a class='report-link' href='SmartFarm_리포트_chuncheon.html'><span class='t'>춘천 — 토마토 / 유리 (신규)</span><span class='d'>4축 종합 · ROI 14.2% · 실질ROI 28.3%</span></a><a class='report-link' href='SmartFarm_통합보고서_chuncheon.html'><span class='t'>▶ 춘천 — 토마토 / 유리 (신규) 통합보고서</span><span class='d'>입지·설계·운영·경제성 4섹션 + 경영자요약</span></a><a class='report-link' href='SmartFarm_리포트_uminjae.html'><span class='t'>우민재 — 토마토 / 필름 (신규, 2023)</span><span class='d'>4축 종합 · ROI 11.0%</span></a><a class='report-link' href='SmartFarm_통합보고서_uminjae.html'><span class='t'>▶ 우민재 — 토마토 / 필름 (신규, 2023) 통합보고서</span><span class='d'>입지·설계·운영·경제성 4섹션 + 경영자요약</span></a><a class='report-link' href='SmartFarm_리포트_wonchaewon.html'><span class='t'>원채원 — 토마토 / 유리 (신규)</span><span class='d'>4축 종합 · ROI 14.2% · 실질ROI 28.3%</span></a><a class='report-link' href='SmartFarm_통합보고서_wonchaewon.html'><span class='t'>▶ 원채원 — 토마토 / 유리 (신규) 통합보고서</span><span class='d'>입지·설계·운영·경제성 4섹션 + 경영자요약</span></a><a class='report-link' href='SmartFarm_케이스비교.html'><span class='t'>▶ 케이스 비교 뷰</span><span class='d'>3개 케이스 KPI 대조 + 근거</span></a><a class='report-link' href='SmartFarm_벤치마크비교.html'><span class='t'>▶ 실측 벤치마크 비교</span><span class='d'>7건 · 시공축 밴드 대조</span></a><a class='report-link' href='SmartFarm_CAPEX분해.html'><span class='t'>▶ CAPEX 공종 카테고리 분해</span><span class='d'>2건 실측 청킹 · 9개 표준 카테고리</span></a><a class='report-link' href='SmartFarm_근거대장.html'><span class='t'>▶ 엔진 상수 근거대장</span><span class='d'>P0 provenance · 엔진과 자동 대조</span></a></section>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-07-22 22:54</div>
 </div></body></html>

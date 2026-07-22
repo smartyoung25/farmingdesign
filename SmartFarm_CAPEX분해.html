@@ -38,6 +38,15 @@
   a.report-link .d{color:var(--muted);font-size:13px;}
   .note{font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
   .prov li{margin-bottom:4px;font-size:12.5px;color:var(--muted);}
+  .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;}
+  .row:last-child{border-bottom:0;}
+  .row .lbl{color:var(--muted);}
+  .row .val{font-variant-numeric:tabular-nums;font-weight:600;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:6px;}
+  .kpi{background:#fafbfc;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .kpi.highlight{background:var(--brand-soft);border-color:#cfe6d8;}
+  .kpi-label{font-size:12.5px;color:var(--muted);}
+  .kpi-value{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;}
 </style></head>
 <body><div class="wrap">
   <header class="top"><h1>CAPEX 공종 카테고리 분해</h1>
@@ -45,11 +54,11 @@
   <section class="card"><span class="axis">총사업비 관점 · 13개 상위 카테고리</span>
     <h2>1~13번 카테고리 (2026-07-16 채택 — 부지매입비는 finance()에서 감가상각 제외 별도 처리)</h2>
     <table><thead><tr><th>카테고리</th><th>설명</th><th>근거 상태</th><th>케이스별 비중</th></tr></thead>
-      <tbody><tr><td>1. 온실 구조</td><td>철골, 기초, 피복재, 도어 등 — 스마트팜 물리적 기본 구조</td><td><span class='tag 실측'>실측(2건)</span></td><td>우민재 40.7% · 최혁진 55.1%</td></tr><tr><td>2. 자동개폐 시스템</td><td>천창, 수평·측면스크린, 개폐모터 — 환경 자동화 설비</td><td><span class='tag 실측'>실측(2건, 모터·보온재 미분리)</span></td><td>우민재 24.5% · 최혁진 10.4%</td></tr><tr><td>3. 냉·난방 설비</td><td>보일러, 히트펌프, 송풍기, 난방배관 — 에너지 효율 핵심 설비</td><td><span class='tag 실측'>실측(2건)</span></td><td>우민재 16.3% · 최혁진 15.9%</td></tr><tr><td>4. 양액·관수 설비</td><td>양액기, 펌프, 관수 배관, 폐양액 처리 — 작물 생장 핵심 제어 설비</td><td><span class='tag 실측'>실측(2건)</span></td><td>우민재 17.9% · 최혁진 12.4%</td></tr><tr><td>5. ICT 및 제어설비</td><td>복합환경제어기, 센서, 서버, 소프트웨어 — 스마트팜의 제어 두뇌 역할</td><td><span class='tag 추정'>부분실측(최혁진만, 우민재는 해당 공종 없음)</span></td><td>우민재 0.0% · 최혁진 2.6%</td></tr><tr><td>6. 전기 설비</td><td>전기 인입, 배선반, 조명, 분전함 등 — 전력 공급 인프라</td><td><span class='tag 추정'>부분실측(최혁진만, 우민재는 해당 공종 없음)</span></td><td>우민재 0.0% · 최혁진 3.7%</td></tr><tr><td>7. 부대시설</td><td>기계실, 창고, 출입구, 작업동 등 — 생산 보조 공간</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0%</td></tr><tr><td>8. 축열·보온 설비</td><td>축열탱크, 보온커튼, 단열판 등 — 난방비 절감 요소</td><td><span class='tag 미검증'>미검증(근거문서 없음 — 자동개폐와 분리 재조사 필요)</span></td><td>우민재 0.0% · 최혁진 0.0%</td></tr><tr><td>9. 기자재 구매</td><td>트롤리, 컨베이어, 선별대 등 — 생산성 향상 보조 장비</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0%</td></tr><tr><td>10. 설계·감리비</td><td>기본·실시설계, 감리 용역비 등 — 설치의 행정·기술 지원</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0%</td></tr><tr><td>11. 부지 조성비</td><td>성토, 배수로, 석축, 진입로 등 — 시설 설치 위한 기반 공사</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0%</td></tr><tr><td>12. 예비비</td><td>물가변동, 오차 대응용 2~5% — 불확실성 대비</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0%</td></tr><tr><td>13. 부지 매입비</td><td>토지 구입비 — 자산이지만 감가상각 제외(finance()의 land_cost로 별도 처리)</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0%</td></tr></tbody></table>
+      <tbody><tr><td>1. 온실 구조</td><td>철골, 기초, 피복재, 도어 등 — 스마트팜 물리적 기본 구조</td><td><span class='tag 실측'>실측(2건)</span></td><td>우민재 40.7% · 최혁진 55.1% · 이두희 40.1%</td></tr><tr><td>2. 자동개폐 시스템</td><td>천창, 수평·측면스크린, 개폐모터 — 환경 자동화 설비</td><td><span class='tag 실측'>실측(2건, 모터·보온재 미분리)</span></td><td>우민재 24.5% · 최혁진 10.4% · 이두희 22.8%</td></tr><tr><td>3. 냉·난방 설비</td><td>보일러, 히트펌프, 송풍기, 난방배관 — 에너지 효율 핵심 설비</td><td><span class='tag 실측'>실측(2건)</span></td><td>우민재 16.3% · 최혁진 15.9% · 이두희 0.0%</td></tr><tr><td>4. 양액·관수 설비</td><td>양액기, 펌프, 관수 배관, 폐양액 처리 — 작물 생장 핵심 제어 설비</td><td><span class='tag 실측'>실측(2건)</span></td><td>우민재 17.9% · 최혁진 12.4% · 이두희 7.7%</td></tr><tr><td>5. ICT 및 제어설비</td><td>복합환경제어기, 센서, 서버, 소프트웨어 — 스마트팜의 제어 두뇌 역할</td><td><span class='tag 추정'>부분실측(최혁진만, 우민재는 해당 공종 없음)</span></td><td>우민재 0.0% · 최혁진 2.6% · 이두희 6.0%</td></tr><tr><td>6. 전기 설비</td><td>전기 인입, 배선반, 조명, 분전함 등 — 전력 공급 인프라</td><td><span class='tag 추정'>부분실측(최혁진만, 우민재는 해당 공종 없음)</span></td><td>우민재 0.0% · 최혁진 3.7% · 이두희 0.0%</td></tr><tr><td>7. 부대시설</td><td>기계실, 창고, 출입구, 작업동 등 — 생산 보조 공간</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0% · 이두희 0.0%</td></tr><tr><td>8. 축열·보온 설비</td><td>축열탱크, 보온커튼, 단열판 등 — 난방비 절감 요소</td><td><span class='tag 미검증'>미검증(근거문서 없음 — 자동개폐와 분리 재조사 필요)</span></td><td>우민재 0.0% · 최혁진 0.0% · 이두희 0.0%</td></tr><tr><td>9. 기자재 구매</td><td>트롤리, 컨베이어, 선별대 등 — 생산성 향상 보조 장비</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0% · 이두희 0.0%</td></tr><tr><td>10. 설계·감리비</td><td>기본·실시설계, 감리 용역비 등 — 설치의 행정·기술 지원</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0% · 이두희 0.0%</td></tr><tr><td>11. 부지 조성비</td><td>성토, 배수로, 석축, 진입로 등 — 시설 설치 위한 기반 공사</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0% · 이두희 0.0%</td></tr><tr><td>12. 예비비</td><td>물가변동, 오차 대응용 2~5% — 불확실성 대비</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0% · 이두희 0.0%</td></tr><tr><td>13. 부지 매입비</td><td>토지 구입비 — 자산이지만 감가상각 제외(finance()의 land_cost로 별도 처리)</td><td><span class='tag 미검증'>미검증(근거문서 없음)</span></td><td>우민재 0.0% · 최혁진 0.0% · 이두희 0.0%</td></tr></tbody></table>
     <p class="note">근거 없는 7개 항목(7·9·10·11·12·13, 5·6 일부)은 값을 만들지 않고 0으로 둔다 —
       해당 문서(총사업비 산정표·설계감리 계약서·토지매매계약서 등) 확보 시 갱신.</p>
     <p class="note"><b>미분류(unclassified) 잔액</b>(13개 어디에도 안 맞는 원문 항목):</p>
-    <ul class="prov"><li>우민재: 2,679,227원 (0.6%) — 품질시험비·안전관리비·재해예방기술지도비 등 13개 어디에도 안 맞아 미분류로 남김</li><li>최혁진: 0원 (0.0%) — 품질시험비·안전관리비·재해예방기술지도비 등 13개 어디에도 안 맞아 미분류로 남김</li></ul>
+    <ul class="prov"><li>우민재: 2,679,227원 (0.6%) — 13개 카테고리 어디에도 안 맞아 미분류로 남김(케이스별 구체 항목은 CAPEX_MAJOR_UNCLASSIFIED 레지스트리 source 참고)</li><li>최혁진: 0원 (0.0%) — 13개 카테고리 어디에도 안 맞아 미분류로 남김(케이스별 구체 항목은 CAPEX_MAJOR_UNCLASSIFIED 레지스트리 source 참고)</li><li>이두희: 101,301,410원 (23.4%) — 13개 카테고리 어디에도 안 맞아 미분류로 남김(케이스별 구체 항목은 CAPEX_MAJOR_UNCLASSIFIED 레지스트리 source 참고)</li></ul>
   </section>
   <section class="card"><span class="axis">시공사 내역서 관점 · 9개 하위 세부(직접공사비)</span>
     <h2>카테고리별 비중 관측범위 (표본 2건 — 밴드 아님, 참고정보)</h2>
@@ -65,5 +74,5 @@
       원문 근거는 <a href="SmartFarm_근거대장.html">엔진 상수 근거대장</a>의 CAPEX_CATEGORY_OBSERVED_RANGE·CAPEX_CASE_CHUNKS 항목 참고.</p>
   </section>
   <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>
-<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-07-16 13:26</div>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-07-22 22:54</div>
 </div></body></html>

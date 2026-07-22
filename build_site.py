@@ -50,6 +50,15 @@ _CSS = """
   a.report-link .d{color:var(--muted);font-size:13px;}
   .note{font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
   .prov li{margin-bottom:4px;font-size:12.5px;color:var(--muted);}
+  .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;}
+  .row:last-child{border-bottom:0;}
+  .row .lbl{color:var(--muted);}
+  .row .val{font-variant-numeric:tabular-nums;font-weight:600;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:6px;}
+  .kpi{background:#fafbfc;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .kpi.highlight{background:var(--brand-soft);border-color:#cfe6d8;}
+  .kpi-label{font-size:12.5px;color:var(--muted);}
+  .kpi-value{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;}
 """
 
 
@@ -113,7 +122,7 @@ def capex_breakdown_page() -> str:
             f"<td>{', '.join(f'{esc(k)} {v:.1f}%' for k, v in cb.shares_pct.items())}</td></tr>")
 
     # 13개 상위(총사업비) 카테고리 — 2026-07-16 사용자 제안 채택
-    major_totals = {"우민재": 456_158_140, "최혁진": 694_575_784}
+    major_totals = {"우민재": 456_158_140, "최혁진": 694_575_784, "이두희": 433_606_460}
     major_rows = []
     for key, kor, desc in e.CAPEX_MAJOR_CATEGORIES:
         ev = e.CAPEX_MAJOR_EVIDENCE_STATUS[key]
@@ -130,7 +139,8 @@ def capex_breakdown_page() -> str:
         mb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS[case_name], known_total=total)
         unclassified_rows.append(
             f"<li>{esc(case_name)}: {mb.unclassified:,.0f}원 "
-            f"({mb.unclassified/mb.total*100:.1f}%) — 품질시험비·안전관리비·재해예방기술지도비 등 13개 어디에도 안 맞아 미분류로 남김</li>")
+            f"({mb.unclassified/mb.total*100:.1f}%) — 13개 카테고리 어디에도 안 맞아 미분류로 남김"
+            f"(케이스별 구체 항목은 CAPEX_MAJOR_UNCLASSIFIED 레지스트리 source 참고)</li>")
 
     body = f"""
   <header class="top"><h1>CAPEX 공종 카테고리 분해</h1>
@@ -159,6 +169,183 @@ def capex_breakdown_page() -> str:
   </section>
   <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>"""
     return _page("CAPEX 공종 카테고리 분해", body)
+
+
+def _trunc(s: str, n: int = 160) -> str:
+    return s if len(s) <= n else s[:n].rstrip() + "…"
+
+
+def _prov_flags(case: dict) -> list[tuple[str, str, str]]:
+    """provenance 중 status != '실측'인 항목만 (필드명, status, 근거 요약) 튜플로."""
+    return [(k, v["status"], _trunc(v.get("source", "")))
+            for k, v in case.get("provenance", {}).items() if v.get("status") != "실측"]
+
+
+def _sensitivity_snapshot(inp) -> list[dict]:
+    """판매단가·수확량 ±10% 스냅샷 — 새 데이터 없이 기존 production_kg()/finance()를
+    다른 인자로 다시 호출할 뿐이다(케이스 스키마·엔진 레지스트리 변경 없음)."""
+    scenarios = [
+        ("기준", inp.price_won_per_kg, inp.base_yield_kg_m2),
+        ("판매단가 +10%", inp.price_won_per_kg * 1.1, inp.base_yield_kg_m2),
+        ("판매단가 -10%", inp.price_won_per_kg * 0.9, inp.base_yield_kg_m2),
+        ("수확량 +10%", inp.price_won_per_kg, inp.base_yield_kg_m2 * 1.1),
+        ("수확량 -10%", inp.price_won_per_kg, inp.base_yield_kg_m2 * 0.9),
+    ]
+    rows = []
+    for label, price, base_yield in scenarios:
+        prod = e.production_kg(inp.area_m2, base_yield, inp.fitness_pct)
+        revenue = prod * price
+        fin = e.finance(revenue, inp.opex, inp.total_construction_cost,
+                        subsidy_rate=inp.subsidy_rate)
+        rows.append({"label": label, "revenue": revenue, "roi": fin.roi,
+                     "payback": fin.payback_years})
+    return rows
+
+
+def consulting_report_page(case: dict, res: dict, inp) -> str:
+    """4섹션 통합 컨설팅 리포트(Step6, 2026-07-21) — 표지+경영자요약 뒤에
+    입지진단서·설계적정성보고서·운영계획서·경제성분석서를 잇는다.
+    새 계산은 render_report.compute()가 이미 만든 res를 그대로 재사용하고,
+    손익분기·민감도 스냅샷만 기존 엔진 함수를 다시 호출해 더한다 — 케이스
+    스키마·엔진 레지스트리는 건드리지 않는다(2026-07-21 사용자 확인 범위)."""
+    m, d, h, c, ec = res["meta"], res["design"], res["heating"], res["construction"], res["economics"]
+    capex = c["total"]
+    subsidy_won = capex * ec["subsidy_rate"]
+    self_funded_won = capex - subsidy_won
+    cash_flow = ec["operating_profit"] + ec["depreciation"]
+    be = e.operating_breakeven(ec["opex"], ec["price"])
+    flags = _prov_flags(case)
+
+    # ── 표지 + 경영자 요약 ──
+    flags_html = "".join(
+        f"<li><code>{esc(k)}</code> <span class='tag {esc(st)}'>{esc(st)}</span> — {esc(src)}</li>"
+        for k, st, src in flags[:8])
+    more_note = f"<p class='note'>그 외 {len(flags)-8}건 더 — 케이스 JSON provenance 전체 참고</p>" if len(flags) > 8 else ""
+    summary = f"""
+  <header class="top"><h1>스마트팜 ROI 통합보고서</h1>
+    <div class="sub">{esc(case['title'])} · {esc(m['business_type'])} · {esc(m['crop'])} · 기준시점 {esc(case.get('as_of','—'))}</div></header>
+  <section class="card"><span class="axis">경영자 요약</span>
+    <h2>핵심 결과</h2>
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label">총사업비(CAPEX)</div><div class="kpi-value">{capex/1e8:,.2f}억</div></div>
+      <div class="kpi"><div class="kpi-label">정부보조금 ({ec['subsidy_rate']*100:.0f}%)</div><div class="kpi-value">{subsidy_won/1e8:,.2f}억</div></div>
+      <div class="kpi"><div class="kpi-label">자부담</div><div class="kpi-value">{self_funded_won/1e8:,.2f}억</div></div>
+      <div class="kpi"><div class="kpi-label">연매출</div><div class="kpi-value">{ec['revenue']/1e8:,.2f}억</div></div>
+      <div class="kpi"><div class="kpi-label">연간 OPEX</div><div class="kpi-value">{ec['opex']/1e8:,.2f}억</div></div>
+      <div class="kpi"><div class="kpi-label">영업현금흐름</div><div class="kpi-value">{cash_flow/1e8:,.2f}억</div></div>
+      <div class="kpi highlight"><div class="kpi-label">ROI · Payback</div>
+        <div class="kpi-value">{ec['roi']*100:.1f}% · {f"{ec['payback']:.1f}년" if ec['payback'] else "N/A"}</div></div>
+      <div class="kpi highlight"><div class="kpi-label">NPV(10y·5%) · IRR</div>
+        <div class="kpi-value">{ec['npv']/1e8:,.2f}억 · {f"{ec['irr']*100:.1f}%" if ec['irr'] is not None else ">100%"}</div></div>
+    </div>
+    <p class="note">손익분기 매출 {be.breakeven_revenue_won:,.0f}원(=연간 OPEX) · 손익분기 생산량 {be.breakeven_kg:,.0f}kg —
+      CAPEX 회수(Payback)와 별개로 '그 해 매출이 운영비를 커버하는 지점'만 본다.</p>
+    <h2 style="margin-top:16px">확인 필요 항목 ({len(flags)}건)</h2>
+    <ul class="prov">{flags_html}</ul>{more_note}
+    <p class="note">위 목록은 케이스 provenance에서 상태≠'실측'인 항목을 그대로 모은 것이다 — 위험도·우선순위를
+      엔진이 판정하지 않는다(판단성 영역, 컨설턴트 검토 필요). 최종 투자 적정성 판정도 이 리포트는 내리지 않는다 —
+      아래 4개 섹션과 벤치마크 상태만 중립적으로 제시한다.</p>
+  </section>"""
+
+    # ── Ⅰ. 입지진단서 ──
+    site = case.get("site", {})
+    siting = f"""
+  <section class="card"><span class="axis">Ⅰ. 입지진단서</span>
+    <h2>부지·설계기준</h2>
+    <div class="row"><span class="lbl">부지</span><span class="val">{esc(site.get('region_name', m['region']))}</span></div>
+    <div class="row"><span class="lbl">설계기준(적설·풍속)</span><span class="val">{d['snow_cm']}cm · {d['wind_ms']}m/s</span></div>
+    <div class="row"><span class="lbl">설계기준 출처</span><span class="val">{esc(_trunc(site.get('design_load_source', '미확인'), 220))}</span></div>
+    <div class="row"><span class="lbl">용도지역</span><span class="val">{esc(site.get('landuse_zone', '미확인'))}</span></div>
+    <div class="row"><span class="lbl">계통연계</span><span class="val">{esc(site.get('grid_connection_note', '미확인'))}</span></div>
+    <p class="note">규제·인프라 상세 체크리스트(도로진입·민원·인허가)는 이 리포트 범위 밖 — 향후 확장 과제(작업지시서 7절 참고).</p>
+  </section>"""
+
+    # ── Ⅱ. 설계적정성보고서 ──
+    forms_rows = "".join(
+        f"<tr><td>{esc(form)}</td><td>{esc(info['name'])}</td>"
+        f"<td>설계적설심 {info['snow']}cm · 설계풍속 {info['wind']}m/s</td></tr>"
+        for form, info in d["min_by_form"].items())
+    design = f"""
+  <section class="card"><span class="axis">Ⅱ. 설계적정성보고서</span>
+    <h2>규격·난방부하·개산단가</h2>
+    <table><thead><tr><th>형식</th><th>최소사양</th><th>설계강도</th></tr></thead>
+      <tbody>{forms_rows}</tbody></table>
+    <div class="row"><span class="lbl">최대난방부하</span><span class="val">{h['max_load']:,.0f} kcal/h ({h['load_per_m2']:,.0f}/㎡)</span></div>
+    <div class="row"><span class="lbl">실측 대조</span>
+      <span class="badge {_sc(h['status'])}">{esc(h['status'])}</span></div>
+    <div class="row"><span class="lbl">총공사비 단위단가</span><span class="val">{c['unit_won_m2']:,}원/㎡</span></div>
+    <div class="row"><span class="lbl">벤치마크({c['band'][0]:,}~{c['band'][1]:,}원/㎡)</span>
+      <span class="badge {_sc(c['status'])}">{esc(c['status'])}</span></div>
+  </section>"""
+
+    # ── Ⅲ. 운영계획서 ──
+    ob = case.get("opex_breakdown", {})
+    ob_items = ob.get("items_won", {})
+    ob_rows = "".join(f"<tr><td>{esc(k)}</td><td class='num'>{v:,.0f}</td></tr>" for k, v in ob_items.items())
+    ob_rows += f"<tr><td>미분류(unclassified)</td><td class='num'>{ob.get('unclassified_won', ec['opex']):,.0f}</td></tr>"
+    subsidy_rows = "".join(
+        f"<tr><td>{s.step_no}</td><td>{esc(s.title)}</td><td>{esc(s.description)}</td></tr>"
+        for s in e.SUBSIDY_APPLICATION_PROCEDURE)
+    ops = f"""
+  <section class="card"><span class="axis">Ⅲ. 운영계획서</span>
+    <h2>생산·운영비 개요</h2>
+    <div class="row"><span class="lbl">환경적합도 → 수율조정</span><span class="val">{ec['fitness_pct']:.0f}% → {ec['yield_adj']*100:+.0f}%</span></div>
+    <div class="row"><span class="lbl">예상 생산량</span><span class="val">{ec['production_kg']:,.0f} kg</span></div>
+    <table><thead><tr><th>OPEX 항목</th><th class='num'>금액(원)</th></tr></thead>
+      <tbody>{ob_rows}</tbody></table>
+    <p class="note">{esc(ob.get('note', 'OPEX 항목분해 자료 없음'))}</p>
+    <h2 style="margin-top:16px">사업 착수 전 행정절차 (보조율 수치 미포함 — 공모 회차마다 상이)</h2>
+    <table><thead><tr><th>#</th><th>절차</th><th>내용</th></tr></thead>
+      <tbody>{subsidy_rows}</tbody></table>
+  </section>"""
+
+    # ── Ⅳ. 경제성분석서 ──
+    sens_rows = "".join(
+        f"<tr><td>{esc(s['label'])}</td><td class='num'>{s['revenue']:,.0f}</td>"
+        f"<td class='num'>{s['roi']*100:.1f}%</td>"
+        f"<td class='num'>{f'{s['payback']:.1f}년' if s['payback'] else '—'}</td></tr>"
+        for s in _sensitivity_snapshot(inp))
+    real_roi_row = ""
+    if ec["real_roi"]:
+        real_roi_row = (f"<div class='kpi highlight'><div class='kpi-label'>실질ROI(보조금 반영)</div>"
+                        f"<div class='kpi-value'>{ec['real_roi']*100:.1f}%</div></div>")
+    capex_kor = dict((key, kor) for key, kor, _ in e.CAPEX_MAJOR_CATEGORIES)
+    cb = case.get("capex_breakdown", {})
+    cb_cats = cb.get("major_categories_won_2026_07_16", {})
+    capex_detail = ""
+    if cb_cats:
+        cb_rows = "".join(
+            f"<tr><td>{esc('미분류(unclassified)' if k == 'unclassified' else capex_kor.get(k, k))}</td>"
+            f"<td class='num'>{v:,.0f}</td></tr>"
+            for k, v in cb_cats.items() if k != "note")
+        capex_detail = f"""
+    <h2 style="margin-top:16px">CAPEX 항목분해(실측 청킹, {esc(cb.get('as_of','—'))})</h2>
+    <table><thead><tr><th>카테고리</th><th class='num'>금액(원)</th></tr></thead>
+      <tbody>{cb_rows}</tbody></table>
+    <p class="note">{esc(_trunc(cb_cats.get('note', ''), 300))}</p>"""
+    else:
+        capex_detail = "<p class='note'>이 케이스엔 CAPEX 항목분해 실측 데이터가 없어 총사업비만 표시(CAPEX_CASE_CHUNKS 확보된 케이스는 자동으로 이 표가 채워짐).</p>"
+    econ = f"""
+  <section class="card"><span class="axis">Ⅳ. 경제성분석서</span>
+    <h2>투자지표 · 민감도 스냅샷</h2>
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label">ROI</div><div class="kpi-value">{ec['roi']*100:.1f}%</div></div>
+      <div class="kpi"><div class="kpi-label">Payback</div><div class="kpi-value">{f"{ec['payback']:.1f}년" if ec['payback'] else "N/A"}</div></div>
+      <div class="kpi"><div class="kpi-label">NPV</div><div class="kpi-value">{ec['npv']/1e8:,.2f}억</div></div>
+      <div class="kpi"><div class="kpi-label">IRR</div><div class="kpi-value">{f"{ec['irr']*100:.1f}%" if ec['irr'] is not None else ">100%"}</div></div>
+      {real_roi_row}
+    </div>
+    <table style="margin-top:14px"><thead><tr><th>시나리오</th><th class='num'>연매출</th>
+      <th class='num'>ROI</th><th class='num'>Payback</th></tr></thead>
+      <tbody>{sens_rows}</tbody></table>
+    <p class="note">판매단가·수확량 ±10% 단순 스냅샷(엔진 재호출, 새 입력 없음) — 전체 Best/Worst 시나리오
+      기획이나 대출조건·LCC 반영 민감도는 별도 데이터가 필요해 이 리포트 범위 밖이다.</p>
+    {capex_detail}
+  </section>"""
+
+    body = summary + siting + design + ops + econ + \
+        "\n  <p><a class=\"report-link\" href=\"index.html\"><span class=\"t\">← 목록으로</span></a></p>"
+    return _page(f"스마트팜 ROI 통합보고서 — {case['title']}", body)
 
 
 def comparison_page(computed: list[dict]) -> str:
@@ -257,7 +444,8 @@ def main():
     cases = load_cases()
     computed, links = [], []
     for c in cases:
-        res = rr.compute(case_to_input(c))
+        inp = case_to_input(c)
+        res = rr.compute(inp)
         fn = f"SmartFarm_리포트_{c['case_id']}.html"
         with open(fn, "w", encoding="utf-8") as f:
             f.write(rr.render_html(res))
@@ -266,6 +454,12 @@ def main():
         rr_ = f" · 실질ROI {ec['real_roi']*100:.1f}%" if ec["real_roi"] else ""
         links.append({"href": fn, "title": c["title"],
                       "desc": f"4축 종합 · ROI {ec['roi']*100:.1f}%{rr_}"})
+
+        crn = f"SmartFarm_통합보고서_{c['case_id']}.html"
+        with open(crn, "w", encoding="utf-8") as f:
+            f.write(consulting_report_page(c, res, inp))
+        links.append({"href": crn, "title": f"▶ {c['title']} 통합보고서",
+                      "desc": "입지·설계·운영·경제성 4섹션 + 경영자요약"})
 
     with open("SmartFarm_벤치마크비교.html", "w", encoding="utf-8") as f:
         f.write(benchmark_page())

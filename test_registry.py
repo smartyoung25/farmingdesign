@@ -73,13 +73,19 @@ def test_capex_case_chunks():
     assert sum(e.CAPEX_CASE_CHUNKS["최혁진"].values()) == 694_575_784
 
 
-def test_opex_item_categories_proposed():
-    assert e.OPEX_ITEM_CATEGORIES_PROPOSED == C["OPEX_ITEM_CATEGORIES_PROPOSED"]["value"]
+def test_opex_item_categories():
+    # 2026-07-21: Step3(data.go.kr 15069669) CSV 확보 완료 — 제안값에서 농진청
+    # 공식 코드 기반 확정값으로 승격, 시설원예 관련 25항목(직접18+간접7)
+    eng = [[it.category, it.name, it.code] for it in e.OPEX_ITEM_CATEGORIES]
+    assert eng == C["OPEX_ITEM_CATEGORIES"]["value"]
+    assert len(e.OPEX_ITEM_CATEGORIES) == 25
 
 
-def test_region_design_load_empty_until_p0b():
-    # P0-b(law.go.kr 별표 확보) 완료 전까지는 비어있는 게 정상 상태
+def test_region_design_load_matches_registry():
+    # 2026-07-21: 농림축산식품부 고시 제2025-108호(2025.10.31 시행)로 전면 갱신 —
+    # 172개 지역 전량 대조(2014-78호 기준 값은 폐기)
     assert e.REGION_DESIGN_LOAD == C["REGION_DESIGN_LOAD"]["value"]
+    assert len(e.REGION_DESIGN_LOAD) == 172
 
 
 # ── 2026-07-16 추가2: 13개 상위 CAPEX 카테고리(총사업비 관점) 드리프트 가드 ──
@@ -99,3 +105,42 @@ def test_capex_major_case_chunks():
 
 def test_capex_major_unclassified():
     assert e.CAPEX_MAJOR_UNCLASSIFIED == C["CAPEX_MAJOR_UNCLASSIFIED"]["value"]
+
+
+# ── RFQ 사양서/견적 정합 드리프트 가드 ──
+def test_rfq_required_categories_default():
+    assert e.RFQ_REQUIRED_CATEGORIES_DEFAULT == C["RFQ_REQUIRED_CATEGORIES_DEFAULT"]["value"]
+
+
+# ── 공정표(품셈) 드리프트 가드 ──
+def test_pumsem_items():
+    eng = [[it.category, it.name, it.unit, it.labor_per_unit, it.equipment_hours_per_unit]
+           for it in e.PUMSEM_ITEMS]
+    assert eng == C["PUMSEM_ITEMS"]["value"]
+    assert len(e.PUMSEM_ITEMS) == 64
+
+
+# ── 기자재DB(CSV) 드리프트 가드 ──
+def test_equipment_db_csv_files_match_registered_row_counts():
+    expected = C["EQUIPMENT_DB_META"]["value"]["csv_row_counts"]
+    for filename, expected_rows in expected.items():
+        rows = e._load_csv_rows(filename)
+        assert len(rows) == expected_rows, f"{filename}: {len(rows)} != {expected_rows}"
+
+
+# ── 보조사업 체크리스트 드리프트 가드 ──
+def test_subsidy_application_procedure():
+    eng = [[s.step_no, s.title, s.description, s.reference] for s in e.SUBSIDY_APPLICATION_PROCEDURE]
+    assert eng == C["SUBSIDY_APPLICATION_PROCEDURE"]["value"]
+
+
+def test_subsidy_program_types_reference():
+    assert e.SUBSIDY_PROGRAM_TYPES_REFERENCE == C["SUBSIDY_PROGRAM_TYPES_REFERENCE"]["value"]
+
+
+# ── 2026-07-22 추가: SPEC_TABLE 전면 확장(32→249종, 2025-108호) 드리프트 가드 ──
+def test_spec_table_matches_registry():
+    eng = [[s.name, s.form, s.width_m, s.snow_cm, s.wind_ms, s.height_m, s.ridge_height_m,
+            s.registered_year, s.developer, s.crop, s.rafter_spec] for s in e.SPEC_TABLE]
+    assert eng == C["SPEC_TABLE"]["value"]
+    assert len(e.SPEC_TABLE) == 249
