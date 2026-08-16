@@ -436,7 +436,20 @@ def select_specs(region_snow_cm: float, region_wind_ms: float,
 # 구조"만 만든 것. 즉 극한설계조건 U값의 실제 근거(1차 출처)가 아직 없으므로
 # u_design에 넣을 확정값은 여전히 [확인요망]이며, 근거 확보 전까지는 호출부가
 # u_design을 지정하지 않는 한 계속 안전마진 감소 위험이 남는다.
+# 2026-08-16 (P1-5 해결): 위 [확인요망]을 해소한다 — Diop et al., "Overall Heat
+# Transfer Coefficient Measurement of Covering Materials with Thermal Screens
+# for Greenhouse using the Hot Box Method", 한국농공학회논문집 54(5), 2012
+# (koreascience.or.kr 무료 원문). 핫박스(통제된 소형 챔버) 실내 측정 — PE필름
+# 단일피복 Table 2: 저풍속 9.0 W/㎡K · 고풍속 10.4 W/㎡K(×0.86 kcal 환산 →
+# 7.7~8.9kcal/㎡·hr·℃). heating_load()의 u_design은 "최대난방부하"(장비 용량
+# 설계용, 극한조건 기준)가 목적이므로 두 조건 중 더 가혹한 고풍속값(8.9)을
+# 채택한다 — 이현우 등(2013) 현장실측(2.66)은 "2개월 평균" 연료소비 기반이라
+# u_period(기간·연료소비 계산용)에는 그대로 남기고, u_design에만 이 핫박스값을
+# 적용해 u_design/u_period가 서로 다른 실측 출처를 갖도록 완전히 분리한다.
+# 대상은 논문이 다룬 PE필름 계열(필름·불소필름·단동, 기존 "재질무관" 원칙과
+# 동일하게 적용)뿐 — "유리"·"필름_이중"은 이 논문 대상이 아니라 손대지 않는다.
 U_VALUE = {"유리": 5.3, "필름": 2.66, "불소필름": 2.66, "단동": 2.66, "필름_이중": 1.82}
+U_DESIGN = {"필름": 8.9, "불소필름": 8.9, "단동": 8.9}
 # 보온비 fr (피복조합) — ⚠️ 2026-07-19 재조사: 이 표는 어떤 함수에서도 참조되지
 # 않는 미사용 상수다(heating_load()는 fr을 호출부가 직접 숫자로 주입받는다).
 # FR_TABLE 자체는 국내 관행 그대로 "열절감률"(값이 클수록 보온이 잘 됨: PO단일
@@ -483,11 +496,12 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
                  u_design: Optional[float] = None, u_period: Optional[float] = None
                  ) -> HeatingResult:
     """최대난방부하 = Aw × u_design × ΔT × 보온비. 기간(연료소비)부하는 u_period 사용. (A-5 구조)
-    u_design/u_period 미지정 시 둘 다 U_VALUE[cover]로 폴백(기존 동작과 동일 —
-    설계극한조건과 기간평균조건에 서로 다른 U값 근거가 확보되기 전까지의 임시
-    상태, U_VALUE source 주석 참고). degree_hours: 난방디그리아워(기본은 A-5
-    예시값). fuel: 연료종류."""
-    u_d = u_design if u_design is not None else U_VALUE.get(cover, 5.7)
+    u_design 미지정 시 U_DESIGN[cover](Diop et al. 2012 핫박스 극한조건 실측,
+    없으면 U_VALUE[cover]로 폴백). u_period 미지정 시 U_VALUE[cover](이현우 등
+    2013 현장평균 실측) — 2026-08-16(P1-5)부터 두 기본값이 서로 다른 실측
+    출처로 분리됐다(U_VALUE/U_DESIGN source 주석 참고). degree_hours: 난방
+    디그리아워(기본은 A-5 예시값). fuel: 연료종류."""
+    u_d = u_design if u_design is not None else U_DESIGN.get(cover, U_VALUE.get(cover, 5.7))
     u_p = u_period if u_period is not None else U_VALUE.get(cover, 5.7)
     dt = t_target - t_min
     max_load = surface_area_m2 * u_d * dt * fr
@@ -881,13 +895,21 @@ CAPEX_MAJOR_CATEGORIES = [
 
 # 근거 상태 — 2026-07-16 기준 우민재·최혁진 원문 대조 결과. 근거 없는 항목은
 # 값을 만들지 않고 0 + 미검증으로 남긴다(다음 문서 확보 시 갱신).
+# 상태 어휘 3종(2026-08-16, P1-6 결정): "실측" = 실제 케이스 지출액 대조 완료.
+# "미검증" = 근거문서 자체가 없음. "참고요율(법정기준)" = 실제 지출액이 아니라
+# 법정/공식 요율표 — 개별 케이스 실측과는 성격이 달라 그대로 "실측"으로 승격하면
+# 안 되지만, 근거가 아예 없는 "미검증"과도 다르다(케이스 개산에 참고 가능).
 CAPEX_MAJOR_EVIDENCE_STATUS = {
     "greenhouse_structure": "실측(2건)", "auto_opening_system": "실측(2건, 모터·보온재 미분리)",
     "hvac": "실측(2건)", "irrigation_fertigation": "실측(2건)",
     "ict_control": "부분실측(최혁진만, 우민재는 해당 공종 없음)",
     "electrical": "부분실측(최혁진만, 우민재는 해당 공종 없음)",
     "auxiliary_facility": "미검증(근거문서 없음)", "thermal_storage_insulation": "미검증(근거문서 없음 — 자동개폐와 분리 재조사 필요)",
-    "equipment_procurement": "미검증(근거문서 없음)", "design_supervision_fee": "미검증(근거문서 없음)",
+    "equipment_procurement": "미검증(근거문서 없음 — 기자재DB/의 equipment_lookup()에서 개별 품목 단가로 조달, 2026-08-16 P3-22 결정)",
+    "design_supervision_fee": "참고요율(법정기준) — 「공공발주사업에 대한 건축사의 업무범위와 대가기준」 별표5 "
+                              "건축공사감리 대가요율: 공사비 10억원 기준 1.11~1.35%, 20억원 기준 1.02~1.24%"
+                              "(2026-07-23 확인, 2026-08-16 상태 신설로 반영). 개별 케이스 실지출 대조는 아직 없음 — "
+                              "요율을 실제 CAPEX 계산에 적용하는 방식은 별도 설계 필요, 값은 0 유지",
     "site_preparation": "미검증(근거문서 없음)", "contingency": "미검증(근거문서 없음)",
     "land_acquisition": "미검증(근거문서 없음)",
 }

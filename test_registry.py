@@ -20,7 +20,7 @@ def _norm(v):
 
 
 def test_simple_dict_and_scalar_constants():
-    for key in ["U_VALUE", "FR_TABLE", "FUEL_LHV", "TOTAL_PYEONG_PRICE", "STRUCTURE_ONLY_PYEONG"]:
+    for key in ["U_VALUE", "U_DESIGN", "FR_TABLE", "FUEL_LHV", "TOTAL_PYEONG_PRICE", "STRUCTURE_ONLY_PYEONG"]:
         eng = _norm(getattr(e, C[key]["engine_attr"]))
         assert eng == C[key]["value"], f"{key}: 엔진={eng} vs 레지스트리={C[key]['value']}"
 

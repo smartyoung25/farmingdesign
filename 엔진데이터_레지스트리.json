@@ -21,6 +21,18 @@
         "필름_이중": 1.82
       }
     },
+    "U_DESIGN": {
+      "engine_attr": "U_DESIGN",
+      "axis": "설계·난방",
+      "desc": "최대난방부하(장비용량 설계용, 극한조건) 전용 U값 — heating_load()의 u_design 기본값(kcal/㎡·hr·℃)",
+      "source": "Diop et al., \"Overall Heat Transfer Coefficient Measurement of Covering Materials with Thermal Screens for Greenhouse using the Hot Box Method\", 한국농공학회논문집 54(5), 2012 (koreascience.or.kr 무료 원문). 핫박스(통제 챔버) 실측, PE필름 단일피복 Table 2: 저풍속 9.0 W/㎡K, 고풍속 10.4 W/㎡K. u_design은 극한조건(최대부하) 목적이므로 더 가혹한 고풍속값을 채택해 ×0.86 kcal 환산 = 8.9. U_VALUE(이현우 등 2013, 2개월 평균 현장실측)와는 다른 실측 출처 — u_period(기간·연료소비)는 여전히 U_VALUE를 쓴다. 2026-08-16(P1-5) 사용자 결정으로 확정.",
+      "status": "실측(핫박스 방법론, 필름·불소필름·단동만 — 유리·필름_이중은 이 논문 대상 아님)",
+      "value": {
+        "필름": 8.9,
+        "불소필름": 8.9,
+        "단동": 8.9
+      }
+    },
     "FR_TABLE": {
       "engine_attr": "FR_TABLE",
       "axis": "설계·난방",
@@ -3570,8 +3582,8 @@
         "electrical": "부분실측(최혁진만, 우민재는 해당 공종 없음)",
         "auxiliary_facility": "미검증(근거문서 없음)",
         "thermal_storage_insulation": "미검증(근거문서 없음 — 자동개폐와 분리 재조사 필요)",
-        "equipment_procurement": "미검증(근거문서 없음)",
-        "design_supervision_fee": "미검증(근거문서 없음)",
+        "equipment_procurement": "미검증(근거문서 없음 — 기자재DB/의 equipment_lookup()에서 개별 품목 단가로 조달, 2026-08-16 P3-22 결정)",
+        "design_supervision_fee": "참고요율(법정기준) — 「공공발주사업에 대한 건축사의 업무범위와 대가기준」 별표5 건축공사감리 대가요율: 공사비 10억원 기준 1.11~1.35%, 20억원 기준 1.02~1.24%(2026-07-23 확인, 2026-08-16 상태 신설로 반영). 개별 케이스 실지출 대조는 아직 없음 — 요율을 실제 CAPEX 계산에 적용하는 방식은 별도 설계 필요, 값은 0 유지",
         "site_preparation": "미검증(근거문서 없음)",
         "contingency": "미검증(근거문서 없음)",
         "land_acquisition": "미검증(근거문서 없음)"

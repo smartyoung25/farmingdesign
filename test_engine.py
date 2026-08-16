@@ -75,14 +75,33 @@ def test_heating_dual_verify_glass():
     assert v["status"] == "정상", v
 
 
-# ── 3-1. 난방부하 max/period U 분리 (2026-07-20 구조개선) ─────
-def test_heating_load_u_default_stays_coupled():
-    # u_design/u_period 미지정 시 기존 동작(둘 다 U_VALUE[cover])과 완전히 동일해야
+# ── 3-1. 난방부하 max/period U 분리 (2026-07-20 구조개선, 2026-08-16 P1-5로 기본값 분리) ─
+def test_heating_load_u_default_uses_u_design_for_max_load():
+    # 2026-08-16(P1-5): "필름" 등 U_DESIGN이 있는 cover는 이제 u_design 기본값이
+    # U_VALUE가 아니라 U_DESIGN(Diop 등 핫박스 극한조건값)이어야 한다.
     hr_default = e.heating_load(surface_area_m2=5000, cover="필름",
                                 t_target=10, t_min=-7.8, fr=0.7)
     hr_explicit = e.heating_load(surface_area_m2=5000, cover="필름",
                                  t_target=10, t_min=-7.8, fr=0.7,
-                                 u_design=e.U_VALUE["필름"], u_period=e.U_VALUE["필름"])
+                                 u_design=e.U_DESIGN["필름"], u_period=e.U_VALUE["필름"])
+    assert hr_default.max_load_kcal_h == hr_explicit.max_load_kcal_h
+    assert hr_default.fuel_consumption == hr_explicit.fuel_consumption
+    # U_DESIGN["필름"](8.9) > U_VALUE["필름"](2.66)이므로 기본값도 더 이상 같지 않다
+    hr_old_coupled = e.heating_load(surface_area_m2=5000, cover="필름",
+                                    t_target=10, t_min=-7.8, fr=0.7,
+                                    u_design=e.U_VALUE["필름"], u_period=e.U_VALUE["필름"])
+    assert hr_default.max_load_kcal_h > hr_old_coupled.max_load_kcal_h
+
+
+def test_heating_load_u_default_stays_coupled_when_no_u_design_entry():
+    # U_DESIGN에 없는 cover("유리")는 기존처럼 U_VALUE[cover]로 계속 폴백해야 한다
+    # (Diop 논문은 PE필름 대상이라 유리는 손대지 않음 — 회귀 영향 없어야 함)
+    assert "유리" not in e.U_DESIGN
+    hr_default = e.heating_load(surface_area_m2=5000, cover="유리",
+                                t_target=10, t_min=-7.8, fr=0.7)
+    hr_explicit = e.heating_load(surface_area_m2=5000, cover="유리",
+                                 t_target=10, t_min=-7.8, fr=0.7,
+                                 u_design=e.U_VALUE["유리"], u_period=e.U_VALUE["유리"])
     assert hr_default.max_load_kcal_h == hr_explicit.max_load_kcal_h
     assert hr_default.fuel_consumption == hr_explicit.fuel_consumption
 
