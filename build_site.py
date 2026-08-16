@@ -122,7 +122,8 @@ def capex_breakdown_page() -> str:
             f"<td>{', '.join(f'{esc(k)} {v:.1f}%' for k, v in cb.shares_pct.items())}</td></tr>")
 
     # 13개 상위(총사업비) 카테고리 — 2026-07-16 사용자 제안 채택
-    major_totals = {"우민재": 456_158_140, "최혁진": 694_575_784, "이두희": 433_606_460}
+    major_totals = {"우민재": 456_158_140, "최혁진": 694_575_784, "이두희": 433_606_460,
+                    "윤성호": 1_162_078_090}  # 2026-08-17 P2-17: 공종합계=재료비+직노+산출경비(원가계산서 p2 대조)
     major_rows = []
     for key, kor, desc in e.CAPEX_MAJOR_CATEGORIES:
         ev = e.CAPEX_MAJOR_EVIDENCE_STATUS[key]

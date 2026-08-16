@@ -352,6 +352,22 @@ def test_capex_major_breakdown_dh_reconciles_to_source():
     assert sum(cb.items.values()) + cb.unclassified == 433_606_460
 
 
+def test_capex_major_breakdown_ysh_reconciles_to_source():
+    # 2026-08-17 추가(P2-17 청킹→엔진 승격 1호) — 윤성호 내역서 공종별집계표(p3)
+    # 16개 공종 합 1,162,078,090원(=원가계산서 p2 재료비+직접노무비+산출경비)이
+    # known_total. unclassified는 행잉거터(0110)+작물와이어(0111)=39,220,352원.
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["윤성호"],
+                                  known_total=1_162_078_090)
+    assert cb.total == 1_162_078_090
+    assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["윤성호"]
+    assert sum(cb.items.values()) + cb.unclassified == 1_162_078_090
+    # 축열조 라인분리 정합: hvac 잔액 + 축열조 = 0109 유동휀·훈증기 + 0114 난방설비 원문값
+    assert cb.items["hvac"] + cb.items["thermal_storage_insulation"] == 9_672_200 + 180_052_389
+    # 이 표본으로 처음 채워진 두 카테고리(다른 3개 케이스에선 전부 0)
+    assert cb.items["auxiliary_facility"] == 40_093_200
+    assert cb.items["thermal_storage_insulation"] == 41_958_000
+
+
 def test_capex_major_breakdown_unmapped_categories_default_zero():
     # 근거 없는 7개(부대시설·기자재구매·설계감리비·부지조성비·예비비·부지매입비, 8번 등)는 0
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["우민재"], known_total=456_158_140)
