@@ -160,6 +160,31 @@ def test_heating_load_rejects_ambiguous_missing_or_invalid_fr():
         e.heating_load(**base, fr=0)                        # 0은 물리적으로 무의미
 
 
+# ── 3-3b. B4~B8 확장(2026-08-17): 법정 하자담보·전기 품셈 정액 ──────
+def test_warranty_statutory_greenhouse_anchor():
+    # 별표4 제19호 "온실설치 2년" — 이 확장의 핵심 법정근거. 값이 바뀌면
+    # 법령 개정을 확인하고 원문 PDF(리포 사본)와 함께 갱신해야 한다.
+    r = e.warranty_period("온실설치")
+    assert r["years"] == 2 and "별표4" in r["근거"]
+    assert "세부 공종별" in r["비고"]          # 복합공사 비고(원문) 전달
+    # 발췌 항목 대표값 대조(원문 PDF 전사)
+    assert e.WARRANTY_STATUTORY["방수"]["years"] == 3
+    assert e.WARRANTY_STATUTORY["지붕"]["years"] == 3
+    assert e.WARRANTY_STATUTORY["급배수·냉난방·환기·공조·자동제어·가스·배연설비"]["years"] == 2
+
+
+def test_warranty_period_unknown_returns_none_and_2nd_source_flagged():
+    assert e.warranty_period("존재하지않는공종") is None   # 값 안 지어냄
+    # 전기·통신은 원문 미확보 2차출처 — [확인요망] 꼬리표가 지워지면 안 된다
+    assert "확인요망" in e.WARRANTY_STATUTORY["전기(건축물 전기설비)"]["근거"]
+    assert "확인요망" in e.WARRANTY_STATUTORY["통신(그 외 정보통신공사)"]["근거"]
+
+
+def test_electrical_pumsem_lump_reference():
+    # P1-10 라운드4에서 원단위 대사로 검증된 품셈 표준설계 정액(2021)
+    assert e.ELECTRICAL_PUMSEM_LUMP_WON_PER_HA == 250_000_000
+
+
 # ── 3-4. P1-11(2026-08-17): select_specs 작물특화형 필터 ────────────
 def test_select_specs_default_excludes_crop_specific():
     # 왜곡 실측 지점(적설20·풍속26): 종전엔 파프리카 전용이 연동 최소사양으로 나왔음

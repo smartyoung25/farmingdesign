@@ -223,13 +223,20 @@ DOMAIN_KEYWORDS_B = {
 }
 DOMAIN_B_PATTERNS = {k: re.compile(v, re.I) for k, v in DOMAIN_KEYWORDS_B.items()}
 
-# 도메인별 엔진 대응 기대(방법론 3-2절 표) — 커버리지 리포트에서 "엔진 미모델링
-# 공백"을 숨기지 않고 드러내는 기준. None = 현행 엔진에 대응 상수 없음(B4~B8).
+# 도메인별 엔진 대응 기대 — 커버리지 리포트에서 엔진 대응 현황을 드러내는 기준.
+# 방법론 3-2절 원표에선 B4~B8이 전부 None(미모델링)이었으나, 2026-08-17 사용자
+# 결정(B4~B8 확장)으로 1차 해소: 결정론 근거가 있는 것만 상수화하고(B8 법정
+# 하자기간·B4 품셈 정액), 판단성뿐인 도메인(B5 통신·B7 데이터활용)은 "상수화
+# 부적합"을 명시적 판정으로 기록했다(None 아님 — 검토가 끝났다는 뜻).
 DOMAIN_B_ENGINE_EXPECT = {
     "부지선정": "REGION_DESIGN_LOAD(부분)",
     "시설구축": "SPEC_TABLE·REGION_DESIGN_LOAD·CAPEX_MAJOR_CATEGORIES",
     "기자재도입": "PUMSEM_ITEMS·EQUIPMENT_DB_META",
-    "전기": None, "통신": None, "구동": None, "데이터활용": None, "장애대응": None,
+    "전기": "WARRANTY_STATUTORY(법정 1년[확인요망])·ELECTRICAL_PUMSEM_LUMP(품셈 정액 참고)·CAPEX electrical(부분실측)",
+    "통신": "WARRANTY_STATUTORY(법정 1년[확인요망]) — 구성·프로토콜은 판단성: 상수화 부적합 판정(2026-08-17)",
+    "구동": "PUMSEM_ITEMS(개폐 공종 품셈)·기자재DB(구동기)·CAPEX auto_opening_system(실측 4건)",
+    "데이터활용": "판단성 영역 — 상수화 부적합 판정(2026-08-17), 장비는 기자재DB 조회",
+    "장애대응": "WARRANTY_STATUTORY(법정 하자담보 — 별표4 '온실설치 2년' 직접근거)",
 }
 
 
@@ -810,8 +817,9 @@ def write_outputs(w, jsonl_path, summary_path, extra_log=None):
                         f"— 엔진 대응: {expect or '없음'}{gap}\n")
             f.write(f"Layer B 미태깅(태깅단위): {b_untagged_units}/{len(units)} "
                     f"({b_untagged_units/max(len(units),1)*100:.1f}%)\n")
-            f.write("※ B4~B8 공백은 청킹 실패가 아니라 엔진 스코프 밖이었다는 커버리지 갭의 "
-                    "증거(방법론 3-2절) — 엔진 확장 검토 시 이 근거 청크에서 착수\n")
+            f.write("※ B4~B8 공백은 2026-08-17 사용자 결정(확장)으로 1차 해소 — 결정론 근거가 "
+                    "있는 것만 상수화(B8 법정 하자담보·B4 품셈 정액)하고, 판단성뿐인 도메인"
+                    "(B5·B7)은 '상수화 부적합'을 명시 판정으로 기록(방법론 3-2절 원표 대체)\n")
 
         f.write("\n-- doc_type별 청크 수 --\n")
         for k, v in by_doc_type.most_common():

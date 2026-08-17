@@ -277,12 +277,19 @@ def test_tag_domains_b_hits_expected_domains():
     assert tag_domains_b("무관한 문장") == []
 
 
-def test_domain_b_engine_gap_is_b4_to_b8():
-    # 방법론 3-2절: B4~B8(전기·통신·구동·데이터활용·장애대응)은 엔진 미모델링 —
-    # 이 공백 표가 바뀌면 엔진 확장이 있었다는 뜻이므로 드리프트 가드
+def test_domain_b_engine_expect_after_expansion():
+    # 방법론 3-2절 원표에선 B4~B8이 전부 None(미모델링)이었고 이 테스트가 그
+    # 공백을 가드했다. 2026-08-17 사용자 결정(B4~B8 확장)으로 의도적으로 갱신:
+    # None은 더 이상 없어야 하고(전 도메인 검토 완료), 각 도메인의 판정 성격을 고정.
     from chunking_lib_v2 import DOMAIN_B_ENGINE_EXPECT
-    gaps = {d for d, v in DOMAIN_B_ENGINE_EXPECT.items() if v is None}
-    assert gaps == {"전기", "통신", "구동", "데이터활용", "장애대응"}
+    assert all(v for v in DOMAIN_B_ENGINE_EXPECT.values())          # None/빈값 없음
+    assert "WARRANTY_STATUTORY" in DOMAIN_B_ENGINE_EXPECT["장애대응"]  # 법정 상수 연결
+    assert "온실설치 2년" in DOMAIN_B_ENGINE_EXPECT["장애대응"]
+    assert "ELECTRICAL_PUMSEM_LUMP" in DOMAIN_B_ENGINE_EXPECT["전기"]
+    # 판단성 도메인은 "부적합 판정"이 명시돼야 한다(검토 안 한 것과 구분)
+    assert "부적합 판정" in DOMAIN_B_ENGINE_EXPECT["통신"]
+    assert "부적합 판정" in DOMAIN_B_ENGINE_EXPECT["데이터활용"]
+    assert "PUMSEM_ITEMS" in DOMAIN_B_ENGINE_EXPECT["구동"]
 
 
 def test_chunkwriter_adds_domain_tags_and_preserves_tag_text():

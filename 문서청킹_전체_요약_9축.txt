@@ -13,11 +13,11 @@ L1 그룹: 598 / L2 행(무태깅): 19509
 부지선정: 207청크 (engine_link 보유 10) — 엔진 대응: REGION_DESIGN_LOAD(부분)
 시설구축: 1882청크 (engine_link 보유 208) — 엔진 대응: SPEC_TABLE·REGION_DESIGN_LOAD·CAPEX_MAJOR_CATEGORIES
 기자재도입: 8462청크 (engine_link 보유 117) — 엔진 대응: PUMSEM_ITEMS·EQUIPMENT_DB_META
-전기: 650청크 (engine_link 보유 52) — 엔진 대응: 없음  ← 엔진 미모델링(공백)
-통신: 1472청크 (engine_link 보유 15) — 엔진 대응: 없음  ← 엔진 미모델링(공백)
-구동: 3316청크 (engine_link 보유 169) — 엔진 대응: 없음  ← 엔진 미모델링(공백)
-데이터활용: 6789청크 (engine_link 보유 12) — 엔진 대응: 없음  ← 엔진 미모델링(공백)
-장애대응: 773청크 (engine_link 보유 23) — 엔진 대응: 없음  ← 엔진 미모델링(공백)
+전기: 650청크 (engine_link 보유 52) — 엔진 대응: WARRANTY_STATUTORY(법정 1년[확인요망])·ELECTRICAL_PUMSEM_LUMP(품셈 정액 참고)·CAPEX electrical(부분실측)
+통신: 1472청크 (engine_link 보유 15) — 엔진 대응: WARRANTY_STATUTORY(법정 1년[확인요망]) — 구성·프로토콜은 판단성: 상수화 부적합 판정(2026-08-17)
+구동: 3316청크 (engine_link 보유 169) — 엔진 대응: PUMSEM_ITEMS(개폐 공종 품셈)·기자재DB(구동기)·CAPEX auto_opening_system(실측 4건)
+데이터활용: 6789청크 (engine_link 보유 12) — 엔진 대응: 판단성 영역 — 상수화 부적합 판정(2026-08-17), 장비는 기자재DB 조회
+장애대응: 773청크 (engine_link 보유 23) — 엔진 대응: WARRANTY_STATUTORY(법정 하자담보 — 별표4 '온실설치 2년' 직접근거)
 Layer B 미태깅(태깅단위): 13883/32148 (43.2%)
 ※ B4~B8 공백은 청킹 실패가 아니라 엔진 스코프 밖이었다는 커버리지 갭의 증거(방법론 3-2절) — 엔진 확장 검토 시 이 근거 청크에서 착수
 
