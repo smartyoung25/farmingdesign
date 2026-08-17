@@ -173,11 +173,15 @@ def test_warranty_statutory_greenhouse_anchor():
     assert e.WARRANTY_STATUTORY["급배수·냉난방·환기·공조·자동제어·가스·배연설비"]["years"] == 2
 
 
-def test_warranty_period_unknown_returns_none_and_2nd_source_flagged():
+def test_warranty_period_unknown_returns_none_and_sources_are_primary():
     assert e.warranty_period("존재하지않는공종") is None   # 값 안 지어냄
-    # 전기·통신은 원문 미확보 2차출처 — [확인요망] 꼬리표가 지워지면 안 된다
-    assert "확인요망" in e.WARRANTY_STATUTORY["전기(건축물 전기설비)"]["근거"]
-    assert "확인요망" in e.WARRANTY_STATUTORY["통신(그 외 정보통신공사)"]["근거"]
+    # 2026-08-18: 전기·통신 원문 확보로 [확인요망] 해소 — 근거에 조항·확인일이
+    # 명시돼야 하고, 확인요망 꼬리표가 되살아나면 회귀다
+    elec = e.WARRANTY_STATUTORY["전기(건축물 전기설비)"]["근거"]
+    comm = e.WARRANTY_STATUTORY["통신(그 외 정보통신공사)"]["근거"]
+    assert "확인요망" not in elec and "확인요망" not in comm
+    assert "별표3의2 제7호" in elec and "원문 확인" in elec
+    assert "제37조 제3호" in comm and "구내 케이블 제외" in comm
 
 
 def test_electrical_pumsem_lump_reference():
