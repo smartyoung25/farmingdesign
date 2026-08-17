@@ -226,6 +226,46 @@ def test_loan_amortization_zero_rate_and_validation():
             e.loan_amortization(**bad)
 
 
+# ── 3-3d. LCC 기자재 내용연수(2026-08-18, 데이터 대기 ② 해소) ────────
+def test_equipment_service_life_reference_values():
+    # 조달청 고시 제2024-30호 [별표1] 원문 전사 대표값 가드(PDF 리포 사본과 대조)
+    R = e.EQUIPMENT_SERVICE_LIFE_REFERENCE
+    assert R["온풍난방기"]["years"] == 11 and R["온풍난방기"]["code"] == "40101866"
+    assert R["전기보일러"]["years"] == 13
+    assert R["송풍기(유동·배기팬류)"]["years"] == 10
+    assert R["정량펌프(양액공급류)"]["years"] == 11
+    assert R["분전반"]["years"] == 8
+    assert R["빌딩자동제어장치(복합환경제어 유사분류)"]["years"] == 11
+    assert R["컴퓨터서버"]["years"] == 6
+    assert R["보안용카메라"]["years"] == 6
+    # 전 항목이 8자리 물품분류번호와 양수 연수를 갖는다(추적성)
+    assert all(len(v["code"]) == 8 and v["years"] > 0 for v in R.values())
+
+
+def test_lcc_replacement_schedule_deterministic():
+    import pytest as _pt
+    items = [
+        {"name": "온풍난방기", "unit_cost_won": 20_000_000, "service_life_years": 11},
+        {"name": "데스크톱컴퓨터", "unit_cost_won": 1_500_000, "service_life_years": 5},
+        {"name": "배전반", "unit_cost_won": 8_000_000, "service_life_years": 12},
+    ]
+    r = e.lcc_replacement_schedule(items, horizon_years=20)
+    by = {row["name"]: row for row in r["rows"]}
+    assert by["온풍난방기"]["replacement_years"] == [11]            # 11년 1회
+    assert by["데스크톱컴퓨터"]["replacement_years"] == [5, 10, 15]  # 지평 말(20)은 제외
+    assert by["배전반"]["replacement_years"] == [12]
+    assert r["total_replacement_cost_won"] == _pt.approx(
+        20_000_000 * 1 + 1_500_000 * 3 + 8_000_000 * 1)
+    # 수명이 지평 이상이면 교체 없음
+    r2 = e.lcc_replacement_schedule(
+        [{"name": "전기보일러", "unit_cost_won": 30_000_000, "service_life_years": 13}], 10)
+    assert r2["rows"][0]["n_replacements"] == 0
+    with _pt.raises(ValueError):
+        e.lcc_replacement_schedule(items, 0)
+    with _pt.raises(ValueError):
+        e.lcc_replacement_schedule([{"name": "x", "unit_cost_won": 1, "service_life_years": 0}], 10)
+
+
 # ── 3-4. P1-11(2026-08-17): select_specs 작물특화형 필터 ────────────
 def test_select_specs_default_excludes_crop_specific():
     # 왜곡 실측 지점(적설20·풍속26): 종전엔 파프리카 전용이 연동 최소사양으로 나왔음
