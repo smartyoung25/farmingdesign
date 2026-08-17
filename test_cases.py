@@ -219,3 +219,53 @@ def test_financing_example_file_is_valid_and_clearly_synthetic():
     assert len(am["rows"]) == fin["term_years"]
     assert am["rows"][-1]["잔액"] == 0.0
     assert not os.path.exists(os.path.join("cases", "financing_예시.json"))
+
+
+# ── 시나리오 가정값 스키마(2026-08-18, 데이터 대기 ④) ───────────────────
+
+def _uminjae_with_example_scenarios():
+    cases_by_id = {c["case_id"]: c for c in C.load_cases()}
+    base = cases_by_id["uminjae"]
+    with open("시나리오_예시.json", encoding="utf-8") as f:
+        sc = json.load(f)["scenarios"]
+    return dict(base, scenarios=sc), C.case_to_input(base)
+
+
+def test_scenario_rows_engine_recompute_and_direction():
+    case, inp = _uminjae_with_example_scenarios()
+    rows = bs.scenario_rows(case, inp)
+    assert rows[0]["name"].startswith("Base") and len(rows) == 4   # Base + 3세트
+    by = {r["name"]: r["res"]["economics"] for r in rows}
+    # 방향성: 수확·단가 상향(Best)은 Base보다 ROI 상승, Worst는 하락(엔진 재계산 일관성)
+    assert by["Best"]["roi"] > by["Base(케이스 입력)"]["roi"] > by["Worst"]["roi"]
+    # 예시 무결성: 합성 명시·cases/ 밖
+    with open("시나리오_예시.json", encoding="utf-8") as f:
+        note = json.load(f)["scenarios"]["note"]
+    assert "예시" in note or "합성" in note
+    assert not os.path.exists(os.path.join("cases", "시나리오_예시.json"))
+
+
+def test_scenario_rows_rejects_bad_fields_and_missing_note():
+    import pytest as _pt
+    case, inp = _uminjae_with_example_scenarios()
+    bad = dict(case, scenarios={"note": "t", "sets": [
+        {"name": "X", "assumptions": {"snow_cm": 100}, "note": "물리 입력 변경 시도"}]})
+    with _pt.raises(ValueError):
+        bs.scenario_rows(bad, inp)          # 화이트리스트 밖 필드 거부
+    noname = dict(case, scenarios={"note": "t", "sets": [
+        {"name": "Y", "assumptions": {"opex": 1_000_000}, "note": ""}]})
+    with _pt.raises(ValueError):
+        bs.scenario_rows(noname, inp)       # 근거(note) 필수
+
+
+def test_scenario_section_renders_conditionally_and_irr_label():
+    case, inp = _uminjae_with_example_scenarios()
+    res = rr.compute(inp)
+    html_with = bs.consulting_report_page(case, res, inp)
+    assert "시나리오 표 (가정 주입" in html_with and "Worst" in html_with
+    assert "산출불가(적자)" in html_with     # 적자 시나리오 IRR 오독 방지 분기
+    cases_by_id = {c["case_id"]: c for c in C.load_cases()}
+    plain = cases_by_id["uminjae"]
+    html_without = bs.consulting_report_page(plain, res, inp)
+    assert "시나리오 가정값 미제공" in html_without
+    assert "시나리오 표 (가정 주입" not in html_without

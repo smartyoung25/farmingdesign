@@ -183,6 +183,38 @@ def _prov_flags(case: dict) -> list[tuple[str, str, str]]:
             for k, v in case.get("provenance", {}).items() if v.get("status") != "실측"]
 
 
+# 시나리오 가정값 스키마(2026-08-18, 데이터 대기 ④) — 허용 필드 화이트리스트.
+# 판단성·시세성 입력만 바꿀 수 있다. 물리·구조 입력(지역·하중·피복·면적)은
+# 시나리오가 아니라 다른 케이스이므로 거부한다. 상세: 시나리오_가정값_기입양식.md
+SCENARIO_ALLOWED_FIELDS = {"base_yield_kg_m2", "price_won_per_kg", "opex",
+                           "fitness_pct", "subsidy_rate", "total_construction_cost"}
+
+
+def scenario_rows(case: dict, inp) -> list[dict]:
+    """케이스 scenarios 블록 → Base 포함 시나리오별 KPI 행(계산은 전부 엔진 재호출).
+    화이트리스트 밖 키·근거(note) 누락은 ValueError — 조용히 넘어가지 않는다."""
+    import dataclasses
+    sc = case.get("scenarios")
+    if not sc:
+        return []
+    rows = []
+    base_res = rr.compute(inp)
+    rows.append({"name": "Base(케이스 입력)", "assumptions": {}, "note": "케이스 input 원값",
+                 "res": base_res})
+    for s in sc.get("sets", []):
+        bad = set(s.get("assumptions", {})) - SCENARIO_ALLOWED_FIELDS
+        if bad:
+            raise ValueError(
+                f"시나리오 '{s.get('name')}'에 허용되지 않는 가정 필드 {sorted(bad)} — "
+                f"화이트리스트: {sorted(SCENARIO_ALLOWED_FIELDS)}(기입양식.md 1절)")
+        if not (s.get("note") or "").strip():
+            raise ValueError(f"시나리오 '{s.get('name')}'에 근거(note)가 없다 — 가정값은 근거 필수")
+        mod = dataclasses.replace(inp, **s["assumptions"])
+        rows.append({"name": s["name"], "assumptions": s["assumptions"],
+                     "note": s["note"], "res": rr.compute(mod)})
+    return rows
+
+
 def _sensitivity_snapshot(inp) -> list[dict]:
     """판매단가·수확량 ±10% 스냅샷 — 새 데이터 없이 기존 production_kg()/finance()를
     다른 인자로 다시 호출할 뿐이다(케이스 스키마·엔진 레지스트리 변경 없음)."""
@@ -327,6 +359,38 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     <p class="note">{esc(_trunc(cb_cats.get('note', ''), 300))}</p>"""
     else:
         capex_detail = "<p class='note'>이 케이스엔 CAPEX 항목분해 실측 데이터가 없어 총사업비만 표시(CAPEX_CASE_CHUNKS 확보된 케이스는 자동으로 이 표가 채워짐).</p>"
+    # 시나리오 가정값(2026-08-18): scenarios 블록이 있는 케이스만 다단 표 렌더
+    sc_rows_data = scenario_rows(case, inp)
+    if sc_rows_data:
+        def _fmt_assum(a):
+            return " · ".join(f"{k}={v:,}" if isinstance(v, (int, float)) else f"{k}={v}"
+                              for k, v in a.items()) or "—"
+        def _sc_tr(r):
+            ec = r["res"]["economics"]
+            pb = f"{ec['payback']:.1f}년" if ec["payback"] else "—"
+            # IRR None은 이분법 수렴 실패 — 흑자면 초고수익(>100%), 적자면 산출불가.
+            # 기존 ">100%" 단일 표기는 적자 시나리오에서 정반대 오독을 낳는다(2026-08-18 발견)
+            if ec["irr"] is not None:
+                irr = f"{ec['irr']*100:.1f}%"
+            else:
+                irr = ">100%" if ec["npv"] > 0 else "산출불가(적자)"
+            return (f"<tr><td>{esc(r['name'])}</td>"
+                    f"<td style='font-size:12px'>{esc(_fmt_assum(r['assumptions']))}</td>"
+                    f"<td class='num'>{ec['roi']*100:.1f}%</td><td class='num'>{pb}</td>"
+                    f"<td class='num'>{ec['npv']/1e8:,.2f}억</td><td class='num'>{irr}</td></tr>")
+        sc_tr = "".join(_sc_tr(r) for r in sc_rows_data)
+        sc_notes = "".join(f"<li>{esc(r['name'])}: {esc(r['note'])}</li>" for r in sc_rows_data[1:])
+        scenario_detail = f"""
+    <h2 style="margin-top:16px">시나리오 표 (가정 주입 — {len(sc_rows_data)}단)</h2>
+    <table><thead><tr><th>시나리오</th><th>가정(변경 필드만)</th><th class='num'>ROI</th>
+      <th class='num'>Payback</th><th class='num'>NPV</th><th class='num'>IRR</th></tr></thead>
+      <tbody>{sc_tr}</tbody></table>
+    <ul class="prov">{sc_notes}</ul>
+    <p class="note">{esc(_trunc(case['scenarios'].get('note', ''), 240))} — 가정값은 컨설턴트 기입(판단성),
+      계산은 전 지표 엔진 재호출. 어느 시나리오의 실현을 판정하지 않으며 확률·기대값은 모델링하지 않는다.</p>"""
+    else:
+        scenario_detail = ("<p class='note'>시나리오 가정값 미제공 — 케이스에 scenarios 블록(가정 세트+근거)을 "
+                           "넣으면 Best/Worst 다단 표가 자동 생성된다(시나리오_가정값_기입양식.md, 가정 창작 금지).</p>")
     # P3-18(2026-08-17): 금융조달 — financing 블록이 있는 케이스만 상환표 렌더
     fin = case.get("financing")
     if fin:
@@ -363,9 +427,9 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     <table style="margin-top:14px"><thead><tr><th>시나리오</th><th class='num'>연매출</th>
       <th class='num'>ROI</th><th class='num'>Payback</th></tr></thead>
       <tbody>{sens_rows}</tbody></table>
-    <p class="note">판매단가·수확량 ±10% 단순 스냅샷(엔진 재호출, 새 입력 없음) — 전체 Best/Worst 시나리오
-      기획(가정값 주입 스키마 필요)과 LCC(기자재 수명 데이터 필요)는 여전히 범위 밖. 대출상환표는
-      P3-18(2026-08-17)로 편입 — 아래 금융조달 참고.</p>
+    <p class="note">판매단가·수확량 ±10% 단순 스냅샷(엔진 재호출, 새 입력 없음). Best/Worst 시나리오 표는
+      가정값 주입 시 아래 렌더(2026-08-18 편입), 대출상환표는 P3-18 편입 — 각 섹션 참고.</p>
+    {scenario_detail}
     {financing_detail}
     {capex_detail}
   </section>"""

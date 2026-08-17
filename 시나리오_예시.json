@@ -1,0 +1,23 @@
+{
+  "_주의": "합성 예시 파일 — 실케이스에 이 값을 넣지 말 것(가정값은 판단성 — 근거와 함께 케이스별 기입). 시나리오_가정값_기입양식.md 참고. 시나리오_미리보기.py로 케이스와 합성해 미리 볼 수 있다.",
+  "scenarios": {
+    "note": "예시값(합성) — 실기입 시 세트 전체의 설정 근거를 여기에, 세트별 근거를 각 note에 남긴다",
+    "sets": [
+      {
+        "name": "Best",
+        "assumptions": { "base_yield_kg_m2": 44.0, "price_won_per_kg": 2900 },
+        "note": "예시(합성): 상위권 수확량·고단가 동시 실현 가정"
+      },
+      {
+        "name": "Reality",
+        "assumptions": { "price_won_per_kg": 2300, "opex": 200000000 },
+        "note": "예시(합성): 단가 보수치·운영비 상승 반영"
+      },
+      {
+        "name": "Worst",
+        "assumptions": { "base_yield_kg_m2": 30.0, "price_won_per_kg": 2000, "opex": 210000000 },
+        "note": "예시(합성): 수확 부진·저단가·운영비 상승 중첩"
+      }
+    ]
+  }
+}
