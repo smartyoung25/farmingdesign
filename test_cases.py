@@ -7,7 +7,7 @@
   렌더되고 핵심 KPI·CAPEX 분해 유무 분기가 올바른지 스모크 테스트.
 실행: pytest test_cases.py -q
 """
-import json, importlib
+import json, importlib, os
 import cases as C
 import build_site as bs
 import render_report as rr
@@ -203,3 +203,19 @@ def test_partial_case_renders_construction_page_and_skips_4axis():
     import pytest as _pt
     with _pt.raises(TypeError):
         C.case_to_input(y)   # 필수 필드 없음 — 부분 케이스는 이 경로로 못 감(main이 분기)
+
+
+# ── financing 기입양식(2026-08-18): 예시 파일 무결성 ─────────────────────
+
+def test_financing_example_file_is_valid_and_clearly_synthetic():
+    # 예시 파일은 (a) 스키마대로 엔진 계산이 돌아가야 하고, (b) 합성 예시임이
+    # 명시돼 있어야 하며(실케이스 오염 방지), (c) cases/ 밖에 있어야 한다.
+    with open("financing_예시.json", encoding="utf-8") as f:
+        data = json.load(f)
+    fin = data["financing"]
+    assert "예시" in fin["note"] or "합성" in fin["note"]
+    am = e.loan_amortization(fin["loan_principal_won"], fin["annual_rate_pct"],
+                             fin["term_years"], fin.get("grace_years", 0), fin["method"])
+    assert len(am["rows"]) == fin["term_years"]
+    assert am["rows"][-1]["잔액"] == 0.0
+    assert not os.path.exists(os.path.join("cases", "financing_예시.json"))

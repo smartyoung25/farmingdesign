@@ -1,0 +1,11 @@
+{
+  "_주의": "합성 예시 파일 — 실케이스에 이 값을 넣지 말 것(가공값 금지). financing_실조건_기입양식.md 참고. 실조건 확보 시 이 파일을 복사·수정해 financing_미리보기.py로 확인한 뒤 케이스 JSON 최상위에 붙인다.",
+  "financing": {
+    "loan_principal_won": 300000000,
+    "annual_rate_pct": 1.5,
+    "term_years": 25,
+    "grace_years": 5,
+    "method": "원리금균등",
+    "note": "예시값(합성) — 정책자금 전형 구조(저리·장기·거치형). 실기입 시 공고·약정서 출처 명기"
+  }
+}
