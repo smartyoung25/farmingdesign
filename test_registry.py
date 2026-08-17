@@ -19,6 +19,16 @@ def _norm(v):
     return v
 
 
+def test_all_entries_have_render_required_fields():
+    # P3-18에서 발견: 신규 등록 항목에 axis/desc가 빠지면 build_site 근거대장이
+    # KeyError로 죽는데, 당시 파이프라인이 stderr를 삼켜 조용히 실패했다(B4~B8
+    # 커밋의 "근거대장 자동 반영" 보고가 사실과 달랐던 원인 — 정정 완료).
+    # 등록 시점에 잡히도록 렌더 필수 필드를 가드한다.
+    for key, ent in C.items():
+        for field in ("axis", "desc", "source", "status", "value"):
+            assert field in ent, f"{key}: 레지스트리 항목에 '{field}' 필드 누락 — 근거대장 렌더가 죽는다"
+
+
 def test_simple_dict_and_scalar_constants():
     for key in ["U_VALUE", "U_DESIGN", "FR_TABLE", "FUEL_LHV", "TOTAL_PYEONG_PRICE", "STRUCTURE_ONLY_PYEONG",
                 "WARRANTY_STATUTORY", "ELECTRICAL_PUMSEM_LUMP_WON_PER_HA"]:  # B4~B8 확장(2026-08-17)

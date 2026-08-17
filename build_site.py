@@ -326,6 +326,29 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     <p class="note">{esc(_trunc(cb_cats.get('note', ''), 300))}</p>"""
     else:
         capex_detail = "<p class='note'>이 케이스엔 CAPEX 항목분해 실측 데이터가 없어 총사업비만 표시(CAPEX_CASE_CHUNKS 확보된 케이스는 자동으로 이 표가 채워짐).</p>"
+    # P3-18(2026-08-17): 금융조달 — financing 블록이 있는 케이스만 상환표 렌더
+    fin = case.get("financing")
+    if fin:
+        am = e.loan_amortization(fin["loan_principal_won"], fin["annual_rate_pct"],
+                                 fin["term_years"], fin.get("grace_years", 0),
+                                 fin.get("method", "원리금균등"))
+        fin_rows = "".join(
+            f"<tr><td class='num'>{row['연차']}</td><td>{esc(row['구분'])}</td>"
+            f"<td class='num'>{row['원금']:,.0f}</td><td class='num'>{row['이자']:,.0f}</td>"
+            f"<td class='num'>{row['납입액']:,.0f}</td><td class='num'>{row['잔액']:,.0f}</td></tr>"
+            for row in am["rows"])
+        financing_detail = f"""
+    <h2 style="margin-top:16px">금융조달 — 연차별 대출상환표 ({esc(am['방식'])}, 연 {am['연이율_pct']}% · {am['전체기간_년']}년{f" · 거치 {am['거치기간_년']}년" if am['거치기간_년'] else ""})</h2>
+    <table><thead><tr><th class='num'>연차</th><th>구분</th><th class='num'>원금(원)</th>
+      <th class='num'>이자(원)</th><th class='num'>납입액(원)</th><th class='num'>잔액(원)</th></tr></thead>
+      <tbody>{fin_rows}</tbody></table>
+    <div class="row"><span class="lbl">총이자 / 총납입액</span>
+      <span class="val">{am['총이자']:,.0f}원 / {am['총납입액']:,.0f}원</span></div>
+    <p class="note">{esc(_trunc(fin.get('note', '대출조건 출처 미기재'), 240))}</p>"""
+    else:
+        financing_detail = ("<p class='note'>대출조건 미제공 — 케이스에 financing 블록(대출금액·금리·"
+                            "전체/거치기간·상환방식)을 넣으면 연차별 상환표가 자동 생성된다"
+                            "(엔진 loan_amortization, 가공 조건은 채우지 않음).</p>")
     econ = f"""
   <section class="card"><span class="axis">Ⅳ. 경제성분석서</span>
     <h2>투자지표 · 민감도 스냅샷</h2>
@@ -340,7 +363,9 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
       <th class='num'>ROI</th><th class='num'>Payback</th></tr></thead>
       <tbody>{sens_rows}</tbody></table>
     <p class="note">판매단가·수확량 ±10% 단순 스냅샷(엔진 재호출, 새 입력 없음) — 전체 Best/Worst 시나리오
-      기획이나 대출조건·LCC 반영 민감도는 별도 데이터가 필요해 이 리포트 범위 밖이다.</p>
+      기획(가정값 주입 스키마 필요)과 LCC(기자재 수명 데이터 필요)는 여전히 범위 밖. 대출상환표는
+      P3-18(2026-08-17)로 편입 — 아래 금융조달 참고.</p>
+    {financing_detail}
     {capex_detail}
   </section>"""
 

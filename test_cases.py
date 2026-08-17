@@ -130,3 +130,24 @@ def test_quotes_comparison_page_renders():
     assert "원단위 전사" in html_out                        # 출처 표기
     for v in data["vendor_quotes"]:
         assert v["vendor_name"] in html_out
+
+
+# ── P3-18(2026-08-17): 금융조달 상환표 렌더 분기 ────────────────────────
+
+def test_consulting_report_financing_section_conditional():
+    # financing 블록이 없으면 안내문, 있으면 상환표가 렌더돼야 한다.
+    # 케이스 원본엔 실제 대출조건이 없으므로(가공값 금지) 사본에만 합성 블록을 넣어 검증.
+    cases_by_id = {c["case_id"]: c for c in C.load_cases()}
+    base = cases_by_id["uminjae"]
+    res = rr.compute(C.case_to_input(base))
+    html_without = bs.consulting_report_page(base, res, C.case_to_input(base))
+    assert "대출조건 미제공" in html_without
+    assert "연차별 대출상환표" not in html_without
+
+    with_fin = dict(base)
+    with_fin["financing"] = {"loan_principal_won": 100_000_000, "annual_rate_pct": 2.0,
+                             "term_years": 5, "grace_years": 2, "method": "원리금균등",
+                             "note": "테스트 합성 조건(케이스 실데이터 아님)"}
+    html_with = bs.consulting_report_page(with_fin, res, C.case_to_input(base))
+    assert "연차별 대출상환표" in html_with and "거치 2년" in html_with
+    assert "테스트 합성 조건" in html_with

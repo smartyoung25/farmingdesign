@@ -2011,6 +2011,76 @@ def finance(revenue: float, opex: float, capex: float,
     return FinanceResult(revenue, opex, dep, op, roi, payback, n, r, real_roi)
 
 
+# ─────────────────────────────────────────────────────────────
+# 금융조달: 대출상환표 (2026-08-17 P3-18 택1 — Step6 제외항목 중 첫 해소)
+#   Step6 통합보고서에서 "case에 없는 입력(대출조건) 필요"로 제외했던 항목.
+#   상환표 수학은 순수 결정론이고, 시세성 입력(원금·금리·기간·방식)은 케이스별
+#   주입 원칙을 따른다 — cases/*.json 최상위 "financing" 블록(선택):
+#     {"loan_principal_won", "annual_rate_pct", "term_years", "grace_years",
+#      "method"("원리금균등"|"원금균등"), "note"(조건 출처)}
+#   실제 대출조건이 없는 케이스에 가공 금리를 채우지 않는다(블록 없으면 미표시).
+#   연 단위 상환표를 쓴다(농업 정책자금 관행이 연 단위 상환·거치이고, 케이스
+#   리포트 가독성 기준) — 월 단위가 필요해지면 별도 결정.
+# ─────────────────────────────────────────────────────────────
+def loan_amortization(principal_won: float, annual_rate_pct: float,
+                      term_years: int, grace_years: int = 0,
+                      method: str = "원리금균등") -> dict:
+    """연 단위 대출상환표. 거치기간엔 이자만 납부, 상환기간은 method에 따라
+    원리금균등(연 납입액 일정) 또는 원금균등(연 원금 일정·이자 체감).
+    반환: {"rows": [{연차, 구분, 원금, 이자, 납입액, 잔액}...], "총이자",
+    "총납입액", 입력 echo}. 판정·추천 없음 — 계산표만 제공한다."""
+    if principal_won <= 0:
+        raise ValueError(f"대출원금은 양수여야 한다: {principal_won}")
+    if annual_rate_pct < 0:
+        raise ValueError(f"금리는 음수일 수 없다: {annual_rate_pct}")
+    if term_years <= 0 or grace_years < 0 or grace_years >= term_years:
+        raise ValueError(
+            f"기간 오류: term_years={term_years}, grace_years={grace_years} — "
+            "0 <= 거치 < 전체기간 이어야 한다")
+    if method not in ("원리금균등", "원금균등"):
+        raise ValueError(f"method는 '원리금균등'|'원금균등' 중 하나: {method}")
+
+    r = annual_rate_pct / 100.0
+    rows = []
+    bal = float(principal_won)
+    for y in range(1, grace_years + 1):
+        interest = bal * r
+        rows.append({"연차": y, "구분": "거치", "원금": 0.0, "이자": interest,
+                     "납입액": interest, "잔액": bal})
+    m = term_years - grace_years
+    if method == "원리금균등":
+        if r > 0:
+            annuity = bal * r * (1 + r) ** m / ((1 + r) ** m - 1)
+        else:
+            annuity = bal / m
+        for i in range(1, m + 1):
+            interest = bal * r
+            principal = annuity - interest
+            if i == m:                      # 부동소수 잔차는 마지막 회차에서 정산
+                principal = bal
+            bal -= principal
+            rows.append({"연차": grace_years + i, "구분": "상환",
+                         "원금": principal, "이자": interest,
+                         "납입액": principal + interest, "잔액": max(bal, 0.0)})
+    else:  # 원금균등
+        principal_fixed = bal / m
+        for i in range(1, m + 1):
+            interest = bal * r
+            principal = principal_fixed if i < m else bal
+            bal -= principal
+            rows.append({"연차": grace_years + i, "구분": "상환",
+                         "원금": principal, "이자": interest,
+                         "납입액": principal + interest, "잔액": max(bal, 0.0)})
+    total_interest = sum(row["이자"] for row in rows)
+    return {
+        "rows": rows,
+        "총이자": total_interest,
+        "총납입액": principal_won + total_interest,
+        "원금": principal_won, "연이율_pct": annual_rate_pct,
+        "전체기간_년": term_years, "거치기간_년": grace_years, "방식": method,
+    }
+
+
 @dataclass
 class OperatingBreakeven:
     breakeven_revenue_won: float

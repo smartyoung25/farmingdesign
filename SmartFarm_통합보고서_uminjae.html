@@ -117,7 +117,9 @@
       <th class='num'>ROI</th><th class='num'>Payback</th></tr></thead>
       <tbody><tr><td>기준</td><td class='num'>223,588,750</td><td class='num'>11.0%</td><td class='num'>9.1년</td></tr><tr><td>판매단가 +10%</td><td class='num'>245,947,625</td><td class='num'>15.0%</td><td class='num'>6.7년</td></tr><tr><td>판매단가 -10%</td><td class='num'>201,229,875</td><td class='num'>7.0%</td><td class='num'>14.4년</td></tr><tr><td>수확량 +10%</td><td class='num'>245,947,625</td><td class='num'>15.0%</td><td class='num'>6.7년</td></tr><tr><td>수확량 -10%</td><td class='num'>201,229,875</td><td class='num'>7.0%</td><td class='num'>14.4년</td></tr></tbody></table>
     <p class="note">판매단가·수확량 ±10% 단순 스냅샷(엔진 재호출, 새 입력 없음) — 전체 Best/Worst 시나리오
-      기획이나 대출조건·LCC 반영 민감도는 별도 데이터가 필요해 이 리포트 범위 밖이다.</p>
+      기획(가정값 주입 스키마 필요)과 LCC(기자재 수명 데이터 필요)는 여전히 범위 밖. 대출상환표는
+      P3-18(2026-08-17)로 편입 — 아래 금융조달 참고.</p>
+    <p class='note'>대출조건 미제공 — 케이스에 financing 블록(대출금액·금리·전체/거치기간·상환방식)을 넣으면 연차별 상환표가 자동 생성된다(엔진 loan_amortization, 가공 조건은 채우지 않음).</p>
     
     <h2 style="margin-top:16px">CAPEX 항목분해(실측 청킹, 2023-08)</h2>
     <table><thead><tr><th>카테고리</th><th class='num'>금액(원)</th></tr></thead>
@@ -125,5 +127,5 @@
     <p class="note">2026-07-16 사용자 제안 13분류(총사업비 관점) 채택 후 재청킹. 근거 없는 7개(부대시설·축열보온·기자재구매·설계감리비·부지조성비·예비비·부지매입비)는 0 — smartfarm_engine.capex_major_breakdown(CAPEX_MAJOR_CASE_CHUNKS[&#x27;우민재&#x27;], known_total=456158140)로 재현 가능</p>
   </section>
   <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>
-<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-08-17 18:08</div>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-08-17 18:41</div>
 </div></body></html>

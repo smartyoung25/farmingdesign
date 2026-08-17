@@ -185,6 +185,43 @@ def test_electrical_pumsem_lump_reference():
     assert e.ELECTRICAL_PUMSEM_LUMP_WON_PER_HA == 250_000_000
 
 
+# ── 3-3c. P3-18(2026-08-17): 금융조달 대출상환표 ────────────────────
+def test_loan_amortization_equal_payment_hand_computed():
+    import pytest as _pt
+    # 1억·10%·3년·무거치 원리금균등: 연납입액 = 1e8×0.1×1.1³/(1.1³−1) = 40,211,480.4
+    am = e.loan_amortization(100_000_000, 10.0, 3)
+    annuity = 100_000_000 * 0.1 * 1.1**3 / (1.1**3 - 1)
+    assert all(row["납입액"] == _pt.approx(annuity, rel=1e-9) for row in am["rows"])
+    assert am["rows"][0]["이자"] == _pt.approx(10_000_000)
+    assert am["rows"][-1]["잔액"] == 0.0                      # 완제
+    assert am["총이자"] == _pt.approx(3 * annuity - 100_000_000, rel=1e-9)
+
+
+def test_loan_amortization_equal_principal_with_grace():
+    import pytest as _pt
+    # 3억·6%·전체 3년(거치 1년) 원금균등: 거치 이자 18M → 상환 150M+18M, 150M+9M
+    am = e.loan_amortization(300_000_000, 6.0, 3, grace_years=1, method="원금균등")
+    assert [row["구분"] for row in am["rows"]] == ["거치", "상환", "상환"]
+    assert am["rows"][0]["납입액"] == _pt.approx(18_000_000)   # 거치: 이자만
+    assert am["rows"][1]["원금"] == _pt.approx(150_000_000)
+    assert am["rows"][2]["이자"] == _pt.approx(9_000_000)      # 잔액 150M×6%
+    assert am["총이자"] == _pt.approx(45_000_000)
+    assert am["총납입액"] == _pt.approx(345_000_000)
+
+
+def test_loan_amortization_zero_rate_and_validation():
+    import pytest as _pt
+    am = e.loan_amortization(90_000_000, 0.0, 3)              # 무이자: 3연 균등
+    assert am["총이자"] == 0.0
+    assert all(row["납입액"] == _pt.approx(30_000_000) for row in am["rows"])
+    for bad in [dict(principal_won=0, annual_rate_pct=3, term_years=5),
+                dict(principal_won=1e8, annual_rate_pct=-1, term_years=5),
+                dict(principal_won=1e8, annual_rate_pct=3, term_years=5, grace_years=5),
+                dict(principal_won=1e8, annual_rate_pct=3, term_years=5, method="이상한방식")]:
+        with _pt.raises(ValueError):
+            e.loan_amortization(**bad)
+
+
 # ── 3-4. P1-11(2026-08-17): select_specs 작물특화형 필터 ────────────
 def test_select_specs_default_excludes_crop_specific():
     # 왜곡 실측 지점(적설20·풍속26): 종전엔 파프리카 전용이 연동 최소사양으로 나왔음
