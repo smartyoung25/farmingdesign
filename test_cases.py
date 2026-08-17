@@ -269,3 +269,34 @@ def test_scenario_section_renders_conditionally_and_irr_label():
     html_without = bs.consulting_report_page(plain, res, inp)
     assert "시나리오 가정값 미제공" in html_without
     assert "시나리오 표 (가정 주입" not in html_without
+
+
+# ── 리모델링 실측 사례(2026-08-18, 데이터 대기 ③ 표본 1호) ──────────────
+
+def test_partial_case_mulhyangki_remodeling_structure():
+    cases_by_id = {c["case_id"]: c for c in C.load_cases()}
+    mh = cases_by_id["mulhyangki"]
+    assert mh.get("partial") == "construction_only"
+    assert "재축" in mh["input"]["business_type"]
+    cs = mh["construction"]["cost_summary_won"]
+    # 총액 3중 대사 구조: 절사 전 89,610,883 → 천단위 절사 89,610,000(한글 대사)
+    assert cs["원가계산 합계(절사 전)"] == 89_610_883
+    assert cs["총공사비(도급, 천단위 절사)"] == 89_610_000
+    assert mh["input"]["total_construction_cost"] == 89_610_000
+    # 리모델링 특유 구조: 철거비·부산물 공제(음수)·폐기물처리 실존
+    trades = mh["construction"]["trades_material_won"]
+    assert any("철거" in k for k in trades)
+    assert any(v < 0 for v in trades.values())          # 고철 매각 공제
+    assert any("폐기물" in k for k in trades)
+    # 부분 발췌임이 명시돼야 한다(전액 대사로 오독 방지)
+    assert "부분 발췌" in mh["construction"]["trades_note"]
+
+
+def test_partial_case_mulhyangki_renders():
+    cases_by_id = {c["case_id"]: c for c in C.load_cases()}
+    mh = cases_by_id["mulhyangki"]
+    html_out = bs.partial_construction_page(mh)
+    assert "재축" in html_out and "폭설피해복구" in html_out
+    assert "89,610,000" in html_out
+    assert "-432,000" in html_out or "−432,000" in html_out   # 공제 항목 노출
+    assert "ROI" not in html_out                              # 4축 미산출 유지

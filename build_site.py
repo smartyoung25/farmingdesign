@@ -469,8 +469,8 @@ def partial_construction_page(case: dict) -> str:
     {summary_rows}
     <div class="row"><span class="lbl">벤치마크(총액 기준)</span>
       <span class="val">{bench['unit_won_m2']:,}원/㎡ — <span class="badge {_sc(bench['status'])}">{esc(bench['status'])}</span> (밴드 {bench['band'][0]:,}~{bench['band'][1]:,})</span></div>
-    <h2 style="margin-top:16px">공종별 재료비 (집계표 전사 — 합계 대사 검증)</h2>
-    <table><thead><tr><th>공종(원문)</th><th class="num">재료비(원)</th></tr></thead>
+    <h2 style="margin-top:16px">공종·항목 발췌 (원문 전사 — 대사 범위는 노트 참고)</h2>
+    <table><thead><tr><th>공종·항목(원문)</th><th class="num">금액(원)</th></tr></thead>
       <tbody>{trade_rows}</tbody></table>
     <p class="note">{esc(con['trades_note'])}</p></section>
   <section class="card"><span class="axis">근거</span>
