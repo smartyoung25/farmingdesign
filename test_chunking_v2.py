@@ -252,6 +252,35 @@ def test_apply_overlay_overrides_marks_and_disambiguates():
     assert chunks[0]["topic_tags"] == []
 
 
+# ── P3-21 HWP 직접 추출 (2026-08-17) ─────────────────────────────────
+
+def test_hwp_extract_reads_real_spec_document():
+    # 07-23 "hwp 스캔본" 판정이 오진이었음을 고정하는 회귀: 김해농원 시방서는
+    # 텍스트 문서이고 BodyText에서 4만 자 이상이 추출돼야 한다.
+    from chunking_lib_v2 import ROOT, hwp_extract_text
+    p = os.path.join(ROOT, "스마트팜스펙", "시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)",
+                     "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원", "시방서.hwp")
+    r = hwp_extract_text(p)
+    assert not r["encrypted"]
+    assert len(r["text"]) > 30000
+    assert "시방서" in r["text"] and "철 골 공 사" in r["text"]  # 실제 조항 어휘
+    # 규격 표기 그리스 문자(Φ 등)는 노이즈 필터가 지우면 안 된다
+    from chunking_lib_v2 import _HWP_NOISE
+    assert _HWP_NOISE.sub("", "Φ31.8×1.7t") == "Φ31.8×1.7t"
+
+
+def test_chunk_hwp_produces_paragraph_chunks_with_section_context():
+    from chunking_lib_v2 import ROOT, ChunkWriter, chunk_hwp
+    w = ChunkWriter()
+    p = os.path.join(ROOT, "스마트팜스펙", "시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)",
+                     "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원", "시방서.hwp")
+    n = chunk_hwp(w, p, "김해농원", "시방서", None)
+    assert n > 100                                   # 문단 다수
+    assert all(c["extraction_quality"] == "hwp_text" for c in w.chunks)
+    assert any(c["section_context"] for c in w.chunks)  # 헤더 캐리포워드 동작
+    assert not w.skipped_files
+
+
 def test_load_overlay_missing_empty_and_corrupt(tmp_path):
     from chunking_lib_v2 import load_overlay
     assert load_overlay(str(tmp_path / "없음.jsonl")) == []

@@ -24,7 +24,8 @@ FACILITY_DIR = os.path.join(ROOT, "시설평가")
 # 증발), 병합 후 총량을 이전 실행과 수동 대조하고서야 발견됐다. 2026-08-17엔
 # pdfplumber도 같은 방식으로 환경에서 유실돼 있었음이 재확인됨. 조용한 열화를
 # 실행 전(의존성 확인)·병합 시(총량 대조) 두 지점의 명시적 중단으로 바꾼다.
-PIPELINE_DEPENDENCIES = ("pdfplumber", "pypdf", "openpyxl", "xlrd", "pandas", "docx")
+PIPELINE_DEPENDENCIES = ("pdfplumber", "pypdf", "openpyxl", "xlrd", "pandas", "docx",
+                         "olefile")  # olefile: P3-21 HWP 직접 추출용(2026-08-17)
 
 
 def assert_pipeline_dependencies(deps=PIPELINE_DEPENDENCIES):
@@ -717,6 +718,99 @@ def chunk_xls_legacy(w, path, case_name, doc_type, doc_subtype, evidence_status=
         if ge is not None:
             ge.flush()
     return n_rows
+
+
+# ── P3-21(2026-08-17): HWP 5.0 텍스트 직접 추출 ──────────────────────────
+# 07-23 판정("hwp 스캔본 — 추출 불가")은 오진이었다: 8개 HWP 전부 BodyText
+# 텍스트 스트림이 실존함을 olefile 검사로 확인(해제 27KB~1.2MB). hwp5txt가
+# 0바이트를 뱉은 건 도구 문제였고, 문서 자체는 텍스트 문서다. OCR 불필요.
+# HWP 5.0 구조: OLE 복합문서, BodyText/Section*은 zlib(raw) 압축 레코드
+# 스트림, HWPTAG_PARA_TEXT(67) 레코드가 UTF-16LE 본문을 담는다. 제어문자
+# 중 확장(인라인) 컨트롤 13종은 16바이트(8 WCHAR)를 점유한다 — 이 규칙으로
+# 파싱하면 시방서 조항이 온전히 나온다(김해농원 PoC 40,528자 검증).
+_HWPTAG_PARA_TEXT = 67
+_HWP_EXTENDED_CTRL = {1, 2, 3, 11, 12, 14, 15, 16, 17, 18, 21, 22, 23}
+# 컨트롤 페이로드 파싱 잔재(티벳·라틴확장·PUA 등 — 한글 시방서에 나올 수 없는
+# 영역)만 제한적으로 제거한다. 과잉 필터로 정상 문자를 지우지 않도록 좁게 잡음.
+_HWP_NOISE = re.compile("[Ā-ɏЀ-៿-￰-￿]")
+
+
+def _hwp_parse_para_text(payload):
+    import struct
+    out = []
+    i, n = 0, len(payload)
+    while i + 1 < n:
+        ch = struct.unpack_from("<H", payload, i)[0]
+        if ch in (10, 13):
+            out.append("\n"); i += 2
+        elif ch < 32:
+            i += 16 if ch in _HWP_EXTENDED_CTRL else 2
+        else:
+            out.append(chr(ch)); i += 2
+    return "".join(out)
+
+
+def hwp_extract_text(path):
+    """HWP 5.0 본문 텍스트 추출. 반환 {"text", "encrypted", "n_sections"}.
+    암호화 문서면 text=""(추정 금지 — 호출부가 skip 처리)."""
+    import struct
+    import zlib
+    import olefile
+    ole = olefile.OleFileIO(path)
+    try:
+        hdr = ole.openstream(["FileHeader"]).read()
+        flags = struct.unpack_from("<I", hdr, 36)[0]
+        compressed, encrypted = bool(flags & 1), bool(flags & 2)
+        if encrypted:
+            return {"text": "", "encrypted": True, "n_sections": 0}
+        texts = []
+        sections = sorted(s for s in ole.listdir() if s[0] == "BodyText")
+        for s in sections:
+            raw = ole.openstream(s).read()
+            data = zlib.decompress(raw, -15) if compressed else raw
+            pos = 0
+            while pos + 4 <= len(data):
+                hdr32 = struct.unpack_from("<I", data, pos)[0]
+                tag = hdr32 & 0x3FF
+                size = (hdr32 >> 20) & 0xFFF
+                pos += 4
+                if size == 0xFFF:
+                    size = struct.unpack_from("<I", data, pos)[0]
+                    pos += 4
+                if tag == _HWPTAG_PARA_TEXT:
+                    texts.append(_hwp_parse_para_text(data[pos:pos + size]))
+                pos += size
+        text = _HWP_NOISE.sub("", "".join(texts))
+        return {"text": text, "encrypted": False, "n_sections": len(sections)}
+    finally:
+        ole.close()
+
+
+def chunk_hwp(w, path, case_name, doc_type, doc_subtype, evidence_status="실측"):
+    """HWP 본문을 docx와 같은 문단 단위로 청킹(섹션 헤더 캐리포워드 동일)."""
+    r = hwp_extract_text(path)
+    if r["encrypted"]:
+        w.skip(path, "HWP 암호화 문서 — 본문 추출 불가(추정 금지)")
+        return 0
+    if not r["text"].strip():
+        w.skip(path, "HWP 본문 텍스트 없음(BodyText 파싱 결과 공백)")
+        return 0
+    n = 0
+    current_section = None
+    for li, line in enumerate(r["text"].split("\n"), start=1):
+        t = clean(line)
+        if len(t) < 2:
+            continue
+        if SECTION_HEADER_PATTERN.match(t):
+            current_section = t
+            ctx = None
+        else:
+            ctx = current_section
+        n += 1
+        w.add(case_name, doc_type, doc_subtype, path, f"para{li}", t,
+              evidence_status=evidence_status, extraction_quality="hwp_text",
+              section_context=ctx)
+    return n
 
 
 def chunk_docx(w, path, case_name, doc_type, doc_subtype, evidence_status="실측"):

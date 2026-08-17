@@ -27,7 +27,7 @@ import re
 from chunking_lib_v2 import (
     ROOT, SPEC_DIR, FACILITY_DIR, ChunkWriter,
     chunk_pdf_by_page, chunk_pdf_table_or_lines, chunk_xlsx, chunk_xls_legacy, chunk_docx,
-    write_outputs,
+    chunk_hwp, write_outputs,
 )
 import pdfplumber
 
@@ -35,7 +35,9 @@ W = ChunkWriter()
 log = []
 
 EXCLUDE_DIRS = {"노지견적", "노지시방서", "대산온실"}
-SKIP_EXT = {".png", ".jpg", ".jpeg", ".hwp", ".doc"}
+# P3-21(2026-08-17): .hwp를 SKIP_EXT에서 제거 — "hwp 스캔본" 판정(07-23)은
+# 오진이었고(8건 전부 BodyText 텍스트 실존), chunk_hwp()가 직접 추출한다.
+SKIP_EXT = {".png", ".jpg", ".jpeg", ".doc"}
 
 # ── doc_type 분류 규칙 (파일명 기준, 우선순위 순) ──
 # "검토서"는 이 말뭉치에서 실제로 열어본 4건(이두희x3, 이준호x1) 전부 구조계산서였다
@@ -258,6 +260,9 @@ def process_file(path, case, doc_type):
         elif ext == ".docx":
             n = chunk_docx(W, path, case, doc_type, None)
             log.append(f"[{case}] {doc_type} {os.path.basename(path)}: chunks={n}")
+        elif ext == ".hwp":
+            n = chunk_hwp(W, path, case, doc_type, None)
+            log.append(f"[{case}] {doc_type} {os.path.basename(path)}: hwp_chunks={n}")
         else:
             W.skip(path, f"처리 대상 아닌 확장자({ext})")
     except Exception as e:
@@ -289,11 +294,9 @@ def run():
             continue
         if ext in SKIP_EXT:
             n_skip_ext += 1
-            reason = {"." + "hwp": "HWP 텍스트 추출 도구 없음(2026-07-23 확인)",
-                      ".doc": "구버전 워드(.doc) — python-docx로 못 읽음"}.get(
+            # P3-21: .hwp는 2026-08-17부터 chunk_hwp()로 직접 처리(SKIP_EXT 제외)
+            reason = {".doc": "구버전 워드(.doc) — python-docx로 못 읽음"}.get(
                 ext, "이미지 파일(OCR 미적용)")
-            if ext == ".hwp":
-                reason = "HWP 텍스트 추출 도구 없음(2026-07-23 확인)"
             W.skip(path, reason)
             continue
 
