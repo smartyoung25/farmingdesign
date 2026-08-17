@@ -186,3 +186,78 @@ def test_xls_lenient_loader_reads_damaged_file_and_restores_xlrd():
 def test_xls_lenient_loader_none_for_nonexistent():
     from chunking_lib_v2 import _xls_sheets_lenient
     assert _xls_sheets_lenient(r"E:\FarmingDesign\없는파일_zzz.xls") is None
+
+
+# ── P2-14 매니페스트(4상태 diff) · 오버레이 (2026-08-17) ──────────────────
+
+def test_file_fingerprint_and_manifest_roundtrip(tmp_path):
+    from chunking_lib_v2 import file_fingerprint, load_manifest, save_manifest
+    f = tmp_path / "a.txt"
+    f.write_text("스마트팜", encoding="utf-8")
+    fp = file_fingerprint(str(f))
+    assert len(fp["sha256"]) == 64 and fp["size"] == len("스마트팜".encode("utf-8"))
+    # 내용이 같으면 지문 동일(결정론)
+    assert fp["sha256"] == file_fingerprint(str(f))["sha256"]
+    # 매니페스트: 없으면 스켈레톤, 저장/재로드 왕복 보존
+    mpath = str(tmp_path / "manifest.json")
+    m = load_manifest(mpath)
+    assert m["files"] == {} and m["last_run"] is None
+    m["files"]["x.pdf"] = {"sha256": fp["sha256"], "status": "processed"}
+    m["last_run"] = "T01"
+    save_manifest(m, mpath)
+    assert load_manifest(mpath) == m
+
+
+def test_classify_file_states_four_buckets():
+    from chunking_lib_v2 import classify_file_states
+    mf = {
+        "무변경.pdf": {"sha256": "AAA", "status": "processed"},
+        "변경.pdf": {"sha256": "OLD", "status": "processed"},
+        "삭제.pdf": {"sha256": "GONE", "status": "processed"},
+        "이미묘비.pdf": {"sha256": "T", "status": "tombstoned"},
+    }
+    current = {
+        "무변경.pdf": {"sha256": "AAA", "mtime": 1, "size": 1},
+        "변경.pdf": {"sha256": "NEW", "mtime": 2, "size": 2},
+        "신규.pdf": {"sha256": "FRESH", "mtime": 3, "size": 3},
+    }
+    s = classify_file_states(current, mf)
+    assert s["unchanged"] == ["무변경.pdf"]
+    assert s["changed"] == ["변경.pdf"]
+    assert s["new"] == ["신규.pdf"]
+    assert s["deleted"] == ["삭제.pdf"]  # 이미 tombstoned인 항목은 재보고 안 함
+
+
+def test_apply_overlay_overrides_marks_and_disambiguates():
+    from chunking_lib_v2 import apply_overlay
+    chunks = [
+        {"chunk_id": "c1", "source_file": "a.pdf", "topic_tags": [], "doc_type": "공사비내역서"},
+        {"chunk_id": "c1", "source_file": "b.pdf", "topic_tags": [], "doc_type": "공사비내역서"},
+        {"chunk_id": "c2", "source_file": "a.pdf", "topic_tags": ["시설"], "doc_type": "시방서"},
+    ]
+    overlay = [
+        # source_file로 한정 — a.pdf의 c1만 보정돼야 한다(chunk_id는 파일 간 충돌 가능)
+        {"chunk_id": "c1", "source_file": "a.pdf", "fields": {"topic_tags": ["장비"], "chunk_id": "해킹시도"}},
+        {"chunk_id": "없는id", "fields": {"topic_tags": ["부지"]}},
+    ]
+    view, n_applied, n_unmatched = apply_overlay(chunks, overlay)
+    assert n_applied == 1 and n_unmatched == 1
+    a1 = next(c for c in view if c["source_file"] == "a.pdf" and c["chunk_id"] == "c1")
+    b1 = next(c for c in view if c["source_file"] == "b.pdf" and c["chunk_id"] == "c1")
+    assert a1["topic_tags"] == ["장비"] and a1["manual_overlay"] is True
+    assert a1["chunk_id"] == "c1"          # 식별자 필드는 오버라이드 불가
+    assert b1["topic_tags"] == [] and "manual_overlay" not in b1
+    # 원본 리스트 불변(뷰만 갱신)
+    assert chunks[0]["topic_tags"] == []
+
+
+def test_load_overlay_missing_empty_and_corrupt(tmp_path):
+    from chunking_lib_v2 import load_overlay
+    assert load_overlay(str(tmp_path / "없음.jsonl")) == []
+    ok = tmp_path / "ok.jsonl"
+    ok.write_text('{"chunk_id": "c1", "fields": {"topic_tags": ["부지"]}}\n\n', encoding="utf-8")
+    assert len(load_overlay(str(ok))) == 1
+    bad = tmp_path / "bad.jsonl"
+    bad.write_text("{깨진 json", encoding="utf-8")
+    with pytest.raises(RuntimeError):
+        load_overlay(str(bad))  # 손보정 파일 파손은 조용히 무시하지 않고 중단

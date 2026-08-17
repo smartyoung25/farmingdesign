@@ -62,6 +62,109 @@ def chunk_count_regression_guard(new_count, index_path, allow_shrink=None):
             "CHUNK_ALLOW_SHRINK=1 환경변수로 재실행할 것")
     return True
 
+
+# ── P2-14(2026-08-17): 매니페스트(4상태 diff) · 수동보정 오버레이 ──────────
+# 방법론 문서 6-1·6-2·6-4절 구현. 매니페스트는 파일 단위 처리상태 대장으로,
+# 재실행 시 지문(sha256+mtime/size) 대조로 무변경/신규/변경/삭제를 판정한다
+# (종전엔 파트파일 존재 여부만 봐서 원본이 바뀌거나 지워져도 감지 불가).
+# 오버레이는 사람이 고친 태그를 원본 인덱스 밖(청킹_오버레이.jsonl)에 쌓아
+# 재실행에도 유실되지 않게 한다 — 최종 뷰 = 자동 인덱스 ⊕ 오버레이(오버레이 우선).
+import hashlib as _hashlib
+
+MANIFEST_VERSION = "1.0"
+MANIFEST_PATH = os.path.join(ROOT, "청킹_매니페스트.json")
+OVERLAY_PATH = os.path.join(ROOT, "청킹_오버레이.jsonl")
+# 오버레이가 덮어쓸 수 있는 필드 — 식별자(chunk_id·source_file)와 지문성 필드는 불가
+OVERLAY_ALLOWED_FIELDS = {"topic_tags", "consulting_tags", "doc_type", "doc_subtype",
+                          "case_name", "engine_link", "content_summary", "evidence_status"}
+
+
+def file_fingerprint(path):
+    """파일 지문 — sha256(내용) + mtime_ns/size(보조)."""
+    h = _hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    st = os.stat(path)
+    return {"sha256": h.hexdigest(), "mtime": st.st_mtime_ns, "size": st.st_size}
+
+
+def load_manifest(path=MANIFEST_PATH):
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return {"manifest_version": MANIFEST_VERSION, "last_run": None, "files": {}}
+
+
+def save_manifest(manifest, path=MANIFEST_PATH):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)  # 원자적 저장(파트파일과 동일한 체크포인트 규율)
+
+
+def classify_file_states(current, manifest_files):
+    """4상태 diff(방법론 6-2절). current: {relpath: fingerprint dict},
+    manifest_files: 매니페스트의 files 딕셔너리. 반환: 상태별 relpath 리스트."""
+    states = {"new": [], "changed": [], "unchanged": [], "deleted": []}
+    for rel, fp in current.items():
+        ent = manifest_files.get(rel)
+        if ent is None:
+            states["new"].append(rel)
+        elif ent.get("sha256") != fp["sha256"]:
+            states["changed"].append(rel)
+        else:
+            states["unchanged"].append(rel)
+    for rel, ent in manifest_files.items():
+        if rel not in current and ent.get("status") != "tombstoned":
+            states["deleted"].append(rel)
+    return states
+
+
+def load_overlay(path=OVERLAY_PATH):
+    """오버레이 항목 목록. 파일이 없거나 비어 있으면 빈 목록(보정이 아직 없다는 뜻)."""
+    entries = []
+    if not os.path.exists(path):
+        return entries
+    with open(path, encoding="utf-8") as f:
+        for ln, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except Exception as e:
+                raise RuntimeError(f"오버레이 {ln}행 JSON 파싱 실패: {e} — 손보정 파일이라 자동 무시하지 않고 중단")
+    return entries
+
+
+def apply_overlay(chunks, overlay_entries):
+    """자동 인덱스 청크에 오버레이를 적용한 '최종 뷰'를 만든다(원본 리스트 불변).
+    매칭 키는 chunk_id(+ 오버레이에 source_file이 있으면 함께 대조 — chunk_id는
+    파일 간 충돌이 가능하므로 모호하면 source_file로 한정할 것). 적용된 청크엔
+    manual_overlay=True 를 표시한다. 반환: (뷰 리스트, 적용 건수, 미매칭 오버레이 수)."""
+    by_id = {}
+    for e in overlay_entries:
+        by_id.setdefault(e["chunk_id"], []).append(e)
+    out, n_applied, matched = [], 0, set()
+    for c in chunks:
+        hits = [e for e in by_id.get(c["chunk_id"], [])
+                if not e.get("source_file") or e["source_file"] == c.get("source_file")]
+        if not hits:
+            out.append(c)
+            continue
+        merged = dict(c)
+        for e in hits:
+            for k, v in (e.get("fields") or {}).items():
+                if k in OVERLAY_ALLOWED_FIELDS:
+                    merged[k] = v
+            matched.add(id(e))
+        merged["manual_overlay"] = True
+        out.append(merged)
+        n_applied += 1
+    n_unmatched = sum(1 for e in overlay_entries if id(e) not in matched)
+    return out, n_applied, n_unmatched
+
 # ── 주제축(도메인) 태깅 규칙 ──
 # 2026-07-24 개정: 사용자 지정 9개 공학 도메인 축으로 재구성한다.
 #   부지 · 토목 · 시설 · 장비 · 전기 · 통신 · 재배환경 · 운영 · 사후관리
