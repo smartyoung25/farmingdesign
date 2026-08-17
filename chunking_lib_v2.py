@@ -112,6 +112,11 @@ NOISE_PATTERN = re.compile(r"Certifi|MODEL DATA|GDLicense|Robot\s*Structural|aut
 # 공사비내역서/설계예산서 표에서 "공종 헤더 행"으로 볼 패턴 (예: "1-1. 기초공사", "0102. 기초공사")
 SECTION_HEADER_PATTERN = re.compile(r"^\d+([.\-]\d+)*\.?\s*[가-힣]")
 
+# ── P2-13(2026-08-17): 그룹청킹 L1/L2 대상 doc_type ──
+# 방법론 문서 4-2절: 표형 3종만 그룹(L1) 태깅 + 행(L2) 역참조로 전환.
+# 공사공정표(공종 1행)·기자재현황/품셈/가이드라인(품목 1개)은 v1 단위 유지.
+GROUPED_DOC_TYPES = {"공사비내역서", "설계예산서", "수량산출서"}
+
 
 def looks_like_noise(text):
     return len(NOISE_PATTERN.findall(text)) >= 2
@@ -220,7 +225,8 @@ class ChunkWriter:
 
     def add(self, case_name, doc_type, doc_subtype, source_file, page_or_section,
             text, evidence_status="실측", extraction_quality="normal", duplicate_of=None,
-            section_context=None):
+            section_context=None, chunk_level=None, parent_group_id=None,
+            group_member_rows=None, suppress_topic_tags=False):
         text = clean(text)
         noise = looks_like_noise(text)
         tagging_text = text if not noise else ""
@@ -235,7 +241,8 @@ class ChunkWriter:
             "doc_subtype": doc_subtype,
             "page_or_section": page_or_section,
             "section_context": clean(section_context) if section_context else None,
-            "topic_tags": tag_topics(tagging_text),
+            # P2-13: L2 행은 주제축 태깅을 시도하지 않는다(태깅은 소속 L1 그룹에서).
+            "topic_tags": [] if suppress_topic_tags else tag_topics(tagging_text),
             "consulting_tags": consulting_tags(doc_type, tagging_text),
             "content_summary": text[:200],
             "text_len": len(text),
@@ -244,15 +251,84 @@ class ChunkWriter:
             "engine_link": engine_link_for(doc_type, tagging_text),
             "duplicate_of": duplicate_of,
         }
+        # P2-13 그룹청킹 필드 — 해당될 때만 기록(비표형 청크의 스키마는 불변)
+        if chunk_level is not None:
+            rec["chunk_level"] = chunk_level
+        if parent_group_id is not None:
+            rec["parent_group_id"] = parent_group_id
+        if group_member_rows is not None:
+            rec["group_member_rows"] = group_member_rows
         specs, costs = extract_spec_cost(text)
         rec["spec_values"] = specs
         rec["cost_values"] = costs
         rec["spec_signal"] = bool(specs)
         rec["cost_signal"] = bool(costs)
         self.chunks.append(rec)
+        return rec
 
     def skip(self, path, reason):
         self.skipped_files.append((os.path.relpath(path, ROOT).replace("\\", "/"), reason))
+
+
+class GroupEmitter:
+    """P2-13(2026-08-17) — 표형 문서(GROUPED_DOC_TYPES)의 L1 그룹/L2 행 방출기.
+
+    방법론 문서 4-1절: 태깅은 L1(공종/절 묶음)에서 하고, 개별 내역 행(L2)은
+    parent_group_id로 그룹에 매달아 두되 주제축 태깅을 시도하지 않는다(부품명
+    단일행 미분류의 주원인 제거). 그룹 경계는 is_header_row()가 여는 공종 헤더.
+    헤더 없이 시작하는 연속 행 구간은 "그룹(코드나열)" 1그룹으로 묶는다 —
+    태깅은 시도하되 대부분 미분류로 남는 게 정상(억지 태깅 금지).
+
+    사용: 헤더 행이면 header_row(), 내역 행이면 row(). 시트/파일 경계에서
+    flush() — 버퍼된 그룹을 L1(group_rollup) 1건 + L2 행들로 방출한다.
+    L1이 먼저 방출되고 그 chunk_id가 L2의 parent_group_id로 들어간다.
+    """
+
+    def __init__(self, w, case_name, doc_type, source_path,
+                 evidence_status="실측", duplicate_of=None):
+        self.w = w
+        self.case_name = case_name
+        self.doc_type = doc_type
+        self.source_path = source_path
+        self.evidence_status = evidence_status
+        self.duplicate_of = duplicate_of
+        self.n_groups = 0
+        self._header = None          # (row_id, text) — 현재 그룹의 공종 헤더
+        self._rows = []              # [(row_id, text, quality)]
+
+    def header_row(self, row_id, text):
+        self.flush()
+        self._header = (row_id, clean(text))
+
+    def row(self, row_id, text, quality):
+        self._rows.append((row_id, clean(text), quality))
+
+    def flush(self):
+        if self._header is None and not self._rows:
+            return
+        self.n_groups += 1
+        header_text = self._header[1] if self._header else None
+        anchor = self._header[0] if self._header else self._rows[0][0]
+        pos = f"{anchor}-g{self.n_groups}"
+        subtype = "그룹" if header_text else "그룹(코드나열)"
+        member_ids = [rid for rid, _, _ in self._rows]
+        group_text = " | ".join(([header_text] if header_text else [])
+                                + [t for _, t, _ in self._rows])
+        grec = self.w.add(
+            self.case_name, self.doc_type, subtype, self.source_path, pos,
+            group_text, evidence_status=self.evidence_status,
+            extraction_quality="group_rollup", duplicate_of=self.duplicate_of,
+            section_context=header_text, chunk_level="group",
+            group_member_rows=member_ids)
+        for rid, text, quality in self._rows:
+            self.w.add(
+                self.case_name, self.doc_type, None, self.source_path, rid,
+                text, evidence_status=self.evidence_status,
+                extraction_quality=quality, duplicate_of=self.duplicate_of,
+                section_context=header_text, chunk_level="row",
+                parent_group_id=grec["chunk_id"], suppress_topic_tags=True)
+        self._header = None
+        self._rows = []
 
 
 def chunk_pdf_by_page(w, path, case_name, doc_type, doc_subtype, evidence_status="실측",
@@ -305,6 +381,10 @@ def chunk_pdf_table_or_lines(w, path, case_name, doc_type, doc_subtype, evidence
     n_pages_with_table = 0
     n_pages_line_fallback = 0
     current_section = None
+    # P2-13: 표형 3종은 그룹(L1)+행(L2)로 방출. 헤더 캐리포워드가 파일 전체에
+    # 걸치는 기존 의미를 따라 emitter도 파일당 1개(페이지·표 경계를 넘어 지속).
+    ge = GroupEmitter(w, case_name, doc_type, path, evidence_status, duplicate_of) \
+        if doc_type in GROUPED_DOC_TYPES else None
     with pdfplumber.open(path) as pdf:
         for i, page in enumerate(pdf.pages):
             tables = page.extract_tables()
@@ -318,12 +398,19 @@ def chunk_pdf_table_or_lines(w, path, case_name, doc_type, doc_subtype, evidence
                         row_text = " | ".join(cells)
                         if len(row_text) < 2:
                             continue
+                        rid = f"p{i+1}-t{ti+1}-r{ri+1}"
+                        if ge is not None:
+                            if is_header_row(cells):
+                                ge.header_row(rid, row_text)
+                            else:
+                                ge.row(rid, row_text, "table_extract")
+                            continue
                         if is_header_row(cells):
                             current_section = row_text
                             ctx = None
                         else:
                             ctx = current_section
-                        w.add(case_name, doc_type, doc_subtype, path, f"p{i+1}-t{ti+1}-r{ri+1}",
+                        w.add(case_name, doc_type, doc_subtype, path, rid,
                               row_text, evidence_status=evidence_status,
                               extraction_quality="table_extract", duplicate_of=duplicate_of,
                               section_context=ctx)
@@ -335,23 +422,35 @@ def chunk_pdf_table_or_lines(w, path, case_name, doc_type, doc_subtype, evidence
                 for li, line in enumerate(t.split("\n")):
                     if len(line.strip()) < 2:
                         continue
+                    rid = f"p{i+1}-line{li+1}"
+                    if ge is not None:
+                        if is_header_row([line.strip()]):
+                            ge.header_row(rid, line.strip())
+                        else:
+                            ge.row(rid, line, "line_fallback")
+                        continue
                     if is_header_row([line.strip()]):
                         current_section = line.strip()
                         ctx = None
                     else:
                         ctx = current_section
-                    w.add(case_name, doc_type, doc_subtype, path, f"p{i+1}-line{li+1}",
+                    w.add(case_name, doc_type, doc_subtype, path, rid,
                           line, evidence_status=evidence_status,
                           extraction_quality="line_fallback", duplicate_of=duplicate_of,
                           section_context=ctx)
+    if ge is not None:
+        ge.flush()
     return n_pages_with_table, n_pages_line_fallback
 
 
 def chunk_xlsx(w, path, case_name, doc_type, doc_subtype, evidence_status="실측"):
     wb = openpyxl.load_workbook(path, data_only=True)
     n_rows = 0
+    grouped = doc_type in GROUPED_DOC_TYPES  # P2-13
     for ws in wb.worksheets:
         current_section = None
+        # 기존 캐리포워드가 시트마다 리셋되므로 emitter도 시트당 1개
+        ge = GroupEmitter(w, case_name, doc_type, path, evidence_status) if grouped else None
         for ri, row in enumerate(ws.iter_rows(values_only=True), start=1):
             cells = [str(c) for c in row if c is not None and str(c).strip()]
             if not cells:
@@ -360,14 +459,23 @@ def chunk_xlsx(w, path, case_name, doc_type, doc_subtype, evidence_status="실�
             if len(row_text) < 2:
                 continue
             n_rows += 1
+            rid = f"{ws.title}-r{ri}"
+            if ge is not None:
+                if is_header_row(cells):
+                    ge.header_row(rid, row_text)
+                else:
+                    ge.row(rid, row_text, "xlsx_row")
+                continue
             if is_header_row(cells):
                 current_section = row_text
                 ctx = None
             else:
                 ctx = current_section
-            w.add(case_name, doc_type, doc_subtype, path, f"{ws.title}-r{ri}",
+            w.add(case_name, doc_type, doc_subtype, path, rid,
                   row_text, evidence_status=evidence_status, extraction_quality="xlsx_row",
                   section_context=ctx)
+        if ge is not None:
+            ge.flush()
     return n_rows
 
 
@@ -379,8 +487,10 @@ def chunk_xls_legacy(w, path, case_name, doc_type, doc_subtype, evidence_status=
     except Exception as e:
         w.skip(path, f"xls 읽기 실패: {e}")
         return 0
+    grouped = doc_type in GROUPED_DOC_TYPES  # P2-13
     for sheet_name, df in sheets.items():
         current_section = None
+        ge = GroupEmitter(w, case_name, doc_type, path, evidence_status) if grouped else None
         for ri, row in df.iterrows():
             cells = [str(c) for c in row.tolist() if str(c) not in ("nan", "None", "")]
             if not cells:
@@ -389,14 +499,23 @@ def chunk_xls_legacy(w, path, case_name, doc_type, doc_subtype, evidence_status=
             if len(row_text) < 2:
                 continue
             n_rows += 1
+            rid = f"{sheet_name}-r{ri+1}"
+            if ge is not None:
+                if is_header_row(cells):
+                    ge.header_row(rid, row_text)
+                else:
+                    ge.row(rid, row_text, "xls_row")
+                continue
             if is_header_row(cells):
                 current_section = row_text
                 ctx = None
             else:
                 ctx = current_section
-            w.add(case_name, doc_type, doc_subtype, path, f"{sheet_name}-r{ri+1}",
+            w.add(case_name, doc_type, doc_subtype, path, rid,
                   row_text, evidence_status=evidence_status, extraction_quality="xls_row",
                   section_context=ctx)
+        if ge is not None:
+            ge.flush()
     return n_rows
 
 
@@ -447,6 +566,14 @@ def write_outputs(w, jsonl_path, summary_path, extra_log=None):
             topic_counter[t] += 1
     untagged = sum(1 for c in w.chunks if not c["topic_tags"])
     linked = sum(1 for c in w.chunks if c["engine_link"])
+    # P2-13 태깅 단위 지표 — L2 행(chunk_level=="row")은 설계상 무태깅이므로
+    # 미분류율은 "태깅 단위"(행 제외 전체) 기준으로 따로 계산한다.
+    n_l2_rows = sum(1 for c in w.chunks if c.get("chunk_level") == "row")
+    n_groups = sum(1 for c in w.chunks if c.get("chunk_level") == "group")
+    units = [c for c in w.chunks if c.get("chunk_level") != "row"]
+    untagged_units = sum(1 for c in units if not c["topic_tags"])
+    g_units = [c for c in units if c["doc_type"] in GROUPED_DOC_TYPES]
+    g_untagged = sum(1 for c in g_units if not c["topic_tags"])
     consult_counter = Counter()
     for c in w.chunks:
         for t in c.get("consulting_tags", []):
@@ -463,6 +590,13 @@ def write_outputs(w, jsonl_path, summary_path, extra_log=None):
 
         f.write(f"=== 총 청크 수: {len(w.chunks)} ===\n")
         f.write(f"=== 처리 실패/건너뛴 파일 수: {len(w.skipped_files)} ===\n")
+        if n_l2_rows or n_groups:
+            f.write(f"\n-- P2-13 그룹청킹 지표 --\n")
+            f.write(f"L1 그룹: {n_groups} / L2 행(무태깅): {n_l2_rows}\n")
+            f.write(f"태깅 단위(행 제외): {len(units)}, 미분류 {untagged_units} "
+                    f"({untagged_units/max(len(units),1)*100:.1f}%)\n")
+            f.write(f"표형 3종 태깅 단위: {len(g_units)}, 미분류 {g_untagged} "
+                    f"({g_untagged/max(len(g_units),1)*100:.1f}%) — 목표 30% 이하\n")
 
         f.write("\n-- doc_type별 청크 수 --\n")
         for k, v in by_doc_type.most_common():

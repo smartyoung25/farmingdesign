@@ -11,6 +11,9 @@ import pytest
 
 from chunking_lib_v2 import (
     PIPELINE_DEPENDENCIES,
+    GROUPED_DOC_TYPES,
+    ChunkWriter,
+    GroupEmitter,
     assert_pipeline_dependencies,
     chunk_count_regression_guard,
 )
@@ -67,3 +70,81 @@ def test_count_guard_env_var_override(tmp_path, monkeypatch):
     monkeypatch.delenv("CHUNK_ALLOW_SHRINK")
     with pytest.raises(RuntimeError):
         chunk_count_regression_guard(7, idx)
+
+
+# ── P2-13 그룹청킹 L1/L2 (2026-08-17) ──────────────────────────────
+
+def _emit(rows):
+    """rows: [(row_id, text, is_header)] → (전체 청크, 그룹들, 행들)"""
+    w = ChunkWriter()
+    ge = GroupEmitter(w, "테스트", "공사비내역서", r"E:\FarmingDesign\가상.pdf")
+    for rid, text, is_hdr in rows:
+        if is_hdr:
+            ge.header_row(rid, text)
+        else:
+            ge.row(rid, text, "table_extract")
+    ge.flush()
+    groups = [c for c in w.chunks if c.get("chunk_level") == "group"]
+    l2 = [c for c in w.chunks if c.get("chunk_level") == "row"]
+    return w.chunks, groups, l2
+
+
+def test_group_emitter_header_opens_group_and_rows_reference_it():
+    chunks, groups, l2 = _emit([
+        ("p1-t1-r1", "0102. 기초공사", True),
+        ("p1-t1-r2", "버림콘크리트 | 25-21-120 | 10 | ㎥ | 99,000 | 990,000", False),
+        ("p1-t1-r3", "잡석다짐 | 100mm | 50 | ㎡ | 5,000 | 250,000", False),
+    ])
+    assert len(groups) == 1 and len(l2) == 2
+    g = groups[0]
+    assert g["doc_subtype"] == "그룹"
+    assert g["extraction_quality"] == "group_rollup"
+    assert g["group_member_rows"] == ["p1-t1-r2", "p1-t1-r3"]
+    assert all(r["parent_group_id"] == g["chunk_id"] for r in l2)
+    # L2 행은 설계상 무태깅(주제축 태깅은 그룹에서만)
+    assert all(r["topic_tags"] == [] for r in l2)
+    # 그룹은 헤더+행 합본으로 태깅 — '기초공사/콘크리트'가 토목 키워드에 걸림
+    assert "토목" in g["topic_tags"]
+
+
+def test_group_emitter_tags_from_member_rows_not_only_header():
+    # 헤더가 무의미해도(태그 안 걸림) 부품 행의 '철골'이 그룹 태깅에 잡혀야 한다
+    # — 이게 행 단위 미분류를 그룹이 흡수하는 핵심 개선.
+    chunks, groups, l2 = _emit([
+        ("s-r1", "3. 공사", True),
+        ("s-r2", "철골 트러스 상현재 | 각형강관 125*75", False),
+    ])
+    assert "시설" in groups[0]["topic_tags"]
+
+
+def test_group_emitter_headerless_run_is_single_code_list_group():
+    chunks, groups, l2 = _emit([
+        ("s-r1", "SC-101 | 685,000", False),
+        ("s-r2", "SC-102 | 986,400", False),
+    ])
+    assert len(groups) == 1
+    assert groups[0]["doc_subtype"] == "그룹(코드나열)"
+    assert groups[0]["section_context"] is None
+    assert len(l2) == 2
+
+
+def test_group_emitter_multiple_groups_and_empty_flush_safe():
+    chunks, groups, l2 = _emit([
+        ("r1", "1-1. 기초공사", True),
+        ("r2", "터파기 | 100 | ㎥", False),
+        ("r3", "1-2. 골조공사", True),
+        ("r4", "기둥 | 각형강관", False),
+        ("r5", "서까래 | 파이프", False),
+    ])
+    assert len(groups) == 2 and len(l2) == 3
+    assert groups[0]["group_member_rows"] == ["r2"]
+    assert groups[1]["group_member_rows"] == ["r4", "r5"]
+    # 빈 emitter flush는 무해
+    w = ChunkWriter()
+    GroupEmitter(w, "t", "공사비내역서", "x.pdf").flush()
+    assert w.chunks == []
+
+
+def test_grouped_doc_types_scope_is_three_tabular_types():
+    # 방법론 4-2절: 공정표·기자재현황은 v1 단위 유지 — 스코프 드리프트 가드
+    assert GROUPED_DOC_TYPES == {"공사비내역서", "설계예산서", "수량산출서"}
