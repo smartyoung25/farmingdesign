@@ -461,9 +461,17 @@ U_DESIGN = {"필름": 8.9, "불소필름": 8.9, "단동": 8.9}
 # ✅ 방향 수정(2026-07-20): FR_TABLE 값은 그대로 두고, 아래 curtain_exposure_ratio()가
 # 열절감률→노출비율(1-절감률) 변환을 전담한다 — heating_load(fr=...)에는 반드시
 # FR_TABLE 원값이 아니라 curtain_exposure_ratio()의 반환값을 넣을 것.
-# ⚠️ 절감률 자체의 절대값(0.35/0.5/0.85)은 여전히 1차 출처 미확보([확인요망],
-# 유력 후보는 NIHHS '온실에너지계산' API 가이드문서, atis.rda.go.kr 로그인장벽으로
-# 미확보) — 이번 수정은 "방향"만 고친 것이지 절감률 수치를 검증한 게 아니다.
+# ⚠️ 절감률 자체의 절대값(0.35/0.5/0.85)은 여전히 1차 출처 미확보([확인요망]).
+# 2026-08-17 라운드5(P1-9, NIHHS 공식 웹계산기 실측 프로빙 — 상세는 레지스트리):
+#   ①NIHHS OpenAPI 활용가이드(v1.0 docx) 정독 결과 KWR(보온비)은 응답 필드이며
+#     보온비 계수표는 가이드에도 없음(종전 "사용자 필수입력값" 기록은 오인, 정정).
+#   ②웹계산기(nihhs.go.kr farmerUseProgram3) 보온재 16종 프로빙으로 공식 실효
+#     절감률 확보(PO피복·전주 기준, 무보온 대비): PE필름 33.6% ≈ 0.35 정합,
+#     알루미늄보온스크린 51.8%·다겹보온커튼 56.3% ≈ 0.5 근사,
+#     최대조합(다겹+PE필름부직포)도 65.4%에 그침 → **이중커튼 0.85는 공식
+#     계산기의 어떤 조합으로도 재현 불가(과대 의심)** — 0.85 사용 시 주의.
+#   ③방향성 최종 확증: NIHHS 모델도 보온재가 좋을수록 부하 감소 — FR_TABLE을
+#     "열절감률"로 읽는 현행 해석이 공식 계산기와 정합.
 FR_TABLE = {"PO단일": 0.35, "다겹보온": 0.5, "이중커튼": 0.85, "2중커튼": 0.85}
 
 
@@ -490,17 +498,35 @@ class HeatingResult:
 
 
 def heating_load(surface_area_m2: float, cover: str, t_target: float,
-                 t_min: float, fr: float, safety: float = 1.1,
+                 t_min: float, fr: Optional[float] = None, safety: float = 1.1,
                  degree_hours: float = 10098.0, efficiency: float = 0.85,
                  fuel: str = "등유", floor_area_m2: Optional[float] = None,
-                 u_design: Optional[float] = None, u_period: Optional[float] = None
-                 ) -> HeatingResult:
+                 u_design: Optional[float] = None, u_period: Optional[float] = None,
+                 curtain: Optional[str] = None) -> HeatingResult:
     """최대난방부하 = Aw × u_design × ΔT × 보온비. 기간(연료소비)부하는 u_period 사용. (A-5 구조)
     u_design 미지정 시 U_DESIGN[cover](Diop et al. 2012 핫박스 극한조건 실측,
     없으면 U_VALUE[cover]로 폴백). u_period 미지정 시 U_VALUE[cover](이현우 등
     2013 현장평균 실측) — 2026-08-16(P1-5)부터 두 기본값이 서로 다른 실측
     출처로 분리됐다(U_VALUE/U_DESIGN source 주석 참고). degree_hours: 난방
-    디그리아워(기본은 A-5 예시값). fuel: 연료종류."""
+    디그리아워(기본은 A-5 예시값). fuel: 연료종류.
+
+    fr/curtain (P1-9, 2026-08-17 — 정확히 하나만 지정):
+      fr      = 노출비율(0<fr<=1, 작을수록 보온이 잘 됨). ⚠️ FR_TABLE 원값
+                (열절감률, 클수록 보온이 잘 됨)을 넣으면 방향이 반전된다 —
+                FR_TABLE 조합을 쓰려면 curtain 인자를 쓸 것.
+      curtain = FR_TABLE 피복조합명("PO단일"/"다겹보온"/"이중커튼"/"2중커튼").
+                내부에서 curtain_exposure_ratio()로 변환해 방향반전이 구조적으로
+                불가능하다."""
+    # ── P1-9: fr 방향반전 버그의 시그니처 수준 차단 ──
+    if (fr is None) == (curtain is None):
+        raise ValueError(
+            "fr(노출비율)과 curtain(피복조합명) 중 정확히 하나만 지정할 것 — "
+            "FR_TABLE 원값(열절감률)을 그대로 곱하는 방향반전 사고를 막기 위한 강제. "
+            "커튼 이름만 알면 curtain='다겹보온' 식으로 넘겨라")
+    if curtain is not None:
+        fr = curtain_exposure_ratio(curtain)
+    if not (0 < fr <= 1):
+        raise ValueError(f"fr(노출비율)은 0<fr<=1 범위여야 한다(입력: {fr})")
     u_d = u_design if u_design is not None else U_DESIGN.get(cover, U_VALUE.get(cover, 5.7))
     u_p = u_period if u_period is not None else U_VALUE.get(cover, 5.7)
     dt = t_target - t_min
@@ -1149,11 +1175,13 @@ class RfqPackage:
 
 def generate_rfq_package(region_snow_cm: float, region_wind_ms: float,
                          area_m2: float, cover: Cover, form: str,
-                         t_target: float, t_min: float, fr: float,
+                         t_target: float, t_min: float,
+                         fr: Optional[float] = None,
                          surface_area_m2: Optional[float] = None,
                          safety: float = 1.1, degree_hours: float = 10098.0,
                          efficiency: float = 0.85, fuel: str = "등유",
-                         required_categories: Optional[list] = None) -> RfqPackage:
+                         required_categories: Optional[list] = None,
+                         curtain: Optional[str] = None) -> RfqPackage:
     """설계 축 함수만 호출해 구조화한 RFQ 사양서(=구조화 사양표, CAD 도면 아님).
     form(연동/단동/광폭)은 판단성 결정이라 필수 인자로 받는다 — 엔진이 임의로
     고르지 않는다. 해당 지역강도를 만족하는 규격이 그 형식에 없으면 예외.
@@ -1168,8 +1196,10 @@ def generate_rfq_package(region_snow_cm: float, region_wind_ms: float,
             f"'{form}' 형식으로 지역 설계강도(적설{region_snow_cm}cm·풍속{region_wind_ms}m/s)를 "
             f"충족하는 규격이 없다")
     surf = surface_area_m2 if surface_area_m2 is not None else area_m2
+    # P1-9: fr/curtain을 그대로 위임 — 정확히-하나 검증은 heating_load()가 수행
     heating = heating_load(surf, cover.value, t_target, t_min, fr, safety,
-                           degree_hours, efficiency, fuel, floor_area_m2=area_m2)
+                           degree_hours, efficiency, fuel, floor_area_m2=area_m2,
+                           curtain=curtain)
     area_py = m2_to_py(area_m2)
     est_a = greenhouse_total_estimate(chosen.name, area_py)
     est_b = structure_only_estimate(area_py)

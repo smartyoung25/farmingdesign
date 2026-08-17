@@ -135,6 +135,41 @@ def test_curtain_exposure_ratio_unknown_curtain_raises():
         e.curtain_exposure_ratio("존재하지않는커튼")
 
 
+# ── 3-3. P1-9(2026-08-17): fr/curtain 시그니처 수준 강제 ────────────
+def test_heating_load_curtain_param_converts_internally():
+    base = dict(surface_area_m2=1000, cover="필름", t_target=15, t_min=-10)
+    via_curtain = e.heating_load(**base, curtain="다겹보온")
+    via_fr = e.heating_load(**base, fr=1 - e.FR_TABLE["다겹보온"])
+    assert via_curtain.max_load_kcal_h == via_fr.max_load_kcal_h
+    # 방향반전 구조 재발 방지: 보온이 좋을수록 부하가 작아야 한다
+    l_po = e.heating_load(**base, curtain="PO단일").max_load_kcal_h
+    l_dual = e.heating_load(**base, curtain="이중커튼").max_load_kcal_h
+    assert l_dual < l_po
+
+
+def test_heating_load_rejects_ambiguous_missing_or_invalid_fr():
+    import pytest
+    base = dict(surface_area_m2=1000, cover="필름", t_target=15, t_min=-10)
+    with pytest.raises(ValueError):
+        e.heating_load(**base)                              # fr·curtain 둘 다 없음
+    with pytest.raises(ValueError):
+        e.heating_load(**base, fr=0.7, curtain="다겹보온")   # 둘 다 지정(모호)
+    with pytest.raises(ValueError):
+        e.heating_load(**base, fr=1.5)                      # 노출비율 범위 밖
+    with pytest.raises(ValueError):
+        e.heating_load(**base, fr=0)                        # 0은 물리적으로 무의미
+
+
+def test_generate_rfq_package_accepts_curtain_path():
+    pkg_curtain = e.generate_rfq_package(
+        region_snow_cm=40, region_wind_ms=30, area_m2=3000, cover=e.Cover.FILM,
+        form="연동", t_target=15, t_min=-10, curtain="다겹보온")
+    pkg_fr = e.generate_rfq_package(
+        region_snow_cm=40, region_wind_ms=30, area_m2=3000, cover=e.Cover.FILM,
+        form="연동", t_target=15, t_min=-10, fr=1 - e.FR_TABLE["다겹보온"])
+    assert pkg_curtain.heating.max_load_kcal_h == pkg_fr.heating.max_load_kcal_h
+
+
 def test_heating_load_with_curtain_exposure_ratio_direction():
     # 실제 heating_load()에 연결했을 때도 "보온 잘 될수록 부하가 작다"가 성립해야
     def load_for(curtain):
