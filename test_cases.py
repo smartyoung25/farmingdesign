@@ -87,3 +87,46 @@ def test_consulting_report_page_shows_capex_breakdown_only_when_present():
                                              C.case_to_input(wonchaewon))
     assert "CAPEX 항목분해" in html_with
     assert "CAPEX 항목분해 실측 데이터가 없어" in html_without
+
+
+# ── P3-23(2026-08-17): compare_quotes 파이프라인 연결 회귀 ──────────────
+
+def test_quotes_json_sums_are_exact():
+    # 3사 공종별 전사의 무결성: 카테고리 합 == 직접공사비 총액(원단위),
+    # raw_rows 합 == 카테고리 합 — 전사·매핑 어느 쪽이 어긋나도 잡힌다.
+    with open("견적비교_논산딸기3사.json", encoding="utf-8") as f:
+        data = json.load(f)
+    assert len(data["vendor_quotes"]) == 3
+    for v in data["vendor_quotes"]:
+        cat_sum = sum(v["categories"].values())
+        raw_sum = sum(r[1] for r in v["raw_rows"])
+        assert cat_sum == v["direct_cost_total"], v["vendor_name"]
+        assert raw_sum == v["direct_cost_total"], v["vendor_name"]
+        assert v["total_with_overhead"] >= v["direct_cost_total"]
+
+
+def test_quotes_comparison_pipeline_flags_expected_signals():
+    data, rfq, cmp = bs.load_quotes_comparison()
+    # RFQ가 P1-11 crop 필터·P1-9 curtain 경로로 생성됨
+    assert rfq.spec_name and rfq.heating.max_load_kcal_h > 0
+    # 임미라: hvac 누락(혼재 표기 검출)이 플래그돼야 한다 — 핵심 컨설팅 신호
+    recon = cmp.reconciliations["임미라(수현건설)"]
+    comp_check = next(c for c in recon.checks if c.name == "필수 공종 완전성")
+    assert comp_check.status == "불일치" and "hvac" in comp_check.detail
+    # 최선동·한수진: 필수 공종은 완전
+    for name in ("최선동(렉창)", "한수진"):
+        c = next(c for c in cmp.reconciliations[name].checks if c.name == "필수 공종 완전성")
+        assert c.status == "일치", name
+    # 3사 모두 벤치마크 밴드 내(참고정보), 추천 필드는 존재하되 판정 아님
+    assert all(115000 <= r.unit_won_m2 <= 240000 for r in cmp.rows)
+    assert cmp.lowest_cost_vendor == "임미라(수현건설)"
+
+
+def test_quotes_comparison_page_renders():
+    data, rfq, cmp = bs.load_quotes_comparison()
+    html_out = bs.quotes_comparison_page(data, rfq, cmp)
+    assert "추천" in html_out and "참고정보" in html_out   # 판단성 존중 문구
+    assert "hvac" in html_out                              # 누락 신호 노출
+    assert "원단위 전사" in html_out                        # 출처 표기
+    for v in data["vendor_quotes"]:
+        assert v["vendor_name"] in html_out

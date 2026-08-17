@@ -428,6 +428,80 @@ def registry_page() -> str:
     return _page("엔진 상수 근거대장", body)
 
 
+QUOTES_JSON = "견적비교_논산딸기3사.json"
+
+
+def load_quotes_comparison(path: str = QUOTES_JSON):
+    """견적비교 데이터(JSON) → 엔진 compare_quotes() 결과. 렌더 밖 계산은 전부 엔진.
+    P3-23(2026-08-17 사용자 결정): P3-20 시연을 사이트 파이프라인에 정식 연결."""
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    ri = data["rfq_input"]
+    rfq = e.generate_rfq_package(
+        region_snow_cm=ri["region_snow_cm"], region_wind_ms=ri["region_wind_ms"],
+        area_m2=ri["area_m2"], cover=e.Cover(ri["cover"]), form=ri["form"],
+        t_target=ri["t_target"], t_min=ri["t_min"],
+        curtain=ri["curtain"], crop=ri["crop"])
+    vqs = [e.VendorQuote(v["vendor_name"], v["categories"], v["direct_cost_total"],
+                         v["total_with_overhead"], v.get("area_m2"), v.get("spec_name"))
+           for v in data["vendor_quotes"]]
+    return data, rfq, e.compare_quotes(rfq, vqs)
+
+
+def quotes_comparison_page(data: dict, rfq, cmp) -> str:
+    ri = data["rfq_input"]
+    won = lambda v: f"{v:,.0f}"
+
+    comp_rows = "".join(
+        f"<tr><td>{esc(r.vendor_name)}</td>"
+        f"<td><span class='badge {_sc('정상' if r.overall_status == '일치' else ('경계' if '확인' in r.overall_status else '재확인'))}'>{esc(r.overall_status)}</span></td>"
+        f"<td class='num'>{r.match_score_pct:.0f}%</td>"
+        f"<td class='num'>{won(r.total_with_overhead_won)}</td>"
+        f"<td class='num'>{won(r.unit_won_m2)}</td></tr>"
+        for r in cmp.rows)
+
+    detail_cards = []
+    for v in data["vendor_quotes"]:
+        recon = cmp.reconciliations[v["vendor_name"]]
+        checks = "".join(
+            f"<tr><td>{esc(c.name)}</td>"
+            f"<td><span class='badge {_sc('정상' if c.status in ('일치', '정상') else ('경계' if c.status == '확인요망' else '재확인'))}'>{esc(c.status)}</span></td>"
+            f"<td>{esc(c.detail)}</td></tr>" for c in recon.checks)
+        raws = "".join(
+            f"<tr><td>{esc(r[0])}</td><td class='num'>{won(r[1])}</td>"
+            f"<td>{esc(r[2])}</td></tr>" for r in v["raw_rows"])
+        detail_cards.append(f"""
+  <section class="card"><span class="axis">업체 상세</span>
+    <h2>{esc(v['vendor_name'])} — {esc(v['area_note'])}</h2>
+    <div class="row"><span class="lbl">출처</span><span class="val"><code>{esc(v['source_file'])}</code> · {esc(v['source_sheet'])}</span></div>
+    <div class="row"><span class="lbl">금액 기준</span><span class="val">{esc(v['total_note'])}</span></div>
+    <table><tr><th>정합 검증</th><th>판정</th><th>상세</th></tr>{checks}</table>
+    <h2 style="margin-top:16px">공종 원문 → 카테고리 매핑 (원단위 전사)</h2>
+    <table><tr><th>견적서 공종(원문)</th><th class="num">금액(원)</th><th>매핑·근거</th></tr>{raws}</table>
+  </section>""")
+
+    body = f"""
+  <header class="top"><h1>{esc(data['title'])}</h1>
+    <div class="sub">7단계(시공발주관리) compare_quotes · 참고정보 — 업체선정 판단은 컨설턴트 몫</div></header>
+  <section class="card"><span class="axis">RFQ 사양</span>
+    <h2>요구 사양서 (엔진 생성)</h2>
+    <div class="row"><span class="lbl">입지</span><span class="val">{esc(ri['region'])} — 적설 {ri['region_snow_cm']}cm · 풍속 {ri['region_wind_ms']}m/s</span></div>
+    <div class="row"><span class="lbl">채택 규격</span><span class="val">{esc(rfq.spec_name)} (설계 적설 {rfq.snow_cm}·풍속 {rfq.wind_ms})</span></div>
+    <div class="row"><span class="lbl">규모·피복</span><span class="val">{ri['area_m2']:,}㎡ · {esc(ri['cover'])} · {esc(ri['form'])} · 작물 {esc(ri['crop'])}</span></div>
+    <div class="row"><span class="lbl">난방부하</span><span class="val">{rfq.heating.max_load_kcal_h:,.0f} kcal/h (커튼 {esc(ri['curtain'])})</span></div>
+    <p class="note" style="border-top:0;margin-top:8px">{esc(ri['note'])}</p></section>
+  <section class="card"><span class="axis">3사 비교</span>
+    <h2>비교표 (입력 순서 그대로 — 정렬·순위·추천 없음)</h2>
+    <table><tr><th>업체</th><th>종합</th><th class="num">필수공종 일치도</th><th class="num">총액(원)</th><th class="num">원/㎡</th></tr>{comp_rows}</table>
+    <p class="note" style="border-top:0">참고: 최저가 {esc(cmp.lowest_cost_vendor or '-')} · 최고 일치도 {esc(cmp.highest_match_score_vendor or '-')} — 어느 쪽이 낫다는 판정이 아니다.</p></section>
+  {''.join(detail_cards)}
+  <section class="card"><span class="axis">전사·매핑 원칙</span>
+    <h2>데이터 출처와 한계</h2>
+    <p style="font-size:13.5px">{esc(data['provenance'])}</p>
+    <p style="font-size:13.5px;color:var(--muted)">{esc(data['decision_note'])}</p></section>"""
+    return _page(data["title"], body)
+
+
 def index_page(links: list[dict]) -> str:
     items = "".join(
         f"<a class='report-link' href='{esc(l['href'])}'>"
@@ -479,10 +553,22 @@ def main():
                   "desc": f"{len(e.CAPEX_CASE_CHUNKS)}건 실측 청킹 · 9개 표준 카테고리"})
     links.append({"href": "SmartFarm_근거대장.html", "title": "▶ 엔진 상수 근거대장",
                   "desc": "P0 provenance · 엔진과 자동 대조"})
+
+    # P3-23(2026-08-17): 7단계 compare_quotes 연결 — 데이터 파일이 있을 때만 생성
+    n_quotes = 0
+    if os.path.exists(QUOTES_JSON):
+        qdata, qrfq, qcmp = load_quotes_comparison()
+        with open("SmartFarm_견적비교.html", "w", encoding="utf-8") as f:
+            f.write(quotes_comparison_page(qdata, qrfq, qcmp))
+        n_quotes = len(qdata["vendor_quotes"])
+        links.append({"href": "SmartFarm_견적비교.html", "title": "▶ 실견적 다사 비교 (7단계)",
+                      "desc": f"{n_quotes}개 업체 · RFQ 정합검증 · 참고정보(추천 없음)"})
+
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(index_page(links))
 
-    print(f"사이트 생성 완료: index + 케이스 {len(cases)}건 + 비교뷰 + 벤치마크 + CAPEX분해 + 근거대장")
+    print(f"사이트 생성 완료: index + 케이스 {len(cases)}건 + 비교뷰 + 벤치마크 + CAPEX분해 + 근거대장"
+          + (f" + 견적비교({n_quotes}사)" if n_quotes else ""))
     return computed
 
 

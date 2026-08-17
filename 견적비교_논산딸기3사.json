@@ -1,0 +1,102 @@
+{
+  "comparison_id": "논산딸기_3사",
+  "title": "실견적 3사 비교 — 딸기 연동(필름) 신축",
+  "created": "2026-08-17",
+  "decision_note": "2026-08-17 사용자 결정으로 compare_quotes()를 사이트 파이프라인에 연결(P3-23, P3-20 파생). 업체선정은 판단성 영역 — 이 비교는 참고정보이며 엔진은 어느 업체가 낫다고 결론짓지 않는다.",
+  "provenance": "3사 공종별 금액은 각 견적서 '공종별 집계표' 시트 원문 전사(2026-08-17, 문서청킹 인덱스로 추출). 3사 모두 공종 합계가 견적서 직접공사비 총액과 원단위 일치 확인. 공종→카테고리 매핑에서 혼재 행은 근거 없이 금액을 쪼개지 않고 지배 항목에 통째 배정 — 그 결과로 뜨는 누락 플래그가 곧 '견적서가 해당 공종을 분리 표기하지 않았다'는 컨설팅 신호다.",
+  "rfq_input": {
+    "region": "논산",
+    "region_snow_cm": 28,
+    "region_wind_ms": 28,
+    "area_m2": 4000,
+    "cover": "필름",
+    "form": "연동",
+    "t_target": 15,
+    "t_min": -12.4,
+    "curtain": "다겹보온",
+    "crop": "딸기",
+    "note": "지역하중은 REGION_DESIGN_LOAD['논산'](고시 2025-108호). t_min -12.4℃는 NIHHS 온실에너지계산의 전주 설계외기온 준용(P1-9 프로빙 확인값 — 논산 전용 설계외기온 미확보라 인접 관측점 대용). 면적 4,000㎡는 3사 견적 규모(3,145~4,092㎡)의 대표값. curtain='다겹보온'(P1-9 시그니처 경로)·crop='딸기'(P1-11 필터) 사용."
+  },
+  "vendor_quotes": [
+    {
+      "vendor_name": "임미라(수현건설)",
+      "source_file": "스마트팜스펙/견적참조/수현건설임미라님견적서.xls",
+      "source_sheet": "집계표",
+      "area_m2": 4068,
+      "area_note": "7.5×90.4m×6연동 = 4,068㎡(견적서 설치규격)",
+      "direct_cost_total": 560744760,
+      "total_with_overhead": 560744760,
+      "total_note": "공종 합계가 곧 견적 총액(제경비 미분리 양식) — 총괄표 '일금 오억육천칠십사만사천칠백육십원정'과 일치",
+      "categories": {
+        "greenhouse_structure": 222158160,
+        "auto_opening_system": 142165900,
+        "irrigation_fertigation": 178420700,
+        "equipment_procurement": 8000000,
+        "design_supervision_fee": 10000000
+      },
+      "raw_rows": [
+        ["골조공사", 184464840, "greenhouse_structure"],
+        ["피복공사", 37693320, "greenhouse_structure"],
+        ["자동개폐시설및 복합환견제어(ICT)", 51252000, "auto_opening_system(ICT 혼재 — 분리 불가라 통배정)"],
+        ["커튼공사", 90913900, "auto_opening_system(보온커튼 소속 2026-08-17 결정)"],
+        ["양액시설, 및 난방", 178420700, "irrigation_fertigation(난방 혼재 — 분리 불가라 통배정 → hvac 누락 플래그가 정직한 신호)"],
+        ["물류및 장비", 8000000, "equipment_procurement"],
+        ["컨설팅의뢰비", 10000000, "design_supervision_fee"]
+      ]
+    },
+    {
+      "vendor_name": "최선동(렉창)",
+      "source_file": "스마트팜스펙/견적참조/스마트팜하우스(렉창)5연동견적서_최선동.xls",
+      "source_sheet": "공종별집계표",
+      "area_m2": 3145,
+      "area_note": "폭37m×길이85m×5연동 = 3,145㎡(견적서 사업량)",
+      "direct_cost_total": 497440760,
+      "total_with_overhead": 613782000,
+      "total_note": "직접공사비 497,440,760원(공종별집계표 합계) / 총공사비 613,782,000원(원가계산서 '일금 육억일천삼백칠십팔만이천원정')",
+      "categories": {
+        "greenhouse_structure": 198839100,
+        "auto_opening_system": 136356260,
+        "hvac": 81345000,
+        "irrigation_fertigation": 80900400
+      },
+      "raw_rows": [
+        ["1. 기초공사", 27797500, "greenhouse_structure"],
+        ["2. 철골공사", 52536750, "greenhouse_structure"],
+        ["3. 부속자재", 88677050, "greenhouse_structure(골조 부속)"],
+        ["4. 천창자동개폐장치", 51928500, "auto_opening_system"],
+        ["5. 농업용 비닐자재 공사", 29827800, "greenhouse_structure(피복)"],
+        ["6. 유동휀 및 배기휀,무인방제기", 81345000, "hvac(송풍기류 — 무인방제기 혼재 통배정)"],
+        ["7. 커텐공사", 84427760, "auto_opening_system(보온커튼 소속 2026-08-17 결정)"],
+        ["8. 양액시설공사", 67981200, "irrigation_fertigation"],
+        ["9. 배관설비", 12919200, "irrigation_fertigation(관수 배관 추정 — 양액 인접 공종)"]
+      ]
+    },
+    {
+      "vendor_name": "한수진",
+      "source_file": "스마트팜스펙/견적참조/한수진스마트팜딸기하우스견적서.xls",
+      "source_sheet": "공종별집계표",
+      "area_m2": 4092,
+      "area_note": "폭44m×길이93m×6연동 = 4,092㎡(견적서 사업량)",
+      "direct_cost_total": 499026400,
+      "total_with_overhead": 618001000,
+      "total_note": "직접공사비 499,026,400원(공종별집계표 합계) / 총공사비 618,001,000원(원가계산서 '일금 육억일천팔백만일천원정')",
+      "categories": {
+        "greenhouse_structure": 237445740,
+        "auto_opening_system": 93976810,
+        "hvac": 66930000,
+        "irrigation_fertigation": 100673850
+      },
+      "raw_rows": [
+        ["1. 기초공사", 24208000, "greenhouse_structure"],
+        ["2. 철골공사", 61670790, "greenhouse_structure"],
+        ["3. 부속자재", 113364250, "greenhouse_structure(골조 부속)"],
+        ["4. 자동개폐장치", 6660000, "auto_opening_system"],
+        ["5. 농업용 비닐자재 공사", 38202700, "greenhouse_structure(피복)"],
+        ["6. 유동휀 및 배기휀.냉난방시설", 66930000, "hvac(냉난방 명시)"],
+        ["7. 커텐공사", 87316810, "auto_opening_system(보온커튼 소속 2026-08-17 결정)"],
+        ["8. 양액시설공사", 86983850, "irrigation_fertigation"],
+        ["9. 배관설비", 13690000, "irrigation_fertigation(관수 배관 추정 — 양액 인접 공종)"]
+      ]
+    }
+  ]
+}
