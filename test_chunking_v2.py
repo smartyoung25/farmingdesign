@@ -5,6 +5,7 @@
 `python -m pytest test_chunking_v2.py -q`로 가드가 살아있는지 확인한다.
 배경: 10-4절 xlrd 유실 사건(의존성 부재 → .xls 조용히 0청크 → 2,345청크 증발).
 """
+import json
 import os
 
 import pytest
@@ -261,3 +262,88 @@ def test_load_overlay_missing_empty_and_corrupt(tmp_path):
     bad.write_text("{깨진 json", encoding="utf-8")
     with pytest.raises(RuntimeError):
         load_overlay(str(bad))  # 손보정 파일 파손은 조용히 무시하지 않고 중단
+
+
+# ── P2-15 Layer B 8도메인 병렬 태깅 + --retag-only (2026-08-17) ───────────
+
+def test_tag_domains_b_hits_expected_domains():
+    from chunking_lib_v2 import tag_domains_b
+    assert "전기" in tag_domains_b("분전반 설치 및 배선 공사, 누전차단기 포함")
+    assert "통신" in tag_domains_b("RS-485 게이트웨이로 원격 모니터링")  # RS-?485 정규식
+    assert "구동" in tag_domains_b("보온커튼 개폐모터(감속기 1HP)")
+    assert "장애대응" in tag_domains_b("하자 보증기간 2년, 정기점검 포함")
+    assert "데이터활용" in tag_domains_b("생육 데이터 수집·로깅 대시보드")
+    assert "시설구축" in tag_domains_b("골조 및 기초 콘크리트, 구조계산 KDS 기준")
+    assert tag_domains_b("무관한 문장") == []
+
+
+def test_domain_b_engine_gap_is_b4_to_b8():
+    # 방법론 3-2절: B4~B8(전기·통신·구동·데이터활용·장애대응)은 엔진 미모델링 —
+    # 이 공백 표가 바뀌면 엔진 확장이 있었다는 뜻이므로 드리프트 가드
+    from chunking_lib_v2 import DOMAIN_B_ENGINE_EXPECT
+    gaps = {d for d, v in DOMAIN_B_ENGINE_EXPECT.items() if v is None}
+    assert gaps == {"전기", "통신", "구동", "데이터활용", "장애대응"}
+
+
+def test_chunkwriter_adds_domain_tags_and_preserves_tag_text():
+    from chunking_lib_v2 import ChunkWriter
+    w = ChunkWriter()
+    rec = w.add("t", "시방서", None, r"E:\FarmingDesign\x.pdf", "p1",
+                "분전반 배선 및 보온커튼 개폐모터 설치", section_context="3. 전기공사")
+    assert "전기" in rec["domain_tags_B"] and "구동" in rec["domain_tags_B"]
+    assert rec["_tag_text"].startswith("3. 전기공사")  # 재태깅용 원문(섹션 포함) 보존
+
+
+def test_group_rows_suppress_both_tag_layers():
+    # L2 행은 Layer A·B 모두 무태깅(태깅은 그룹에서)
+    chunks, groups, l2 = _emit([
+        ("r1", "1-1. 전기공사", True),
+        ("r2", "분전반 | 1식 | 1,554,000", False),
+    ])
+    assert groups[0]["domain_tags_B"]  # 그룹은 태깅됨(전기)
+    assert all(r["domain_tags_B"] == [] for r in l2)
+
+
+def test_write_outputs_strips_tag_text_from_index(tmp_path):
+    from chunking_lib_v2 import ChunkWriter, write_outputs
+    w = ChunkWriter()
+    w.add("t", "시방서", None, r"E:\FarmingDesign\x.pdf", "p1", "골조 기초 공사")
+    jsonl = tmp_path / "idx.jsonl"
+    write_outputs(w, str(jsonl), str(tmp_path / "sum.txt"))
+    rec = json.loads(jsonl.read_text(encoding="utf-8").splitlines()[0])
+    assert "_tag_text" not in rec          # 정본 인덱스는 날씬하게
+    assert "_tag_text" in w.chunks[0]      # 파트(메모리)에는 보존
+
+
+def test_retag_only_recomputes_from_tag_text(tmp_path, monkeypatch):
+    import run_chunk_incremental as ri
+    monkeypatch.setattr(ri, "PARTS", str(tmp_path))
+    part = {
+        "relpath": "가상.pdf",
+        "chunks": [
+            # 구식 태그(잘못된 값)가 _tag_text 기준으로 재계산돼야 한다
+            {"doc_type": "시방서", "chunk_level": None, "section_context": None,
+             "topic_tags": ["엉터리"], "domain_tags_B": [], "consulting_tags": [],
+             "engine_link": None, "content_summary": "요약",
+             "_tag_text": "분전반 배선 공사 골조 기초"},
+            # L2 행은 재태깅해도 무태깅 유지
+            {"doc_type": "공사비내역서", "chunk_level": "row", "section_context": "1-1. 전기공사",
+             "topic_tags": [], "domain_tags_B": [], "consulting_tags": [],
+             "engine_link": None, "content_summary": "분전반 | 1식",
+             "_tag_text": "1-1. 전기공사 분전반 | 1식"},
+            # _tag_text 없는 구세대 청크 → 근사 폴백
+            {"doc_type": "시방서", "chunk_level": None, "section_context": "2. 통신",
+             "topic_tags": [], "domain_tags_B": [], "consulting_tags": [],
+             "engine_link": None, "content_summary": "RS-485 게이트웨이"},
+        ],
+        "skips": [],
+    }
+    p = tmp_path / "aaaa.part.json"
+    p.write_text(json.dumps(part, ensure_ascii=False), encoding="utf-8")
+    ri.retag_only()
+    out = json.loads(p.read_text(encoding="utf-8"))
+    c0, c1, c2 = out["chunks"]
+    assert "전기" in c0["domain_tags_B"] and "시설구축" in c0["domain_tags_B"]
+    assert "엉터리" not in c0["topic_tags"]          # 구식 태그가 교체됨
+    assert c1["topic_tags"] == [] and c1["domain_tags_B"] == []  # 행 무태깅 유지
+    assert "통신" in c2["domain_tags_B"]             # 폴백 재태깅 동작

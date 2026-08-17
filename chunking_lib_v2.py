@@ -205,6 +205,37 @@ TOPIC_KEYWORDS = {
 }
 TOPIC_PATTERNS = {k: re.compile(v) for k, v in TOPIC_KEYWORDS.items()}
 
+# ── P2-15(2026-08-17): Layer B — 설계도메인 8축 병렬 태깅 ──
+# 방법론 문서 3-1·3-2절 구현. Layer A(위 9축)가 "무엇에 관한 내용인가"라면
+# Layer B는 "짓고 돌리는 라이프사이클의 어느 단계인가"(부지선정→구축→기자재→
+# 인프라→운영→장애대응). 키워드 정규식은 3-2절 1차 초안을 그대로 채택(복합어
+# 우선 원칙 포함— 예: '배수'가 아니라 '배수계획|배수로|용배수').
+# 한 청크는 두 레이어에 동시 태깅될 수 있고, L2 행은 Layer A와 동일하게 무태깅.
+DOMAIN_KEYWORDS_B = {
+    "부지선정":  r"부지|지반|진입로|구획|성토|절토|경사|필지|배수계획|배수로|용배수|입지",
+    "시설구축":  r"골조|기초|피복|트러스|파이프|구조계산|하중|공사비|내역서|수량산출|공정표|KDS",
+    "기자재도입": r"기자재|ICT|센서|양액기|관수|제어기|품셈|장치|설비|환기팬|유동팬",
+    "전기":      r"수전|분전반|배선|전력|kW|접지|차단기|누전|비상전원|전기설비|인입",
+    "통신":      r"통신|네트워크|게이트웨이|공유기|RS-?485|Modbus|LoRa|무선|유선|프로토콜|원격",
+    "구동":      r"개폐기|모터|감속기|액추에이터|천창|측창|보온커튼|차광|권취|구동부|밸브|펌프",
+    "데이터활용": r"계측|수집|로깅|데이터|대시보드|모니터링|이력|분석|클라우드|API",
+    "장애대응":  r"하자|고장|경보|알람|페일세이프|백업|유지관리|내구연한|보증기간|A\s*/?\s*S|점검",
+}
+DOMAIN_B_PATTERNS = {k: re.compile(v, re.I) for k, v in DOMAIN_KEYWORDS_B.items()}
+
+# 도메인별 엔진 대응 기대(방법론 3-2절 표) — 커버리지 리포트에서 "엔진 미모델링
+# 공백"을 숨기지 않고 드러내는 기준. None = 현행 엔진에 대응 상수 없음(B4~B8).
+DOMAIN_B_ENGINE_EXPECT = {
+    "부지선정": "REGION_DESIGN_LOAD(부분)",
+    "시설구축": "SPEC_TABLE·REGION_DESIGN_LOAD·CAPEX_MAJOR_CATEGORIES",
+    "기자재도입": "PUMSEM_ITEMS·EQUIPMENT_DB_META",
+    "전기": None, "통신": None, "구동": None, "데이터활용": None, "장애대응": None,
+}
+
+
+def tag_domains_b(text):
+    return [name for name, pat in DOMAIN_B_PATTERNS.items() if pat.search(text)]
+
 CAPEX_KEYWORD = re.compile(r"공사비|내역서|재료비|노무비|경비|원가계산")
 STRUCT_KEYWORD = re.compile(r"적설|풍속|하중|구조계산|KDS")
 
@@ -346,6 +377,8 @@ class ChunkWriter:
             "section_context": clean(section_context) if section_context else None,
             # P2-13: L2 행은 주제축 태깅을 시도하지 않는다(태깅은 소속 L1 그룹에서).
             "topic_tags": [] if suppress_topic_tags else tag_topics(tagging_text),
+            # P2-15: Layer B(설계도메인 8축) 병렬 태깅 — 행 무태깅 규칙은 Layer A와 동일
+            "domain_tags_B": [] if suppress_topic_tags else tag_domains_b(tagging_text),
             "consulting_tags": consulting_tags(doc_type, tagging_text),
             "content_summary": text[:200],
             "text_len": len(text),
@@ -361,6 +394,9 @@ class ChunkWriter:
             rec["parent_group_id"] = parent_group_id
         if group_member_rows is not None:
             rec["group_member_rows"] = group_member_rows
+        # P2-15: 태깅 원문 보존(파트 전용) — --retag-only가 재추출 없이 태그만
+        # 재계산할 수 있게 한다(방법론 9-2절). 정본 인덱스에 쓸 때는 제거된다.
+        rec["_tag_text"] = tagging_text
         specs, costs = extract_spec_cost(text)
         rec["spec_values"] = specs
         rec["cost_values"] = costs
@@ -711,6 +747,8 @@ def chunk_docx(w, path, case_name, doc_type, doc_subtype, evidence_status="실�
 def write_outputs(w, jsonl_path, summary_path, extra_log=None):
     with open(jsonl_path, "w", encoding="utf-8") as f:
         for c in w.chunks:
+            if "_tag_text" in c:  # P2-15: 재태깅용 원문은 파트 전용 — 정본은 날씬하게
+                c = {k: v for k, v in c.items() if k != "_tag_text"}
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
 
     from collections import Counter
@@ -731,6 +769,15 @@ def write_outputs(w, jsonl_path, summary_path, extra_log=None):
     untagged_units = sum(1 for c in units if not c["topic_tags"])
     g_units = [c for c in units if c["doc_type"] in GROUPED_DOC_TYPES]
     g_untagged = sum(1 for c in g_units if not c["topic_tags"])
+    # P2-15 Layer B 커버리지 — 도메인별 청크 수·engine_link 보유 수·엔진 기대 대응
+    b_counter = Counter()
+    b_linked = Counter()
+    for c in units:
+        for d in c.get("domain_tags_B", []):
+            b_counter[d] += 1
+            if c.get("engine_link"):
+                b_linked[d] += 1
+    b_untagged_units = sum(1 for c in units if not c.get("domain_tags_B"))
     consult_counter = Counter()
     for c in w.chunks:
         for t in c.get("consulting_tags", []):
@@ -754,6 +801,17 @@ def write_outputs(w, jsonl_path, summary_path, extra_log=None):
                     f"({untagged_units/max(len(units),1)*100:.1f}%)\n")
             f.write(f"표형 3종 태깅 단위: {len(g_units)}, 미분류 {g_untagged} "
                     f"({g_untagged/max(len(g_units),1)*100:.1f}%) — 목표 30% 이하\n")
+        if b_counter:
+            f.write("\n-- P2-15 Layer B(설계도메인 8축) 커버리지 (태깅단위 기준) --\n")
+            for d in DOMAIN_KEYWORDS_B:  # 정의 순서(B1~B8) 유지
+                expect = DOMAIN_B_ENGINE_EXPECT.get(d)
+                gap = "" if expect else "  ← 엔진 미모델링(공백)"
+                f.write(f"{d}: {b_counter.get(d, 0)}청크 (engine_link 보유 {b_linked.get(d, 0)}) "
+                        f"— 엔진 대응: {expect or '없음'}{gap}\n")
+            f.write(f"Layer B 미태깅(태깅단위): {b_untagged_units}/{len(units)} "
+                    f"({b_untagged_units/max(len(units),1)*100:.1f}%)\n")
+            f.write("※ B4~B8 공백은 청킹 실패가 아니라 엔진 스코프 밖이었다는 커버리지 갭의 "
+                    "증거(방법론 3-2절) — 엔진 확장 검토 시 이 근거 청크에서 착수\n")
 
         f.write("\n-- doc_type별 청크 수 --\n")
         for k, v in by_doc_type.most_common():

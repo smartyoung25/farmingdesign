@@ -16,6 +16,7 @@
   python3 run_chunk_incremental.py all        # 둘 다
   python3 run_chunk_incremental.py --merge     # 부분파일 → 최종 jsonl+요약 병합
   python3 run_chunk_incremental.py --view      # 정본 인덱스 ⊕ 오버레이 → 뷰 파일 생성
+  python3 run_chunk_incremental.py --retag-only # 키워드 개정 시 재추출 없이 태그만 재계산
 반복 실행하면 남은 파일만 이어서 처리한다(멱등).
 
 P2-14(2026-08-17): 매니페스트(청킹_매니페스트.json) 기반 4상태 diff를 도입했다 —
@@ -38,6 +39,7 @@ from chunking_lib_v2 import (
     assert_pipeline_dependencies, chunk_count_regression_guard,
     MANIFEST_PATH, OVERLAY_PATH, file_fingerprint, load_manifest, save_manifest,
     classify_file_states, load_overlay, apply_overlay,
+    tag_topics, tag_domains_b, consulting_tags, engine_link_for,
 )
 
 PARTS = os.path.join(ROOT, "_chunks_parts_9축")
@@ -200,6 +202,47 @@ def merge():
     print(f"MERGED files={len(recs)} chunks={len(w.chunks)} skips={len(w.skipped_files)}", flush=True)
 
 
+def retag_only():
+    """P2-15 — 키워드 개정 시 재추출 없이 태그 필드만 재계산(방법론 9-2절).
+
+    파트에 보존된 태깅 원문(`_tag_text`)으로 topic_tags(Layer A)·domain_tags_B
+    (Layer B)·consulting_tags·engine_link를 다시 계산해 파트를 원자적으로
+    갱신한다. L2 행(chunk_level=='row')은 무태깅 규칙 유지. `_tag_text`가 없는
+    구세대 청크는 section_context+content_summary(200자 절단)로 근사 재태깅하고
+    개수를 보고한다(장문 청크에선 손실 가능 — 정밀 재태깅이 필요하면 해당 파일
+    파트를 지워 재추출). 이후 --merge 로 정본을 다시 만든다."""
+    n_parts = n_chunks = n_fallback = 0
+    for p in sorted(glob.glob(os.path.join(PARTS, "*.part.json"))):
+        with open(p, encoding="utf-8") as f:
+            rec = json.load(f)
+        changed = False
+        for c in rec.get("chunks", []):
+            n_chunks += 1
+            tag_text = c.get("_tag_text")
+            if tag_text is None:
+                tag_text = ((c.get("section_context") or "") + " " + (c.get("content_summary") or "")).strip()
+                n_fallback += 1
+            suppressed = c.get("chunk_level") == "row"
+            new_vals = {
+                "topic_tags": [] if suppressed else tag_topics(tag_text),
+                "domain_tags_B": [] if suppressed else tag_domains_b(tag_text),
+                "consulting_tags": consulting_tags(c.get("doc_type"), tag_text),
+                "engine_link": engine_link_for(c.get("doc_type"), tag_text),
+            }
+            for k, v in new_vals.items():
+                if c.get(k) != v:
+                    c[k] = v
+                    changed = True
+        if changed:
+            dump(p, rec)
+            n_parts += 1
+    print(f"RETAG parts_updated={n_parts} chunks={n_chunks} fallback_no_tag_text={n_fallback}", flush=True)
+    if n_fallback:
+        print(f"경고: _tag_text 없는 청크 {n_fallback}건은 200자 절단 근사 재태깅 — "
+              "정밀 재태깅이 필요하면 해당 파일 파트 삭제 후 재추출", flush=True)
+    print("다음 단계: python run_chunk_incremental.py --merge", flush=True)
+
+
 def view():
     """정본 인덱스 ⊕ 오버레이 → 최종 뷰 파일(방법론 6-4절). 정본은 불변."""
     index_path = os.path.join(ROOT, "문서청킹_인덱스_전체_9축.jsonl")
@@ -230,6 +273,8 @@ def main():
         merge(); return
     if "--view" in args:
         view(); return
+    if "--retag-only" in args:
+        retag_only(); return
     assert_pipeline_dependencies()  # P2-23: 처리 시작 전 필수 파서 존재 확인
     if "all" in args:
         bases = [full.SPEC_DIR, full.FACILITY_DIR]
@@ -283,6 +328,11 @@ def main():
             states["unchanged"].append(rel)  # 이후 로직에선 무변경과 동일 취급
             adopted += 1
 
+    # 자기치유: 매니페스트상 무변경인데 파트가 없으면(파트 수동 삭제·유실·태깅로직
+    # 개정을 위한 강제 재처리) 재처리 대상에 넣는다 — 매니페스트와 파트의 불일치를
+    # 조용히 방치하지 않는다.
+    healed = [rel for rel in states["unchanged"] if not os.path.exists(part_path(rel))]
+
     # 무변경 → last_seen_run만 갱신(재청킹 없음 — 방법론 6-2절 핵심)
     for rel in states["unchanged"]:
         if rel in mf:
@@ -291,11 +341,12 @@ def main():
     manifest["last_run"] = RUN_ID
     save_manifest(manifest)
     print(f"scope files={total} | diff: unchanged={len(states['unchanged'])}"
-          f"(adopted={adopted}) new={len(states['new'])} changed={len(states['changed'])}"
-          f" deleted={len(states['deleted'])} | run={RUN_ID} budget={BUDGET}s", flush=True)
+          f"(adopted={adopted}, part유실 재처리={len(healed)}) new={len(states['new'])}"
+          f" changed={len(states['changed'])} deleted={len(states['deleted'])}"
+          f" | run={RUN_ID} budget={BUDGET}s", flush=True)
 
-    # ── 처리 루프: 신규+변경만 (샤딩: SHARD="i/N" — 매니페스트 병렬 병합은 미지원, 주의) ──
-    todo = sorted(set(states["new"]) | set(states["changed"]))
+    # ── 처리 루프: 신규+변경+파트유실 (샤딩: SHARD="i/N" — 매니페스트 병렬 병합은 미지원, 주의) ──
+    todo = sorted(set(states["new"]) | set(states["changed"]) | set(healed))
     shard = os.environ.get("SHARD")
     si, sn = 0, 1
     if shard and "/" in shard:
