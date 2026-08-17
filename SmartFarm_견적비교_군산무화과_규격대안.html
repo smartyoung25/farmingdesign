@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>규격 대안 비교 — 군산 무화과 연동(기둥 125×75 vs 75×75)</title><style>
+  :root{--bg:#f4f6f8;--card:#fff;--ink:#1a2330;--muted:#6b7787;--line:#e3e8ee;
+    --brand:#1f7a4d;--brand-soft:#e8f3ec;--ok:#1f7a4d;--warn:#b8860b;--bad:#c0392b;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Malgun Gothic",sans-serif;line-height:1.55;}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px;}
+  header.top{background:var(--brand);color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:22px;}
+  header.top h1{margin:0 0 6px;font-size:22px;}
+  header.top .sub{opacity:.9;font-size:14px;}
+  section.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 24px;margin-bottom:18px;}
+  .axis{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--brand);
+    background:var(--brand-soft);padding:3px 10px;border-radius:20px;margin-bottom:12px;}
+  h2{font-size:17px;margin:0 0 14px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .badge{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;}
+  .badge.ok{color:var(--ok);background:#e8f3ec;}
+  .badge.warn{color:var(--warn);background:#fbf3dc;}
+  .badge.bad{color:var(--bad);background:#fbe6e3;}
+  .tag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap;}
+  .tag.실측{color:var(--ok);background:#e8f3ec;}
+  .tag.추정{color:var(--warn);background:#fbf3dc;}
+  .tag.확인요망{color:var(--bad);background:#fbe6e3;}
+  .tag.부분{color:var(--warn);background:#fbf3dc;}
+  .tag.미검증{color:#7a5cff;background:#efeaff;}
+  code{font-size:12px;background:#f2f5f8;padding:1px 5px;border-radius:5px;}
+  a.report-link{display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;
+    text-decoration:none;color:var(--ink);background:#fafbfc;}
+  a.report-link:hover{border-color:var(--brand);}
+  a.report-link .t{font-weight:600;}
+  a.report-link .d{color:var(--muted);font-size:13px;}
+  .note{font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
+  .prov li{margin-bottom:4px;font-size:12.5px;color:var(--muted);}
+  .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;}
+  .row:last-child{border-bottom:0;}
+  .row .lbl{color:var(--muted);}
+  .row .val{font-variant-numeric:tabular-nums;font-weight:600;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:6px;}
+  .kpi{background:#fafbfc;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .kpi.highlight{background:var(--brand-soft);border-color:#cfe6d8;}
+  .kpi-label{font-size:12.5px;color:var(--muted);}
+  .kpi-value{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;}
+</style></head>
+<body><div class="wrap">
+  <header class="top"><h1>규격 대안 비교 — 군산 무화과 연동(기둥 125×75 vs 75×75)</h1>
+    <div class="sub">7단계(시공발주관리) compare_quotes · 참고정보 — 업체선정 판단은 컨설턴트 몫</div></header>
+  <section class="card"><span class="axis">RFQ 사양</span>
+    <h2>요구 사양서 (엔진 생성)</h2>
+    <div class="row"><span class="lbl">입지</span><span class="val">군산 — 적설 34cm · 풍속 38m/s</span></div>
+    <div class="row"><span class="lbl">채택 규격</span><span class="val">22-연동(등)-05 (설계 적설 35·풍속 40)</span></div>
+    <div class="row"><span class="lbl">규모·피복</span><span class="val">2,797㎡ · 필름 · 연동 · 작물 무화과</span></div>
+    <div class="row"><span class="lbl">난방부하</span><span class="val">341,038 kcal/h (커튼 다겹보온)</span></div>
+    <p class="note" style="border-top:0;margin-top:8px">지역하중은 REGION_DESIGN_LOAD[&#x27;군산&#x27;](고시 2025-108호, 적설 34cm·풍속 38m/s). ⚠️ 난방부하는 형식 참고치다 — 두 견적 모두 난방설비가 없고(무화과 저온성 재배로 추정) 이 하우스의 실제 재배 온도 조건은 미확보라, t_target 15℃·t_min -12.4℃(NIHHS 전주 설계외기온 준용)·다겹보온 커튼은 계산 형식을 채우기 위한 조건 표기이지 실측 요구조건이 아니다. 필수 공종도 이에 맞춰 hvac 제외 3종으로 축소(판단성 입력): 온실구조·자동개폐·양액관수.</p></section>
+  <section class="card"><span class="axis">3사 비교</span>
+    <h2>비교표 (입력 순서 그대로 — 정렬·순위·추천 없음)</h2>
+    <table><tr><th>업체</th><th>종합</th><th class="num">필수공종 일치도</th><th class="num">총액(원)</th><th class="num">원/㎡</th></tr><tr><td>A안 — 기둥 □125×75</td><td><span class='badge warn'>불일치(1건)</span></td><td class='num'>62%</td><td class='num'>207,157,061</td><td class='num'>74,064</td></tr><tr><td>B안 — 기둥 □75×75</td><td><span class='badge warn'>불일치(1건)</span></td><td class='num'>62%</td><td class='num'>203,172,842</td><td class='num'>72,640</td></tr></table>
+    <p class="note" style="border-top:0">참고: 최저가 B안 — 기둥 □75×75 · 최고 일치도 A안 — 기둥 □125×75 — 어느 쪽이 낫다는 판정이 아니다.</p></section>
+  
+  <section class="card"><span class="axis">업체 상세</span>
+    <h2>A안 — 기둥 □125×75 — 폭 8m×89.4m×3연동 + 81.4m×1연동 = 2,797㎡(견적서 사업량)</h2>
+    <div class="row"><span class="lbl">출처</span><span class="val"><code>스마트팜스펙/견적참조/2025년 무화과(이명환)-각125.xls</code> · 내역서(공정별 집계표 + 공종 6표)</span></div>
+    <div class="row"><span class="lbl">금액 기준</span><span class="val">직접공사비 166,203,250원(재료 106,932,250+노무 52,721,000+경비 6,550,000 — 공종 성분 합과 원단위 일치) / 합계금액 207,157,061원(총원가 188,676,874+부가세 18,480,187, 소수 절사)</span></div>
+    <table><tr><th>정합 검증</th><th>판정</th><th>상세</th></tr><tr><td>필수 공종 완전성</td><td><span class='badge ok'>일치</span></td><td>누락 없음</td></tr><tr><td>면적 정합</td><td><span class='badge ok'>일치</span></td><td>사양서 2797㎡ vs 견적서 2797㎡ (차이 0.0%)</td></tr><tr><td>규격코드 정합</td><td><span class='badge warn'>확인요망</span></td><td>견적서에 규격코드 미기재</td></tr><tr><td>총액 단가 밴드</td><td><span class='badge warn'>경고(밴드이탈)</span></td><td>74,064원/㎡ (밴드 115,000~240,000)</td></tr></table>
+    <h2 style="margin-top:16px">공종 원문 → 카테고리 매핑 (원단위 전사)</h2>
+    <table><tr><th>견적서 공종(원문)</th><th class="num">금액(원)</th><th>매핑·근거</th></tr><tr><td>1. 기초공사</td><td class='num'>17,516,600</td><td>greenhouse_structure — 성분(재 11,416,600+노 3,550,000+경 2,550,000) 재계산값(원본 소계 셀 16,716,600은 자체 결함)</td></tr><tr><td>2. 골조공사(파이프)</td><td class='num'>91,441,880</td><td>greenhouse_structure — 성분(재 46,396,880+노 41,045,000+경 4,000,000) 재계산값(원본 소계 셀 91,376,380은 자체 결함)</td></tr><tr><td>3. 골조공사(부속자재, 2표)</td><td class='num'>29,261,820</td><td>greenhouse_structure — 23,173,200+6,088,620(원본 누계 행 29,261,820과 일치)</td></tr><tr><td>4. 피복공사</td><td class='num'>19,658,150</td><td>greenhouse_structure(재 12,882,150+노 6,776,000)</td></tr><tr><td>5. 관수시설</td><td class='num'>4,449,800</td><td>irrigation_fertigation(물통·모터·여과기 등, 재 3,099,800+노 1,350,000)</td></tr><tr><td>영세율품목(개폐모터·콘트롤판넬)</td><td class='num'>3,875,000</td><td>auto_opening_system(양측개폐모터 13대 975,000+콘트롤판넬[1중천창 온도·우적자동] 2,900,000)</td></tr></table>
+  </section>
+  <section class="card"><span class="axis">업체 상세</span>
+    <h2>B안 — 기둥 □75×75 — 폭 8m×89.4m×3연동 + 81.4m×1연동 = 2,797㎡(A안과 동일 사업량)</h2>
+    <div class="row"><span class="lbl">출처</span><span class="val"><code>스마트팜스펙/견적참조/2025년 무화과(이명환)-각75.xls</code> · 내역서(공정별 집계표 + 공종 6표)</span></div>
+    <div class="row"><span class="lbl">금액 기준</span><span class="val">직접공사비 163,071,150원(재료 105,036,150+노무 51,485,000+경비 6,550,000 — 공종 성분 합과 원단위 일치) / 합계금액 203,172,842원(총원가 185,082,129+부가세 18,090,713, 소수 절사)</span></div>
+    <table><tr><th>정합 검증</th><th>판정</th><th>상세</th></tr><tr><td>필수 공종 완전성</td><td><span class='badge ok'>일치</span></td><td>누락 없음</td></tr><tr><td>면적 정합</td><td><span class='badge ok'>일치</span></td><td>사양서 2797㎡ vs 견적서 2797㎡ (차이 0.0%)</td></tr><tr><td>규격코드 정합</td><td><span class='badge warn'>확인요망</span></td><td>견적서에 규격코드 미기재</td></tr><tr><td>총액 단가 밴드</td><td><span class='badge warn'>경고(밴드이탈)</span></td><td>72,640원/㎡ (밴드 115,000~240,000)</td></tr></table>
+    <h2 style="margin-top:16px">공종 원문 → 카테고리 매핑 (원단위 전사)</h2>
+    <table><tr><th>견적서 공종(원문)</th><th class="num">금액(원)</th><th>매핑·근거</th></tr><tr><td>1. 기초공사</td><td class='num'>17,568,800</td><td>greenhouse_structure(재 11,468,800+노 3,550,000+경 2,550,000)</td></tr><tr><td>2. 골조공사(파이프)</td><td class='num'>90,646,580</td><td>greenhouse_structure(재 46,837,580+노 39,809,000+경 4,000,000)</td></tr><tr><td>3. 골조공사(부속자재, 2표)</td><td class='num'>26,572,820</td><td>greenhouse_structure — 20,550,200+6,022,620</td></tr><tr><td>4. 피복공사</td><td class='num'>19,658,150</td><td>greenhouse_structure(A안과 동일 — 피복은 규격 무관)</td></tr><tr><td>5. 관수시설</td><td class='num'>4,449,800</td><td>irrigation_fertigation(A안과 동일)</td></tr><tr><td>영세율품목(개폐모터·콘트롤판넬)</td><td class='num'>4,175,000</td><td>auto_opening_system — A안보다 +300,000(제어 항목에 &#x27;관수-시간자동&#x27; 추가 구성)</td></tr></table>
+  </section>
+  <section class="card"><span class="axis">전사·매핑 원칙</span>
+    <h2>데이터 출처와 한계</h2>
+    <p style="font-size:13.5px">출처: 스마트팜스펙/견적참조/2025년 무화과(이명환)-각125.xls·각75.xls(동일 양식 2파일, P2-16 doc_type 지정·그룹청킹 편입분). 사업명 &#x27;2025년 연동하우스 설치공사(무화과)&#x27;, 사업량 동일(폭 8m×길이 89.4m×3연동 + 81.4m×1연동 = 2,797㎡), 2025-07 견적. 공종 6분류(공정별 집계표 기준: 기초·골조파이프·골조부속 2표·피복·관수·영세율품목[개폐모터·콘트롤판넬])의 재료비·노무비·경비 성분 합이 표지 요약(직접재료비·직접노무비·경비)과 양쪽 모두 원단위 일치. ⚠️ 원본 xls 자체 결함 발견: 공종 소계 셀 2곳(각125 기초 16,716,600·골조 91,376,380)이 자기 성분 합(17,516,600·91,441,880)과 총 865,500원 어긋남(수식 범위 오류 추정) — 본 비교는 성분 재계산값을 쓰며 공정별 집계표(r64)와 일치함을 확인했다. 총액 검산: 직접공사비+간접비+이윤=총원가, 총원가+부가세=합계금액 양쪽 성립(합계금액은 소수 절사 정수 표기).</p>
+    <p style="font-size:13.5px;color:var(--muted)">견적비교 확장(2026-08-17)의 2호 데이터. 다사 비교가 아니라 동일 업체·동일 사업량의 기둥 규격 대안 2안 비교 — compare_quotes 구조(같은 RFQ에 복수 견적)를 규격 의사결정에 적용한 사례다. 어느 안이 낫다는 판정은 하지 않는다(구조 안전성 확인은 별개 — 규격 선택은 컨설턴트·구조검토 몫).</p></section>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-08-17 23:19</div>
+</div></body></html>

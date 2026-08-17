@@ -94,17 +94,36 @@ def test_consulting_report_page_shows_capex_breakdown_only_when_present():
 # ── P3-23(2026-08-17): compare_quotes 파이프라인 연결 회귀 ──────────────
 
 def test_quotes_json_sums_are_exact():
-    # 3사 공종별 전사의 무결성: 카테고리 합 == 직접공사비 총액(원단위),
-    # raw_rows 합 == 카테고리 합 — 전사·매핑 어느 쪽이 어긋나도 잡힌다.
-    with open("견적비교_논산딸기3사.json", encoding="utf-8") as f:
-        data = json.load(f)
-    assert len(data["vendor_quotes"]) == 3
-    for v in data["vendor_quotes"]:
-        cat_sum = sum(v["categories"].values())
-        raw_sum = sum(r[1] for r in v["raw_rows"])
-        assert cat_sum == v["direct_cost_total"], v["vendor_name"]
-        assert raw_sum == v["direct_cost_total"], v["vendor_name"]
-        assert v["total_with_overhead"] >= v["direct_cost_total"]
+    # 공종별 전사의 무결성(확장 2026-08-17: 전 견적비교 파일 glob):
+    # 카테고리 합 == raw_rows 합 == 직접공사비 총액(원단위) — 전사·매핑 어느
+    # 쪽이 어긋나도 잡힌다. 파일이 늘어나면 자동으로 검사 대상에 포함된다.
+    import glob as _g
+    files = sorted(_g.glob("견적비교_*.json"))
+    assert len(files) >= 2                      # 논산딸기3사 + 군산무화과 규격대안
+    for path in files:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        assert data["comparison_id"] and len(data["vendor_quotes"]) >= 2, path
+        for v in data["vendor_quotes"]:
+            cat_sum = sum(v["categories"].values())
+            raw_sum = sum(r[1] for r in v["raw_rows"])
+            assert cat_sum == v["direct_cost_total"], (path, v["vendor_name"])
+            assert raw_sum == v["direct_cost_total"], (path, v["vendor_name"])
+            assert v["total_with_overhead"] >= v["direct_cost_total"]
+
+
+def test_quotes_comparison_gunsan_fig_variant_pair():
+    # 규격 대안 비교(동일 사업량 125×75 vs 75×75): 필수 공종은 축소 3종
+    # (무가온이라 hvac 제외 — 판단성 입력)이며 두 안 모두 완전해야 한다.
+    data, rfq, cmp = bs.load_quotes_comparison("견적비교_군산무화과_규격대안.json")
+    assert rfq.required_categories == ["greenhouse_structure", "auto_opening_system",
+                                       "irrigation_fertigation"]
+    for name, recon in cmp.reconciliations.items():
+        c = next(x for x in recon.checks if x.name == "필수 공종 완전성")
+        assert c.status == "일치", name
+    # 규격 차이의 실측 가격차: A안(125×75)이 B안보다 비싸다(합계 3,984,219원 차)
+    a, b = cmp.rows[0], cmp.rows[1]
+    assert a.total_with_overhead_won - b.total_with_overhead_won == 3_984_219
 
 
 def test_quotes_comparison_pipeline_flags_expected_signals():

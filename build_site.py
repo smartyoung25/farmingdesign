@@ -6,6 +6,7 @@ SmartFarm 리포트 사이트 빌더 (경로 C 마감 + P0 근거대장)
 실행: python build_site.py
 """
 from __future__ import annotations
+import glob
 import html, json, os, datetime as _dt
 import smartfarm_engine as e
 import render_report as rr
@@ -495,11 +496,14 @@ def registry_page() -> str:
 
 
 QUOTES_JSON = "견적비교_논산딸기3사.json"
+QUOTES_GLOB = "견적비교_*.json"  # 확장(2026-08-17): 데이터 파일 추가만으로 비교 페이지 증설
 
 
 def load_quotes_comparison(path: str = QUOTES_JSON):
     """견적비교 데이터(JSON) → 엔진 compare_quotes() 결과. 렌더 밖 계산은 전부 엔진.
-    P3-23(2026-08-17 사용자 결정): P3-20 시연을 사이트 파이프라인에 정식 연결."""
+    P3-23(2026-08-17 사용자 결정): P3-20 시연을 사이트 파이프라인에 정식 연결.
+    rfq_input.required_categories(선택)로 필수 공종을 케이스별 조정(판단성 입력 —
+    예: 무가온 하우스 비교는 hvac 제외)."""
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     ri = data["rfq_input"]
@@ -507,7 +511,8 @@ def load_quotes_comparison(path: str = QUOTES_JSON):
         region_snow_cm=ri["region_snow_cm"], region_wind_ms=ri["region_wind_ms"],
         area_m2=ri["area_m2"], cover=e.Cover(ri["cover"]), form=ri["form"],
         t_target=ri["t_target"], t_min=ri["t_min"],
-        curtain=ri["curtain"], crop=ri["crop"])
+        curtain=ri["curtain"], crop=ri["crop"],
+        required_categories=ri.get("required_categories"))
     vqs = [e.VendorQuote(v["vendor_name"], v["categories"], v["direct_cost_total"],
                          v["total_with_overhead"], v.get("area_m2"), v.get("spec_name"))
            for v in data["vendor_quotes"]]
@@ -630,15 +635,17 @@ def main():
     links.append({"href": "SmartFarm_근거대장.html", "title": "▶ 엔진 상수 근거대장",
                   "desc": "P0 provenance · 엔진과 자동 대조"})
 
-    # P3-23(2026-08-17): 7단계 compare_quotes 연결 — 데이터 파일이 있을 때만 생성
-    n_quotes = 0
-    if os.path.exists(QUOTES_JSON):
-        qdata, qrfq, qcmp = load_quotes_comparison()
-        with open("SmartFarm_견적비교.html", "w", encoding="utf-8") as f:
+    # P3-23(2026-08-17): 7단계 compare_quotes 연결 — 견적비교_*.json 전부 순회
+    # (확장 2026-08-17: 파일 고정 → glob 일반화. 데이터 파일 추가만으로 페이지 증설)
+    n_quote_pages = 0
+    for qpath in sorted(glob.glob(QUOTES_GLOB)):
+        qdata, qrfq, qcmp = load_quotes_comparison(qpath)
+        fn = f"SmartFarm_견적비교_{qdata['comparison_id']}.html"
+        with open(fn, "w", encoding="utf-8") as f:
             f.write(quotes_comparison_page(qdata, qrfq, qcmp))
-        n_quotes = len(qdata["vendor_quotes"])
-        links.append({"href": "SmartFarm_견적비교.html", "title": "▶ 실견적 다사 비교 (7단계)",
-                      "desc": f"{n_quotes}개 업체 · RFQ 정합검증 · 참고정보(추천 없음)"})
+        links.append({"href": fn, "title": f"▶ {qdata['title']}",
+                      "desc": f"{len(qdata['vendor_quotes'])}개 안 · RFQ 정합검증 · 참고정보(추천 없음)"})
+        n_quote_pages += 1
 
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(index_page(links))
@@ -646,7 +653,7 @@ def main():
     print(f"사이트 생성 완료: index + 케이스 {len(cases) - n_partial}건"
           + (f" + 부분케이스 {n_partial}건" if n_partial else "")
           + " + 비교뷰 + 벤치마크 + CAPEX분해 + 근거대장"
-          + (f" + 견적비교({n_quotes}사)" if n_quotes else ""))
+          + (f" + 견적비교 {n_quote_pages}건" if n_quote_pages else ""))
     return computed
 
 
