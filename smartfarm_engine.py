@@ -339,12 +339,29 @@ SPEC_TABLE: list[Spec] = [
 
 
 def select_specs(region_snow_cm: float, region_wind_ms: float,
-                 form: Optional[str] = None) -> dict:
+                 form: Optional[str] = None, crop: Optional[str] = None) -> dict:
     """지역 설계강도를 충족하는 규격 필터 + 형식별 최소사양.
-    조건: 설계적설심 >= 지역적설심 AND 설계풍속 >= 지역풍속 (과설계 지양은 최소사양으로)."""
+    조건: 설계적설심 >= 지역적설심 AND 설계풍속 >= 지역풍속 (과설계 지양은 최소사양으로).
+
+    crop (P1-11, 2026-08-17 결정 — 상세는 레지스트리 SPEC_TABLE):
+      None(기본) = 작물특화형(참외·수박·포도·육묘 등 47종) 제외, 일반형 202종만.
+                   작물 미지정 질의에 특정작물 전용 구조(저측고 터널·비가림 등)를
+                   "최소사양"으로 내미는 범주 오류 방지 — 격자 측정에서 추천의
+                   9.5%가 작물특화형으로 왜곡됨을 확인하고 기본 제외로 확정.
+      "수박" 등  = 일반형 + 해당 작물 특화형이 함께 후보 경쟁(타 작물 특화형 제외).
+                   특화형이 없는 작물(예: 토마토)은 자연히 일반형만 남는다 — 오류 아님.
+      "*"        = 전 249종 포함(구버전 동작 재현용).
+    사용 가능한 작물명은 spec_crops() 참고. 어느 경우든 최종 선택은 사용자 몫
+    (min_by_form은 참고 정보)."""
+    def crop_ok(s):
+        if crop == "*":
+            return True
+        if crop is None:
+            return not s.crop
+        return (not s.crop) or s.crop == crop
     ok = [s for s in SPEC_TABLE
           if s.snow_cm >= region_snow_cm and s.wind_ms >= region_wind_ms
-          and (form is None or s.form == form)]
+          and (form is None or s.form == form) and crop_ok(s)]
     # 형식별 최소사양(적설심, 풍속 오름차순 최솟값)
     per_form: dict[str, Spec] = {}
     for s in ok:
@@ -352,6 +369,11 @@ def select_specs(region_snow_cm: float, region_wind_ms: float,
         if cur is None or (s.snow_cm, s.wind_ms) < (cur.snow_cm, cur.wind_ms):
             per_form[s.form] = s
     return {"candidates": ok, "min_by_form": per_form}
+
+
+def spec_crops() -> list[str]:
+    """SPEC_TABLE에 작물특화형이 등록된 작물명 목록(P1-11) — select_specs(crop=...)용."""
+    return sorted({s.crop for s in SPEC_TABLE if s.crop})
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1188,7 +1210,8 @@ def generate_rfq_package(region_snow_cm: float, region_wind_ms: float,
                          safety: float = 1.1, degree_hours: float = 10098.0,
                          efficiency: float = 0.85, fuel: str = "등유",
                          required_categories: Optional[list] = None,
-                         curtain: Optional[str] = None) -> RfqPackage:
+                         curtain: Optional[str] = None,
+                         crop: Optional[str] = None) -> RfqPackage:
     """설계 축 함수만 호출해 구조화한 RFQ 사양서(=구조화 사양표, CAD 도면 아님).
     form(연동/단동/광폭)은 판단성 결정이라 필수 인자로 받는다 — 엔진이 임의로
     고르지 않는다. 해당 지역강도를 만족하는 규격이 그 형식에 없으면 예외.
@@ -1196,7 +1219,7 @@ def generate_rfq_package(region_snow_cm: float, region_wind_ms: float,
     FarmInput.area_m2와 동일 의미). surface_area_m2는 난방부하 계산용 표면적
     (지붕·측벽 포함, 바닥면적보다 큼) — 미지정 시 area_m2로 근사(단동 등
     표면적≈바닥면적에 가까운 경우만 정확, 연동형은 실측값을 넘기는 것을 권장)."""
-    sel = select_specs(region_snow_cm, region_wind_ms, form)
+    sel = select_specs(region_snow_cm, region_wind_ms, form, crop=crop)  # P1-11: 작물 필터 위임
     chosen = sel["min_by_form"].get(form)
     if chosen is None:
         raise ValueError(

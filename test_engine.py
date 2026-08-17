@@ -160,6 +160,32 @@ def test_heating_load_rejects_ambiguous_missing_or_invalid_fr():
         e.heating_load(**base, fr=0)                        # 0은 물리적으로 무의미
 
 
+# ── 3-4. P1-11(2026-08-17): select_specs 작물특화형 필터 ────────────
+def test_select_specs_default_excludes_crop_specific():
+    # 왜곡 실측 지점(적설20·풍속26): 종전엔 파프리카 전용이 연동 최소사양으로 나왔음
+    sel = e.select_specs(20, 26)
+    assert all(not s.crop for s in sel["candidates"])  # 기본은 일반형만
+    assert sel["min_by_form"]["연동"].name == "20-연동(등)-04"
+    assert sel["min_by_form"]["연동"].crop == ""
+
+
+def test_select_specs_crop_param_includes_that_crop_only():
+    sel = e.select_specs(20, 30, form="단동", crop="수박")
+    crops_in = {s.crop for s in sel["candidates"]}
+    assert crops_in <= {"", "수박"}          # 일반형 + 수박 특화형만
+    assert "수박" in crops_in                # 수박 특화형이 실제 포함됨
+    assert sel["min_by_form"]["단동"].name == "21-단동(등)-01"  # 수박 전용이 최소로 경쟁
+
+
+def test_select_specs_star_reproduces_legacy_and_unknown_crop_is_generic():
+    legacy = e.select_specs(20, 26, crop="*")
+    assert legacy["min_by_form"]["연동"].crop == "파프리카"     # 구버전 왜곡 동작 재현
+    tomato = e.select_specs(20, 26, crop="토마토")              # 특화형 없는 작물
+    default = e.select_specs(20, 26)
+    assert {s.name for s in tomato["candidates"]} == {s.name for s in default["candidates"]}
+    assert "수박" in e.spec_crops() and "참외" in e.spec_crops()
+
+
 def test_generate_rfq_package_accepts_curtain_path():
     pkg_curtain = e.generate_rfq_package(
         region_snow_cm=40, region_wind_ms=30, area_m2=3000, cover=e.Cover.FILM,
