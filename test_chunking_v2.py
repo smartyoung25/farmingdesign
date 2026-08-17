@@ -148,3 +148,41 @@ def test_group_emitter_multiple_groups_and_empty_flush_safe():
 def test_grouped_doc_types_scope_is_three_tabular_types():
     # 방법론 4-2절: 공정표·기자재현황은 v1 단위 유지 — 스코프 드리프트 가드
     assert GROUPED_DOC_TYPES == {"공사비내역서", "설계예산서", "수량산출서"}
+
+
+# ── P2-16 skip 재처리: 수동 doc_type 지정 + 손상 .xls 관대 판독 (2026-08-17) ──
+
+def test_manual_override_files_all_exist():
+    # 오버라이드 대상이 이름변경/삭제되면 지정이 조용히 무효화되므로 실존을 가드
+    import build_document_chunks_full_v2 as full
+    from chunking_lib_v2 import ROOT
+    for rel in list(full.DOC_TYPE_OVERRIDES) + list(full.SKIP_OVERRIDES):
+        assert os.path.exists(os.path.join(ROOT, rel)), rel
+
+
+def test_classify_applies_doc_type_override():
+    import build_document_chunks_full_v2 as full
+    from chunking_lib_v2 import ROOT
+    case, dt = full.classify(os.path.join(
+        ROOT, "스마트팜스펙/견적참조/논산딸기조윤정님75각 외몽골셀액분리(최종).pdf"))
+    assert dt == "공사비내역서" and case == "조윤정"
+    case, dt = full.classify(os.path.join(
+        ROOT, "스마트팜스펙/견적참조/2025년 무화과(이명환)-각125.xls"))
+    assert dt == "공사비내역서"  # 종전 "미분류" — P2-16 수동 지정
+
+
+def test_xls_lenient_loader_reads_damaged_file_and_restores_xlrd():
+    # 수현건설 견적서: strict xlrd는 SUPBOOK utf-16 손상으로 실패하던 파일
+    import xlrd.biffh
+    from chunking_lib_v2 import ROOT, _xls_sheets_lenient
+    strict_before = xlrd.biffh.unicode
+    sheets = _xls_sheets_lenient(os.path.join(ROOT, "스마트팜스펙/견적참조/수현건설임미라님견적서.xls"))
+    assert sheets is not None
+    assert sum(len(rows) for rows in sheets.values()) > 100
+    # 패치는 함수 내부에서만 적용되고 원상복구돼야 한다(정상 파일 strict 경로 보존)
+    assert xlrd.biffh.unicode is strict_before
+
+
+def test_xls_lenient_loader_none_for_nonexistent():
+    from chunking_lib_v2 import _xls_sheets_lenient
+    assert _xls_sheets_lenient(r"E:\FarmingDesign\없는파일_zzz.xls") is None

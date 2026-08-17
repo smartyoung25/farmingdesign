@@ -479,20 +479,74 @@ def chunk_xlsx(w, path, case_name, doc_type, doc_subtype, evidence_status="실�
     return n_rows
 
 
+def _xls_sheets_lenient(path):
+    """P2-16(2026-08-17) — xlrd 정상 경로가 실패하는 손상 .xls 판독 우회.
+
+    실측 진단(수현건설·최선동·한수진·우민재 공정표·ICT확산내역서 5건): 전부
+    진짜 OLE2 바이너리이며, 실패 원인은 셀 데이터가 아니라 메타데이터 손상
+    2종이었다 — ①SUPBOOK(외부참조) 문자열의 utf-16 위반, ②NAME(정의된 이름)
+    수식의 순환 참조("Excessive indirect references"). 따라서 ①문자열 디코드를
+    errors='replace'로 완화하고 ②이름 수식 평가를 건너뛰면 셀 데이터는 온전히
+    읽힌다. 패치는 이 함수 안에서만 적용하고 finally로 원상복구한다(정상 파일의
+    strict 파싱 경로에 영향 없음). 반환: {시트명: [[셀,...],...]} 또는 None.
+    """
+    import xlrd
+    import xlrd.biffh
+    import xlrd.book
+    import xlrd.formula
+    import xlrd.timemachine
+
+    lenient = lambda b, enc: b.decode(enc, errors="replace")
+    noop = lambda *a, **k: None
+    saved = [(m, "unicode", m.unicode) for m in (xlrd.timemachine, xlrd.biffh, xlrd.book)]
+    saved += [(xlrd.formula, "evaluate_name_formula", xlrd.formula.evaluate_name_formula),
+              (xlrd.book, "evaluate_name_formula", xlrd.book.evaluate_name_formula)]
+    try:
+        for m in (xlrd.timemachine, xlrd.biffh, xlrd.book):
+            m.unicode = lenient
+        xlrd.formula.evaluate_name_formula = noop
+        xlrd.book.evaluate_name_formula = noop
+        book = xlrd.open_workbook(path)
+        out = {}
+        for sheet in book.sheets():
+            rows = []
+            for ri in range(sheet.nrows):
+                vals = []
+                for c in sheet.row_values(ri):
+                    if isinstance(c, float) and c == int(c):
+                        c = int(c)
+                    vals.append(c)
+                rows.append(vals)
+            out[sheet.name] = rows
+        return out
+    except Exception:
+        return None
+    finally:
+        for mod, attr, orig in saved:
+            setattr(mod, attr, orig)
+
+
 def chunk_xls_legacy(w, path, case_name, doc_type, doc_subtype, evidence_status="실측"):
     import pandas as pd
     n_rows = 0
+    row_quality = "xls_row"
     try:
-        sheets = pd.read_excel(path, sheet_name=None, header=None, engine="xlrd")
+        dfs = pd.read_excel(path, sheet_name=None, header=None, engine="xlrd")
+        sheets = {name: df.values.tolist() for name, df in dfs.items()}
     except Exception as e:
-        w.skip(path, f"xls 읽기 실패: {e}")
-        return 0
+        # P2-16: strict 실패 시 관대 판독 우회(메타데이터 손상 .xls). 우회로 읽은
+        # 행은 품질 라벨을 구분해 정직하게 표시한다.
+        sheets = _xls_sheets_lenient(path)
+        if sheets is None:
+            w.skip(path, f"xls 읽기 실패(관대 판독 우회 포함): {e}")
+            return 0
+        row_quality = "xls_row_lenient"
     grouped = doc_type in GROUPED_DOC_TYPES  # P2-13
-    for sheet_name, df in sheets.items():
+    for sheet_name, rows in sheets.items():
         current_section = None
         ge = GroupEmitter(w, case_name, doc_type, path, evidence_status) if grouped else None
-        for ri, row in df.iterrows():
-            cells = [str(c) for c in row.tolist() if str(c) not in ("nan", "None", "")]
+        for ri, row in enumerate(rows):
+            cells = [str(c) for c in row if str(c) not in ("nan", "None", "")]
             if not cells:
                 continue
             row_text = " | ".join(cells)
@@ -504,7 +558,7 @@ def chunk_xls_legacy(w, path, case_name, doc_type, doc_subtype, evidence_status=
                 if is_header_row(cells):
                     ge.header_row(rid, row_text)
                 else:
-                    ge.row(rid, row_text, "xls_row")
+                    ge.row(rid, row_text, row_quality)
                 continue
             if is_header_row(cells):
                 current_section = row_text
@@ -512,7 +566,7 @@ def chunk_xls_legacy(w, path, case_name, doc_type, doc_subtype, evidence_status=
             else:
                 ctx = current_section
             w.add(case_name, doc_type, doc_subtype, path, rid,
-                  row_text, evidence_status=evidence_status, extraction_quality="xls_row",
+                  row_text, evidence_status=evidence_status, extraction_quality=row_quality,
                   section_context=ctx)
         if ge is not None:
             ge.flush()
