@@ -17,6 +17,51 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 SPEC_DIR = os.path.join(ROOT, "스마트팜스펙")
 FACILITY_DIR = os.path.join(ROOT, "시설평가")
 
+
+# ── P2-23(2026-08-17): 파이프라인 의존성·산출물 급감 가드 ──────────────
+# 배경: 2026-08-16 xlrd 유실 사건(작업지시서 10-4절) — 의존성 부재가 skip 사유로만
+# 기록된 채 실행이 계속돼 .xls 파일들이 조용히 0청크가 됐고(기존 대비 2,345청크
+# 증발), 병합 후 총량을 이전 실행과 수동 대조하고서야 발견됐다. 2026-08-17엔
+# pdfplumber도 같은 방식으로 환경에서 유실돼 있었음이 재확인됨. 조용한 열화를
+# 실행 전(의존성 확인)·병합 시(총량 대조) 두 지점의 명시적 중단으로 바꾼다.
+PIPELINE_DEPENDENCIES = ("pdfplumber", "pypdf", "openpyxl", "xlrd", "pandas", "docx")
+
+
+def assert_pipeline_dependencies(deps=PIPELINE_DEPENDENCIES):
+    """필수 파서 패키지가 하나라도 없으면 RuntimeError로 즉시 중단한다.
+    없는 채 진행하면 해당 포맷 파일 전부가 '읽기 실패' skip으로 조용히 사라진다."""
+    import importlib
+    missing = []
+    for name in deps:
+        try:
+            importlib.import_module(name)
+        except ImportError:
+            missing.append(name)
+    if missing:
+        raise RuntimeError(
+            "청킹 파이프라인 필수 패키지 유실: " + ", ".join(missing)
+            + " — pip install 후 재실행할 것 (P2-23 가드: 의존성 없이 진행하면 "
+              "해당 포맷이 조용히 0청크가 된다. 10-4절 xlrd 사건 참고)")
+    return True
+
+
+def chunk_count_regression_guard(new_count, index_path, allow_shrink=None):
+    """병합 결과 총 청크 수가 기존 인덱스보다 줄면 RuntimeError로 중단한다.
+    의도적 축소(파일 삭제·스코프 변경)는 환경변수 CHUNK_ALLOW_SHRINK=1 로만 통과."""
+    if allow_shrink is None:
+        allow_shrink = os.environ.get("CHUNK_ALLOW_SHRINK") == "1"
+    if not os.path.exists(index_path):
+        return True  # 첫 실행 — 비교 기준 없음
+    with open(index_path, encoding="utf-8") as f:
+        old_count = sum(1 for line in f if line.strip())
+    if new_count < old_count and not allow_shrink:
+        raise RuntimeError(
+            f"병합 결과 청크 수 급감: 기존 {old_count} → 신규 {new_count}"
+            f"({old_count - new_count} 감소) — 의존성 유실/부분 처리 의심"
+            "(10-4절 사건과 동일 패턴). 의도적 축소가 맞으면 "
+            "CHUNK_ALLOW_SHRINK=1 환경변수로 재실행할 것")
+    return True
+
 # ── 주제축(도메인) 태깅 규칙 ──
 # 2026-07-24 개정: 사용자 지정 9개 공학 도메인 축으로 재구성한다.
 #   부지 · 토목 · 시설 · 장비 · 전기 · 통신 · 재배환경 · 운영 · 사후관리

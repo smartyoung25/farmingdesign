@@ -25,7 +25,10 @@ import glob
 import hashlib
 
 import build_document_chunks_full_v2 as full
-from chunking_lib_v2 import ROOT, ChunkWriter, write_outputs
+from chunking_lib_v2 import (
+    ROOT, ChunkWriter, write_outputs,
+    assert_pipeline_dependencies, chunk_count_regression_guard,
+)
 
 PARTS = os.path.join(ROOT, "_chunks_parts_9축")
 os.makedirs(PARTS, exist_ok=True)
@@ -113,6 +116,7 @@ def process_one(path):
 
 
 def merge():
+    assert_pipeline_dependencies()  # P2-23: 의존성 유실 상태의 병합도 차단
     recs = []
     for p in glob.glob(os.path.join(PARTS, "*.part.json")):
         try:
@@ -141,9 +145,12 @@ def merge():
         for s in r.get("skips", []):
             w.skipped_files.append(tuple(s))
     print(f"merge: {len(recs)} parts, {n_dup} MD5-중복 처리", flush=True)
+    index_path = os.path.join(ROOT, "문서청킹_인덱스_전체_9축.jsonl")
+    # P2-23: 기존 정본보다 총량이 줄면 덮어쓰기 전에 중단(조용한 열화 차단)
+    chunk_count_regression_guard(len(w.chunks), index_path)
     write_outputs(
         w,
-        os.path.join(ROOT, "문서청킹_인덱스_전체_9축.jsonl"),
+        index_path,
         os.path.join(ROOT, "문서청킹_전체_요약_9축.txt"),
         extra_log=[f"증분 병합: 처리파일 {len(recs)}개 → 청크 {len(w.chunks)}개"],
     )
@@ -154,6 +161,7 @@ def main():
     args = sys.argv[1:]
     if "--merge" in args:
         merge(); return
+    assert_pipeline_dependencies()  # P2-23: 처리 시작 전 필수 파서 존재 확인
     if "all" in args:
         bases = [full.SPEC_DIR, full.FACILITY_DIR]
     elif "facility" in args:

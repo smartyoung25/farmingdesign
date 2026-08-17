@@ -275,10 +275,14 @@ def run():
 
 
 if __name__ == "__main__":
+    from chunking_lib_v2 import assert_pipeline_dependencies, chunk_count_regression_guard
+    assert_pipeline_dependencies()  # P2-23: 처리 시작 전 필수 파서 존재 확인
     run()
+    _index_path = os.path.join(ROOT, "문서청킹_인덱스_전체_9축.jsonl")
+    chunk_count_regression_guard(len(W.chunks), _index_path)  # P2-23: 총량 급감 차단
     write_outputs(
         W,
-        os.path.join(ROOT, "문서청킹_인덱스_전체_9축.jsonl"),
+        _index_path,
         os.path.join(ROOT, "문서청킹_전체_요약_9축.txt"),
         extra_log=log,
     )
