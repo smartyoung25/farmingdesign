@@ -66,6 +66,8 @@ def test_case_opex_breakdown_matches_engine_and_input():
 def test_consulting_report_page_renders_all_cases_without_crashing():
     checked = 0
     for case in C.load_cases():
+        if case.get("partial"):   # P3-21d: 부분 케이스는 4축 통합보고서 비대상
+            continue
         inp = C.case_to_input(case)
         res = rr.compute(inp)
         html = bs.consulting_report_page(case, res, inp)
@@ -151,3 +153,34 @@ def test_consulting_report_financing_section_conditional():
     html_with = bs.consulting_report_page(with_fin, res, C.case_to_input(base))
     assert "연차별 대출상환표" in html_with and "거치 2년" in html_with
     assert "테스트 합성 조건" in html_with
+
+
+# ── P3-21d(2026-08-17): 이용균 부분 케이스(시공축 전용) ─────────────────
+
+def test_partial_case_yonggyun_loads_and_is_arithmetically_consistent():
+    cases_by_id = {c["case_id"]: c for c in C.load_cases()}
+    y = cases_by_id["yonggyun"]
+    assert y.get("partial") == "construction_only"
+    cs = y["construction"]["cost_summary_won"]
+    # 원문 3중 검증 구조가 JSON에서도 유지되는지 산술 가드
+    assert cs["직접재료비"] + cs["직접노무비"] + cs["경비"] == cs["직접공사비"]
+    assert cs["공급가액"] + cs["부가가치세"] == cs["합계"]
+    assert cs["도급비(만단위 절사)"] == 506_000_000
+    trades = y["construction"]["trades_material_won"]
+    assert sum(trades.values()) == cs["직접재료비"]      # 집계표 ↔ 원가계산서 대사
+    assert y["input"]["total_construction_cost"] == 506_000_000
+
+
+def test_partial_case_renders_construction_page_and_skips_4axis():
+    cases_by_id = {c["case_id"]: c for c in C.load_cases()}
+    y = cases_by_id["yonggyun"]
+    html_out = bs.partial_construction_page(y)
+    assert "시공축 부분 케이스" in html_out or "부분 케이스" in html_out
+    assert "506,000,000" in html_out                  # 도급비
+    assert "골조(MS신형 125-75)" in html_out           # 공종 표
+    assert "벤치마크" in html_out                      # benchmark_check 연동
+    assert "ROI" not in html_out                       # 4축 경제성 미산출(가공값 금지)
+    # 로더가 partial을 정상 케이스로 오인해 FarmInput 변환을 시도하면 안 된다
+    import pytest as _pt
+    with _pt.raises(TypeError):
+        C.case_to_input(y)   # 필수 필드 없음 — 부분 케이스는 이 경로로 못 감(main이 분기)

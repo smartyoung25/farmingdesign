@@ -374,6 +374,47 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     return _page(f"스마트팜 ROI 통합보고서 — {case['title']}", body)
 
 
+def partial_construction_page(case: dict) -> str:
+    """P3-21d(2026-08-17): 시공축 전용 부분 케이스 리포트.
+    입지·운영·경제성 데이터가 없는 케이스는 4축 통합보고서를 만들지 않고(가공값
+    금지), 확보된 시공축 실측만 렌더한다. 계산은 엔진 benchmark_check만 사용."""
+    inp = case["input"]
+    con = case["construction"]
+    total = inp["total_construction_cost"]
+    area = inp["area_m2"]
+    bench = e.benchmark_check(total, area, e.Cover(inp["cover"]))
+    summary_rows = "".join(
+        f"<div class='row'><span class='lbl'>{esc(k)}</span>"
+        f"<span class='val'>{v:,.0f}원</span></div>"
+        for k, v in con["cost_summary_won"].items())
+    trade_rows = "".join(
+        f"<tr><td>{esc(k)}</td><td class='num'>{v:,.0f}</td></tr>"
+        for k, v in con["trades_material_won"].items())
+    body = f"""
+  <header class="top"><h1>{esc(case['title'])}</h1>
+    <div class="sub">시공축 부분 케이스 · {esc(inp['crop'])} · {area:,.1f}㎡ ({e.m2_to_py(area):,.0f}평) · {esc(inp['cover'])}</div></header>
+  <section class="card"><span class="axis">부분 케이스 안내</span>
+    <h2>이 리포트의 범위</h2>
+    <p style="font-size:13.5px">{esc(case['partial_note'])}</p></section>
+  <section class="card"><span class="axis">시공 — 규격</span>
+    <h2>실측 규격</h2>
+    <p style="font-size:13.5px">{esc(con['spec_note'])}</p></section>
+  <section class="card"><span class="axis">시공 — 공사비</span>
+    <h2>공사원가 요약 (원문 전사)</h2>
+    {summary_rows}
+    <div class="row"><span class="lbl">벤치마크(총액 기준)</span>
+      <span class="val">{bench['unit_won_m2']:,}원/㎡ — <span class="badge {_sc(bench['status'])}">{esc(bench['status'])}</span> (밴드 {bench['band'][0]:,}~{bench['band'][1]:,})</span></div>
+    <h2 style="margin-top:16px">공종별 재료비 (집계표 전사 — 합계 대사 검증)</h2>
+    <table><thead><tr><th>공종(원문)</th><th class="num">재료비(원)</th></tr></thead>
+      <tbody>{trade_rows}</tbody></table>
+    <p class="note">{esc(con['trades_note'])}</p></section>
+  <section class="card"><span class="axis">근거</span>
+    <h2>출처·검증</h2>
+    <p style="font-size:13px;color:var(--muted)">{esc(case['provenance'])}</p></section>
+  <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>"""
+    return _page(case["title"], body)
+
+
 def comparison_page(computed: list[dict]) -> str:
     head = ("<tr><th>케이스</th><th class='num'>단위공사비</th><th>벤치마크</th>"
             "<th class='num'>난방/㎡</th><th class='num'>ROI</th><th class='num'>Payback</th>"
@@ -543,7 +584,17 @@ def index_page(links: list[dict]) -> str:
 def main():
     cases = load_cases()
     computed, links = [], []
+    n_partial = 0
     for c in cases:
+        # P3-21d: 부분 케이스(시공축 전용)는 4축 계산 없이 전용 페이지만 렌더
+        if c.get("partial"):
+            fn = f"SmartFarm_부분케이스_{c['case_id']}.html"
+            with open(fn, "w", encoding="utf-8") as f:
+                f.write(partial_construction_page(c))
+            links.append({"href": fn, "title": f"▷ {c['title']}",
+                          "desc": "시공축 부분 케이스 — 실측 공사비·규격만(4축 미산출)"})
+            n_partial += 1
+            continue
         inp = case_to_input(c)
         res = rr.compute(inp)
         fn = f"SmartFarm_리포트_{c['case_id']}.html"
@@ -571,7 +622,7 @@ def main():
         f.write(capex_breakdown_page())
 
     links.append({"href": "SmartFarm_케이스비교.html", "title": "▶ 케이스 비교 뷰",
-                  "desc": f"{len(cases)}개 케이스 KPI 대조 + 근거"})
+                  "desc": f"{len(cases) - n_partial}개 케이스 KPI 대조 + 근거"})
     links.append({"href": "SmartFarm_벤치마크비교.html", "title": "▶ 실측 벤치마크 비교",
                   "desc": f"{len(e.ACTUALS)}건 · 시공축 밴드 대조"})
     links.append({"href": "SmartFarm_CAPEX분해.html", "title": "▶ CAPEX 공종 카테고리 분해",
@@ -592,7 +643,9 @@ def main():
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(index_page(links))
 
-    print(f"사이트 생성 완료: index + 케이스 {len(cases)}건 + 비교뷰 + 벤치마크 + CAPEX분해 + 근거대장"
+    print(f"사이트 생성 완료: index + 케이스 {len(cases) - n_partial}건"
+          + (f" + 부분케이스 {n_partial}건" if n_partial else "")
+          + " + 비교뷰 + 벤치마크 + CAPEX분해 + 근거대장"
           + (f" + 견적비교({n_quotes}사)" if n_quotes else ""))
     return computed
 
