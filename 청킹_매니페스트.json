@@ -1,6 +1,6 @@
 {
  "manifest_version": "1.0",
- "last_run": "2026-08-17T214931",
+ "last_run": "2026-08-17T225529",
  "files": {
   "스마트팜스펙/(시방서)2025년 청년농업인 자립기반 구축 지원 사업.pdf": {
    "sha256": "7d4e011f9273e2a2b6431b7598747e7bf5b813c5cac03079db6fe70209c3a8e7",
@@ -11,7 +11,7 @@
    "case_name": "제도문서",
    "chunk_count": 44,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/2025-13_[붙임2] 공사비내역서 및 시방서.pdf": {
@@ -23,7 +23,7 @@
    "case_name": "제도문서",
    "chunk_count": 95,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/2025년 청년농업인 스마트팜 자립기반 구축 지원사업(온실시공)/(설계도면_10-연동-2형)2025년 청년농업인 자립기반 구축 지원 사업.pdf": {
@@ -35,7 +35,7 @@
    "case_name": "제도문서-청년농업인표준",
    "chunk_count": 25,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/2025년 청년농업인 스마트팜 자립기반 구축지원사업 준호네 자연농장 이준호/25 - 117 - [함평] 이준호 온실 검토서.pdf": {
@@ -47,7 +47,7 @@
    "case_name": "이준호",
    "chunk_count": 85,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/[붙임4] 스마트팜 온실 신개축 지원사업 '25년 사업자 공모계획.pdf": {
@@ -59,7 +59,7 @@
    "case_name": "제도문서",
    "chunk_count": 32,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/[입찰대행] 2025년 청년농업인 스마트팜 자립기반 구축 지원사업/★공사비 내역서(2025년 청년농업인 스마트팜 자립기반 구축 지원).pdf": {
@@ -71,7 +71,7 @@
    "case_name": "제도문서-청년농업인표준",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/00-배광한 설계도서260402.pdf": {
@@ -83,7 +83,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 118,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/00-정택근 설계도서260402.pdf": {
@@ -95,7 +95,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 118,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/0617 스마트팜-마구평리 392-1_All (2).pdf": {
@@ -107,7 +107,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 8,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/1. 군산 강정구 농가_8.4×44×10연동_와이드_딸기.pdf": {
@@ -119,7 +119,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 184,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/1. 기본견적서(4억5천)_250327.pdf": {
@@ -131,7 +131,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/125x75x2.3 측고6m,2중스크린,넥피니언_비닐온실 견적서.pdf": {
@@ -143,7 +143,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 347,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/125x75x2.3 측고6m,2중스크린,넥피니언_비닐온실 측고6,2중스크린,넥피니언_비닐온실 설.pdf": {
@@ -152,10 +152,10 @@
    "size": 6481068,
    "status": "processed",
    "doc_type": "설계도면",
-   "case_name": "견적참조-미상",
+   "case_name": "이용균",
    "chunk_count": 31,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/2. 환경제어기견적서_250426.pdf": {
@@ -167,7 +167,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/2025년 무화과(이명환)-각125.xls": {
@@ -179,7 +179,7 @@
    "case_name": "이명환",
    "chunk_count": 1183,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/2025년 무화과(이명환)-각75.xls": {
@@ -191,7 +191,7 @@
    "case_name": "이명환",
    "chunk_count": 1178,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/20260622 수정 스마트팜-마구평리 392_All.pdf": {
@@ -203,7 +203,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 9,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/221206 윤성호 청년스마트팜 기본도면.pdf": {
@@ -215,7 +215,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 10,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/221206 윤성호 청년스마트팜 내역서.pdf": {
@@ -227,7 +227,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 725,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/240510_총공사 내역서-1_240814_164013.pdf": {
@@ -239,7 +239,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 789,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/24년완공 스마트팜패키지 최종도면.pdf": {
@@ -251,7 +251,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 57,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/25.12.29 군산_ㅁ75하우스견적_무화과량 이명환 님.pdf": {
@@ -263,7 +263,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 280,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/3. 추가견적서_250427.pdf": {
@@ -275,7 +275,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/FIRMMIT_우민재 농가토마토재배 시설하우스 내역서.pdf": {
@@ -287,7 +287,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 428,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055923547.jpg": {
@@ -295,11 +295,11 @@
    "mtime": 1784063210000000000,
    "size": 948025,
    "status": "processed",
-   "doc_type": "미분류",
+   "doc_type": "공사비내역서",
    "case_name": "견적참조-미상",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055936807.png": {
@@ -307,11 +307,11 @@
    "mtime": 1784063264000000000,
    "size": 554472,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "공사비내역서",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055936807_01.png": {
@@ -319,11 +319,11 @@
    "mtime": 1784063264000000000,
    "size": 475763,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "공사비내역서",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055936807_02.png": {
@@ -331,11 +331,11 @@
    "mtime": 1784063264000000000,
    "size": 170865,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "공사비내역서",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055936807_03.png": {
@@ -343,11 +343,11 @@
    "mtime": 1784063264000000000,
    "size": 273412,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "공사비내역서",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055936807_04.png": {
@@ -355,11 +355,11 @@
    "mtime": 1784063264000000000,
    "size": 481403,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "공사비내역서",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055936807_05.png": {
@@ -367,11 +367,11 @@
    "mtime": 1784063266000000000,
    "size": 432885,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "공사비내역서",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055936807_06.png": {
@@ -379,11 +379,11 @@
    "mtime": 1784063266000000000,
    "size": 376353,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "공사비내역서",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_055936807_07.png": {
@@ -391,11 +391,11 @@
    "mtime": 1784063266000000000,
    "size": 381980,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "공사비내역서",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177.png": {
@@ -403,11 +403,11 @@
    "mtime": 1784063616000000000,
    "size": 287765,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_01.png": {
@@ -415,11 +415,11 @@
    "mtime": 1784063616000000000,
    "size": 161211,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_02.png": {
@@ -427,11 +427,11 @@
    "mtime": 1784063618000000000,
    "size": 250227,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_03.png": {
@@ -439,11 +439,11 @@
    "mtime": 1784063618000000000,
    "size": 336168,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_04.png": {
@@ -451,11 +451,11 @@
    "mtime": 1784063618000000000,
    "size": 238418,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_05.png": {
@@ -463,11 +463,11 @@
    "mtime": 1784063618000000000,
    "size": 142618,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_06.png": {
@@ -475,11 +475,11 @@
    "mtime": 1784063618000000000,
    "size": 237771,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_07.png": {
@@ -487,11 +487,11 @@
    "mtime": 1784063618000000000,
    "size": 319225,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_08.png": {
@@ -499,11 +499,11 @@
    "mtime": 1784063620000000000,
    "size": 276346,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_09.png": {
@@ -511,11 +511,11 @@
    "mtime": 1784063620000000000,
    "size": 147675,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_10.png": {
@@ -523,11 +523,11 @@
    "mtime": 1784063620000000000,
    "size": 324712,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_11.png": {
@@ -535,11 +535,11 @@
    "mtime": 1784063620000000000,
    "size": 147847,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_12.png": {
@@ -547,11 +547,11 @@
    "mtime": 1784063620000000000,
    "size": 228058,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_13.png": {
@@ -559,11 +559,11 @@
    "mtime": 1784063620000000000,
    "size": 233081,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_14.png": {
@@ -571,11 +571,11 @@
    "mtime": 1784063622000000000,
    "size": 223609,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_15.png": {
@@ -583,11 +583,11 @@
    "mtime": 1784063622000000000,
    "size": 293253,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_16.png": {
@@ -595,11 +595,11 @@
    "mtime": 1784063622000000000,
    "size": 173616,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_17.png": {
@@ -607,11 +607,11 @@
    "mtime": 1784063622000000000,
    "size": 129039,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_18.png": {
@@ -619,11 +619,11 @@
    "mtime": 1784063622000000000,
    "size": 182974,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_19.png": {
@@ -631,11 +631,11 @@
    "mtime": 1784063622000000000,
    "size": 236240,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_20.png": {
@@ -643,11 +643,11 @@
    "mtime": 1784063622000000000,
    "size": 173616,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_21.png": {
@@ -655,11 +655,11 @@
    "mtime": 1784063624000000000,
    "size": 189429,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_22.png": {
@@ -667,11 +667,11 @@
    "mtime": 1784063624000000000,
    "size": 88454,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_23.png": {
@@ -679,11 +679,11 @@
    "mtime": 1784063624000000000,
    "size": 187155,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_24.png": {
@@ -691,11 +691,11 @@
    "mtime": 1784063624000000000,
    "size": 193624,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_25.png": {
@@ -703,11 +703,11 @@
    "mtime": 1784063624000000000,
    "size": 306108,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_26.png": {
@@ -715,11 +715,11 @@
    "mtime": 1784063624000000000,
    "size": 144565,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_27.png": {
@@ -727,11 +727,11 @@
    "mtime": 1784063624000000000,
    "size": 192977,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_28.png": {
@@ -739,11 +739,11 @@
    "mtime": 1784063624000000000,
    "size": 149916,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/KakaoTalk_20260715_060044177_29.png": {
@@ -751,11 +751,11 @@
    "mtime": 1784063624000000000,
    "size": 162122,
    "status": "processed",
-   "doc_type": "미분류",
-   "case_name": "견적참조-미상",
+   "doc_type": "설계도면",
+   "case_name": "이용균",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/[맹주연]_충청남도 천안시 서북구 직산읍 양당리 82-2(개발지 포함)_최종.pdf": {
@@ -767,7 +767,7 @@
    "case_name": "맹주연",
    "chunk_count": 36,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/__원가설계도서_이두희(천안) 20251028.pdf": {
@@ -779,7 +779,7 @@
    "case_name": "천안",
    "chunk_count": 1365,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/견적서_군산 오기수 농가_0803.pdf": {
@@ -791,7 +791,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 239,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/구창회 설계도면_ 최종.pdf": {
@@ -803,7 +803,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 26,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/군산이명환농가-(천창랙피니언커튼1중)-753평-견적서.pdf": {
@@ -815,7 +815,7 @@
    "case_name": "산이명환",
    "chunk_count": 265,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/군산이명환농가-(커튼1중)-753평견적서.pdf": {
@@ -827,7 +827,7 @@
    "case_name": "산이명환",
    "chunk_count": 244,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/군산이명환농가-천장랙피니언-도면.pdf": {
@@ -839,7 +839,7 @@
    "case_name": "산이명환",
    "chunk_count": 12,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/논산_백가은 대표님 최종도면_0616.pdf": {
@@ -851,7 +851,7 @@
    "case_name": "백가은",
    "chunk_count": 17,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/논산_조윤정 대표님 도면_0616-1.pdf": {
@@ -863,7 +863,7 @@
    "case_name": "조윤정",
    "chunk_count": 17,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/논산딸기백가은님75각 시공 견적서(최종).pdf": {
@@ -875,7 +875,7 @@
    "case_name": "최종",
    "chunk_count": 418,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/논산딸기조윤정님75각 외몽골셀액분리(최종).pdf": {
@@ -887,7 +887,7 @@
    "case_name": "조윤정",
    "chunk_count": 418,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/박규현 견적서 (1).pdf": {
@@ -899,7 +899,7 @@
    "case_name": "박규현",
    "chunk_count": 348,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/박규현 견적서.pdf": {
@@ -911,7 +911,7 @@
    "case_name": "박규현",
    "chunk_count": 348,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/박종훈 내역서.pdf": {
@@ -923,7 +923,7 @@
    "case_name": "박종훈",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/베드 배치도.pdf": {
@@ -935,7 +935,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/산출내역서(본)_250630.pdf": {
@@ -947,7 +947,7 @@
    "case_name": "산출",
    "chunk_count": 390,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/산출내역서(추가)_250630.pdf": {
@@ -959,7 +959,7 @@
    "case_name": "추가",
    "chunk_count": 34,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/설계내역서(이수근)온실.pdf": {
@@ -971,7 +971,7 @@
    "case_name": "이수근",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/설계내역서_이동혁.pdf": {
@@ -983,7 +983,7 @@
    "case_name": "설계",
    "chunk_count": 103,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/설계도25 - 233 - [천안] 이두희 온실 검토서_251024 final.pdf": {
@@ -995,7 +995,7 @@
    "case_name": "천안",
    "chunk_count": 63,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/수현건설임미라님견적서.xls": {
@@ -1007,7 +1007,7 @@
    "case_name": "설임미라",
    "chunk_count": 477,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/스마트팜하우스(렉창)5연동견적서_최선동.xls": {
@@ -1019,7 +1019,7 @@
    "case_name": "렉창",
    "chunk_count": 328,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/시공견적서.pdf": {
@@ -1031,7 +1031,7 @@
    "case_name": "시공",
    "chunk_count": 506,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/오기수농가 도면.pdf": {
@@ -1043,7 +1043,7 @@
    "case_name": "오기수",
    "chunk_count": 34,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/우민재 농가 토마토재배 시설하우스 도면.pdf": {
@@ -1055,7 +1055,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 26,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/원가계산서_이두희(천안) 20251028.pdf": {
@@ -1067,7 +1067,7 @@
    "case_name": "천안",
    "chunk_count": 1365,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/이영준 설계도면(한일그린텍).pdf": {
@@ -1079,7 +1079,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 27,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/이영준 설계예산서(한일그린텍).pdf": {
@@ -1091,7 +1091,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 524,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/이용균(ms-9.6)(설계예산서).pdf": {
@@ -1103,7 +1103,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 347,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/이용균(신종리467-7,8) 도면.pdf": {
@@ -1115,7 +1115,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 31,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/천안 맹주연님 견적서_251014(최종견적서).pdf": {
@@ -1127,7 +1127,7 @@
    "case_name": "맹주연",
    "chunk_count": 1147,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 배치도.pdf": {
@@ -1139,7 +1139,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 베드 배치도.pdf": {
@@ -1151,7 +1151,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 부재연결부 상세도.pdf": {
@@ -1163,7 +1163,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 양액시스템.pdf": {
@@ -1175,7 +1175,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 연결부 상세도.pdf": {
@@ -1187,7 +1187,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 정면골조도.pdf": {
@@ -1199,7 +1199,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 주단면도.pdf": {
@@ -1211,7 +1211,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 측면골조도.pdf": {
@@ -1223,7 +1223,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 평면도.pdf": {
@@ -1235,7 +1235,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동 - 후면골조도.pdf": {
@@ -1247,7 +1247,7 @@
    "case_name": "최선동",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/최선동복합환경견적서.xlsx": {
@@ -1259,7 +1259,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 33,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/충남 서산(이준희) 도면.pdf": {
@@ -1271,7 +1271,7 @@
    "case_name": "이준희",
    "chunk_count": 40,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/충남 서산(이준희) 온실 시공 견적서_부가세 환급.xlsx": {
@@ -1283,7 +1283,7 @@
    "case_name": "이준희",
    "chunk_count": 2850,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 배드 배치도.pdf": {
@@ -1295,7 +1295,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 배치도.pdf": {
@@ -1307,7 +1307,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 부재연결부 상세도.pdf": {
@@ -1319,7 +1319,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 양액제어시스템.pdf": {
@@ -1331,7 +1331,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 연결부 상세도.pdf": {
@@ -1343,7 +1343,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 정면골조도.pdf": {
@@ -1355,7 +1355,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 주단면도.pdf": {
@@ -1367,7 +1367,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 측면골조도.pdf": {
@@ -1379,7 +1379,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 평면도.pdf": {
@@ -1391,7 +1391,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진 - 후면골조도.pdf": {
@@ -1403,7 +1403,7 @@
    "case_name": "한수진",
    "chunk_count": 1,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/견적참조/한수진스마트팜딸기하우스견적서.xls": {
@@ -1415,7 +1415,7 @@
    "case_name": "견적참조-미상",
    "chunk_count": 315,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/과업지시서_제주 지역특화 임대형 스마트팜 실시설계 용역 (1).pdf": {
@@ -1427,7 +1427,7 @@
    "case_name": "제도문서",
    "chunk_count": 44,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/부여군 스마트농업실습농장 시방서(온실공사, 온실기계공사, 지반조성).pdf": {
@@ -1439,7 +1439,7 @@
    "case_name": "제도문서",
    "chunk_count": 140,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/2026년 딸기고설재배패키지사업 온실공사/설계도면/도면_단동비닐온실 및 고설재배시설.pdf": {
@@ -1451,7 +1451,7 @@
    "case_name": "2026년 딸기고설재배패키지사업 온실공사",
    "chunk_count": 9,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/2026년 딸기고설재배패키지사업 온실공사/설계도면/도면_비와도.pdf": {
@@ -1463,7 +1463,7 @@
    "case_name": "2026년 딸기고설재배패키지사업 온실공사",
    "chunk_count": 4,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/2026년 딸기고설재배패키지사업 온실공사/시방서/시방서_단동비닐하우스(10-단동-4형).pdf": {
@@ -1475,7 +1475,7 @@
    "case_name": "2026년 딸기고설재배패키지사업 온실공사",
    "chunk_count": 2,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/2026년 딸기고설재배패키지사업 온실공사/시방서/시방서_딸기 고설베드 및 양액시스템.pdf": {
@@ -1487,7 +1487,7 @@
    "case_name": "2026년 딸기고설재배패키지사업 온실공사",
    "chunk_count": 4,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/2026년 딸기고설재배패키지사업 온실공사/시방서/시방서_비와도.pdf": {
@@ -1499,7 +1499,7 @@
    "case_name": "2026년 딸기고설재배패키지사업 온실공사",
    "chunk_count": 10,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/2026년 딸기고설재배패키지사업 온실공사/입찰공고서.pdf": {
@@ -1511,7 +1511,7 @@
    "case_name": "2026년 딸기고설재배패키지사업 온실공사",
    "chunk_count": 4,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원/공내역서.xlsx": {
@@ -1523,7 +1523,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원",
    "chunk_count": 155,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원/설계도면.pdf": {
@@ -1535,7 +1535,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원",
    "chunk_count": 29,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원/시방서.hwp": {
@@ -1547,7 +1547,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원",
    "chunk_count": 852,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원/입찰공고서.hwp": {
@@ -1559,7 +1559,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 김해농원",
    "chunk_count": 162,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기/공내역서.xlsx": {
@@ -1571,7 +1571,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기",
    "chunk_count": 155,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기/설계도면.pdf": {
@@ -1583,7 +1583,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기",
    "chunk_count": 32,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기/시방서.hwp": {
@@ -1595,7 +1595,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기",
    "chunk_count": 844,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기/입찰공고서.pdf": {
@@ -1607,7 +1607,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기",
    "chunk_count": 8,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기/천장 개폐장치 특기 시방서.pdf": {
@@ -1619,7 +1619,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사 파파딸기",
    "chunk_count": 4,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사/공내역서.xlsx": {
@@ -1631,7 +1631,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사",
    "chunk_count": 166,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사/설계도면.pdf": {
@@ -1643,7 +1643,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사",
    "chunk_count": 38,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사/시방서.pdf": {
@@ -1655,7 +1655,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사",
    "chunk_count": 45,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사/입찰공고서.pdf": {
@@ -1667,7 +1667,7 @@
    "case_name": "기후변화 대응 경주형 연동하우스 보급 시범사업 온실공사",
    "chunk_count": 7,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 과수 스마트팜 조성 시범사업 온실공사/공내역서.xlsx": {
@@ -1679,7 +1679,7 @@
    "case_name": "기후변화 대응 과수 스마트팜 조성 시범사업 온실공사",
    "chunk_count": 209,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 과수 스마트팜 조성 시범사업 온실공사/설계도면.pdf": {
@@ -1691,7 +1691,7 @@
    "case_name": "기후변화 대응 과수 스마트팜 조성 시범사업 온실공사",
    "chunk_count": 34,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 과수 스마트팜 조성 시범사업 온실공사/시방서.hwp": {
@@ -1703,7 +1703,7 @@
    "case_name": "기후변화 대응 과수 스마트팜 조성 시범사업 온실공사",
    "chunk_count": 650,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/기후변화 대응 과수 스마트팜 조성 시범사업 온실공사/안내공고문.hwp": {
@@ -1715,7 +1715,7 @@
    "case_name": "기후변화 대응 과수 스마트팜 조성 시범사업 온실공사",
    "chunk_count": 103,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/청년 토마토 횡성형 스마트팜 및 유통망 구축사업/공고문[입찰대행 청년 토마토 횡성형 스마트팜 및 유통망 구축].hwp": {
@@ -1727,7 +1727,7 @@
    "case_name": "청년 토마토 횡성형 스마트팜 및 유통망 구축사업",
    "chunk_count": 156,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/청년 토마토 횡성형 스마트팜 및 유통망 구축사업/설계도면 (1).pdf": {
@@ -1739,7 +1739,7 @@
    "case_name": "청년 토마토 횡성형 스마트팜 및 유통망 구축사업",
    "chunk_count": 31,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(RFQ), 견적서(세부내역서QOM), 도면(설계도서)/청년 토마토 횡성형 스마트팜 및 유통망 구축사업/시방서 (1).hwp": {
@@ -1751,7 +1751,7 @@
    "case_name": "청년 토마토 횡성형 스마트팜 및 유통망 구축사업",
    "chunk_count": 707,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/시방서(′24년~′25년 스마트팜 온실신축사업(강○표 농가) 온실공사) (1).pdf": {
@@ -1763,7 +1763,7 @@
    "case_name": "제도문서",
    "chunk_count": 89,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/0. 도면(우민재).pdf": {
@@ -1775,7 +1775,7 @@
    "case_name": "우민재",
    "chunk_count": 51,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/1. 공사내역서 스마트팜 확대보급 시범사업.xlsx": {
@@ -1787,7 +1787,7 @@
    "case_name": "우민재",
    "chunk_count": 890,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/1. 공사내역서 스마트팜 확대보급 시범사업_의견.xlsx": {
@@ -1799,7 +1799,7 @@
    "case_name": "우민재",
    "chunk_count": 890,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/2. 수량산출(우민재).xlsx": {
@@ -1811,7 +1811,7 @@
    "case_name": "우민재",
    "chunk_count": 330,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/3. 공사설명서(우민재).pdf": {
@@ -1823,7 +1823,7 @@
    "case_name": "우민재",
    "chunk_count": 4,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/4. 공사공정표(우민재).xls": {
@@ -1835,7 +1835,7 @@
    "case_name": "우민재",
    "chunk_count": 22,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/5-1. 시방서우민재).pdf": {
@@ -1847,7 +1847,7 @@
    "case_name": "우민재",
    "chunk_count": 50,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/FIRMMIT_우민재 농가토마토재배 시설하우스 내역서.pdf": {
@@ -1859,7 +1859,7 @@
    "case_name": "우민재",
    "chunk_count": 428,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/우민재/우민재 농가 토마토재배 시설하우스 도면.pdf": {
@@ -1871,7 +1871,7 @@
    "case_name": "우민재",
    "chunk_count": 26,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/이녕연/이녕연 (서식4-3) 스마트팜 조성을 위한 설계도면(영농계획서 참고용).pdf": {
@@ -1883,7 +1883,7 @@
    "case_name": "이녕연",
    "chunk_count": 6,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/이녕연/이녕연 (서식4-3) 스마트팜 조성을 위한 설계도면(영농계획서 참고용)_OCR.pdf": {
@@ -1895,7 +1895,7 @@
    "case_name": "이녕연",
    "chunk_count": 6,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/이두희/이두희 천안 20251028.pdf": {
@@ -1907,7 +1907,7 @@
    "case_name": "이두희",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": "doc_type 자동분류 실패(미분류) — 이두희 천안 20251028.pdf"
   },
   "스마트팜스펙/이두희/이두희_251024 final.pdf": {
@@ -1919,7 +1919,7 @@
    "case_name": "이두희",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": "doc_type 자동분류 실패(미분류) — 이두희_251024 final.pdf"
   },
   "스마트팜스펙/이두희/이두희_251024_구조계산서.pdf": {
@@ -1931,7 +1931,7 @@
    "case_name": "이두희",
    "chunk_count": 63,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/장성군 스마트농업 육성지구 조성사업 기본계획 및 세부 설계용역 과업설명서.pdf": {
@@ -1943,7 +1943,7 @@
    "case_name": "제도문서",
    "chunk_count": 47,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/최혁진님 온실 내역서/스마트팜 신축공사_최혁진.pdf": {
@@ -1955,7 +1955,7 @@
    "case_name": "최혁진",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": "스캔 원본 — 동일 내용의 _OCR.pdf가 별도 처리되므로 중복 방지 위해 제외(P2-16)"
   },
   "스마트팜스펙/최혁진님 온실 내역서/스마트팜 신축공사_최혁진_OCR.pdf": {
@@ -1967,7 +1967,7 @@
    "case_name": "최혁진",
    "chunk_count": 51,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/최혁진님 온실 내역서/혁진 스마트팜 온실 신축공사_공사비 내역서.pdf": {
@@ -1979,7 +1979,7 @@
    "case_name": "최혁진",
    "chunk_count": 802,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/최혁진님 온실 내역서/혁진 스마트팜 온실 신축공사_공사비 내역서_OCR.pdf": {
@@ -1991,7 +1991,7 @@
    "case_name": "최혁진",
    "chunk_count": 803,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/한일그린텍/설계도면(한일그린텍).pdf": {
@@ -2003,7 +2003,7 @@
    "case_name": "한일그린텍",
    "chunk_count": 27,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "스마트팜스펙/한일그린텍/설계예산서(한일그린텍).pdf": {
@@ -2015,7 +2015,7 @@
    "case_name": "한일그린텍",
    "chunk_count": 524,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/(붙임1)스마트팜 혁신밸리 ICT 장치 설치 가이드_v1.1.pdf": {
@@ -2027,7 +2027,7 @@
    "case_name": "범용자료",
    "chunk_count": 418,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/(책자파일) 2023 스마트팜 기자재 제조기업현황.pdf": {
@@ -2039,7 +2039,7 @@
    "case_name": "범용자료",
    "chunk_count": 3844,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/1.+국내외+스마트팜+기자재+기술현황+분석보고서 (1).hwp": {
@@ -2051,7 +2051,7 @@
    "case_name": "범용자료",
    "chunk_count": 4201,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/1.+국내외+스마트팜+기자재+기술현황+분석보고서 (1).pdf": {
@@ -2063,7 +2063,7 @@
    "case_name": "범용자료",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": "처리 중 예외: No /Root object! - Is this really a PDF?"
   },
   "시설평가/202201_스마트팜 표준화_품셈.pdf": {
@@ -2075,7 +2075,7 @@
    "case_name": "범용자료",
    "chunk_count": 3103,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/20220643119-00_1656586420938_ICT스마트팜_융복합_확산공사내역서.xls": {
@@ -2087,7 +2087,7 @@
    "case_name": "범용자료",
    "chunk_count": 242,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/20230627_스마트팜 시설의 구조와 이해_김평화(제공).pdf": {
@@ -2099,7 +2099,7 @@
    "case_name": "범용자료",
    "chunk_count": 609,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/~$★스마트팜_기자재_종합_의사결정_CP포함.xlsx": {
@@ -2111,7 +2111,7 @@
    "case_name": null,
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": "엑셀 락파일(임시)"
   },
   "시설평가/★스마트팜_기자재_종합_의사결정_CP포함.xlsx": {
@@ -2123,7 +2123,7 @@
    "case_name": "범용자료",
    "chunk_count": 1490,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/☆(간행물) 스마트온실 구축 가이드라인 개발.pdf": {
@@ -2135,7 +2135,7 @@
    "case_name": "범용자료",
    "chunk_count": 7350,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/☆2025년 온실설치공사 시공능력평가결과.pdf": {
@@ -2147,7 +2147,7 @@
    "case_name": "범용자료",
    "chunk_count": 137,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/기자재조사 논문.pdf": {
@@ -2159,7 +2159,7 @@
    "case_name": "범용자료",
    "chunk_count": 1012,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/농어촌공사(2022), 스마트팜 표준화를 위한 사전설계 및 온실공사 품셈 정립.pdf": {
@@ -2171,7 +2171,7 @@
    "case_name": "범용자료",
    "chunk_count": 3103,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/스마트농업 시설 설치 및 관리 가이드라인.pdf": {
@@ -2183,7 +2183,7 @@
    "case_name": "범용자료",
    "chunk_count": 0,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/스마트팜_기자재_전체평가_정제공종_ROI분석포함_250406.xlsx": {
@@ -2195,7 +2195,7 @@
    "case_name": "범용자료",
    "chunk_count": 3072,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/스마트팜기자재_250117.xlsx": {
@@ -2207,7 +2207,7 @@
    "case_name": "범용자료",
    "chunk_count": 2694,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/스마트팜기자재정리_v16_평가시험_시뮬레이션12.xlsx": {
@@ -2219,7 +2219,7 @@
    "case_name": "범용자료",
    "chunk_count": 6195,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   },
   "시설평가/온실공사업체_2025_온실설치공사시공능력평가결과(수시분).pdf": {
@@ -2231,7 +2231,7 @@
    "case_name": "범용자료",
    "chunk_count": 137,
    "first_seen_run": "pre-manifest(≤2026-08-17)",
-   "last_seen_run": "2026-08-17T214931",
+   "last_seen_run": "2026-08-17T225529",
    "skip_reason": null
   }
  }
