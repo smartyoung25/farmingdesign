@@ -281,6 +281,41 @@ def test_chunk_hwp_produces_paragraph_chunks_with_section_context():
     assert not w.skipped_files
 
 
+# ── P3-21b 스캔 OCR 편입 (2026-08-17) ────────────────────────────────
+
+def test_winocr_korean_reads_generated_text_image():
+    # Windows 내장 OCR 한국어 엔진 스모크 — 합성 이미지의 단어를 읽어야 한다.
+    # (winocr/한국어 팩이 없는 환경에선 skip — 파이프라인 실행 자체는 P2-23
+    # 의존성 가드가 별도로 막아준다)
+    pytest.importorskip("winocr")
+    from PIL import Image, ImageDraw, ImageFont
+    from chunking_lib_v2 import ocr_image_to_text
+    img = Image.new("RGB", (640, 120), "white")
+    d = ImageDraw.Draw(img)
+    font = ImageFont.truetype(r"C:\Windows\Fonts\malgun.ttf", 48)
+    d.text((20, 30), "온실 보온커튼 견적", font=font, fill="black")
+    text = ocr_image_to_text(img)
+    # OCR은 본질적으로 오인식이 섞인다(실측: '온실'→'우실', '커튼'→'커튜' 관찰).
+    # 한국어 엔진이 살아있고 실질 단어가 나오는지만 고정한다.
+    compact = text.replace(" ", "")
+    assert "견적" in compact and len(compact) >= 6
+
+
+def test_chunk_image_ocr_on_real_kakao_quote_photo():
+    pytest.importorskip("winocr")
+    from chunking_lib_v2 import ROOT, ChunkWriter, chunk_image_ocr
+    w = ChunkWriter()
+    p = os.path.join(ROOT, "스마트팜스펙", "견적참조", "KakaoTalk_20260715_055923547.jpg")
+    n = chunk_image_ocr(w, p, "견적참조-미상", "미분류", None)
+    assert n == 1
+    c = w.chunks[0]
+    assert c["extraction_quality"] == "ocr_noisy"     # 정직 라벨
+    assert c["text_len"] > 300                         # 견적서 사진 — 실질 텍스트
+    # 한계(정직 기록): OCR이 금액 콤마를 공백으로 바꿔 cost_values 추출은 제한적
+    # ("450 000" 형태) — MONEY 정규식을 OCR용으로 넓히면 표 컬럼 오인 위험이
+    # 있어 확장하지 않는다. 금액 검색은 본문 텍스트 검색으로 커버.
+
+
 def test_load_overlay_missing_empty_and_corrupt(tmp_path):
     from chunking_lib_v2 import load_overlay
     assert load_overlay(str(tmp_path / "없음.jsonl")) == []

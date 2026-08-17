@@ -25,7 +25,8 @@ FACILITY_DIR = os.path.join(ROOT, "시설평가")
 # pdfplumber도 같은 방식으로 환경에서 유실돼 있었음이 재확인됨. 조용한 열화를
 # 실행 전(의존성 확인)·병합 시(총량 대조) 두 지점의 명시적 중단으로 바꾼다.
 PIPELINE_DEPENDENCIES = ("pdfplumber", "pypdf", "openpyxl", "xlrd", "pandas", "docx",
-                         "olefile")  # olefile: P3-21 HWP 직접 추출용(2026-08-17)
+                         "olefile",   # P3-21 HWP 직접 추출용(2026-08-17)
+                         "winocr", "pypdfium2")  # P3-21b 스캔 OCR용(2026-08-17)
 
 
 def assert_pipeline_dependencies(deps=PIPELINE_DEPENDENCIES):
@@ -811,6 +812,60 @@ def chunk_hwp(w, path, case_name, doc_type, doc_subtype, evidence_status="실측
               evidence_status=evidence_status, extraction_quality="hwp_text",
               section_context=ctx)
     return n
+
+
+# ── P3-21b(2026-08-17): 스캔 이미지·스캔 PDF OCR 편입 ────────────────────
+# winocr = Windows 내장 OCR(한국어 팩, 별도 바이너리 설치 불필요 — P3-21에서
+# 가용 검증). PoC 품질(정직 평가): 카톡 견적서 사진은 품목·금액 등 실질 정보가
+# 나오고(오인식 혼재), 도면은 표제란 위주 sparse. 전 결과를 ocr_noisy 품질
+# 라벨로 표시한다 — 소비자는 이 라벨을 보고 신뢰도를 낮춰 읽어야 한다.
+
+def ocr_image_to_text(pil_image):
+    """PIL 이미지 → 한국어 OCR 텍스트(winocr). 실패 시 빈 문자열."""
+    import asyncio
+    import winocr
+    try:
+        r = asyncio.run(winocr.recognize_pil(pil_image, "ko"))
+        return r.text or ""
+    except Exception:
+        return ""
+
+
+def chunk_image_ocr(w, path, case_name, doc_type, doc_subtype, evidence_status="실측"):
+    """이미지 파일 1장 = 청크 1개(전체 OCR 텍스트). 텍스트가 안 나오면 skip
+    (빈 청크를 만들지 않는다 — 추정 금지)."""
+    from PIL import Image
+    img = Image.open(path)
+    text = ocr_image_to_text(img)
+    if len(clean(text)) < 2:
+        w.skip(path, "이미지 OCR 결과 텍스트 없음(사진·그림 위주로 추정)")
+        return 0
+    w.add(case_name, doc_type, doc_subtype, path, "img1", text,
+          evidence_status=evidence_status, extraction_quality="ocr_noisy")
+    return 1
+
+
+def chunk_pdf_scan_ocr(w, path, case_name, doc_type, doc_subtype,
+                       evidence_status="실측", dpi=300):
+    """스캔 PDF: pypdfium2로 페이지 렌더 → 페이지당 OCR 청크(p{n}).
+    텍스트 레이어가 없는 문서 전용 폴백 — 호출부(is_scan_only 판정)가 결정."""
+    import pypdfium2
+    pdf = pypdfium2.PdfDocument(path)
+    n = 0
+    n_blank = 0
+    try:
+        for i in range(len(pdf)):
+            img = pdf[i].render(scale=dpi / 72).to_pil()
+            text = ocr_image_to_text(img)
+            if len(clean(text)) < 2:
+                n_blank += 1
+                continue
+            n += 1
+            w.add(case_name, doc_type, doc_subtype, path, f"p{i+1}", text,
+                  evidence_status=evidence_status, extraction_quality="ocr_noisy")
+    finally:
+        pdf.close()
+    return n, n_blank
 
 
 def chunk_docx(w, path, case_name, doc_type, doc_subtype, evidence_status="실측"):

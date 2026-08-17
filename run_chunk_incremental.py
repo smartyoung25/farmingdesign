@@ -100,8 +100,8 @@ def process_one(path):
         rec["skips"].append([rel, "엑셀 락파일(임시)"])
         dump(part, rec); return "lockfile", 0, rec
     if ext in full.SKIP_EXT:
-        # P3-21: .hwp는 2026-08-17부터 chunk_hwp()로 직접 처리(SKIP_EXT에서 제외됨)
-        reason = {".doc": "구버전 워드(.doc) — python-docx로 못 읽음"}.get(ext, "이미지 파일(OCR 미적용)")
+        # P3-21/21b: .hwp·이미지는 각각 chunk_hwp/chunk_image_ocr로 처리(SKIP_EXT 제외)
+        reason = "구버전 워드(.doc) — python-docx로 못 읽음"
         rec["skips"].append([rel, reason])
         dump(part, rec); return "skip_ext", 0, rec
 

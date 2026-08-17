@@ -27,7 +27,7 @@ import re
 from chunking_lib_v2 import (
     ROOT, SPEC_DIR, FACILITY_DIR, ChunkWriter,
     chunk_pdf_by_page, chunk_pdf_table_or_lines, chunk_xlsx, chunk_xls_legacy, chunk_docx,
-    chunk_hwp, write_outputs,
+    chunk_hwp, chunk_image_ocr, chunk_pdf_scan_ocr, write_outputs,
 )
 import pdfplumber
 
@@ -35,9 +35,11 @@ W = ChunkWriter()
 log = []
 
 EXCLUDE_DIRS = {"노지견적", "노지시방서", "대산온실"}
-# P3-21(2026-08-17): .hwp를 SKIP_EXT에서 제거 — "hwp 스캔본" 판정(07-23)은
-# 오진이었고(8건 전부 BodyText 텍스트 실존), chunk_hwp()가 직접 추출한다.
-SKIP_EXT = {".png", ".jpg", ".jpeg", ".doc"}
+# P3-21(2026-08-17): .hwp 제거 — "hwp 스캔본" 판정(07-23)은 오진(8건 전부
+# BodyText 텍스트 실존), chunk_hwp()가 직접 추출.
+# P3-21b(2026-08-17): 이미지 확장자 제거 — winocr(Windows 내장 OCR, 한국어)로
+# chunk_image_ocr()가 처리한다(품질 ocr_noisy 정직 라벨).
+SKIP_EXT = {".doc"}
 
 # ── doc_type 분류 규칙 (파일명 기준, 우선순위 순) ──
 # "검토서"는 이 말뭉치에서 실제로 열어본 4건(이두희x3, 이준호x1) 전부 구조계산서였다
@@ -90,6 +92,10 @@ DOC_TYPE_OVERRIDES = {
     # 행만 청킹돼 그룹청킹(P2-13)을 못 받던 것을 이 지정으로 편입.
     "스마트팜스펙/견적참조/2025년 무화과(이명환)-각125.xls": "공사비내역서",
     "스마트팜스펙/견적참조/2025년 무화과(이명환)-각75.xls": "공사비내역서",
+    # P3-21b(2026-08-17): 맹주연 36p 스캔 — winocr p1 OCR로 정체 확인:
+    # "설계도 … 9.4m*99m=3연동 … 맹주연 … 2026" → 설계도면(9.4×99m 3연동 온실
+    # 설계도서). P2-16 당시 "내용 확인 불가라 지정 보류"였던 것을 OCR 근거로 해소.
+    "스마트팜스펙/견적참조/[맹주연]_충청남도 천안시 서북구 직산읍 양당리 82-2(개발지 포함)_최종.pdf": "설계도면",
 }
 
 # 파일명 케이스 추정이 명백히 틀리는 파일의 수동 케이스 지정 — P2-16.
@@ -106,10 +112,8 @@ SKIP_OVERRIDES = {
     # 존재·처리되므로, 스캔본을 sibling OCR로 다시 읽으면 같은 내용이 중복 청킹됨
     "스마트팜스펙/최혁진님 온실 내역서/스마트팜 신축공사_최혁진.pdf":
         "스캔 원본 — 동일 내용의 _OCR.pdf가 별도 처리되므로 중복 방지 위해 제외(P2-16)",
-    # 36p 전체 텍스트 레이어 없음(pypdf·pdfplumber 모두 빈 텍스트), OCR본 없음 —
-    # 내용 확인이 불가능해 doc_type 수동 지정도 하지 않는다(추정 금지)
-    "스마트팜스펙/견적참조/[맹주연]_충청남도 천안시 서북구 직산읍 양당리 82-2(개발지 포함)_최종.pdf":
-        "스캔본(텍스트 레이어 없음)·OCR본 없음 — 내용 확인 불가라 doc_type 지정 보류(추정 금지, P2-16)",
+    # (P3-21b) 맹주연 스캔 PDF는 winocr p1 판독으로 정체 확인 → SKIP 해제,
+    # DOC_TYPE_OVERRIDES "설계도면"으로 이동(스캔 OCR 폴백 경로로 처리됨)
 }
 
 NAME_PATTERNS = [
@@ -241,8 +245,9 @@ def process_file(path, case, doc_type):
                                                       quality_note="ocr_noisy")
                         log.append(f"[{case}] {doc_type} {os.path.basename(path)}: 스캔본 → OCR본 사용 ({n}p, blank={blank})")
                     else:
-                        W.skip(path, "스캔본이고 OCR본 없음 — 건너뜀(추정 금지)")
-                        log.append(f"[{case}] {doc_type} {os.path.basename(path)}: 스캔본, OCR본 없음 → 건너뜀")
+                        # P3-21b: OCR본이 없으면 winocr로 직접 판독(페이지 렌더→OCR)
+                        n, blank = chunk_pdf_scan_ocr(W, path, case, doc_type, None)
+                        log.append(f"[{case}] {doc_type} {os.path.basename(path)}: 스캔본 winocr 판독 ({n}p, blank={blank})")
                 else:
                     n, blank = chunk_pdf_by_page(W, path, case, doc_type, None)
                     log.append(f"[{case}] {doc_type} {os.path.basename(path)}: {n}p, blank={blank}")
@@ -263,6 +268,11 @@ def process_file(path, case, doc_type):
         elif ext == ".hwp":
             n = chunk_hwp(W, path, case, doc_type, None)
             log.append(f"[{case}] {doc_type} {os.path.basename(path)}: hwp_chunks={n}")
+        elif ext in (".png", ".jpg", ".jpeg"):
+            # P3-21b: 이미지 winocr 판독 — 파일명 분류가 안 되는 카톡 캡처 등은
+            # doc_type 미분류인 채 정직하게 편입(사후 오버라이드/오버레이로 정제)
+            n = chunk_image_ocr(W, path, case, doc_type, None)
+            log.append(f"[{case}] {doc_type} {os.path.basename(path)}: img_ocr={n}")
         else:
             W.skip(path, f"처리 대상 아닌 확장자({ext})")
     except Exception as e:
@@ -294,10 +304,8 @@ def run():
             continue
         if ext in SKIP_EXT:
             n_skip_ext += 1
-            # P3-21: .hwp는 2026-08-17부터 chunk_hwp()로 직접 처리(SKIP_EXT 제외)
-            reason = {".doc": "구버전 워드(.doc) — python-docx로 못 읽음"}.get(
-                ext, "이미지 파일(OCR 미적용)")
-            W.skip(path, reason)
+            # P3-21/21b: .hwp는 chunk_hwp, 이미지는 chunk_image_ocr로 처리(SKIP_EXT 제외)
+            W.skip(path, "구버전 워드(.doc) — python-docx로 못 읽음")
             continue
 
         result = classify(path)
