@@ -304,8 +304,13 @@ def test_case_provenance_schema_unified():
     for cid in ("yonggyun", "mulhyangki"):
         assert isinstance(by_id[cid].get("provenance_note"), str) and len(by_id[cid]["provenance_note"]) > 100, \
             (cid, "구 서술 보존본(provenance_note) 소실")
-    # 원채원(회귀 기준 케이스)의 원문 미보유는 숨기지 않고 명시한다
-    assert "원문 미보유" in by_id["wonchaewon"]["provenance"]["total_construction_cost"]["source"]
+        # 44차 F4: 부분 케이스는 핵심 3필드의 provenance가 전부 있어야 한다(누락 검출)
+        assert {"input.total_construction_cost", "construction.cost_summary_won",
+                "construction.trades_material_won"} <= set(by_id[cid]["provenance"]), cid
+    # 원채원(회귀 기준 케이스)의 원문 미보유는 숨기지 않고 명시한다 —
+    # 44차 F2: status도 실측이 아니라 "미검증"(legend: 값은 쓰되 근거문서 미확보)
+    wc = by_id["wonchaewon"]["provenance"]["total_construction_cost"]
+    assert "원문 미보유" in wc["source"] and wc["status"] == "미검증"
 
 
 def test_actuals_hanil_greentech_source_reconciliation():

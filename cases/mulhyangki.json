@@ -42,6 +42,10 @@
     "construction.trades_material_won": {
       "status": "부분실측",
       "source": "리모델링 특유 항목(철거·부산물 공제·폐기물·골재)만 원문 관찰 전사 — PDF 표 추출 한계로 전 공종 원단위 대사는 불가('부분 발췌' 명시, 상세 provenance_note)"
+    },
+    "construction.cost_summary_won": {
+      "status": "실측",
+      "source": "원가계산 합계(절사 전) 89,610,883·도급 89,610,000 — 원문 p8 실존(44차 레드팀 재확인), 한글 대사 3중 검증(한글 대사 가드로 기계 고정)"
     }
   },
   "scenarios_hint": "적용 불가 — 4축 미산출 부분 케이스(scenarios는 정식 케이스 전용)",

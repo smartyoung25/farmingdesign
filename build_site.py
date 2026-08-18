@@ -581,8 +581,10 @@ def registry_page() -> str:
             vtxt = str(val)
         # 42차: source_refs(원문 역참조 — 리포 실재 파일만 등록, 드리프트 가드로 검증)
         refs = c.get("source_refs") or []
+        _match_badge = {"near": " <b>[근접]</b>", "partial": " <b>[부분]</b>"}
         refs_html = "".join(
             f"<div style='font-size:11.5px'><code>{esc(r['file'])}</code>"
+            f"{_match_badge.get(r.get('match'), '')}"
             f"{(' — ' + esc(r['note'])) if r.get('note') else ''}</div>" for r in refs) or "—"
         rows.append(
             f"<tr><td><code>{esc(key)}</code></td><td>{esc(c['axis'])}</td>"

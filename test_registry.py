@@ -127,10 +127,15 @@ def test_source_refs_point_to_existing_files():
     assert expected <= with_refs, expected - with_refs
     for key in sorted(with_refs):
         for r in C[key]["source_refs"]:
-            assert set(r) <= {"file", "page", "chunk_id", "note"}, (key, r)
+            # match(44차 F5): 파일이 값을 '직접' 담는지(생략=exact) / 근접(near) / 부분(partial)
+            assert set(r) <= {"file", "page", "chunk_id", "note", "match"}, (key, r)
+            assert r.get("match", "exact") in ("exact", "near", "partial"), (key, r)
             assert r.get("file"), (key, r)
             assert os.path.isfile(os.path.join(base, r["file"])), \
                 (key, r["file"], "역참조 원문 소실 — 이동·개명 시 여기서 잡힌다")
+    # 44차 F5 고정: 근접·부분 근거는 exact로 위장하지 않는다
+    assert any(r.get("match") == "near" for r in C["ACTUALS_COUNT"]["source_refs"])
+    assert all(r.get("match") == "partial" for r in C["WARRANTY_STATUTORY"]["source_refs"])
 
 
 def test_capex_major_case_chunks():
