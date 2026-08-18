@@ -331,6 +331,25 @@ def test_actuals_hanil_greentech_source_reconciliation():
     assert row[1] == 3202 and row[2] == 480_636_000  # 등록값 무변경(설계예산 성격 — 값 유지)
 
 
+def test_traceability_audit_gate_green_and_backlog_pinned():
+    # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
+    # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
+    import audit_traceability as at
+    a = at.audit()
+    assert a["ok"], a["hard_failures"]
+    assert a["case_coverage_gaps"] == {
+        "chuncheon": ["base_yield_kg_m2", "subsidy_rate"],
+        "wonchaewon": ["base_yield_kg_m2", "subsidy_rate", "wind_ms"],
+    }
+    assert a["counts"]["registry_constants"] == 31 and a["counts"]["source_refs"] == 18
+    # 감사기 자체의 실재 검사 동작(red 자기검증)
+    assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
+    # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
+    for fname in ("smartfarm_engine.py", "build_site.py", "webapp.py", "render_report.py", "cases.py"):
+        src = open(os.path.join(_REPO, fname), encoding="utf-8").read()
+        assert "audit_traceability" not in src, fname
+
+
 def _sheet_values(rows):
     out = set()
     for row in rows:
