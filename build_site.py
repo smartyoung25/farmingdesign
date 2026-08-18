@@ -41,6 +41,10 @@ _CSS = """
   .tag.추정{color:var(--warn);background:#fbf3dc;}
   .tag.확인요망{color:var(--bad);background:#fbe6e3;}
   .tag.부분{color:var(--warn);background:#fbf3dc;}
+  .tag.부분실측{color:var(--warn);background:#fbf3dc;}
+  .tag.법정기준{color:#1b5aa0;background:#e6f0fb;}
+  .tag.공공기준{color:#1b5aa0;background:#e6f0fb;}
+  .tag.참고기준{color:#555;background:#efefea;}
   .tag.미검증{color:#7a5cff;background:#efeaff;}
   code{font-size:12px;background:#f2f5f8;padding:1px 5px;border-radius:5px;}
   a.report-link{display:flex;justify-content:space-between;align-items:center;
@@ -591,7 +595,8 @@ def registry_page() -> str:
             f"<td>{esc(c['desc'])}</td><td>{esc(vtxt)}</td>"
             f"<td>{esc(c['source'])}</td>"
             f"<td>{refs_html}</td>"
-            f"<td><span class='tag {c['status']}'>{esc(c['status'])}</span></td></tr>")
+            f"<td><span class='tag {c['status']}'>{esc(c['status'])}</span>"
+            f"{('<div style=' + chr(39) + 'font-size:11px;color:var(--muted);max-width:220px' + chr(39) + '>' + esc(_trunc(c.get('status_note', ''), 160)) + '</div>') if c.get('status_note') else ''}</td></tr>")
     n_unver = sum(1 for c in reg["constants"].values() if c["status"] == "미검증")
     body = f"""
   <header class="top"><h1>엔진 상수 근거대장 (P0)</h1>
@@ -600,10 +605,16 @@ def registry_page() -> str:
     <h2>상수 · 근거 · 상태</h2>
     <table><thead><tr><th>상수</th><th>축</th><th>설명</th><th>값</th><th>근거</th><th>원문 파일(역참조)</th><th>상태</th></tr></thead>
       <tbody>{''.join(rows)}</tbody></table>
-    <p class="note">태그: <span class="tag 실측">실측</span> 출처확인 ·
-      <span class="tag 부분">부분</span> 대표/일부 수록 ·
-      <span class="tag 미검증">미검증</span> 값 사용 중이나 근거문서 미확보({n_unver}건).
-      근거문서(<code>SmartFarm_엔진데이터.md</code>·지침) 확보 시 '미검증'을 '실측'으로 승격.
+    <p class="note">상태 어휘(45차 정규화 — 8종 enum, 서술은 status_note로 분리):
+      <span class="tag 실측">실측</span> 원문 대조·공식 고시 ·
+      <span class="tag 부분실측">부분실측</span> 일부 범위·표본만 ·
+      <span class="tag 법정기준">법정기준</span> 법령 원문 전사(과세 목적 등) ·
+      <span class="tag 공공기준">공공기준</span> 공공 관리 기준 ·
+      <span class="tag 참고기준">참고기준</span> 요율·정액·절차 참고 ·
+      <span class="tag 추정">추정</span> 산정치 ·
+      <span class="tag 확인요망">확인요망</span> 출처 의심·재현 불가 ·
+      <span class="tag 미검증">미검증</span> 근거문서 미확보({n_unver}건).
+      근거문서 확보 시 원단위 대조 후 승격(원문은 source_refs로 역참조).
       <b>레지스트리 값은 엔진 상수와 test_registry.py 로 대조되어 드리프트를 막는다.</b></p>
   </section>
   <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>"""

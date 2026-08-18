@@ -138,6 +138,21 @@ def test_source_refs_point_to_existing_files():
     assert all(r.get("match") == "partial" for r in C["WARRANTY_STATUTORY"]["source_refs"])
 
 
+def test_status_vocabulary_is_normalized_enum():
+    # 45차(사용자 승인): status는 8종 enum만 — 자유 서술은 status_note로 분리.
+    # 기계 게이팅(46차 감사)의 전제. legend와 실사용의 괴리(구 24종)를 재발 방지.
+    ENUM = ("실측", "부분실측", "법정기준", "공공기준", "참고기준", "추정", "확인요망", "미검증")
+    assert set(REG["status_legend"]) == set(ENUM)
+    for key, ent in C.items():
+        assert ent["status"] in ENUM, (key, ent["status"])
+        if "status_note" in ent:
+            assert isinstance(ent["status_note"], str) and ent["status_note"], key
+    # 44차 F2 계열 정직성 고정: 원문 미대조가 남은 ACTUALS는 실측을 자칭하지 않는다
+    assert C["ACTUALS_COUNT"]["status"] == "부분실측"
+    assert C["TOTAL_PYEONG_PRICE"]["status"] == "미검증"
+    assert C["WARRANTY_STATUTORY"]["status"] == "법정기준"
+
+
 def test_capex_major_case_chunks():
     eng = _norm(e.CAPEX_MAJOR_CASE_CHUNKS)
     assert eng == C["CAPEX_MAJOR_CASE_CHUNKS"]["value"]
