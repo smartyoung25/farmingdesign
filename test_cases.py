@@ -369,7 +369,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     assert a["ok"], a["hard_failures"]
     # 49차: 첫 감사의 백로그 5필드(정직 provenance 기입)를 해소 — 갭 0 유지가 새 기준
     assert a["case_coverage_gaps"] == {}, a["case_coverage_gaps"]
-    assert a["counts"]["registry_constants"] == 31 and a["counts"]["source_refs"] == 18
+    # 51차: 한일그린텍 CAPEX 표본 5호 승격으로 source_refs 18→19(CAPEX_MAJOR_CASE_CHUNKS에 1건 추가)
+    assert a["counts"]["registry_constants"] == 31 and a["counts"]["source_refs"] == 19
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

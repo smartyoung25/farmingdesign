@@ -604,6 +604,30 @@ def test_capex_major_breakdown_ysh_reconciles_to_source():
     assert cb.items["thermal_storage_insulation"] == 41_958_000
 
 
+def test_capex_major_breakdown_hanil_reconciles_to_source():
+    # 2026-08-18 추가(51차 "다른 견적 세부 분석" 1호) — 한일그린텍 설계예산서(20p)
+    # 공사 집계표(p4) 8공종 소계 합=원가계산서(p3) 직접재료비+직접노무비+기계경비
+    # =직접공사비 355,597,412원이 known_total. unclassified는 스탠딩 거터(스티,
+    # 67.5m 28줄) 46,519,015원(재배시설 성격 — 이두희 베드·윤성호 행잉거터 선례).
+    assert 241_374_292 + 97_796_120 + 16_427_000 == 355_597_412  # 원가계산서 p3 원단위 재현
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["한일그린텍"],
+                                  known_total=355_597_412)
+    assert cb.total == 355_597_412
+    assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["한일그린텍"] == 46_519_015
+    assert sum(cb.items.values()) + cb.unclassified == 355_597_412
+    # 공종→카테고리 합성 앵커(집계표 p4 원문 소계): 기초+골조+피복+전면판넬 / 커튼+동력장치
+    assert cb.items["greenhouse_structure"] == 14_694_738 + 158_498_030 + 27_231_655 + 16_397_033
+    assert cb.items["auto_opening_system"] == 52_411_062 + 21_474_455
+    assert cb.items["irrigation_fertigation"] == 18_371_424
+    # 본공사 범위에 난방·독립 환경제어·별도 전기 공종 없음(환급금 재투자 블록은 known_total 밖)
+    assert cb.items["hvac"] == cb.items["ict_control"] == cb.items["electrical"] == 0
+    # 40차 ACTUALS 대조와의 집계 레벨 정합: 총공사비 480,636,000(절사 전 480,636,200)
+    # = 도급 공급가액 소계 416,072,106 + 부가세 39,664,769 + 환급금 재투자 24,899,325(=공급 22,635,750+부가세 2,263,575).
+    # 절사 전 합에서 원가계산서 p3 소계 455,736,875(=416,072,106+39,664,769)를 원단위 재현.
+    assert 416_072_106 + 39_664_769 == 455_736_875
+    assert 455_736_875 + 22_635_750 + 2_263_575 == 480_636_200
+
+
 def test_capex_major_breakdown_unmapped_categories_default_zero():
     # 근거 없는 7개(부대시설·기자재구매·설계감리비·부지조성비·예비비·부지매입비, 8번 등)는 0
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["우민재"], known_total=456_158_140)
