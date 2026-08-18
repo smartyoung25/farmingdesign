@@ -174,6 +174,23 @@ def test_consulting_report_financing_section_conditional():
     assert "테스트 합성 조건" in html_with
 
 
+# ── P1-6 잔여 해소(2026-08-18): 감리비 참고 표시(CAPEX 불산입) ─────────────
+
+def test_consulting_report_supervision_fee_reference_block():
+    # 통합보고서에 법정요율 참고 블록이 3종 전체로 렌더되고, CAPEX 불산입·판단성
+    # 문구가 고정돼야 한다(문구가 빠지면 참고치가 판정으로 오독될 수 있음).
+    cases_by_id = {c["case_id"]: c for c in C.load_cases()}
+    case = cases_by_id["wonchaewon"]
+    res = rr.compute(C.case_to_input(case))
+    html = bs.consulting_report_page(case, res, C.case_to_input(case))
+    assert "설계·감리비 참고(법정요율 — CAPEX 불산입)" in html
+    for grade in e.SUPERVISION_FEE_GRADES:  # 종을 고르지 않고 3종 병기(판단성)
+        assert grade in html
+    assert "산입하지 않는다" in html and "국토교통부고시 제2020-635호" in html
+    # 참고 블록 유무와 무관하게 투자지표는 동일해야 한다(불산입의 계산적 증거)
+    assert res["economics"]["roi"] == rr.compute(C.case_to_input(case))["economics"]["roi"]
+
+
 # ── P3-21d(2026-08-17): 이용균 부분 케이스(시공축 전용) ─────────────────
 
 def test_partial_case_yonggyun_loads_and_is_arithmetically_consistent():

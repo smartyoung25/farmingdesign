@@ -414,6 +414,25 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
         financing_detail = ("<p class='note'>대출조건 미제공 — 케이스에 financing 블록(대출금액·금리·"
                             "전체/거치기간·상환방식)을 넣으면 연차별 상환표가 자동 생성된다"
                             "(엔진 loan_amortization, 가공 조건은 채우지 않음).</p>")
+    # P1-6 잔여 해소(2026-08-18, 사용자 결정: 참고 표시 전용 — CAPEX 불산입)
+    sup = e.design_supervision_fee_reference(case["input"]["total_construction_cost"])
+    if sup:
+        sup_rows = "".join(
+            f"<tr><td>{esc(g)}</td><td class='num'>{sup['요율_pct'][g]:.4f}%</td>"
+            f"<td class='num'>{sup['감리비_원'][g]:,.0f}</td></tr>"
+            for g in e.SUPERVISION_FEE_GRADES)
+        supervision_detail = f"""
+    <h2 style="margin-top:16px">설계·감리비 참고(법정요율 — CAPEX 불산입)</h2>
+    <table><thead><tr><th>종별(별표3 난이도)</th><th class='num'>요율</th>
+      <th class='num'>감리비 추정(원)</th></tr></thead>
+      <tbody>{sup_rows}</tbody></table>
+    <p class="note">「공공발주사업에 대한 건축사의 업무범위와 대가기준」(국토교통부고시 제2020-635호)
+      별표5·제16조({esc(sup['산정구간'])}) 적용 참고 추정. 별표5의 '공사비'는 부가가치세·용지비 등을
+      제외한 금액 정의 — 케이스 공사비에 부가세가 포함돼 있으면 과대 추정이다. 종별(단순~복잡)
+      선택은 난이도 판단(판단성), 실제 감리 계약액은 협의(시세성) — 이 표는 CAPEX 합계·투자지표에
+      산입하지 않는다(design_supervision_fee 값 0 유지).</p>"""
+    else:
+        supervision_detail = ""
     econ = f"""
   <section class="card"><span class="axis">Ⅳ. 경제성분석서</span>
     <h2>투자지표 · 민감도 스냅샷</h2>
@@ -431,6 +450,7 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
       가정값 주입 시 아래 렌더(2026-08-18 편입), 대출상환표는 P3-18 편입 — 각 섹션 참고.</p>
     {scenario_detail}
     {financing_detail}
+    {supervision_detail}
     {capex_detail}
   </section>"""
 

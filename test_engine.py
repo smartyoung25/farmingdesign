@@ -296,6 +296,45 @@ def test_structure_service_life_no_greenhouse_type_keys():
             f"{k}: 온실유형 키 금지 — 호 적용은 판단성"
 
 
+# ── 3-3e. P1-6 잔여 해소(2026-08-18): 감리비 참고 표시 ────────────────
+def test_supervision_fee_rate_table_transcription():
+    # 국토교통부고시 제2020-635호 별표5 원문 전사 가드(PDF 리포 사본 대조)
+    T = e.SUPERVISION_FEE_RATE_TABLE
+    assert len(T) == 17
+    assert T[0] == (50_000_000, 2.02, 2.24, 2.46)      # "5천만원 이하" 행
+    assert (1_000_000_000, 1.11, 1.23, 1.35) in T      # 07-23 웹 확인값과 일치 확인
+    assert (2_000_000_000, 1.02, 1.13, 1.24) in T
+    assert T[-1] == (500_000_000_000, 0.84, 0.93, 1.02)
+    # 구조 가드: 공사비 오름차순, 요율은 단조 비증가, 각 행 단순<보통<복잡
+    for (c1, *r1), (c2, *r2) in zip(T, T[1:]):
+        assert c1 < c2 and all(a >= b for a, b in zip(r1, r2))
+    for _, g1, g2, g3 in T:
+        assert g1 < g2 < g3
+
+
+def test_design_supervision_fee_reference():
+    import pytest as _pt
+    # 앵커 정확값(10억): 보간 없이 원문 요율 그대로
+    r = e.design_supervision_fee_reference(1_000_000_000)
+    assert r["요율_pct"]["제1종(단순)"] == 1.11 and r["요율_pct"]["제3종(복잡)"] == 1.35
+    # 원채원 스케일(7.0203억): 5억~10억 직선보간(제16조①) — 손계산 대조
+    cost = 702_030_000
+    r2 = e.design_supervision_fee_reference(cost)
+    t = (cost - 500_000_000) / (1_000_000_000 - 500_000_000)
+    raw = 1.29 + t * (1.11 - 1.29)
+    assert r2["요율_pct"]["제1종(단순)"] == _pt.approx(raw, abs=1e-4)
+    assert r2["감리비_원"]["제1종(단순)"] == round(cost * raw / 100)
+    assert "직선보간" in r2["산정구간"] and "불산입" in r2["note"]
+    # 제16조②: 5천만원 미만은 5천만원으로 간주하여 산출
+    r3 = e.design_supervision_fee_reference(30_000_000)
+    assert r3["산정공사비_원"] == 50_000_000
+    assert r3["감리비_원"]["제1종(단순)"] == round(50_000_000 * 2.02 / 100)
+    # 제16조③: 5천억 초과는 별도 공식(미확보) — 지어내지 않고 None
+    assert e.design_supervision_fee_reference(600_000_000_000) is None
+    with _pt.raises(ValueError):
+        e.design_supervision_fee_reference(0)
+
+
 # ── 3-4. P1-11(2026-08-17): select_specs 작물특화형 필터 ────────────
 def test_select_specs_default_excludes_crop_specific():
     # 왜곡 실측 지점(적설20·풍속26): 종전엔 파프리카 전용이 연동 최소사양으로 나왔음

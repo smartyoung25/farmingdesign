@@ -14,7 +14,9 @@ C = REG["constants"]
 
 
 def _norm(v):
-    if isinstance(v, tuple): return list(v)
+    # 리스트 재귀 추가(2026-08-18): SUPERVISION_FEE_RATE_TABLE이 '튜플의 리스트'라
+    # 내부 튜플까지 JSON 리스트와 맞추려면 리스트도 원소 단위로 정규화해야 한다
+    if isinstance(v, (tuple, list)): return [_norm(x) for x in v]
     if isinstance(v, dict): return {k: _norm(x) for k, x in v.items()}
     return v
 
@@ -33,7 +35,8 @@ def test_simple_dict_and_scalar_constants():
     for key in ["U_VALUE", "U_DESIGN", "FR_TABLE", "FUEL_LHV", "TOTAL_PYEONG_PRICE", "STRUCTURE_ONLY_PYEONG",
                 "WARRANTY_STATUTORY", "ELECTRICAL_PUMSEM_LUMP_WON_PER_HA",  # B4~B8 확장(2026-08-17)
                 "EQUIPMENT_SERVICE_LIFE_REFERENCE",  # LCC 내용연수(2026-08-18)
-                "STRUCTURE_SERVICE_LIFE_STATUTORY"]:  # 구조체 법정 내용연수(2026-08-18)
+                "STRUCTURE_SERVICE_LIFE_STATUTORY",  # 구조체 법정 내용연수(2026-08-18)
+                "SUPERVISION_FEE_RATE_TABLE"]:  # 감리비 대가요율(2026-08-18, P1-6 잔여)
         eng = _norm(getattr(e, C[key]["engine_attr"]))
         assert eng == C[key]["value"], f"{key}: 엔진={eng} vs 레지스트리={C[key]['value']}"
 
