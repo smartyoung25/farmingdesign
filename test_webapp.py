@@ -133,6 +133,84 @@ def test_scenario_whitelist_rejected_via_engine():
     assert r2.status_code == 400
 
 
+# ── 3단계(35차): 케이스 입력 마법사 — status 제한 정책(추정/확인요망만) ──
+
+import webapp as W
+
+
+def _wizard_form(cid="test_wizard", use_lookup=False):
+    form = {"case_id": cid, "title": "마법사 테스트(합성)", "as_of": "2026-08",
+            "business_type": "신규", "region": "논산" if use_lookup else "가상지역",
+            "crop": "딸기", "cover": "필름",
+            "area_m2": "4000", "surface_area_m2": "5800",
+            "t_target": "15", "t_min": "-12.4", "fr": "0.7", "fitness_pct": "90",
+            "base_yield_kg_m2": "10", "price_won_per_kg": "2500",
+            "opex": "120000000", "total_construction_cost": "600000000",
+            "subsidy_rate": "0.5"}
+    if use_lookup:
+        form["use_lookup"] = "1"
+    else:
+        form.update({"snow_cm": "30", "wind_ms": "30",
+                     "load_status": "추정", "load_source": "합성 테스트값"})
+    for f in W.WIZARD_PROV_FIELDS:
+        form[f"prov_{f}_status"] = "추정"
+        form[f"prov_{f}_source"] = "합성 테스트 근거"
+    return form
+
+
+def test_newcase_form_renders_policy():
+    r = client.get("/entry/newcase")
+    assert r.status_code == 200
+    assert "추정·확인요망만" in r.text and "실측" in r.text  # 정책 배너 고정
+
+
+def test_newcase_preview_matches_engine_and_benchmark():
+    r = client.post("/entry/newcase/preview", data=_wizard_form())
+    assert r.status_code == 200
+    # 독립 구성한 동일 입력으로 엔진 직접 계산 — 마법사 수치는 그 표시여야 한다
+    case = {"case_id": "x", "title": "t", "as_of": "t", "input": {
+        "business_type": "신규", "crop": "딸기", "region": "가상지역", "area_m2": 4000,
+        "cover": "필름", "snow_cm": 30, "wind_ms": 30, "surface_area_m2": 5800,
+        "t_target": 15, "t_min": -12.4, "fr": 0.7, "base_yield_kg_m2": 10,
+        "price_won_per_kg": 2500, "fitness_pct": 90, "opex": 120000000,
+        "total_construction_cost": 600000000, "subsidy_rate": 0.5}}
+    ec = rr.compute(C.case_to_input(case))["economics"]
+    assert f"{ec['roi']*100:.1f}%" in r.text
+    assert "정상" in r.text  # 150,000원/㎡ — 필름 밴드 내(벤치마크 참고 표시)
+
+
+def test_newcase_design_load_lookup_adoption():
+    r = client.post("/entry/newcase/preview", data=_wizard_form(use_lookup=True))
+    assert r.status_code == 200
+    assert "실측(고시 조회)" in r.text and "적설 28" in r.text  # REGION_DESIGN_LOAD['논산']
+    # 매칭 안 되는 지역은 400 + 수동 전환 안내
+    bad = _wizard_form(use_lookup=True)
+    bad["region"] = "존재하지않는지역명"
+    assert client.post("/entry/newcase/preview", data=bad).status_code == 400
+
+
+def test_newcase_rejects_measured_status_and_empty_source():
+    form = _wizard_form()
+    form["prov_opex_status"] = "실측"  # 웹 실측 부여 시도 → 정책 차단
+    assert client.post("/entry/newcase/preview", data=form).status_code == 400
+    form2 = _wizard_form()
+    form2["prov_price_won_per_kg_source"] = ""
+    assert client.post("/entry/newcase/preview", data=form2).status_code == 400
+
+
+def test_newcase_save_roundtrip(tmp_cases):
+    r = client.post("/entry/newcase/save", data=_wizard_form(), follow_redirects=False)
+    assert r.status_code == 303
+    saved = json.loads((tmp_cases / "test_wizard.json").read_text(encoding="utf-8"))
+    assert saved["provenance"]["opex"]["status"] == "추정"
+    assert saved["wizard"]["policy"].startswith("웹 마법사")
+    assert "test_wizard" in {c["case_id"] for c in C.load_cases()}  # 로더가 그대로 소비
+    home = client.get("/").text
+    assert "마법사 테스트(합성)" in home and "chip-est" in home  # 홈 카드 + 추정 칩
+    # 마법사는 신규 전용 — 중복 id는 409
+    assert client.post("/entry/newcase/save", data=_wizard_form()).status_code == 409
+
+
 # ── 4단계(34차): 견적비교 전사 UI — 기준 데이터: 논산딸기 3사(원단위 대사 완료 실측 전사) ──
 
 def _nonsan_form(comparison_id="논산딸기_3사"):

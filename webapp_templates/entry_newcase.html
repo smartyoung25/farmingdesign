@@ -1,0 +1,94 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}새 케이스 마법사{% endblock %}
+{% block main %}
+  {% set v = form_vals %}
+  <div class="top"><h1>새 케이스 입력 마법사 (3단계)</h1></div>
+  <div class="subtitle">4축(입지→설계→운영→경제성) 순서로 입력 — 계산·검증은 전부 엔진, 마법사는 수집과 근거 기록만 한다</div>
+  <div class="banner">정책: 웹 마법사의 근거 status는 <b>추정·확인요망만</b> 부여할 수 있다 — "실측" 승격은 원문 대조 절차(JSON 편집→커밋)로만. 예외: 설계하중을 고시 조회로 채택하면 엔진 레지스트리가 출처이므로 "실측(고시 조회)"가 자동 기입된다</div>
+
+  <form method="post" action="/entry/newcase/preview">
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-weight:500">케이스 메타</div>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0 12px">
+        <div><label>case_id (영소문자) <span class="req">*</span></label><input type="text" name="case_id" value="{{ v.get('case_id','') }}" placeholder="예: nonsan_kim"></div>
+        <div><label>제목</label><input type="text" name="title" value="{{ v.get('title','') }}" placeholder="예: 김OO — 딸기 / 필름 (신규)"></div>
+        <div><label>기준일 as_of</label><input type="text" name="as_of" value="{{ v.get('as_of','') }}" placeholder="YYYY-MM"></div>
+        <div><label>사업 유형</label><input type="text" name="business_type" value="{{ v.get('business_type','') }}" placeholder="신규/증축…"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-weight:500">Ⅰ. 입지 — 설계하중</div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0 12px">
+        <div><label>지역 region <span class="req">*</span></label><input type="text" name="region" value="{{ v.get('region','') }}" placeholder="예: 논산 / 충남 천안(성환읍)"></div>
+        <div><label>적설 snow_cm (수동 시)</label><input type="text" name="snow_cm" value="{{ v.get('snow_cm','') }}"></div>
+        <div><label>풍속 wind_ms (수동 시)</label><input type="text" name="wind_ms" value="{{ v.get('wind_ms','') }}"></div>
+      </div>
+      <label style="display:inline-flex; align-items:center; gap:6px"><input type="checkbox" name="use_lookup" value="1" style="width:auto" {% if v.get('use_lookup') == '1' %}checked{% endif %}> 내재해 고시 조회값 채택(엔진 siting_design_load — 매칭 실패 시 수동 입력으로 전환하라는 안내가 뜬다)</label>
+      <div style="display:grid; grid-template-columns:1fr 2fr; gap:0 12px">
+        <div><label>수동 입력 시 status</label>
+          <select name="load_status"><option value="">—</option>
+          {% for s in statuses %}<option value="{{ s }}" {% if v.get('load_status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select></div>
+        <div><label>수동 입력 시 근거 source</label><input type="text" name="load_source" value="{{ v.get('load_source','') }}" placeholder="예: 통상값 가정 — 고시 확인 전"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-weight:500">Ⅱ. 설계</div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0 12px">
+        <div><label>피복 cover <span class="req">*</span></label><input type="text" name="cover" value="{{ v.get('cover','') }}" placeholder="유리/필름"></div>
+        <div><label>재배면적 area_m2 <span class="req">*</span></label><input type="text" name="area_m2" value="{{ v.get('area_m2','') }}"></div>
+        <div><label>피복표면적 surface_area_m2 <span class="req">*</span></label><input type="text" name="surface_area_m2" value="{{ v.get('surface_area_m2','') }}"></div>
+        <div><label>목표온도 t_target <span class="req">*</span></label><input type="text" name="t_target" value="{{ v.get('t_target','') }}"></div>
+        <div><label>설계외기온 t_min <span class="req">*</span></label><input type="text" name="t_min" value="{{ v.get('t_min','') }}"></div>
+        <div><label>보온비 fr <span class="req">*</span></label><input type="text" name="fr" value="{{ v.get('fr','') }}" placeholder="예: 0.7 (다겹보온 계열)"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-weight:500">Ⅲ·Ⅳ. 운영·경제성 — 값 + 근거(전 항목 필수)</div>
+      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:0 12px">
+        <div><label>작물 crop <span class="req">*</span></label><input type="text" name="crop" value="{{ v.get('crop','') }}"></div>
+        <div><label>환경적합도 fitness_pct <span class="req">*</span></label><input type="text" name="fitness_pct" value="{{ v.get('fitness_pct','') }}"></div>
+      </div>
+      <table style="margin-top:8px">
+        <thead><tr><th>필드</th><th style="width:130px">값 <span class="req">*</span></th><th style="width:110px">status</th><th>근거 source <span class="req">*</span></th></tr></thead>
+        <tbody>
+        {% for f in prov_fields %}
+        <tr>
+          <td style="font-size:12.5px"><code>{{ f }}</code></td>
+          <td><input type="text" name="{{ f }}" value="{{ v.get(f,'') }}"></td>
+          <td><select name="prov_{{ f }}_status">
+            {% for s in statuses %}<option value="{{ s }}" {% if v.get('prov_' + f + '_status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select></td>
+          <td><input type="text" name="prov_{{ f }}_source" value="{{ v.get('prov_' + f + '_source','') }}" placeholder="출처·산정 방법(예: 근거팩 표 1-2, 농가 구두 확인 등)"></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-bottom:16px">
+      <button type="submit">엔진 미리보기 (저장 안 함)</button>
+      <button type="submit" class="btn-primary" formaction="/entry/newcase/save">케이스 생성 (신규 전용)</button>
+    </div>
+  </form>
+
+  {% if result %}
+  <div class="card">
+    <div style="font-weight:500; margin-bottom:8px">엔진 미리보기 — {{ result.case.case_id }}</div>
+    <table>
+      <tr><td style="width:200px">ROI</td><td class="num">{{ "%.1f" | format(result.res.economics.roi * 100) }}%</td></tr>
+      <tr><td>Payback</td><td class="num">{{ "%.1f년" | format(result.res.economics.payback) if result.res.economics.payback else "—" }}</td></tr>
+      <tr><td>NPV</td><td class="num">{{ "{:,.2f}억".format(result.res.economics.npv / 100000000) }}</td></tr>
+      <tr><td>벤치마크(참고 — 판정 아님)</td><td class="num">{{ "{:,.0f}".format(result.bench.unit_won_m2) }}원/㎡ · {{ result.bench.status }} (밴드 {{ "{:,.0f}".format(result.bench.band[0]) }}~{{ "{:,.0f}".format(result.bench.band[1]) }})</td></tr>
+      {% if result.case.wizard.design_load_lookup %}
+      <tr><td>설계하중(고시 조회 채택)</td><td class="num">적설 {{ result.case.input.snow_cm }}cm · 풍속 {{ result.case.input.wind_ms }}m/s — 실측(고시 조회) 자동 기입</td></tr>
+      {% endif %}
+    </table>
+    <p class="note">전 수치가 엔진(render_report.compute·benchmark_check) 반환값 그대로 — 저장 후 콘솔 홈에 카드가 나타나고, 통합보고서 생성은 "엔진 재계산" 실행</p>
+  </div>
+  {% endif %}
+{% endblock %}

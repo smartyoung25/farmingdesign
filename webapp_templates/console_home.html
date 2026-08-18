@@ -18,10 +18,12 @@
     <h1>케이스</h1>
     <div class="actions">
       <form method="post" action="/rebuild" style="display:inline"><button type="submit">엔진 재계산(사이트 재생성)</button></form>
-      <a class="btn btn-primary" href="/entry">기입 워크플로 →</a>
+      <a class="btn" href="/entry">기입 워크플로 →</a>
+      <a class="btn btn-primary" href="/entry/newcase">+ 새 케이스</a>
     </div>
   </div>
   <div class="subtitle">카드 수치는 요청 시점 엔진 실계산 · 칩은 provenance status 그대로</div>
+  {% if request.query_params.get("created") %}<div class="banner ok">케이스 {{ request.query_params.get("created") }} 생성됨(추정/확인요망 status) — 통합보고서 생성은 "엔진 재계산" 실행, 실측 승격은 원문 대조 절차로</div>{% endif %}
   {% if waits %}<div class="banner">데이터 대기 {{ waits | length }}건 — {{ waits | join(" · ") }}</div>{% endif %}
   <div class="grid">
     {% for c in full_cards %}

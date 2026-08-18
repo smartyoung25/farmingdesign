@@ -295,6 +295,126 @@ async def scenario_save(request: Request, case_id: str):
     return RedirectResponse(f"/entry/scenario/{case_id}?saved=1", status_code=303)
 
 
+# ── 3단계(35차): 케이스 입력 마법사 ─────────────────────────────────────
+# 정책(사용자 지시 "3단계 진행" — 34차 보류 판정의 선행조건을 권고안 채택으로 확정):
+#   웹 마법사 신규 케이스의 provenance status는 "추정"/"확인요망"만 허용한다.
+#   "실측"은 웹에서 부여 불가 — 실측 승격은 기존 절차(원문 대조→JSON 편집→커밋)로만.
+#   예외 1건: 설계하중을 엔진 고시 조회(siting_design_load)로 채택한 경우 그 값의
+#   출처는 사용자가 아니라 엔진 레지스트리이므로 "실측(고시 조회)"를 자동 기입한다.
+
+WIZARD_ALLOWED_STATUS = ("추정", "확인요망")
+WIZARD_PROV_FIELDS = ("base_yield_kg_m2", "price_won_per_kg", "opex",
+                      "total_construction_cost", "subsidy_rate")
+_CASE_ID_RE = re.compile(r"^[a-z][a-z0-9_\-]{1,40}$")
+
+
+def _parse_newcase_form(form) -> dict:
+    cid = (form.get("case_id") or "").strip()
+    if not _CASE_ID_RE.match(cid):
+        raise HTTPException(400, detail="case_id는 영소문자로 시작, 영소문자·숫자·_·- 2~41자(기존 관례: wonchaewon 등)")
+    region = (form.get("region") or "").strip()
+    if not region:
+        raise HTTPException(400, detail="region이 비어 있다")
+    inp = {
+        "business_type": (form.get("business_type") or "").strip() or "신규",
+        "crop": (form.get("crop") or "").strip(),
+        "region": region,
+        "area_m2": _form_float(form, "area_m2", required=True),
+        "cover": (form.get("cover") or "").strip(),
+        "surface_area_m2": _form_float(form, "surface_area_m2", required=True),
+        "t_target": _form_float(form, "t_target", required=True),
+        "t_min": _form_float(form, "t_min", required=True),
+        "fr": _form_float(form, "fr", required=True),
+        "base_yield_kg_m2": _form_float(form, "base_yield_kg_m2", required=True),
+        "price_won_per_kg": _form_float(form, "price_won_per_kg", required=True),
+        "fitness_pct": _form_float(form, "fitness_pct", required=True),
+        "opex": _form_float(form, "opex", required=True, as_int=True),
+        "total_construction_cost": _form_float(form, "total_construction_cost", required=True, as_int=True),
+        "subsidy_rate": _form_float(form, "subsidy_rate", required=True),
+    }
+    prov = {}
+    lookup = None
+    if form.get("use_lookup") == "1":
+        lookup = e.siting_design_load(region)
+        if not lookup:
+            raise HTTPException(400, detail=f"고시 조회 실패 — REGION_DESIGN_LOAD에 '{region}' 매칭 없음(수동 입력으로 전환하고 근거를 남길 것)")
+        inp["snow_cm"], inp["wind_ms"] = lookup["snow_cm"], lookup["wind_ms"]
+        auto = {"status": "실측", "source": f"REGION_DESIGN_LOAD 고시 조회('{region}') — 웹 마법사 자동 기입(값 출처는 엔진 레지스트리)"}
+        prov["snow_cm"] = dict(auto)
+        prov["wind_ms"] = dict(auto)
+    else:
+        inp["snow_cm"] = _form_float(form, "snow_cm", required=True)
+        inp["wind_ms"] = _form_float(form, "wind_ms", required=True)
+        st = (form.get("load_status") or "").strip()
+        src = (form.get("load_source") or "").strip()
+        if st not in WIZARD_ALLOWED_STATUS:
+            raise HTTPException(400, detail=f"설계하중 수동 입력의 status는 {WIZARD_ALLOWED_STATUS}만 허용(웹 실측 부여 불가 정책)")
+        if not src:
+            raise HTTPException(400, detail="설계하중 수동 입력의 근거(source)가 비어 있다")
+        prov["snow_cm"] = {"status": st, "source": src}
+        prov["wind_ms"] = {"status": st, "source": src}
+    for f in WIZARD_PROV_FIELDS:
+        st = (form.get(f"prov_{f}_status") or "").strip()
+        src = (form.get(f"prov_{f}_source") or "").strip()
+        if st not in WIZARD_ALLOWED_STATUS:
+            raise HTTPException(400, detail=f"{f}: status는 {WIZARD_ALLOWED_STATUS}만 허용 — 실측 승격은 원문 대조 절차(커밋)로만")
+        if not src:
+            raise HTTPException(400, detail=f"{f}: 근거(source)가 비어 있다 — 근거 없는 값 금지")
+        prov[f] = {"status": st, "source": src}
+    case = {
+        "case_id": cid,
+        "title": (form.get("title") or "").strip() or cid,
+        "as_of": (form.get("as_of") or "").strip(),
+        "input": inp,
+        "provenance": prov,
+        "wizard": {"policy": "웹 마법사 신규 케이스(35차) — status는 추정/확인요망만, 실측 승격은 원문 대조 절차로만",
+                   "design_load_lookup": bool(lookup)},
+    }
+    return case
+
+
+def _newcase_compute_or_400(case: dict):
+    try:
+        inp = C.case_to_input(case)
+        res = rr.compute(inp)
+        bench = e.benchmark_check(case["input"]["total_construction_cost"],
+                                  case["input"]["area_m2"], inp.cover)
+        return res, bench
+    except (ValueError, KeyError, TypeError) as ex:
+        raise HTTPException(400, detail=f"엔진 검증 실패: {ex}")
+
+
+@app.get("/entry/newcase")
+def newcase_form(request: Request):
+    return templates.TemplateResponse(request, "entry_newcase.html", {
+        "form_vals": {}, "result": None, "statuses": WIZARD_ALLOWED_STATUS,
+        "prov_fields": WIZARD_PROV_FIELDS,
+    })
+
+
+@app.post("/entry/newcase/preview")
+async def newcase_preview(request: Request):
+    form = await request.form()
+    case = _parse_newcase_form(form)
+    res, bench = _newcase_compute_or_400(case)
+    return templates.TemplateResponse(request, "entry_newcase.html", {
+        "form_vals": dict(form), "result": {"case": case, "res": res, "bench": bench},
+        "statuses": WIZARD_ALLOWED_STATUS, "prov_fields": WIZARD_PROV_FIELDS,
+    })
+
+
+@app.post("/entry/newcase/save")
+async def newcase_save(request: Request):
+    form = await request.form()
+    case = _parse_newcase_form(form)
+    _newcase_compute_or_400(case)  # 엔진 통과분만 저장
+    target = Path(C.CASES_DIR) / f"{case['case_id']}.json"
+    if target.exists():
+        raise HTTPException(409, detail=f"케이스 {case['case_id']} 이미 존재 — 마법사는 신규 전용(수정은 JSON 직접 편집)")
+    _save_case(case)
+    return RedirectResponse(f"/?created={case['case_id']}", status_code=303)
+
+
 # ── 4단계(34차): 견적비교 전사 입력 UI ──────────────────────────────────
 # 기준 데이터: 견적비교_논산딸기3사.json(원단위 대사 완료 실측 전사) — 편집기는 이
 # 스키마를 그대로 읽고 쓴다. 전사 무결성(3중 대사)은 build_site.quotes_vendor_3way_check,
