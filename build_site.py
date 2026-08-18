@@ -144,10 +144,14 @@ def capex_breakdown_page() -> str:
     unclassified_rows = []
     for case_name, total in major_totals.items():
         mb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS[case_name], known_total=total)
-        unclassified_rows.append(
-            f"<li>{esc(case_name)}: {mb.unclassified:,.0f}원 "
-            f"({mb.unclassified/mb.total*100:.1f}%) — 13개 카테고리 어디에도 안 맞아 미분류로 남김"
-            f"(케이스별 구체 항목은 CAPEX_MAJOR_UNCLASSIFIED 레지스트리 source 참고)</li>")
+        if mb.unclassified == 0:  # 7회차 부수⑵: 0원에 "미분류로 남김" 서술은 오독 — 표시 분기(포맷팅)
+            unclassified_rows.append(
+                f"<li>{esc(case_name)}: 0원 (0.0%) — 미분류 없음(전 공종이 13분류로 매핑됨)</li>")
+        else:
+            unclassified_rows.append(
+                f"<li>{esc(case_name)}: {mb.unclassified:,.0f}원 "
+                f"({mb.unclassified/mb.total*100:.1f}%) — 13개 카테고리 어디에도 안 맞아 미분류로 남김"
+                f"(케이스별 구체 항목은 CAPEX_MAJOR_UNCLASSIFIED 레지스트리 source 참고)</li>")
 
     body = f"""
   <header class="top"><h1>CAPEX 공종 카테고리 분해</h1>
@@ -164,12 +168,16 @@ def capex_breakdown_page() -> str:
       한일그린텍 hvac 0.0%가 대표 사례: 공기유동휀 12대·배출환풍기 6대가 실재하나 부가세 환급분
       재투자 블록(22,635,750원, 직접공사비 밖 별도 계상)에 있어 분모에 안 잡힌다(레드팀 4회차 F6,
       원문 p5·p20 — 상세는 근거대장 CAPEX_MAJOR_CASE_CHUNKS 항목).</p>
+    <p class="note">⚠️ 강정구는 <b>견적 범위 자체가 좁은 부분 범위 견적</b>(골조·천창개폐·피복+관리동 부속만 —
+      관수·양액·보온커튼·난방·환기휀은 견적 범위 밖)이라 온실구조 비중(74.8%)을 풀스펙 표본과 같은
+      축으로 읽으면 안 된다. 견적일도 2022-04(표본 기록 기준 가장 이름)라 물가 시점이 다르다
+      (레드팀 7회차 F6 — 상세는 근거대장).</p>
     <p class="note">⚠️ 케이스 간 비중 비교 시 분모(known_total) 구성이 문서 구조에 따라 다르다 —
       우민재는 qa_safety(안전관리비 등 2,679,227원)가 공종 라인으로 분모에 포함되지만, 한일그린텍
       (산업안전보건관리비 1,440,000원)·이준희(산업안전 27,047,871원+환경보전 5,051,685원=32,099,556원)·
-      맹주연(안전관리비 9,865,947원+환경보전비 2,198,711원=12,064,658원)은 같은 성격 비용이
-      원가계산서 산식 항목이라 분모 밖이다(레드팀 4·5·6회차 관찰 — 비중의 한 자리 수준 차이는
-      이 구조 차이만으로도 생길 수 있다).</p>
+      맹주연(안전관리비 9,865,947원+환경보전비 2,198,711원=12,064,658원)·강정구(안전관리비
+      8,526,681원)는 같은 성격 비용이 원가계산서 산식 항목이라 분모 밖이다(레드팀 4·5·6·7회차 관찰
+      — 비중의 한 자리 수준 차이는 이 구조 차이만으로도 생길 수 있다).</p>
   </section>
   <section class="card"><span class="axis">시공사 내역서 관점 · 9개 하위 세부(직접공사비)</span>
     <h2>카테고리별 비중 관측범위 (표본 {len(e.CAPEX_CASE_CHUNKS)}건 — 밴드 아님, 참고정보)</h2>

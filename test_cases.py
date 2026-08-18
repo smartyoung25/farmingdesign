@@ -389,6 +389,36 @@ def test_capex_maeng_pdf_anchor_cells_match_source():
     assert e.CAPEX_MAJOR_CASE_CHUNKS["맹주연"]["hvac"] == 8_671_776
 
 
+def test_capex_kang_pdf_anchor_cells_match_source():
+    # 56차: CAPEX 표본 8호(강정구, 부분 범위 견적·환급 차감 전후 값 병존) 앵커 —
+    # 집계표 합계·환급품목 합계·p2 원가계산서 머리의 한글/괄호 숫자(각각 차감 전
+    # 공사금액/차감 후 총공사금액과 일치 — 병기 의도는 [추정], 7회차 F3)·명시 분리
+    # 라인(측면개폐모터·1.2중개폐파이프)의 원문 근거를 고정.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "스마트팜스펙", "견적참조",
+                            "1. 군산 강정구 농가_8.4×44×10연동_와이드_딸기.pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        p2 = (pdf.pages[1].extract_text() or "").replace(" ", "")
+        p34 = "".join((p.extract_text() or "") for p in pdf.pages[2:4]).replace(" ", "")
+        p6 = (pdf.pages[5].extract_text() or "").replace(" ", "")
+        p11 = (pdf.pages[10].extract_text() or "").replace(" ", "")
+    # 원가계산서(p2): known_total 구성 + 한글/숫자 두 값(7회차 F2 — 위치는 p2, 표지 아님)
+    for anchor in ("223,202,937", "67,810,080", "5,908,267", "367,867,000", "354,816,000"):
+        assert anchor in p2, anchor
+    assert "삼억육천칠백팔십육만칠천" in p2
+    assert _parse_korean_amount("일금삼억육천칠백팔십육만칠천원정") == 367_867_000
+    # 집계표(p3)·환급표(p4)
+    for anchor in ("296,921,284", "130,507,454", "13,050,745"):
+        assert anchor in p34, anchor
+    assert 223_202_937 + 67_810_080 + 5_908_267 == 296_921_284
+    # 명시 개폐 명칭 라인의 원문 근거(자동개폐로 분리 전사 — 7회차 F5 포함)
+    assert "1.2중개폐파이프" in p6 and "347,061" in p6
+    assert "측면개폐모터" in p11 and "480,000" in p11 and "180,000" in p11
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["강정구"]["auto_opening_system"] == 73_796_244 + 660_000 + 347_061
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
@@ -402,7 +432,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 53차: known_total 단일 출처 승격(CAPEX_MAJOR_KNOWN_TOTALS 신설, 레드팀 4회차 F8)으로
     #       상수 31→32, 표본 6건 역참조 병행 등재로 source_refs 20→26
     # 55차: 맹주연 표본 7호 승격으로 26→28(CASE_CHUNKS·KNOWN_TOTALS에 각 1건)
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 28
+    # 56차: 강정구 표본 8호 승격으로 28→30(동일 2상수에 각 1건)
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 30
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

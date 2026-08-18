@@ -679,6 +679,37 @@ def test_capex_major_breakdown_mjy_reconciles_to_source():
     assert 226_473_083 // 10 == 22_647_308                       # 부가세환급금 = 환급품목×10%
 
 
+def test_capex_major_breakdown_kjg_reconciles_to_source():
+    # 2026-08-18 추가(56차 "다른 견적 세부 분석" 4호) — 강정구(군산 딸기 와이드
+    # 연동 3,696㎡, 서진비에스 2022-04 — 표본 중 최고(最古), 물가 시점 주의).
+    # 부분 범위 시공 견적(골조·천창개폐·피복만): 0인 카테고리는 설비 부재가 아니라
+    # 견적 범위 밖. 표본 최초의 unclassified 0.
+    assert 223_202_937 + 67_810_080 + 5_908_267 == 296_921_284  # 원가계산서 3항목 원단위 재현
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["강정구"],
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["강정구"])
+    assert cb.total == 296_921_284
+    assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["강정구"] == 0
+    assert sum(cb.items.values()) == 296_921_284
+    # 공종→카테고리 합성 앵커(집계표 원문 소계 — 명시 개폐 명칭 라인 2건 분리 반영)
+    assert cb.items["greenhouse_structure"] == 11_451_200 + (101_638_392 - 347_061) + 81_198_324 + 28_177_124
+    # 명시 개폐 명칭 라인 분리(7회차 F5 일관 적용): 비닐 공종의 측면개폐모터·가이드로라
+    # + 파이프 공종의 1.2중개폐파이프(측면 개폐 권취 축 계열 추정 — 규칙 일관 적용)
+    assert 480_000 + 180_000 == 660_000
+    assert 28_177_124 + 660_000 == 28_837_124                    # 비닐 공종 분리 검산
+    assert (101_638_392 - 347_061) + 347_061 == 101_638_392      # 파이프 공종 분리 검산
+    assert cb.items["auto_opening_system"] == 73_796_244 + 660_000 + 347_061
+    for k in ("hvac", "irrigation_fertigation", "ict_control", "electrical"):
+        assert cb.items[k] == 0                                  # 부분 범위 견적(범위 밖)
+    # 도급 체인 + 환급 차감 전·후 값(p2 원가계산서 머리 — 한글=차감 전 공사금액과 일치,
+    # 괄호 숫자=차감 후 총공사금액과 일치. 병기 의도 여부는 [추정] — 7회차 F3)
+    assert 323_584_540 + 6_471_690 + 5_295_649 - 10_200_000 == 325_151_879  # 표기 325,151,878은 1원 갭
+    assert (325_151_878 + 32_515_188 + 10_200_000) // 1000 * 1000 == 367_867_000  # 공사금액(한글 일치값)
+    assert 130_507_454 // 10 == 13_050_745                       # 부가세환급예정액
+    assert (367_867_000 - 13_050_745) // 1000 * 1000 == 354_816_000  # 총공사금액(괄호 숫자 일치값)
+    # 원문 갭 ③(7회차 F4): 영세율 표시된 측면개폐모터 480,000이 영세율 총액에 미포함
+    assert 6_400_000 + 3_800_000 == 10_200_000
+
+
 def test_capex_major_known_totals_single_source_sync():
     # 2026-08-18 53차(레드팀 4회차 F8 구조 개선) — known_total은 엔진 상수
     # CAPEX_MAJOR_KNOWN_TOTALS가 단일 출처다(build_site major_totals가 직접 읽음 —
