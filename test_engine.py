@@ -628,6 +628,31 @@ def test_capex_major_breakdown_hanil_reconciles_to_source():
     assert 455_736_875 + 22_635_750 + 2_263_575 == 480_636_200
 
 
+def test_capex_major_breakdown_ljh_reconciles_to_source():
+    # 2026-08-18 추가(52차 "다른 견적 세부 분석" 2호) — 이준희(서산, 표본 최초의
+    # 벤로형 유리온실 5,404.32㎡) 공종별집계표 합계행=원가계산서 직재+직노+산출경비
+    # =직접공사비 1,010,337,181원이 known_total. unclassified는 행잉거터+유인줄
+    # (재배시설 — 윤성호 0110/0111 선례)+기타공사(선홈통·바닥배수 부대).
+    assert 758_880_699 + 237_736_474 + 13_720_008 == 1_010_337_181  # 원가계산서 원단위 재현
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["이준희"],
+                                  known_total=1_010_337_181)
+    assert cb.total == 1_010_337_181
+    assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["이준희"] == 93_326_116
+    assert sum(cb.items.values()) + cb.unclassified == 1_010_337_181
+    # 공종→카테고리 합성 앵커(공종별집계표 원문 소계)
+    assert cb.items["greenhouse_structure"] == 6_314_238 + 69_936_701 + 169_114_684 + 174_804_328 + 144_093_767
+    assert cb.items["auto_opening_system"] == 47_477_403 + 125_978_303
+    assert cb.items["hvac"] == 7_093_767            # 09 유동휀만(난방설비 11은 "본 공사제외")
+    assert cb.items["irrigation_fertigation"] == 28_952_319 + 28_859_014 + 3_904_157 + 5_219_421
+    assert cb.items["ict_control"] == 83_463_440    # 1209 복합환경제어 — 표본 최대 관측치(벤로형 유리 사양)
+    assert cb.items["electrical"] == 21_799_523     # 13 동력간선공사
+    assert 65_624_205 + 19_138_167 + 8_563_744 == 93_326_116  # 미분류 구성 원문 소계
+    # 도급·부가세 환급 체인(견적서·원가계산서 시트 원단위 재현 — 환급 명시 표본 최초)
+    assert 1_079_731_365 + 11_177_726 == 1_090_909_091          # 원가 계+이윤=공급가액(일반관리비 0%)
+    assert 1_090_909_091 + 109_090_909 == 1_200_000_000         # +부가세=도급 합계
+    assert 1_200_000_000 - 1_056_000 - 26_179_000 == 1_172_765_000  # 영세율·환급 차감=실부담
+
+
 def test_capex_major_breakdown_unmapped_categories_default_zero():
     # 근거 없는 7개(부대시설·기자재구매·설계감리비·부지조성비·예비비·부지매입비, 8번 등)는 0
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["우민재"], known_total=456_158_140)

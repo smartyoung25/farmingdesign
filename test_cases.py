@@ -370,7 +370,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 49차: 첫 감사의 백로그 5필드(정직 provenance 기입)를 해소 — 갭 0 유지가 새 기준
     assert a["case_coverage_gaps"] == {}, a["case_coverage_gaps"]
     # 51차: 한일그린텍 CAPEX 표본 5호 승격으로 source_refs 18→19(CAPEX_MAJOR_CASE_CHUNKS에 1건 추가)
-    assert a["counts"]["registry_constants"] == 31 and a["counts"]["source_refs"] == 19
+    # 52차: 이준희 표본 6호 승격으로 19→20(동일 상수에 1건 추가)
+    assert a["counts"]["registry_constants"] == 31 and a["counts"]["source_refs"] == 20
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
@@ -431,6 +432,45 @@ def test_quotes_nonsan_anchor_cells_match_source():
         assert direct in allv and total in allv, name
         assert by[name]["direct_cost_total"] == direct
         assert by[name]["total_with_overhead"] == total
+
+
+def test_capex_leejunhee_xlsx_anchor_cells_match_source():
+    # 52차: CAPEX 표본 6호(이준희, 벤로형 유리온실) 전사값을 원본 xlsx 셀에서 직접
+    # 재확인하는 앵커 대조 — 집계표 합계행(known_total 근거)·복합환경제어(표본 최대)·
+    # 부가세 환급 채택값·견적서 한글 총사업비(37차 파서 대사)를 원문 셀로 고정.
+    import pytest as _pt
+    openpyxl = _pt.importorskip("openpyxl", reason="openpyxl 미설치(환경 특성상 pip 유실 반복)")
+    path = os.path.join(_REPO, "스마트팜스펙", "견적참조",
+                        "충남 서산(이준희) 온실 시공 견적서_부가세 환급.xlsx")
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    try:
+        total_row = ict_row = refund_row = None
+        for r in wb["공종별집계표"].iter_rows(values_only=True):
+            c0 = str(r[0]).strip() if r[0] is not None else ""
+            nums = [v for v in r[1:] if isinstance(v, (int, float))]
+            if c0.startswith("[ 합"):
+                total_row = [int(v) for v in nums]
+            elif c0.startswith("1209"):
+                ict_row = nums
+            elif c0.startswith("부가가치세환급금"):
+                refund_row = nums
+        assert total_row == [758_880_699, 237_736_474, 13_720_008, 1_010_337_181], \
+            "집계표 합계행 소실 — known_total 원문 근거 붕괴"
+        assert ict_row and 83_463_440 in ict_row
+        # 환급 행: 절사 전 26,179,841.1과 절사 후 채택값 26,179,000 병존
+        assert refund_row and 26_179_000 in refund_row
+        hangul = num_total = None
+        for r in wb["견적서"].iter_rows(values_only=True):
+            for v in r:
+                if isinstance(v, str) and "일금" in v:
+                    m = _re.search(r"일금\s*[가-힣]+원정", v)
+                    hangul = m.group(0) if m else None
+                elif isinstance(v, (int, float)) and round(v) == 1_172_765_000:
+                    num_total = round(v)  # 셀 실값 1172765000.1 — 부동소수 잔재
+        assert num_total == 1_172_765_000
+        assert hangul and _parse_korean_amount(hangul) == 1_172_765_000  # 실부담(환급 차감 후)
+    finally:
+        wb.close()
 
 
 # ── P1-6 잔여 해소(2026-08-18): 감리비 참고 표시(CAPEX 불산입) ─────────────
