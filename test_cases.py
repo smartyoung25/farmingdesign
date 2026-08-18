@@ -174,6 +174,103 @@ def test_consulting_report_financing_section_conditional():
     assert "테스트 합성 조건" in html_with
 
 
+# ── 37차(2026-08-18): 원천자료 실재·전사 가드 ─────────────────────────────
+# 패턴 원본: test_chunking_v2.py test_manual_override_files_all_exist —
+# "산출물이 가리키는 원본 파일이 실제로 있는가"를 기계 가드로. 원본이 이동·개명되면
+# 조용히 끊기는 대신 여기서 잡힌다(가이드 기둥 C: 원천자료 기반 최종 검증의 1층).
+
+import re as _re
+
+_REPO = os.path.dirname(os.path.abspath(__file__))
+_SRC_PATH_RE = _re.compile(r"스마트팜스펙/.+?\.(?:pdf|xlsx|xls|hwp|png|jpg|jpeg|docx|doc)")
+
+
+def test_quotes_source_files_exist():
+    # 견적비교 전 파일의 업체별 source_file 실재 — 신규 비교 파일은 glob으로 자동 편입
+    import glob as _g
+    checked = 0
+    for path in sorted(_g.glob(os.path.join(_REPO, "견적비교_*.json"))):
+        data = json.load(open(path, encoding="utf-8"))
+        for v in data["vendor_quotes"]:
+            src = v["source_file"]
+            assert src, (path, v["vendor_name"], "source_file 비어 있음")
+            assert os.path.isfile(os.path.join(_REPO, src)), \
+                (path, v["vendor_name"], f"원본 없음: {src} — 파일 이동·개명 시 전사 추적성이 끊긴다")
+            checked += 1
+    assert checked >= 5  # 논산 3사 + 군산 2안
+
+
+def test_case_provenance_path_sources_exist():
+    # 케이스 provenance 안의 경로형 출처("스마트팜스펙/…확장자")가 실재하는지.
+    # 서술형 출처(예: "원채원 견적(A-11)")는 통과 — 스키마 통일은 42차 몫.
+    found = 0
+    for c in C.load_cases():
+        prov = c.get("provenance")
+        texts = []
+        if isinstance(prov, dict):
+            texts = [str(v.get("source", "")) for v in prov.values() if isinstance(v, dict)]
+        elif isinstance(prov, str):
+            texts = [prov]
+        for t in texts:
+            for m in _SRC_PATH_RE.finditer(t):
+                rel = m.group(0)
+                assert os.path.isfile(os.path.join(_REPO, rel)), \
+                    (c["case_id"], f"provenance가 가리키는 원본 없음: {rel}")
+                found += 1
+    assert found >= 2  # 최소 uminjae(xlsx)·mulhyangki(pdf)
+
+
+# 한글 금액 파서 — 테스트 전용(전사 검증기이지 계산기가 아님 — 엔진에 넣지 않는다).
+# OCR 유래 수치의 유일한 독립 검산(3중 대사의 '한글 대사')을 산문 기록에서 코드로.
+_KDIG = {"영": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9}
+_KSMALL = {"십": 10, "백": 100, "천": 1000}
+_KBIG = {"만": 10**4, "억": 10**8, "조": 10**12}
+
+
+def _parse_korean_amount(text: str) -> int:
+    s = _re.sub(r"[\s,]", "", text)
+    s = _re.sub(r"^(일금|금)", "", s)
+    s = _re.sub(r"(원정|원|정)$", "", s)
+    total = section = num = 0
+    for ch in s:
+        if ch in _KDIG:
+            num = _KDIG[ch]
+        elif ch in _KSMALL:
+            section += (num or 1) * _KSMALL[ch]
+            num = 0
+        elif ch in _KBIG:
+            total += ((section + num) or 1) * _KBIG[ch]
+            section = num = 0
+        else:
+            raise ValueError(f"한글 금액이 아닌 문자: {ch!r} in {text!r}")
+    return total + section + num
+
+
+def test_korean_amount_parser_selfcheck():
+    # 파서 자체 검산(합성 표기 — 규칙 고정)
+    assert _parse_korean_amount("일금오억육백만원정") == 506_000_000
+    assert _parse_korean_amount("금 사억오천구백이십일만이천팔백칠십구원") == 459_212_879
+    assert _parse_korean_amount("팔천구백육십일만원") == 89_610_000
+    assert _parse_korean_amount("십만원") == 100_000          # 선행 일 생략형
+    assert _parse_korean_amount("일조이억삼천원") == 1_000_200_003_000
+
+
+def test_hangul_amount_reconciliation_in_partial_cases():
+    # 케이스 파일에 실제 기록된 한글 표기 ↔ 숫자 필드의 기계 대사(OCR 3원 대조의 코드화).
+    # 파일에 없는 표기는 검증하지 않는다(근거 없는 검증 금지).
+    y_raw = open(os.path.join(_REPO, "cases", "yonggyun.json"), encoding="utf-8").read()
+    y = json.loads(y_raw)
+    assert "사억오천구백이십일만이천팔백칠십구" in y_raw
+    assert _parse_korean_amount("사억오천구백이십일만이천팔백칠십구원") \
+        == y["construction"]["cost_summary_won"]["공급가액"] == 459_212_879
+
+    m_raw = open(os.path.join(_REPO, "cases", "mulhyangki.json"), encoding="utf-8").read()
+    m = json.loads(m_raw)
+    assert "팔천구백육십일만원정" in m_raw
+    assert _parse_korean_amount("일금 팔천구백육십일만원정") \
+        == m["construction"]["cost_summary_won"]["총공사비(도급, 천단위 절사)"] == 89_610_000
+
+
 # ── P1-6 잔여 해소(2026-08-18): 감리비 참고 표시(CAPEX 불산입) ─────────────
 
 def test_consulting_report_supervision_fee_reference_block():
