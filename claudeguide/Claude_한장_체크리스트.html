@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude 실무 한 장 체크리스트</title>
+<style>
+  :root{
+    --ink:#1a1c1e; --ink2:#4a5158; --ink3:#7b838c;
+    --line:#ddd9d2; --bg:#faf9f7; --card:#fff;
+    --ac:#a8663a; --ac2:#3f6f5e; --warn:#9c3f3f;
+    --tint:#f4f1ec;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Pretendard","Malgun Gothic","Noto Sans KR",sans-serif;
+    font-size:13.5px;line-height:1.55;}
+  .page{max-width:1120px;margin:0 auto;padding:24px 26px 60px}
+  header{border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:18px;
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  h1{font-size:21px;margin:0;letter-spacing:-.4px}
+  .sub{color:var(--ink3);font-size:12px}
+  .print{margin-left:auto;background:var(--ac);color:#fff;border:none;border-radius:6px;
+    padding:7px 16px;font-size:12.5px;cursor:pointer;font-family:inherit;font-weight:600}
+  .print:hover{filter:brightness(1.08)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .col{display:flex;flex-direction:column;gap:14px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+    break-inside:avoid}
+  .box h2{font-size:12.5px;margin:0 0 9px;letter-spacing:.5px;color:var(--ac2);
+    text-transform:uppercase;font-weight:800;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .box.warn h2{color:var(--warn)}
+  ul{margin:0;padding:0;list-style:none}
+  li{position:relative;padding-left:19px;margin-bottom:6px;font-size:12.8px;color:var(--ink2)}
+  li:before{content:"";position:absolute;left:0;top:4px;width:11px;height:11px;
+    border:1.4px solid var(--ink3);border-radius:2.5px}
+  li b{color:var(--ink);font-weight:700}
+  li.key:before{border-color:var(--ac);background:rgba(168,102,58,.14)}
+  .note{background:var(--tint);border-left:3px solid var(--ac);padding:8px 11px;
+    font-size:12.3px;color:var(--ink2);border-radius:0 5px 5px 0;margin-top:9px}
+  table{width:100%;border-collapse:collapse;font-size:12.3px;margin-top:2px}
+  td{padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink2)}
+  td:first-child{color:var(--ink);font-weight:650;width:44%}
+  .three{background:var(--ink);color:#f4f1ec;border-radius:8px;padding:13px 16px;margin-bottom:16px}
+  .three h2{color:#e0b494;border-color:#3a3d40;margin-top:0}
+  .three code{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,"D2Coding",monospace;
+    font-size:12.2px;line-height:1.75;color:#f4f1ec;white-space:pre-wrap}
+  .num{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12.3px;
+    padding:4px 0;border-bottom:1px solid var(--line);color:var(--ink2)}
+  .num b{color:var(--ac);font-variant-numeric:tabular-nums}
+  footer{margin-top:20px;padding-top:10px;border-top:1px solid var(--line);
+    color:var(--ink3);font-size:11.3px}
+  @media print{
+    body{background:#fff;font-size:10.2px;line-height:1.45}
+    .page{padding:0;max-width:none}
+    .print{display:none}
+    header{padding-bottom:5px;margin-bottom:8px;border-bottom-width:1.5px}
+    h1{font-size:16.5px}
+    .sub{font-size:9.6px}
+    .box{border-color:#ccc;padding:8px 10px;border-radius:6px}
+    .box h2{font-size:10.4px;margin-bottom:6px;padding-bottom:4px}
+    .grid,.col{gap:9px}
+    li{font-size:10px;margin-bottom:3.4px;padding-left:16px;line-height:1.45}
+    li:before{width:9.5px;height:9.5px;top:3.5px;border-width:1.2px}
+    .note{font-size:9.6px;padding:6px 9px;margin-top:6px;line-height:1.45}
+    td{font-size:9.7px;padding:4px 3px}
+    .num{font-size:9.7px;padding:3.4px 0}
+    .three{background:#f0ede8;color:#1a1c1e;border:1px solid #ccc;padding:9px 12px;margin-bottom:10px}
+    .three h2{color:#a8663a;border-color:#ccc}
+    .three code{color:#1a1c1e;font-size:10px;line-height:1.7}
+    footer{font-size:8.6px;margin-top:10px;padding-top:6px}
+    @page{size:A4 landscape;margin:8mm}
+  }
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+  <h1>Claude 실무 한 장 체크리스트</h1>
+  <span class="sub">Chat · Cowork · Code 공통 · 2026-08</span>
+  <button class="print" onclick="window.print()">인쇄 / PDF 저장</button>
+</header>
+
+<div class="three">
+  <h2>다른 건 다 빼도 이 세 줄은 지침 파일에 넣으세요</h2>
+  <code>- 열어보지 않은 것에 대해 추측하지 마
+- 자료에 없는 것은 만들지 말고 '확인 필요'로 표시해
+- "완료했습니다" 대신 확인한 것과 확인하지 못한 것을 적어</code>
+</div>
+
+<div class="grid">
+
+  <div class="col">
+    <div class="box">
+      <h2>시작 전 · 30초</h2>
+      <ul>
+        <li>목적과 독자를 <b>한 문장</b>으로 말할 수 있는가? 없으면 먼저 인터뷰시킨다</li>
+        <li>자료를 <b>폴더에 모아뒀는가</b>. 대화 중에 하나씩 붙여넣지 않는다</li>
+        <li>출력 형식을 정했는가 — 구성 · 분량 · 문체 · 파일 형식</li>
+        <li class="key">이 결과가 <b>틀렸는지 어떻게 확인</b>할 것인가 ← 답이 없으면 아직 시작하지 마라</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <h2>프롬프트를 쓸 때</h2>
+      <ul>
+        <li>긴 자료는 <b>위</b>, 질문은 <b>아래</b> (최대 30% 차이)</li>
+        <li>"요약해줘" 대신 <b>무엇을 위한 요약인지</b> 목적을 준다</li>
+        <li>'모르는 것'을 담을 자리를 만든다 → "확인 필요 항목" 절</li>
+        <li>금지가 아니라 지시로 — "불릿 쓰지 마" → "완결된 문단으로 써줘"</li>
+        <li>되돌리기 어려운 작업이면 <b>계획을 먼저</b> 보여달라고 한다</li>
+        <li>사실이 중요하면 <b>인용을 먼저</b> 뽑게 한 뒤 판단시킨다</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <h2>세팅 파일 (한 번 만들면 매번 안 씀)</h2>
+      <ul>
+        <li>Cowork <b>폴더 지침 CLAUDE.md</b> — 안전 · 사실성 · 산출물 · 문체</li>
+        <li>Chat <b>Projects 지침</b> — 말투 · 독자 · 형식 · 금지, 넷만</li>
+        <li>Code <b>CLAUDE.md</b> — 명령어 · 절대규칙 · 손대지 말 것</li>
+      </ul>
+      <div class="note"><b>길이가 곧 품질입니다.</b> 200줄을 넘기면 규칙이 묻히기 시작하고, 어느 팀은 150줄부터 준수율이 깨진다고 실측 보고했습니다. 판별 질문 하나 — “이 줄을 지우면 Claude가 실수할까?”</div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="box">
+      <h2>작업 중</h2>
+      <ul>
+        <li>대량 반복은 <b>2~3건 먼저</b> 검증하고 확대 (계정 제한 사례 있음)</li>
+        <li>PPT는 <b>한 장 테스트 → 5장 → 5장</b>. 10장 넘기면 실패한다</li>
+        <li class="key">같은 지적을 <b>두 번</b> 했으면 세 번째는 고치지 말고 <b>새 대화</b></li>
+        <li>10턴이 넘어가면 맥락이 흐트러진다고 가정한다</li>
+        <li>압축할 때는 <b>보존할 것을 명시</b>한다</li>
+        <li>자료가 크면 “대화에 출력하지 마”를 붙인다</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <h2>끝낼 때</h2>
+      <ul>
+        <li class="key">"완료했습니다" 대신 <b>확인한 것 / 못 한 것</b>을 받는다</li>
+        <li>모든 수치를 <b>원본에서 재계산해 대조</b>시킨다</li>
+        <li>최종 검토는 <b>새 대화</b>에서, "빠진 것만 보고해"</li>
+        <li>내일 이어갈 일이면 <b>인수인계 문서</b>를 쓰게 한다</li>
+        <li>같은 일을 또 할 것 같으면 → 지침에 한 줄. 3회 이상이면 스킬로</li>
+      </ul>
+      <div class="note">최종 검토를 <b>같은 대화에서 하면 안 되는 이유</b> — 자기가 방금 쓴 것에는 편향이 걸립니다. Anthropic은 이를 self-preferential bias로 부릅니다.</div>
+    </div>
+
+    <div class="box">
+      <h2>비용 아끼기</h2>
+      <ul>
+        <li>자리를 오래 비웠으면 이어 쓰지 말고 <b>새 대화 + 인수인계 문서</b></li>
+        <li>데이터는 "대화에 출력하지 마"라고 지시</li>
+        <li>수집 · 집계는 <b>스크립트로</b>, 해석 · 판단만 Claude에게</li>
+        <li>반복 지시는 지침 파일로 내려서 매번 안 쓴다</li>
+      </ul>
+      <div class="note">Claude Code는 1시간 프롬프트 캐시를 씁니다. <b>오래 방치한 세션을 이어 쓰면 캐시 미스로 토큰이 크게 늘어납니다.</b></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="box warn">
+      <h2>위험 신호 — 보이면 멈춘다</h2>
+      <table>
+        <tr><td>출처 없는 수치가 등장</td><td>검증표로 되돌린다</td></tr>
+        <tr><td>"아마" "일반적으로"가 늘어남</td><td>자료 부족. 범위를 좁힌다</td></tr>
+        <tr><td>같은 실수 세 번째</td><td><b>새 대화.</b> 고치지 마라</td></tr>
+        <tr><td>시키지 않은 것까지 고쳐옴</td><td>"요청한 범위만"을 지침에</td></tr>
+        <tr><td>답이 갑자기 짧고 성의 없음</td><td>컨텍스트가 찼다. 인수인계 후 새 대화</td></tr>
+        <tr><td>파일을 안 읽고 답함</td><td>"파일을 먼저 읽고 답해"</td></tr>
+      </table>
+    </div>
+
+    <div class="box warn">
+      <h2>한국 실무 특유의 함정</h2>
+      <ul>
+        <li><b>HWP를 못 읽는다</b> → 입력은 DOCX로 통일. 변환 후 처리</li>
+        <li><b>PPT 한글 폰트가 깨진다</b> → 한 장 테스트로 폰트 먼저 확정</li>
+        <li><b>차트가 편집 불가 이미지</b>로 나온다 → 데이터는 엑셀로 따로 받기</li>
+        <li><b>기본 문체가 서술형</b> → 개조식은 종결어미까지 지정해야 나온다</li>
+        <li>터미널 한글 입력 밀림 → 한글 지원 폰트 · 다른 터미널</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <h2>기대치 조정용 숫자</h2>
+      <div class="num"><span>완전 자동 파이프라인 머지율</span><b>46%</b></div>
+      <div class="num"><span>복잡한 작업 첫 시도 성공률</span><b>약 33%</b></div>
+      <div class="num"><span>병렬 세션 폐기 비율</span><b>10~20%</b></div>
+      <div class="num"><span>반복 문서업무 시간 절감</span><b>75~83%</b></div>
+      <div class="num"><span>검증 수단을 줬을 때 품질</span><b>2~3배</b></div>
+      <div class="note">읽는 법 — <b>잘 정의된 반복 문서 업무는 75~83%가 현실적</b>, 판단이 필요한 새 작업은 <b>첫 시도 성공률 33%를 기준선</b>으로. 무인 자동화는 아직 “절반은 버린다”가 기본값입니다.</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+출처 — Anthropic 공식 문서 · 사내 팀 사례 · 포스트모템, 기업 도입 사례 7곳, 한국어권 실사용 후기 28건.
+상세 근거와 프롬프트 전문은 「Claude 실전 사례집 &amp; 베스트프랙티스」 및 「Claude 프롬프트 라이브러리 141선」 참조.
+</footer>
+</div>
+</body>
+</html>
