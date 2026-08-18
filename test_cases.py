@@ -367,10 +367,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     import audit_traceability as at
     a = at.audit()
     assert a["ok"], a["hard_failures"]
-    assert a["case_coverage_gaps"] == {
-        "chuncheon": ["base_yield_kg_m2", "subsidy_rate"],
-        "wonchaewon": ["base_yield_kg_m2", "subsidy_rate", "wind_ms"],
-    }
+    # 49차: 첫 감사의 백로그 5필드(정직 provenance 기입)를 해소 — 갭 0 유지가 새 기준
+    assert a["case_coverage_gaps"] == {}, a["case_coverage_gaps"]
     assert a["counts"]["registry_constants"] == 31 and a["counts"]["source_refs"] == 18
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False

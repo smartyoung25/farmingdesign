@@ -4,19 +4,57 @@
   "as_of": "2026-07 (주입 시세 기준시점)",
   "notes": "원채원과 규모/피복/주입값 동일, 지역 기인 변수만 춘천으로 교체 → 기후·설계강도 차이 효과 분리.",
   "input": {
-    "business_type": "신규", "crop": "토마토", "region": "강원(춘천)", "area_m2": 3456,
-    "cover": "유리", "snow_cm": 32, "wind_ms": 34, "surface_area_m2": 5000,
-    "t_target": 10, "t_min": -14.7, "fr": 0.7, "base_yield_kg_m2": 38.5,
-    "price_won_per_kg": 2500, "fitness_pct": 95, "opex": 186420000,
-    "total_construction_cost": 702030000, "subsidy_rate": 0.5
+    "business_type": "신규",
+    "crop": "토마토",
+    "region": "강원(춘천)",
+    "area_m2": 3456,
+    "cover": "유리",
+    "snow_cm": 32,
+    "wind_ms": 34,
+    "surface_area_m2": 5000,
+    "t_target": 10,
+    "t_min": -14.7,
+    "fr": 0.7,
+    "base_yield_kg_m2": 38.5,
+    "price_won_per_kg": 2500,
+    "fitness_pct": 95,
+    "opex": 186420000,
+    "total_construction_cost": 702030000,
+    "subsidy_rate": 0.5
   },
   "provenance": {
-    "t_min":                     {"status": "실측", "source": "건축물에너지절약설계기준 별표7 / 대한설비공학회 표준기상(춘천) -14.7°C"},
-    "snow_cm":                   {"status": "실측", "source": "REGION_DESIGN_LOAD 매핑표(2026-07-19, 농사로 원문 2014-78호) — siting_design_load('강원(춘천)')=32cm. 2026-07-20: 종전 '통상값 40cm[확인요망]'을 이 고시값으로 교체"},
-    "wind_ms":                   {"status": "실측", "source": "REGION_DESIGN_LOAD 매핑표 — siting_design_load('강원(춘천)')=34m/s. 2026-07-20: 종전 '통상값 30m/s[확인요망]'을 2014-78호 고시값(32m/s)으로 교체 → 2026-07-21: 농림축산식품부 고시 제2025-108호(2025.10.31 시행)로 갱신되며 34m/s로 재교체(2014-78호는 폐기된 구고시로 확인됨)"},
-    "opex":                      {"status": "추정", "source": "baseline 동일값 — 한랭지 난방연료비 상향 개연 [추정]"},
-    "total_construction_cost":   {"status": "추정", "source": "baseline 동일값 — 적설대응 구조비 상향 개연 [추정]"},
-    "price_won_per_kg":          {"status": "실측", "source": "KAMIS 주입값"}
+    "t_min": {
+      "status": "실측",
+      "source": "건축물에너지절약설계기준 별표7 / 대한설비공학회 표준기상(춘천) -14.7°C"
+    },
+    "snow_cm": {
+      "status": "실측",
+      "source": "REGION_DESIGN_LOAD 매핑표(2026-07-19, 농사로 원문 2014-78호) — siting_design_load('강원(춘천)')=32cm. 2026-07-20: 종전 '통상값 40cm[확인요망]'을 이 고시값으로 교체"
+    },
+    "wind_ms": {
+      "status": "실측",
+      "source": "REGION_DESIGN_LOAD 매핑표 — siting_design_load('강원(춘천)')=34m/s. 2026-07-20: 종전 '통상값 30m/s[확인요망]'을 2014-78호 고시값(32m/s)으로 교체 → 2026-07-21: 농림축산식품부 고시 제2025-108호(2025.10.31 시행)로 갱신되며 34m/s로 재교체(2014-78호는 폐기된 구고시로 확인됨)"
+    },
+    "opex": {
+      "status": "추정",
+      "source": "baseline 동일값 — 한랭지 난방연료비 상향 개연 [추정]"
+    },
+    "total_construction_cost": {
+      "status": "추정",
+      "source": "baseline 동일값 — 적설대응 구조비 상향 개연 [추정]"
+    },
+    "price_won_per_kg": {
+      "status": "실측",
+      "source": "KAMIS 주입값"
+    },
+    "base_yield_kg_m2": {
+      "status": "추정",
+      "source": "baseline(원채원) 동일값 38.5kg/㎡ [추정] — 파생 케이스. 원채원 항목의 위치 확인(수경 평균 2.7배) 동일 적용"
+    },
+    "subsidy_rate": {
+      "status": "추정",
+      "source": "baseline(원채원) 동일값 50% [추정] — 공고 원문 미확보, 확보 시 대조"
+    }
   },
   "site": {
     "region_name": "강원(춘천)",
