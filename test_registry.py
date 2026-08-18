@@ -36,7 +36,8 @@ def test_simple_dict_and_scalar_constants():
                 "WARRANTY_STATUTORY", "ELECTRICAL_PUMSEM_LUMP_WON_PER_HA",  # B4~B8 확장(2026-08-17)
                 "EQUIPMENT_SERVICE_LIFE_REFERENCE",  # LCC 내용연수(2026-08-18)
                 "STRUCTURE_SERVICE_LIFE_STATUTORY",  # 구조체 법정 내용연수(2026-08-18)
-                "SUPERVISION_FEE_RATE_TABLE"]:  # 감리비 대가요율(2026-08-18, P1-6 잔여)
+                "SUPERVISION_FEE_RATE_TABLE",  # 감리비 대가요율(2026-08-18, P1-6 잔여)
+                "CAPEX_MAJOR_KNOWN_TOTALS"]:  # 표본 known_total 단일 출처(2026-08-18 53차, 레드팀 4회차 F8)
         eng = _norm(getattr(e, C[key]["engine_attr"]))
         assert eng == C[key]["value"], f"{key}: 엔진={eng} vs 레지스트리={C[key]['value']}"
 

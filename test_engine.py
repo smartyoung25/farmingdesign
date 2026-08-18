@@ -563,15 +563,15 @@ def test_siting_lookup_without_form_covers_multiple_forms():
 # ── 11. CAPEX 13개 상위 카테고리 (2026-07-16, 사용자 제안 채택) ─────
 def test_capex_major_breakdown_umj_reconciles_to_source():
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["우민재"],
-                                  known_total=456_158_140)
-    assert cb.total == 456_158_140
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["우민재"])
+    assert cb.total == 456_158_140  # 원문 리터럴 앵커 — 단일 출처 상수의 드리프트를 여기서 잡는다(53차 F8)
     assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["우민재"]
     assert sum(cb.items.values()) + cb.unclassified == 456_158_140
 
 
 def test_capex_major_breakdown_chj_reconciles_to_source():
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["최혁진"],
-                                  known_total=694_575_784)
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["최혁진"])
     assert cb.total == 694_575_784
     assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["최혁진"]
     assert sum(cb.items.values()) + cb.unclassified == 694_575_784
@@ -582,7 +582,7 @@ def test_capex_major_breakdown_dh_reconciles_to_source():
     # known_total. unclassified는 '5-3.베드설치'(101,301,410, 9/13카테고리 어디에도
     # 안 맞아 미분류로 남긴 항목)와 정확히 일치해야 한다.
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["이두희"],
-                                  known_total=433_606_460)
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["이두희"])
     assert cb.total == 433_606_460
     assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["이두희"]
     assert sum(cb.items.values()) + cb.unclassified == 433_606_460
@@ -593,7 +593,7 @@ def test_capex_major_breakdown_ysh_reconciles_to_source():
     # 16개 공종 합 1,162,078,090원(=원가계산서 p2 재료비+직접노무비+산출경비)이
     # known_total. unclassified는 행잉거터(0110)+작물와이어(0111)=39,220,352원.
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["윤성호"],
-                                  known_total=1_162_078_090)
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["윤성호"])
     assert cb.total == 1_162_078_090
     assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["윤성호"]
     assert sum(cb.items.values()) + cb.unclassified == 1_162_078_090
@@ -611,7 +611,7 @@ def test_capex_major_breakdown_hanil_reconciles_to_source():
     # 67.5m 28줄) 46,519,015원(재배시설 성격 — 이두희 베드·윤성호 행잉거터 선례).
     assert 241_374_292 + 97_796_120 + 16_427_000 == 355_597_412  # 원가계산서 p3 원단위 재현
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["한일그린텍"],
-                                  known_total=355_597_412)
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["한일그린텍"])
     assert cb.total == 355_597_412
     assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["한일그린텍"] == 46_519_015
     assert sum(cb.items.values()) + cb.unclassified == 355_597_412
@@ -635,7 +635,7 @@ def test_capex_major_breakdown_ljh_reconciles_to_source():
     # (재배시설 — 윤성호 0110/0111 선례)+기타공사(선홈통·바닥배수 부대).
     assert 758_880_699 + 237_736_474 + 13_720_008 == 1_010_337_181  # 원가계산서 원단위 재현
     cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["이준희"],
-                                  known_total=1_010_337_181)
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["이준희"])
     assert cb.total == 1_010_337_181
     assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["이준희"] == 93_326_116
     assert sum(cb.items.values()) + cb.unclassified == 1_010_337_181
@@ -653,9 +653,21 @@ def test_capex_major_breakdown_ljh_reconciles_to_source():
     assert 1_200_000_000 - 1_056_000 - 26_179_000 == 1_172_765_000  # 영세율·환급 차감=실부담
 
 
+def test_capex_major_known_totals_single_source_sync():
+    # 2026-08-18 53차(레드팀 4회차 F8 구조 개선) — known_total은 엔진 상수
+    # CAPEX_MAJOR_KNOWN_TOTALS가 단일 출처다(build_site major_totals가 직접 읽음 —
+    # 종전 이중 하드코딩은 한쪽만 드리프트해도 테스트가 못 잡았다). 값 자체는 위
+    # 케이스별 reconcile 테스트의 원문 리터럴(cb.total == N)이 고정하고, 여기서는
+    # 표본 3상수의 키 집합 동기를 고정한다(새 표본을 한쪽에만 추가하면 실패).
+    assert (set(e.CAPEX_MAJOR_KNOWN_TOTALS)
+            == set(e.CAPEX_MAJOR_CASE_CHUNKS)
+            == set(e.CAPEX_MAJOR_UNCLASSIFIED))
+
+
 def test_capex_major_breakdown_unmapped_categories_default_zero():
     # 근거 없는 7개(부대시설·기자재구매·설계감리비·부지조성비·예비비·부지매입비, 8번 등)는 0
-    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["우민재"], known_total=456_158_140)
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["우민재"],
+                                 known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["우민재"])
     for k in ("auxiliary_facility", "thermal_storage_insulation", "equipment_procurement",
               "design_supervision_fee", "site_preparation", "contingency", "land_acquisition"):
         assert cb.items[k] == 0.0

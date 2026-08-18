@@ -371,7 +371,9 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     assert a["case_coverage_gaps"] == {}, a["case_coverage_gaps"]
     # 51차: 한일그린텍 CAPEX 표본 5호 승격으로 source_refs 18→19(CAPEX_MAJOR_CASE_CHUNKS에 1건 추가)
     # 52차: 이준희 표본 6호 승격으로 19→20(동일 상수에 1건 추가)
-    assert a["counts"]["registry_constants"] == 31 and a["counts"]["source_refs"] == 20
+    # 53차: known_total 단일 출처 승격(CAPEX_MAJOR_KNOWN_TOTALS 신설, 레드팀 4회차 F8)으로
+    #       상수 31→32, 표본 6건 역참조 병행 등재로 source_refs 20→26
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 26
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

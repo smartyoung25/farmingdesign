@@ -127,10 +127,9 @@ def capex_breakdown_page() -> str:
             f"<td>{', '.join(f'{esc(k)} {v:.1f}%' for k, v in cb.shares_pct.items())}</td></tr>")
 
     # 13개 상위(총사업비) 카테고리 — 2026-07-16 사용자 제안 채택
-    major_totals = {"우민재": 456_158_140, "최혁진": 694_575_784, "이두희": 433_606_460,
-                    "윤성호": 1_162_078_090,  # 2026-08-17 P2-17: 공종합계=재료비+직노+산출경비(원가계산서 p2 대조)
-                    "한일그린텍": 355_597_412,  # 2026-08-18 51차: 직접공사비(집계표 p4 소계=원가계산서 p3 재+직노+기계경비, 환급금 재투자 22,635,750 별도)
-                    "이준희": 1_010_337_181}  # 2026-08-18 52차: 집계표 합계행=원가계산서 직재+직노+산출경비(도급 1,200,000,000-영세·환급=실부담 1,172,765,000 별도 기록)
+    # known_total은 엔진 상수 CAPEX_MAJOR_KNOWN_TOTALS가 단일 출처(2026-08-18 53차,
+    # 레드팀 4회차 F8: 이중 하드코딩 제거 — 케이스별 근거 주석은 엔진 상수 쪽 참조)
+    major_totals = e.CAPEX_MAJOR_KNOWN_TOTALS
     major_rows = []
     for key, kor, desc in e.CAPEX_MAJOR_CATEGORIES:
         ev = e.CAPEX_MAJOR_EVIDENCE_STATUS[key]
