@@ -226,6 +226,8 @@ def test_case_provenance_path_sources_exist():
             texts = [str(v.get("source", "")) for v in prov.values() if isinstance(v, dict)]
         elif isinstance(prov, str):
             texts = [prov]
+        if c.get("provenance_note"):        # 43차: 구 문자열 서술의 보존본도 스캔
+            texts.append(str(c["provenance_note"]))
         for t in texts:
             for m in _SRC_PATH_RE.finditer(t):
                 rel = m.group(0)
@@ -284,6 +286,26 @@ def test_hangul_amount_reconciliation_in_partial_cases():
     assert "팔천구백육십일만원정" in m_raw
     assert _parse_korean_amount("일금 팔천구백육십일만원정") \
         == m["construction"]["cost_summary_won"]["총공사비(도급, 천단위 절사)"] == 89_610_000
+
+
+def test_case_provenance_schema_unified():
+    # 43차(사용자 승인): 전 케이스 provenance는 dict형(필드→{status, source[, source_refs]}),
+    # 부분 케이스의 구 문자열 서술은 provenance_note로 무손실 보존.
+    by_id = {}
+    for c in C.load_cases():
+        by_id[c["case_id"]] = c
+        prov = c.get("provenance")
+        assert isinstance(prov, dict), (c["case_id"], "provenance가 dict형 정본이 아님")
+        for field, v in prov.items():
+            assert isinstance(v, dict) and v.get("status") and v.get("source"), (c["case_id"], field)
+            for r in v.get("source_refs", []):
+                assert set(r) <= {"file", "page", "chunk_id", "note"} and r.get("file"), (c["case_id"], r)
+                assert os.path.isfile(os.path.join(_REPO, r["file"])), (c["case_id"], r["file"])
+    for cid in ("yonggyun", "mulhyangki"):
+        assert isinstance(by_id[cid].get("provenance_note"), str) and len(by_id[cid]["provenance_note"]) > 100, \
+            (cid, "구 서술 보존본(provenance_note) 소실")
+    # 원채원(회귀 기준 케이스)의 원문 미보유는 숨기지 않고 명시한다
+    assert "원문 미보유" in by_id["wonchaewon"]["provenance"]["total_construction_cost"]["source"]
 
 
 def test_actuals_hanil_greentech_source_reconciliation():

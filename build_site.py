@@ -495,9 +495,32 @@ def partial_construction_page(case: dict) -> str:
     <p class="note">{esc(con['trades_note'])}</p></section>
   <section class="card"><span class="axis">근거</span>
     <h2>출처·검증</h2>
-    <p style="font-size:13px;color:var(--muted)">{esc(case['provenance'])}</p></section>
+    {_partial_provenance_html(case)}</section>
   <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>"""
     return _page(case["title"], body)
+
+
+def _partial_provenance_html(case: dict) -> str:
+    """43차 provenance 스키마 통일 대응 — dict형(필드별 status·source·source_refs)이면
+    표로, 원문 서술은 provenance_note로 병기. 구 문자열형도 하위호환 렌더."""
+    prov = case.get("provenance")
+    note = case.get("provenance_note")
+    parts = []
+    if isinstance(prov, dict):
+        rows = []
+        for field, v in prov.items():
+            refs = "".join(f"<div style='font-size:11px'><code>{esc(r['file'])}</code></div>"
+                           for r in v.get("source_refs", []))
+            rows.append(f"<tr><td><code>{esc(field)}</code></td>"
+                        f"<td><span class='tag {esc(v['status'])}'>{esc(v['status'])}</span></td>"
+                        f"<td style='font-size:12.5px'>{esc(v['source'])}{refs}</td></tr>")
+        parts.append(f"<table><thead><tr><th>항목</th><th>상태</th><th>근거·원문</th></tr></thead>"
+                     f"<tbody>{''.join(rows)}</tbody></table>")
+    elif isinstance(prov, str):
+        parts.append(f"<p style='font-size:13px;color:var(--muted)'>{esc(prov)}</p>")
+    if note:
+        parts.append(f"<p class='note'>{esc(note)}</p>")
+    return "\n    ".join(parts)
 
 
 def comparison_page(computed: list[dict]) -> str:

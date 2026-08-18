@@ -4,18 +4,45 @@
   "as_of": "2026-07 (주입 시세 기준시점)",
   "notes": "baseline 케이스. 관통 회귀 기준(ROI 14.2%).",
   "input": {
-    "business_type": "신규", "crop": "토마토", "region": "충남", "area_m2": 3456,
-    "cover": "유리", "snow_cm": 30, "wind_ms": 35, "surface_area_m2": 5000,
-    "t_target": 10, "t_min": -7.8, "fr": 0.7, "base_yield_kg_m2": 38.5,
-    "price_won_per_kg": 2500, "fitness_pct": 95, "opex": 186420000,
-    "total_construction_cost": 702030000, "subsidy_rate": 0.5
+    "business_type": "신규",
+    "crop": "토마토",
+    "region": "충남",
+    "area_m2": 3456,
+    "cover": "유리",
+    "snow_cm": 30,
+    "wind_ms": 35,
+    "surface_area_m2": 5000,
+    "t_target": 10,
+    "t_min": -7.8,
+    "fr": 0.7,
+    "base_yield_kg_m2": 38.5,
+    "price_won_per_kg": 2500,
+    "fitness_pct": 95,
+    "opex": 186420000,
+    "total_construction_cost": 702030000,
+    "subsidy_rate": 0.5
   },
   "provenance": {
-    "price_won_per_kg":          {"status": "실측", "source": "KAMIS 주입값"},
-    "opex":                      {"status": "추정", "source": "운영비 산정치"},
-    "total_construction_cost":   {"status": "실측", "source": "원채원 견적(A-11)"},
-    "snow_cm":                   {"status": "실측", "source": "충남 지역 설계강도"},
-    "t_min":                     {"status": "실측", "source": "난방 설계외기온"}
+    "price_won_per_kg": {
+      "status": "실측",
+      "source": "KAMIS 주입값"
+    },
+    "opex": {
+      "status": "추정",
+      "source": "운영비 산정치"
+    },
+    "total_construction_cost": {
+      "status": "실측",
+      "source": "원채원 견적(A-11 지침값) — ⚠️ 원문 미보유(40차 ACTUALS 대조 현황의 미대조 2건 중 하나). 회귀 기준 케이스이므로 견적 원문 확보를 요청 목록에 등재(43차) — 확보 시 원단위 대조 후 source_refs 등록"
+    },
+    "snow_cm": {
+      "status": "실측",
+      "source": "충남 지역 설계강도"
+    },
+    "t_min": {
+      "status": "실측",
+      "source": "난방 설계외기온"
+    }
   },
   "site": {
     "region_name": "충남",
