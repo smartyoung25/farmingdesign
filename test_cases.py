@@ -313,6 +313,36 @@ def test_case_provenance_schema_unified():
     assert "원문 미보유" in wc["source"] and wc["status"] == "미검증"
 
 
+def test_quotes_gunsan_anchor_cells_match_source():
+    # 47차(레드팀 3회차): 군산 원문 앵커 — 원본 결함 4곳(각125·각75 공통 패턴)과
+    # 부가세환급 행이 "원본의 사실"임을 셀로 고정, 채택값(성분 재계산)과 구분.
+    import pytest as _pt
+    _pt.importorskip("xlrd", reason="xlrd 미설치(pip 유실 환경 특성)")
+    from chunking_lib_v2 import _xls_sheets_lenient
+    spec = {
+        "스마트팜스펙/견적참조/2025년 무화과(이명환)-각125.xls":
+            {"defect": (16_716_600, 91_376_380), "adopted": (17_516_600, 91_441_880),
+             "refund": 7_837_493, "total": 166_203_250},
+        "스마트팜스펙/견적참조/2025년 무화과(이명환)-각75.xls":
+            {"defect": (16_768_800, 90_581_080), "adopted": (17_568_800, 90_646_580),
+             "refund": 7_544_993, "total": 163_071_150},
+    }
+    for rel, s in spec.items():
+        sheets = _xls_sheets_lenient(os.path.join(_REPO, rel))
+        assert sheets, rel
+        allv = set()
+        for rows in sheets.values():
+            allv |= _sheet_values(rows)
+        for v in s["defect"] + s["adopted"] + (s["refund"], s["total"]):
+            assert v in allv, (rel, v)
+    # JSON 채택값 = 성분 재계산값(결함 셀 아님) — 재발 방지 고정
+    d = json.load(open(os.path.join(_REPO, "견적비교_군산무화과_규격대안.json"), encoding="utf-8"))
+    amounts = {r[1] for v in d["vendor_quotes"] for r in v["raw_rows"]}
+    assert {17_516_600, 91_441_880, 17_568_800, 90_646_580} <= amounts
+    assert not ({16_716_600, 91_376_380, 16_768_800, 90_581_080} & amounts)
+    assert "부가세환급" in d["provenance"] and "각75에도 동일 패턴" in d["provenance"]
+
+
 def test_actuals_hanil_greentech_source_reconciliation():
     # 40차: ACTUALS 한일그린텍 원문 대조의 앵커 고정 — 설계예산서 p2~3에서
     # 총액·구성·한글 표기를 재확인(부가세 포함 기준선 정합의 원문 근거).

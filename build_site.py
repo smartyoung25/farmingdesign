@@ -718,13 +718,15 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
     <div class="row"><span class="lbl">출처</span><span class="val"><code>{esc(v['source_file'])}</code> · {esc(v['source_sheet'])}</span></div>
     <div class="row"><span class="lbl">금액 기준</span><span class="val">{esc(v['total_note'])}</span></div>
     <table><tr><th>정합 검증</th><th>판정</th><th>상세</th></tr>{checks}</table>
+    <p class="note" style="border-top:0">"필수 공종 완전성"은 카테고리 금액의 존재 여부 판정이다(세부 구성의 충분성
+      판정 아님 — 47차 명시) · 밴드 판정은 부가세 포함 풀스펙 실측 기준이라 축소 구성 견적은 대조군 범위가 다를 수 있다.</p>
     <h2 style="margin-top:16px">공종 원문 → 카테고리 매핑 (원단위 전사)</h2>
     <table><tr><th>견적서 공종(원문)</th><th class="num">금액(원)</th><th>매핑·근거</th></tr>{raws}</table>
   </section>""")
 
     body = f"""
   <header class="top"><h1>{esc(data['title'])}</h1>
-    <div class="sub">7단계(시공발주관리) compare_quotes · 참고정보 — 업체선정 판단은 컨설턴트 몫</div></header>
+    <div class="sub">7단계(시공발주관리) compare_quotes · 참고정보 — 업체·대안 선정 판단은 컨설턴트 몫</div></header>
   <section class="card"><span class="axis">RFQ 사양</span>
     <h2>요구 사양서 (엔진 생성)</h2>
     <div class="row"><span class="lbl">입지</span><span class="val">{esc(ri['region'])} — 적설 {ri['region_snow_cm']}cm · 풍속 {ri['region_wind_ms']}m/s</span></div>
@@ -732,7 +734,7 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
     <div class="row"><span class="lbl">규모·피복</span><span class="val">{ri['area_m2']:,}㎡ · {esc(ri['cover'])} · {esc(ri['form'])} · 작물 {esc(ri['crop'])}</span></div>
     <div class="row"><span class="lbl">난방부하</span><span class="val">{rfq.heating.max_load_kcal_h:,.0f} kcal/h (커튼 {esc(ri['curtain'])} · t_target {ri['t_target']}℃/t_min {ri['t_min']}℃ 기준 — 입력 근거·한계는 하단 note)</span></div>
     <p class="note" style="border-top:0;margin-top:8px">{esc(ri['note'])}</p></section>
-  <section class="card"><span class="axis">3사 비교</span>
+  <section class="card"><span class="axis">{len(data['vendor_quotes'])}건 비교</span>
     <h2>비교표 (입력 순서 그대로 — 정렬·순위·추천 없음)</h2>
     <table><tr><th>업체</th><th>종합</th><th class="num">사양 부합도(종합)</th><th class="num">총액(원)</th><th class="num">직접공사비(원)</th><th class="num">원/㎡(총액 기준)</th><th>금액 기준(요약)</th></tr>{comp_rows}</table>
     <p class="note" style="border-top:0">참고: 최저가 {esc(cmp.lowest_cost_vendor or '-')}(총액 기준 — ⚠️ 각 사 총액의 원가 계층이 다르면 직접 비교 불가: '금액 기준' 열과 업체 상세의 계층 서술을 반드시 확인) ·
