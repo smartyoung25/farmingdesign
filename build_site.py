@@ -556,10 +556,16 @@ def registry_page() -> str:
             vtxt = ", ".join(f"{k}={v}" for k, v in val.items())
         else:
             vtxt = str(val)
+        # 42차: source_refs(원문 역참조 — 리포 실재 파일만 등록, 드리프트 가드로 검증)
+        refs = c.get("source_refs") or []
+        refs_html = "".join(
+            f"<div style='font-size:11.5px'><code>{esc(r['file'])}</code>"
+            f"{(' — ' + esc(r['note'])) if r.get('note') else ''}</div>" for r in refs) or "—"
         rows.append(
             f"<tr><td><code>{esc(key)}</code></td><td>{esc(c['axis'])}</td>"
             f"<td>{esc(c['desc'])}</td><td>{esc(vtxt)}</td>"
             f"<td>{esc(c['source'])}</td>"
+            f"<td>{refs_html}</td>"
             f"<td><span class='tag {c['status']}'>{esc(c['status'])}</span></td></tr>")
     n_unver = sum(1 for c in reg["constants"].values() if c["status"] == "미검증")
     body = f"""
@@ -567,7 +573,7 @@ def registry_page() -> str:
     <div class="sub">기준시점 {esc(reg['as_of'])} · {len(reg['constants'])}개 상수군 · 값은 엔진과 자동 대조(test_registry)</div></header>
   <section class="card"><span class="axis">provenance registry</span>
     <h2>상수 · 근거 · 상태</h2>
-    <table><thead><tr><th>상수</th><th>축</th><th>설명</th><th>값</th><th>근거</th><th>상태</th></tr></thead>
+    <table><thead><tr><th>상수</th><th>축</th><th>설명</th><th>값</th><th>근거</th><th>원문 파일(역참조)</th><th>상태</th></tr></thead>
       <tbody>{''.join(rows)}</tbody></table>
     <p class="note">태그: <span class="tag 실측">실측</span> 출처확인 ·
       <span class="tag 부분">부분</span> 대표/일부 수록 ·

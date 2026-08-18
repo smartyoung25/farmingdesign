@@ -114,6 +114,25 @@ def test_capex_major_evidence_status():
     assert e.CAPEX_MAJOR_EVIDENCE_STATUS == C["CAPEX_MAJOR_EVIDENCE_STATUS"]["value"]
 
 
+def test_source_refs_point_to_existing_files():
+    # 42차: 엔진 상수 → 원문 기계가독 역참조(source_refs) 드리프트 가드.
+    # 원문 확보 완료 상수만 등록(없는 근거를 만들지 않음 — 미검증 상수는 필드 생략).
+    base = os.path.dirname(os.path.abspath(__file__))
+    with_refs = {k for k, c in C.items() if c.get("source_refs")}
+    # 42차 등록 9개는 유지돼야 한다(줄어들면 역참조 회귀)
+    expected = {"WARRANTY_STATUTORY", "SUPERVISION_FEE_RATE_TABLE",
+                "STRUCTURE_SERVICE_LIFE_STATUTORY", "EQUIPMENT_SERVICE_LIFE_REFERENCE",
+                "ACTUALS_COUNT", "CAPEX_MAJOR_CASE_CHUNKS", "CAPEX_CATEGORY_OBSERVED_RANGE",
+                "STRUCTURE_ONLY_PYEONG", "BENCHMARK_BANDS"}
+    assert expected <= with_refs, expected - with_refs
+    for key in sorted(with_refs):
+        for r in C[key]["source_refs"]:
+            assert set(r) <= {"file", "page", "chunk_id", "note"}, (key, r)
+            assert r.get("file"), (key, r)
+            assert os.path.isfile(os.path.join(base, r["file"])), \
+                (key, r["file"], "역참조 원문 소실 — 이동·개명 시 여기서 잡힌다")
+
+
 def test_capex_major_case_chunks():
     eng = _norm(e.CAPEX_MAJOR_CASE_CHUNKS)
     assert eng == C["CAPEX_MAJOR_CASE_CHUNKS"]["value"]
