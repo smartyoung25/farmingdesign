@@ -386,6 +386,38 @@ def test_write_outputs_strips_tag_text_from_index(tmp_path):
     assert "_tag_text" in w.chunks[0]      # 파트(메모리)에는 보존
 
 
+# ── 41차(2026-08-18): chunk_probe — 인덱스 read-only 검색 로더 가드 ──────────
+
+def test_probe_reproduces_p217_yunseongho_discovery():
+    # P2-17 수동 프로브(윤성호 내역서 발굴 → CAPEX 4번째 표본 승격)를 도구로 재현
+    import chunk_probe as cp
+    hits = cp.probe(keyword="윤성호", limit=200)
+    files = {h["source_file"] for h in hits}
+    assert any("221206 윤성호 청년스마트팜 내역서.pdf" in f for f in files), \
+        "P2-17 승격 원문이 프로브로 재발견되지 않음"
+
+
+def test_probe_filters_and_trace_roundtrip():
+    import chunk_probe as cp
+    hits = cp.probe(engine_link="SPEC_TABLE", limit=5)
+    assert hits and all("SPEC_TABLE" in str(h["engine_link"]) for h in hits)
+    t = cp.trace(hits[0]["chunk_id"])
+    assert t and t["source_file"] == hits[0]["source_file"]
+    assert t["source_exists"] is True  # 역추적된 원문이 실재(37차 가드와 같은 원칙)
+    assert cp.trace("존재하지_않는_청크_id") is None
+
+
+def test_probe_not_imported_by_engine_layers():
+    # 원칙 5 구조 강제: 검색 계층이 계산 계층으로 스며들면 제2 계산 출처가 된다
+    import os as _os
+    base = _os.path.dirname(_os.path.abspath(__file__))
+    for fname in ("smartfarm_engine.py", "build_site.py", "webapp.py",
+                  "render_report.py", "cases.py"):
+        src = open(_os.path.join(base, fname), encoding="utf-8").read()
+        assert "chunk_probe" not in src, \
+            f"{fname}이 chunk_probe를 참조 — 인덱스는 검색 계층일 뿐(승격은 레지스트리 절차로만)"
+
+
 def test_retag_only_recomputes_from_tag_text(tmp_path, monkeypatch):
     import run_chunk_incremental as ri
     monkeypatch.setattr(ri, "PARTS", str(tmp_path))
