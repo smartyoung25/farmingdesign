@@ -1,0 +1,116 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}견적 전사 편집 — {{ data.comparison_id if data else "새 비교" }}{% endblock %}
+{% block main %}
+  {% set d = data or {} %}
+  {% set ri = d.get("rfq_input", {}) %}
+  <div class="top"><h1>견적 전사 편집 {% if src %}— <code style="font-size:14px">{{ src }}</code>{% endif %}</h1></div>
+  <div class="subtitle">한 줄 = <code>공종 원문 | 금액(원단위, 콤마 허용, 공제는 음수) | 카테고리키(매핑근거)</code> — 혼재 공종은 쪼개지 말고 통배정 후 근거에 명시(임미라 hvac 혼재 사례 방식)</div>
+
+  <form method="post" action="/entry/quotes/preview">
+    <input type="hidden" name="src" value="{{ src }}">
+    <input type="hidden" name="n_vendors" value="{{ n_blocks }}">
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:grid; grid-template-columns:1fr 2fr; gap:0 14px">
+        <div><label>comparison_id <span class="req">*</span></label>
+          <input type="text" name="comparison_id" value="{{ d.get('comparison_id', '') }}" placeholder="예: 논산딸기_3사"></div>
+        <div><label>제목</label>
+          <input type="text" name="title" value="{{ d.get('title', '') }}"></div>
+      </div>
+      <label>전사 provenance (출처·방법 — 저장 필수) <span class="req">*</span></label>
+      <textarea name="provenance" placeholder="어느 문서의 어느 시트를 어떻게 전사했는지, 원본 결함 발견 시 정정 방법까지">{{ d.get('provenance', '') }}</textarea>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 14px">
+        <div><label>created (YYYY-MM-DD)</label><input type="text" name="created" value="{{ d.get('created', '') }}"></div>
+        <div><label>decision_note</label><input type="text" name="decision_note" value="{{ d.get('decision_note', '') }}"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-weight:500; margin-bottom:4px">RFQ 사양 (엔진 generate_rfq_package 입력)</div>
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0 12px">
+        <div><label>region</label><input type="text" name="region" value="{{ ri.get('region', '') }}"></div>
+        <div><label>적설 region_snow_cm <span class="req">*</span></label><input type="text" name="region_snow_cm" value="{{ ri.get('region_snow_cm', '') }}"></div>
+        <div><label>풍속 region_wind_ms <span class="req">*</span></label><input type="text" name="region_wind_ms" value="{{ ri.get('region_wind_ms', '') }}"></div>
+        <div><label>면적 area_m2 <span class="req">*</span></label><input type="text" name="area_m2" value="{{ ri.get('area_m2', '') }}"></div>
+        <div><label>피복 cover <span class="req">*</span></label><input type="text" name="cover" value="{{ ri.get('cover', '') }}" placeholder="유리/필름"></div>
+        <div><label>형식 form <span class="req">*</span></label><input type="text" name="form" value="{{ ri.get('form', '') }}" placeholder="단동/연동"></div>
+        <div><label>t_target <span class="req">*</span></label><input type="text" name="t_target" value="{{ ri.get('t_target', '') }}"></div>
+        <div><label>t_min <span class="req">*</span></label><input type="text" name="t_min" value="{{ ri.get('t_min', '') }}"></div>
+        <div><label>curtain (fr과 택1)</label><input type="text" name="curtain" value="{{ ri.get('curtain', '') }}" placeholder="예: 다겹보온"></div>
+        <div><label>fr (curtain과 택1)</label><input type="text" name="fr" value="{{ ri.get('fr', '') }}"></div>
+        <div><label>crop</label><input type="text" name="crop" value="{{ ri.get('crop', '') }}"></div>
+        <div><label>required_categories (쉼표, 비우면 기본)</label><input type="text" name="required_categories" value="{{ ri.get('required_categories', []) | join(',') }}"></div>
+      </div>
+      <label>rfq note</label>
+      <input type="text" name="rfq_note" value="{{ ri.get('note', '') }}">
+    </div>
+
+    {% for i in range(n_blocks) %}
+    {% set v = vendors[i] if i < (vendors | length) else {} %}
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-weight:500; margin-bottom:4px">업체 {{ i + 1 }} {% if not v %}<span style="color:var(--mut); font-weight:400">(빈 블록 — 업체명·전사 비우면 무시)</span>{% endif %}</div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0 12px">
+        <div><label>업체명</label><input type="text" name="vendor{{ i }}_name" value="{{ v.get('vendor_name', '') }}"></div>
+        <div><label>출처 파일 (source_file — 필수)</label><input type="text" name="vendor{{ i }}_source_file" value="{{ v.get('source_file', '') }}"></div>
+        <div><label>출처 시트</label><input type="text" name="vendor{{ i }}_source_sheet" value="{{ v.get('source_sheet', '') }}"></div>
+        <div><label>견적 면적 area_m2</label><input type="text" name="vendor{{ i }}_area_m2" value="{{ v.get('area_m2', '') if v.get('area_m2') is not none else '' }}"></div>
+        <div><label>직접공사비 총액 <span class="req">*</span></label><input type="text" name="vendor{{ i }}_direct_cost_total" value="{{ v.get('direct_cost_total', '') }}"></div>
+        <div><label>총액(제경비 포함) <span class="req">*</span></label><input type="text" name="vendor{{ i }}_total_with_overhead" value="{{ v.get('total_with_overhead', '') }}"></div>
+      </div>
+      <label>면적 근거 (area_note)</label><input type="text" name="vendor{{ i }}_area_note" value="{{ v.get('area_note', '') }}">
+      <label>금액 기준 설명 (total_note)</label><input type="text" name="vendor{{ i }}_total_note" value="{{ v.get('total_note', '') }}">
+      <label>공종 전사 — 한 줄 = 공종 | 금액 | 카테고리키(근거)</label>
+      <textarea name="vendor{{ i }}_rows" style="min-height:120px; font-family:ui-monospace,monospace; font-size:12.5px" placeholder="골조공사 | 184464840 | greenhouse_structure&#10;양액시설, 및 난방 | 178420700 | irrigation_fertigation(난방 혼재 — 통배정)">{{ v.get('rows_text', '') }}</textarea>
+    </div>
+    {% endfor %}
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:16px">
+      <button type="submit">3중 대사 + 엔진 검증 (저장 안 함)</button>
+      <button type="submit" class="btn-primary" formaction="/entry/quotes/save">저장 (검증 통과 필수)</button>
+      <label style="display:inline-flex; align-items:center; gap:6px; margin:0"><input type="checkbox" name="overwrite" value="1" style="width:auto"> 기존 파일 덮어쓰기 허용</label>
+      <a class="btn" href="/entry/quotes/edit?src={{ src }}&vendors={{ n_blocks + 1 }}" style="margin-left:auto">업체 블록 +1</a>
+    </div>
+  </form>
+
+  {% if result %}
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-weight:500; margin-bottom:8px">3중 대사 (원단위) — {% if result.all_ok %}<span class="chip chip-measured">전 업체 일치</span>{% else %}<span class="chip chip-warn">불일치 — 저장 불가</span>{% endif %}</div>
+    {% for vn, cs in result.checks.items() %}
+    <div style="font-size:13px; font-weight:500; margin-top:8px">{{ vn }}</div>
+    <table>
+      {% for c in cs %}
+      <tr><td style="width:280px">{{ c.name }}</td>
+          <td>{% if c.ok %}<span class="chip chip-measured">일치</span>{% else %}<span class="chip chip-warn">불일치</span>{% endif %}</td>
+          <td style="font-variant-numeric:tabular-nums">{{ c.detail }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endfor %}
+  </div>
+  {% if not result.cmp %}
+  <div class="card" style="color:var(--sub); font-size:13px">3중 대사가 통과해야 엔진 정합 신호(compare_quotes)를 계산한다 — 위 불일치를 먼저 해소할 것(전사 오류 또는 원본 결함 여부를 원문과 대조).</div>
+  {% else %}
+  <div class="card">
+    <div style="font-weight:500; margin-bottom:8px">엔진 정합 신호 (compare_quotes — 판정 아님, 참고정보)</div>
+    <table>
+      <thead><tr><th>업체</th><th>종합</th><th class="num">사양 부합도</th><th class="num">총액(원)</th><th class="num">원/㎡</th></tr></thead>
+      <tbody>
+      {% for r in result.cmp.rows %}
+      <tr><td>{{ r.vendor_name }}</td><td>{{ r.overall_status }}</td>
+          <td class="num">{{ "%.0f" | format(r.match_score_pct) }}%</td>
+          <td class="num">{{ "{:,.0f}".format(r.total_with_overhead_won) }}</td>
+          <td class="num">{{ "{:,.0f}".format(r.unit_won_m2) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% for vn, recon in result.cmp.reconciliations.items() %}
+    <div style="font-size:13px; font-weight:500; margin-top:10px">{{ vn }} — 정합 검증</div>
+    <table>
+      {% for c in recon.checks %}
+      <tr><td style="width:200px">{{ c.name }}</td><td style="width:90px">{{ c.status }}</td><td style="font-size:12.5px">{{ c.detail }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endfor %}
+    <p class="note">최저가·최고점수는 참고정보이며 업체 선정은 컨설턴트 몫(판단성) — 저장 후 "엔진 재계산"을 실행하면 SmartFarm_견적비교_{id}.html 페이지가 생성된다</p>
+  </div>
+  {% endif %}
+  {% endif %}
+{% endblock %}

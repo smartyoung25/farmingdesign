@@ -293,3 +293,221 @@ async def scenario_save(request: Request, case_id: str):
     _, trial = _scenario_rows_or_400(case, new_set)  # 검증 통과분만 저장
     _save_case(trial)
     return RedirectResponse(f"/entry/scenario/{case_id}?saved=1", status_code=303)
+
+
+# ── 4단계(34차): 견적비교 전사 입력 UI ──────────────────────────────────
+# 기준 데이터: 견적비교_논산딸기3사.json(원단위 대사 완료 실측 전사) — 편집기는 이
+# 스키마를 그대로 읽고 쓴다. 전사 무결성(3중 대사)은 build_site.quotes_vendor_3way_check,
+# 정합 신호는 엔진 compare_quotes — 앱은 파싱·표시·저장만 한다.
+
+QUOTES_DIR = ROOT  # 견적비교_*.json 위치(테스트에서 임시 디렉터리로 대체 가능)
+_QUOTES_RE = re.compile(r"^견적비교_[\w가-힣.\-]+\.json$")
+VALID_CATEGORY_KEYS = None  # 지연 초기화(엔진 상수에서)
+
+
+def _category_keys() -> list:
+    global VALID_CATEGORY_KEYS
+    if VALID_CATEGORY_KEYS is None:
+        VALID_CATEGORY_KEYS = [k for k, _kor, _d in e.CAPEX_MAJOR_CATEGORIES]
+    return VALID_CATEGORY_KEYS
+
+
+def _quotes_files() -> list:
+    return sorted(p.name for p in Path(QUOTES_DIR).glob("견적비교_*.json"))
+
+
+def _load_quotes_json(name: str) -> dict:
+    if not _QUOTES_RE.match(name):
+        raise HTTPException(404)
+    p = Path(QUOTES_DIR) / name
+    if not p.is_file():
+        raise HTTPException(404, detail=f"{name} 없음")
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def _parse_quote_rows(text: str) -> list:
+    """textarea 전사 파싱 — 한 줄 = '공종 원문 | 금액 | 카테고리키(근거)'. 금액은
+    콤마 허용·음수 허용(작업부산물 공제). 파싱만 하고 합산·판정은 하지 않는다."""
+    rows = []
+    for i, line in enumerate(text.splitlines(), start=1):
+        line = line.strip()
+        if not line:
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) != 3:
+            raise HTTPException(400, detail=f"{i}행: '공종 | 금액 | 매핑' 3열이 아니다 — {line!r}")
+        name, amount_s, mapping = parts
+        try:
+            amount = int(amount_s.replace(",", ""))
+        except ValueError:
+            raise HTTPException(400, detail=f"{i}행 금액이 정수가 아니다(원단위 전사) — {amount_s!r}")
+        key = bs.quotes_mapping_key(mapping)
+        if key not in _category_keys():
+            raise HTTPException(400, detail=f"{i}행 매핑 키 {key!r} 미등록 — 허용: {', '.join(_category_keys())}")
+        if not name:
+            raise HTTPException(400, detail=f"{i}행 공종 원문이 비어 있다")
+        rows.append([name, amount, mapping])
+    return rows
+
+
+def _parse_quotes_form(form) -> dict:
+    """폼 → 견적비교 JSON 스키마 dict. 카테고리 소계는 raw_rows에서 집계(전사 부기),
+    정합 검증은 미리보기/저장 단계에서 3중 대사+엔진이 수행."""
+    cid = (form.get("comparison_id") or "").strip()
+    if not re.match(r"^[\w가-힣\-]+$", cid or ""):
+        raise HTTPException(400, detail="comparison_id는 한글·영숫자·언더스코어·하이픈만")
+    rfq = {
+        "region": (form.get("region") or "").strip(),
+        "region_snow_cm": _form_float(form, "region_snow_cm", required=True),
+        "region_wind_ms": _form_float(form, "region_wind_ms", required=True),
+        "area_m2": _form_float(form, "area_m2", required=True),
+        "cover": (form.get("cover") or "").strip(),
+        "form": (form.get("form") or "").strip(),
+        "t_target": _form_float(form, "t_target", required=True),
+        "t_min": _form_float(form, "t_min", required=True),
+        "crop": (form.get("crop") or "").strip() or None,
+        "note": (form.get("rfq_note") or "").strip(),
+    }
+    curtain = (form.get("curtain") or "").strip()
+    fr = _form_float(form, "fr")
+    if curtain:
+        rfq["curtain"] = curtain
+    if fr is not None:
+        rfq["fr"] = fr
+    req_cats = [c.strip() for c in (form.get("required_categories") or "").split(",") if c.strip()]
+    if req_cats:
+        bad = [c for c in req_cats if c not in _category_keys()]
+        if bad:
+            raise HTTPException(400, detail=f"required_categories 미등록 키: {bad}")
+        rfq["required_categories"] = req_cats
+    vendors = []
+    for i in range(int(form.get("n_vendors") or 0)):
+        name = (form.get(f"vendor{i}_name") or "").strip()
+        rows_text = form.get(f"vendor{i}_rows") or ""
+        if not name and not rows_text.strip():
+            continue  # 빈 블록
+        if not name:
+            raise HTTPException(400, detail=f"업체 블록 {i+1}: 업체명이 비어 있다")
+        raw_rows = _parse_quote_rows(rows_text)
+        if not raw_rows:
+            raise HTTPException(400, detail=f"{name}: 전사 행이 없다")
+        v = {
+            "vendor_name": name,
+            "source_file": (form.get(f"vendor{i}_source_file") or "").strip(),
+            "source_sheet": (form.get(f"vendor{i}_source_sheet") or "").strip(),
+            "area_m2": _form_float(form, f"vendor{i}_area_m2"),
+            "area_note": (form.get(f"vendor{i}_area_note") or "").strip(),
+            "direct_cost_total": _form_float(form, f"vendor{i}_direct_cost_total", required=True, as_int=True),
+            "total_with_overhead": _form_float(form, f"vendor{i}_total_with_overhead", required=True, as_int=True),
+            "total_note": (form.get(f"vendor{i}_total_note") or "").strip(),
+            "categories": bs.quotes_derive_categories(raw_rows),
+            "raw_rows": raw_rows,
+        }
+        if not v["source_file"]:
+            raise HTTPException(400, detail=f"{name}: 출처 파일(source_file)이 비어 있다 — 원문 없는 전사 금지")
+        vendors.append(v)
+    if not vendors:
+        raise HTTPException(400, detail="업체가 하나도 없다")
+    return {
+        "comparison_id": cid,
+        "title": (form.get("title") or "").strip() or cid,
+        "created": (form.get("created") or "").strip(),
+        "decision_note": (form.get("decision_note") or "").strip(),
+        "provenance": (form.get("provenance") or "").strip(),
+        "rfq_input": rfq,
+        "vendor_quotes": vendors,
+    }
+
+
+def _quotes_engine_or_400(data: dict):
+    try:
+        ri = data["rfq_input"]
+        rfq = e.generate_rfq_package(
+            region_snow_cm=ri["region_snow_cm"], region_wind_ms=ri["region_wind_ms"],
+            area_m2=ri["area_m2"], cover=e.Cover(ri["cover"]), form=ri["form"],
+            t_target=ri["t_target"], t_min=ri["t_min"],
+            fr=ri.get("fr"), curtain=ri.get("curtain"), crop=ri.get("crop"),
+            required_categories=ri.get("required_categories"))
+        vqs = [e.VendorQuote(v["vendor_name"], v["categories"], v["direct_cost_total"],
+                             v["total_with_overhead"], v.get("area_m2"), v.get("spec_name"))
+               for v in data["vendor_quotes"]]
+        return rfq, e.compare_quotes(rfq, vqs)
+    except (ValueError, KeyError) as ex:  # 엔진 검증 메시지 그대로 노출
+        raise HTTPException(400, detail=f"엔진 검증 실패: {ex}")
+
+
+def _quotes_validation(data: dict):
+    """3중 대사 먼저 — 통과한 경우에만 엔진 신호 호출(대사 실패 데이터는 엔진이
+    ValueError로 거부하므로, 전사자에게는 대사 결과부터 보여주는 것이 올바른 순서)."""
+    checks = {v["vendor_name"]: bs.quotes_vendor_3way_check(v) for v in data["vendor_quotes"]}
+    all_ok = all(c["ok"] for cs in checks.values() for c in cs)
+    rfq = cmp = None
+    if all_ok:
+        rfq, cmp = _quotes_engine_or_400(data)
+    return checks, all_ok, rfq, cmp
+
+
+@app.get("/entry/quotes")
+def quotes_hub(request: Request):
+    items = []
+    for name in _quotes_files():
+        d = _load_quotes_json(name)
+        ok = all(c["ok"] for v in d["vendor_quotes"] for c in bs.quotes_vendor_3way_check(v))
+        items.append({"file": name, "id": d["comparison_id"], "title": d["title"],
+                      "n_vendors": len(d["vendor_quotes"]), "ok": ok})
+    return templates.TemplateResponse(request, "entry_quotes_hub.html", {"items": items})
+
+
+def _vendor_to_form(v: dict) -> dict:
+    out = dict(v)
+    out["rows_text"] = "\n".join(f"{r[0]} | {r[1]} | {r[2]}" for r in v["raw_rows"])
+    return out
+
+
+@app.get("/entry/quotes/edit")
+def quotes_edit(request: Request, src: str = "", vendors: int = 0):
+    data, vend_forms = None, []
+    if src:
+        data = _load_quotes_json(src)
+        vend_forms = [_vendor_to_form(v) for v in data["vendor_quotes"]]
+    n_blocks = max(len(vend_forms) + (1 if not src else 0), vendors, 1)
+    return templates.TemplateResponse(request, "entry_quotes_edit.html", {
+        "data": data, "vendors": vend_forms, "n_blocks": n_blocks, "src": src,
+        "category_keys": _category_keys(), "result": None,
+    })
+
+
+@app.post("/entry/quotes/preview")
+async def quotes_preview(request: Request):
+    form = await request.form()
+    data = _parse_quotes_form(form)
+    checks, all_ok, _rfq, cmp = _quotes_validation(data)
+    vend_forms = [_vendor_to_form(v) for v in data["vendor_quotes"]]
+    return templates.TemplateResponse(request, "entry_quotes_edit.html", {
+        "data": data, "vendors": vend_forms, "n_blocks": len(vend_forms) + 1,
+        "src": form.get("src") or "", "category_keys": _category_keys(),
+        "result": {"checks": checks, "cmp": cmp, "all_ok": all_ok},
+    })
+
+
+@app.post("/entry/quotes/save")
+async def quotes_save(request: Request):
+    form = await request.form()
+    data = _parse_quotes_form(form)
+    if not data["provenance"]:
+        raise HTTPException(400, detail="provenance(전사 출처·방법)가 비어 있다 — 근거 없는 전사 저장 금지")
+    checks, all_ok, _rfq, _cmp = _quotes_validation(data)
+    if not all_ok:
+        bad = [(vn, c) for vn, cs in checks.items() for c in cs if not c["ok"]]
+        raise HTTPException(400, detail="3중 대사 불일치 — 저장 거부: " +
+                            "; ".join(f"{vn}: {c['name']} ({c['detail']})" for vn, c in bad))
+    target = Path(QUOTES_DIR) / f"견적비교_{data['comparison_id']}.json"
+    if target.exists() and form.get("overwrite") != "1":
+        raise HTTPException(409, detail=f"{target.name} 이미 존재 — 덮어쓰기 확인란 체크 필요")
+    old = target.read_bytes().decode("utf-8") if target.exists() else "\n"
+    eol = "\r\n" if "\r\n" in old else "\n"
+    text = json.dumps(data, ensure_ascii=False, indent=2)
+    tmp = target.with_suffix(".json.tmp")
+    tmp.write_bytes((text.replace("\n", eol) + eol).encode("utf-8"))
+    tmp.replace(target)
+    return RedirectResponse(f"/entry/quotes?saved={data['comparison_id']}", status_code=303)

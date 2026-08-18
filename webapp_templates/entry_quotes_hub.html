@@ -1,0 +1,28 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}견적비교 전사{% endblock %}
+{% block main %}
+  <div class="top">
+    <h1>견적비교 전사 (4단계)</h1>
+    <a class="btn btn-primary" href="/entry/quotes/edit">+ 새 비교 만들기</a>
+  </div>
+  <div class="subtitle">공종 원문·금액을 원단위로 전사하고 카테고리 매핑 근거를 남긴다 — 3중 대사(raw 합 == 카테고리 합 == 직접공사비)를 통과해야 저장되고, 정합 신호는 엔진 compare_quotes가 낸다</div>
+  {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — 견적비교_{{ request.query_params.get("saved") }}.json. 비교 페이지 생성은 "엔진 재계산" 실행</div>{% endif %}
+  <div class="card">
+    <table>
+      <thead><tr><th>파일</th><th>제목</th><th class="num">업체 수</th><th>3중 대사</th><th></th></tr></thead>
+      <tbody>
+      {% for it in items %}
+      <tr>
+        <td><code style="font-size:12px">{{ it.file }}</code><div style="font-size:11px;color:var(--mut)">id: {{ it.id }}</div></td>
+        <td>{{ it.title }}</td>
+        <td class="num">{{ it.n_vendors }}</td>
+        <td>{% if it.ok %}<span class="chip chip-measured">원단위 일치</span>{% else %}<span class="chip chip-warn">불일치</span>{% endif %}</td>
+        <td><a class="btn" style="padding:4px 10px;font-size:12px" href="/entry/quotes/edit?src={{ it.file }}">열기·검증</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="note">기준 표본: 논산딸기 3사(원단위 대사 완료 실측 전사) · 군산무화과 규격대안(원본 결함 -865,500원을 성분 재계산으로 정정한 사례 — provenance에 결함 기록) · 저장 후 커밋은 사람이 한다</p>
+{% endblock %}

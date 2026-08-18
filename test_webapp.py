@@ -133,6 +133,101 @@ def test_scenario_whitelist_rejected_via_engine():
     assert r2.status_code == 400
 
 
+# ── 4단계(34차): 견적비교 전사 UI — 기준 데이터: 논산딸기 3사(원단위 대사 완료 실측 전사) ──
+
+def _nonsan_form(comparison_id="논산딸기_3사"):
+    """리포의 가장 잘 된 실전사본(논산 3사)을 폼 페이로드로 재구성 — 편집기 왕복 기준."""
+    d = json.loads(Path("견적비교_논산딸기3사.json").read_text(encoding="utf-8"))
+    ri = d["rfq_input"]
+    form = {
+        "comparison_id": comparison_id, "title": d["title"], "created": d["created"],
+        "decision_note": d.get("decision_note", ""), "provenance": d["provenance"],
+        "region": ri["region"], "region_snow_cm": str(ri["region_snow_cm"]),
+        "region_wind_ms": str(ri["region_wind_ms"]), "area_m2": str(ri["area_m2"]),
+        "cover": ri["cover"], "form": ri["form"], "t_target": str(ri["t_target"]),
+        "t_min": str(ri["t_min"]), "curtain": ri.get("curtain", ""), "fr": "",
+        "crop": ri.get("crop", ""), "rfq_note": ri.get("note", ""),
+        "required_categories": ",".join(ri.get("required_categories", [])),
+        "n_vendors": str(len(d["vendor_quotes"])),
+    }
+    for i, v in enumerate(d["vendor_quotes"]):
+        form[f"vendor{i}_name"] = v["vendor_name"]
+        form[f"vendor{i}_source_file"] = v["source_file"]
+        form[f"vendor{i}_source_sheet"] = v.get("source_sheet", "")
+        form[f"vendor{i}_area_m2"] = str(v.get("area_m2") or "")
+        form[f"vendor{i}_area_note"] = v.get("area_note", "")
+        form[f"vendor{i}_direct_cost_total"] = str(v["direct_cost_total"])
+        form[f"vendor{i}_total_with_overhead"] = str(v["total_with_overhead"])
+        form[f"vendor{i}_total_note"] = v.get("total_note", "")
+        form[f"vendor{i}_rows"] = "\n".join(f"{r[0]} | {r[1]} | {r[2]}" for r in v["raw_rows"])
+    return form
+
+
+def test_quotes_helpers_agree_with_stored_real_data():
+    # 헬퍼(파생 집계·3중 대사)가 기존 실전사 파일 전체와 원단위로 합치해야 한다 —
+    # 헬퍼와 test_quotes_json_sums_are_exact 규칙이 갈라지면 여기서 잡힌다
+    import build_site as bs
+    import glob as _g
+    for path in sorted(_g.glob("견적비교_*.json")):
+        d = json.loads(Path(path).read_text(encoding="utf-8"))
+        for v in d["vendor_quotes"]:
+            assert bs.quotes_derive_categories(v["raw_rows"]) == v["categories"], (path, v["vendor_name"])
+            assert all(c["ok"] for c in bs.quotes_vendor_3way_check(v)), (path, v["vendor_name"])
+
+
+def test_quotes_hub_lists_real_comparisons():
+    r = client.get("/entry/quotes")
+    assert r.status_code == 200
+    assert "논산딸기_3사" in r.text and "원단위 일치" in r.text
+
+
+def test_quotes_edit_prefills_real_data():
+    r = client.get("/entry/quotes/edit", params={"src": "견적비교_논산딸기3사.json"})
+    assert r.status_code == 200
+    assert "임미라(수현건설)" in r.text
+    assert "골조공사 | 184464840 | greenhouse_structure" in r.text
+
+
+def test_quotes_preview_real_data_roundtrip():
+    # 실전사본 그대로 → 3중 대사 전 업체 일치 + 엔진 신호(임미라 hvac 누락)가 재현돼야 한다
+    r = client.post("/entry/quotes/preview", data=_nonsan_form())
+    assert r.status_code == 200
+    assert "전 업체 일치" in r.text
+    assert "hvac" in r.text  # P3-20 시연의 핵심 컨설팅 신호가 편집기에서도 보인다
+
+
+def test_quotes_preview_detects_transcription_error_and_blocks_save():
+    form = _nonsan_form()
+    form["vendor0_rows"] = form["vendor0_rows"].replace("184464840", "184464841")  # 1원 오염
+    r = client.post("/entry/quotes/preview", data=form)
+    assert r.status_code == 200 and "불일치" in r.text and "+1" in r.text
+    assert client.post("/entry/quotes/save", data=form).status_code == 400  # 대사 실패 저장 거부
+
+
+def test_quotes_bad_mapping_key_rejected():
+    form = _nonsan_form()
+    form["vendor0_rows"] = "골조공사 | 100 | 없는카테고리"
+    assert client.post("/entry/quotes/preview", data=form).status_code == 400
+
+
+def test_quotes_save_roundtrip_via_engine(tmp_path, monkeypatch):
+    import webapp as W
+    import build_site as bs
+    monkeypatch.setattr(W, "QUOTES_DIR", tmp_path)
+    form = _nonsan_form(comparison_id="테스트왕복")
+    r = client.post("/entry/quotes/save", data=form, follow_redirects=False)
+    assert r.status_code == 303
+    saved = tmp_path / "견적비교_테스트왕복.json"
+    assert saved.is_file()
+    # 저장본이 정식 로더+엔진 파이프라인으로 그대로 소비된다(왕복 무손실의 증거)
+    data, rfq, cmp = bs.load_quotes_comparison(str(saved))
+    assert len(cmp.rows) == 3
+    assert {v["vendor_name"] for v in data["vendor_quotes"]} == \
+           {"임미라(수현건설)", "최선동(렉창)", "한수진"}
+    # 덮어쓰기 확인 없이 재저장 → 409
+    assert client.post("/entry/quotes/save", data=form).status_code == 409
+
+
 def test_scenario_preview_and_save_match_engine(tmp_cases):
     import build_site as bs
     import render_report as rr

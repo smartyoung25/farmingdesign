@@ -7,7 +7,7 @@ SmartFarm 리포트 사이트 빌더 (경로 C 마감 + P0 근거대장)
 """
 from __future__ import annotations
 import glob
-import html, json, os, datetime as _dt
+import html, json, os, re, datetime as _dt
 import smartfarm_engine as e
 import render_report as rr
 from cases import load_cases, case_to_input
@@ -581,6 +581,39 @@ def registry_page() -> str:
 
 QUOTES_JSON = "견적비교_논산딸기3사.json"
 QUOTES_GLOB = "견적비교_*.json"  # 확장(2026-08-17): 데이터 파일 추가만으로 비교 페이지 증설
+
+
+def quotes_mapping_key(mapping) -> str:
+    """매핑 표기에서 카테고리 키 추출 — 실전사 관행 2종을 모두 지원:
+    'key(근거…)'(논산 3사)와 'key — 근거…'(군산 규격대안)."""
+    return re.split(r"\(|—", str(mapping))[0].strip()
+
+
+def quotes_derive_categories(raw_rows: list) -> dict:
+    """raw_rows(공종 원문 전사+매핑)에서 카테고리 소계 집계 — 전사 보조 부기(34차).
+    계산이 아니라 전사 합산이며, 정합 여부는 quotes_vendor_3way_check()·
+    compare_quotes()가 검증한다."""
+    out = {}
+    for _name, amount, mapping in raw_rows:
+        key = quotes_mapping_key(mapping)
+        out[key] = out.get(key, 0) + amount
+    return out
+
+
+def quotes_vendor_3way_check(v: dict) -> list:
+    """전사 무결성 3중 대사(원단위) — test_quotes_json_sums_are_exact와 같은 규칙의
+    실행형(웹 기입 미리보기가 이걸 호출, 테스트가 기존 파일로 일치성을 고정)."""
+    cat_sum = sum(v["categories"].values())
+    raw_sum = sum(r[1] for r in v["raw_rows"])
+    total = v["direct_cost_total"]
+    return [
+        {"name": "raw_rows 합 == 직접공사비(원단위)", "ok": raw_sum == total,
+         "detail": f"{raw_sum:,} vs {total:,} (차 {raw_sum - total:+,})"},
+        {"name": "카테고리 합 == 직접공사비(원단위)", "ok": cat_sum == total,
+         "detail": f"{cat_sum:,} vs {total:,} (차 {cat_sum - total:+,})"},
+        {"name": "총액(제경비 포함) ≥ 직접공사비", "ok": v["total_with_overhead"] >= total,
+         "detail": f"{v['total_with_overhead']:,} vs {total:,}"},
+    ]
 
 
 def load_quotes_comparison(path: str = QUOTES_JSON):
