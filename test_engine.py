@@ -710,6 +710,31 @@ def test_capex_major_breakdown_kjg_reconciles_to_source():
     assert 6_400_000 + 3_800_000 == 10_200_000
 
 
+def test_capex_major_breakdown_oks_reconciles_to_source():
+    # 2026-08-18 추가(57차 "다른 견적 세부 분석" 5호) — 오기수(군산, 서진비에스
+    # 2023-08 — 강정구와 동일 업체 시계열). 설비 전용 부분 범위 견적(골조·피복
+    # 전무 — 강정구와 상보 쌍): 0 카테고리는 견적 범위 밖.
+    assert 164_863_706 + 31_834_400 + 2_876_832 == 199_574_938  # 원가계산서 3항목 원단위 재현
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["오기수"],
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["오기수"])
+    assert cb.total == 199_574_938
+    assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["오기수"] == 39_821_638
+    assert sum(cb.items.values()) + cb.unclassified == 199_574_938
+    # 공종→카테고리 합성 앵커(집계표 원문 소계)
+    assert cb.items["auto_opening_system"] == 5_310_000 + 63_684_894 + 2_817_269
+    assert cb.items["irrigation_fertigation"] == 35_567_476 + 12_373_661
+    assert cb.items["ict_control"] == 40_000_000   # PRIVA 계열 2번째 관측(프라바 오피스) — 표본 2위
+    for k in ("greenhouse_structure", "hvac", "electrical"):
+        assert cb.items[k] == 0                    # 설비 전용 부분 범위(범위 밖)
+    # 도급 체인(원단위): 순공사원가+관리비 5%+이윤 8%−영세율=공급가액, +부가세+영세율=총액
+    assert 164_863_706 + 35_718_196 + 13_358_142 == 213_940_044
+    assert 213_940_044 + 10_697_002 + 4_781_867 - 9_170_000 == 220_248_913
+    assert 220_248_913 + 22_024_891 + 9_170_000 == 251_443_804  # 한글 원단위 표기와 일치(환급 차감 전)
+    # 원문 결함 관찰 고정(57차): p4 환급표 계가 첫 행 값 그대로 — 관리동커텐 합산 누락
+    assert 23_974_813 + 1_648_320 == 25_623_133   # 실합(표기 계 23,974,813과 Δ1,648,320)
+    assert 23_974_813 // 10 == 2_397_481          # 환급예정은 누락 계 기준(합산 시 2,562,313)
+
+
 def test_capex_major_known_totals_single_source_sync():
     # 2026-08-18 53차(레드팀 4회차 F8 구조 개선) — known_total은 엔진 상수
     # CAPEX_MAJOR_KNOWN_TOTALS가 단일 출처다(build_site major_totals가 직접 읽음 —

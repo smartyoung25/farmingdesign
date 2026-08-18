@@ -419,6 +419,32 @@ def test_capex_kang_pdf_anchor_cells_match_source():
     assert e.CAPEX_MAJOR_CASE_CHUNKS["강정구"]["auto_opening_system"] == 73_796_244 + 660_000 + 347_061
 
 
+def test_capex_oh_pdf_anchor_cells_match_source():
+    # 57차: CAPEX 표본 9호(오기수, 설비 전용 부분 범위·PRIVA 2번째 관측) 앵커 —
+    # 원가계산서 3항목·집계표 합계·환경제어 40M·환급표 결함(계=첫 행 값 그대로 —
+    # 관리동커텐 합산 누락)·한글 원단위 표기의 원문 근거를 고정.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "스마트팜스펙", "견적참조",
+                            "견적서_군산 오기수 농가_0803.pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        p2 = (pdf.pages[1].extract_text() or "").replace(" ", "")
+        p34 = "".join((p.extract_text() or "") for p in pdf.pages[2:4]).replace(" ", "")
+        p13 = (pdf.pages[12].extract_text() or "").replace(" ", "")
+    for anchor in ("164,863,706", "31,834,400", "2,876,832", "251,443,804"):
+        assert anchor in p2, anchor
+    assert 164_863_706 + 31_834_400 + 2_876_832 == 199_574_938
+    assert "이억오천일백사십사만삼천팔백사" in p2
+    assert _parse_korean_amount("일금이억오천일백사십사만삼천팔백사원정") == 251_443_804
+    # 집계표(p3)·환급표(p4): 합계와 결함 관찰(계 23,974,813 ≠ 실합 25,623,133)
+    for anchor in ("199,574,938", "40,000,000", "23,974,813", "1,648,320", "2,397,481"):
+        assert anchor in p34, anchor
+    # 환경제어시스템(p13): PRIVA 계열 근거(프라바 오피스)
+    assert "프라바오피스" in p13 and "40,000,000" in p13
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["오기수"]["ict_control"] == 40_000_000
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
@@ -433,7 +459,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       상수 31→32, 표본 6건 역참조 병행 등재로 source_refs 20→26
     # 55차: 맹주연 표본 7호 승격으로 26→28(CASE_CHUNKS·KNOWN_TOTALS에 각 1건)
     # 56차: 강정구 표본 8호 승격으로 28→30(동일 2상수에 각 1건)
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 30
+    # 57차: 오기수 표본 9호 승격으로 30→32(동일 2상수에 각 1건)
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 32
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
