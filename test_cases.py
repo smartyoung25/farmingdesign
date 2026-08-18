@@ -445,6 +445,31 @@ def test_capex_oh_pdf_anchor_cells_match_source():
     assert e.CAPEX_MAJOR_CASE_CHUNKS["오기수"]["ict_control"] == 40_000_000
 
 
+def test_yonggyun_design_budget_pdf_matches_case():
+    # 58차: 이용균 정식 설계예산서 PDF(카톡 촬영본의 원본) ↔ 케이스 전사값 앵커 —
+    # 공급가액·부가세(과세/환급 분리)·합계·직재·직노·기계경비·9공종 재료비·위치를
+    # 원문에서 재확인해 "카톡=이 문서의 촬영본, 전 값 일치" 주장을 기계 고정.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "스마트팜스펙", "견적참조", "이용균(ms-9.6)(설계예산서).pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        head = "".join((p.extract_text() or "") for p in pdf.pages[1:3]).replace(" ", "")
+        p5 = (pdf.pages[4].extract_text() or "").replace(" ", "")
+    case = json.load(open(os.path.join(_REPO, "cases", "yonggyun.json"), encoding="utf-8"))
+    cs = case["construction"]["cost_summary_won"]
+    for label, val in (("공급가액", 459_212_879), ("부가가치세", 46_794_520), ("합계", 506_007_399),
+                       ("직접재료비", 318_929_987), ("직접노무비", 113_563_000), ("경비", 7_550_000)):
+        assert cs[label] == val
+        assert f"{val:,}" in head or f"{val:,}" in p5, label
+    assert "27,167,579" in head and "19,626,941" in head        # 부가세 과세/환급 분리(44차 재확인의 원문)
+    assert "사억오천구백이십일만이천팔백칠십구" in head            # 한글 대사(37차 가드의 원문 실체)
+    assert "신종리467-7" in head                                 # 위치(58차 신규 확보)
+    for trade, val in case["construction"]["trades_material_won"].items():
+        assert f"{val:,}" in p5, trade                           # 9공종 재료비 전량(p5 집계표)
+    assert sum(case["construction"]["trades_material_won"].values()) == 318_929_987
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
