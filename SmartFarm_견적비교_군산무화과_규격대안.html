@@ -56,12 +56,13 @@
     <div class="row"><span class="lbl">입지</span><span class="val">군산 — 적설 34cm · 풍속 38m/s</span></div>
     <div class="row"><span class="lbl">채택 규격</span><span class="val">22-연동(등)-05 (설계 적설 35·풍속 40)</span></div>
     <div class="row"><span class="lbl">규모·피복</span><span class="val">2,797㎡ · 필름 · 연동 · 작물 무화과</span></div>
-    <div class="row"><span class="lbl">난방부하</span><span class="val">341,038 kcal/h (커튼 다겹보온)</span></div>
+    <div class="row"><span class="lbl">난방부하</span><span class="val">341,038 kcal/h (커튼 다겹보온 · t_target 15℃/t_min -12.4℃ 기준 — 입력 근거·한계는 하단 note)</span></div>
     <p class="note" style="border-top:0;margin-top:8px">지역하중은 REGION_DESIGN_LOAD[&#x27;군산&#x27;](고시 2025-108호, 적설 34cm·풍속 38m/s). ⚠️ 난방부하는 형식 참고치다 — 두 견적 모두 난방설비가 없고(무화과 저온성 재배로 추정) 이 하우스의 실제 재배 온도 조건은 미확보라, t_target 15℃·t_min -12.4℃(NIHHS 전주 설계외기온 준용)·다겹보온 커튼은 계산 형식을 채우기 위한 조건 표기이지 실측 요구조건이 아니다. 필수 공종도 이에 맞춰 hvac 제외 3종으로 축소(판단성 입력): 온실구조·자동개폐·양액관수.</p></section>
   <section class="card"><span class="axis">3사 비교</span>
     <h2>비교표 (입력 순서 그대로 — 정렬·순위·추천 없음)</h2>
-    <table><tr><th>업체</th><th>종합</th><th class="num">필수공종 일치도</th><th class="num">총액(원)</th><th class="num">원/㎡</th></tr><tr><td>A안 — 기둥 □125×75</td><td><span class='badge warn'>불일치(1건)</span></td><td class='num'>62%</td><td class='num'>207,157,061</td><td class='num'>74,064</td></tr><tr><td>B안 — 기둥 □75×75</td><td><span class='badge warn'>불일치(1건)</span></td><td class='num'>62%</td><td class='num'>203,172,842</td><td class='num'>72,640</td></tr></table>
-    <p class="note" style="border-top:0">참고: 최저가 B안 — 기둥 □75×75 · 최고 일치도 A안 — 기둥 □125×75 — 어느 쪽이 낫다는 판정이 아니다.</p></section>
+    <table><tr><th>업체</th><th>종합</th><th class="num">사양 부합도(종합)</th><th class="num">총액(원)</th><th class="num">직접공사비(원)</th><th class="num">원/㎡(총액 기준)</th><th>금액 기준(요약)</th></tr><tr><td>A안 — 기둥 □125×75</td><td><span class='badge warn'>불일치(1건)</span></td><td class='num'>62%</td><td class='num'>207,157,061</td><td class='num'>166,203,250</td><td class='num'>74,064</td><td style='font-size:12px'><span title='직접공사비 166,203,250원(재료 106,932,250+노무 52,721,000+경비 6,550,000 — 공종 성분 합과 원단위 일치) / 합계금액 207,157,061원(총원가 188,676,874+부가세 18,480,187, 소수 절사)'>직접공사비 166,203,250원(재료 106,932,…</span></td></tr><tr><td>B안 — 기둥 □75×75</td><td><span class='badge warn'>불일치(1건)</span></td><td class='num'>62%</td><td class='num'>203,172,842</td><td class='num'>163,071,150</td><td class='num'>72,640</td><td style='font-size:12px'><span title='직접공사비 163,071,150원(재료 105,036,150+노무 51,485,000+경비 6,550,000 — 공종 성분 합과 원단위 일치) / 합계금액 203,172,842원(총원가 185,082,129+부가세 18,090,713, 소수 절사)'>직접공사비 163,071,150원(재료 105,036,…</span></td></tr></table>
+    <p class="note" style="border-top:0">참고: 최저가 B안 — 기둥 □75×75(총액 기준 — ⚠️ 각 사 총액의 원가 계층이 다르면 직접 비교 불가: '금액 기준' 열과 업체 상세의 계층 서술을 반드시 확인) ·
+      최고 사양 부합도 전 업체 동점 — 어느 쪽이 낫다는 판정이 아니다. 사양 부합도는 필수공종·면적·규격코드·밴드 4개 검증의 종합 점수다.</p></section>
   
   <section class="card"><span class="axis">업체 상세</span>
     <h2>A안 — 기둥 □125×75 — 폭 8m×89.4m×3연동 + 81.4m×1연동 = 2,797㎡(견적서 사업량)</h2>
@@ -83,5 +84,5 @@
     <h2>데이터 출처와 한계</h2>
     <p style="font-size:13.5px">출처: 스마트팜스펙/견적참조/2025년 무화과(이명환)-각125.xls·각75.xls(동일 양식 2파일, P2-16 doc_type 지정·그룹청킹 편입분). 사업명 &#x27;2025년 연동하우스 설치공사(무화과)&#x27;, 사업량 동일(폭 8m×길이 89.4m×3연동 + 81.4m×1연동 = 2,797㎡), 2025-07 견적. 공종 6분류(공정별 집계표 기준: 기초·골조파이프·골조부속 2표·피복·관수·영세율품목[개폐모터·콘트롤판넬])의 재료비·노무비·경비 성분 합이 표지 요약(직접재료비·직접노무비·경비)과 양쪽 모두 원단위 일치. ⚠️ 원본 xls 자체 결함 발견: 공종 소계 셀 2곳(각125 기초 16,716,600·골조 91,376,380)이 자기 성분 합(17,516,600·91,441,880)과 총 865,500원 어긋남(수식 범위 오류 추정) — 본 비교는 성분 재계산값을 쓰며 공정별 집계표(r64)와 일치함을 확인했다. 총액 검산: 직접공사비+간접비+이윤=총원가, 총원가+부가세=합계금액 양쪽 성립(합계금액은 소수 절사 정수 표기).</p>
     <p style="font-size:13.5px;color:var(--muted)">견적비교 확장(2026-08-17)의 2호 데이터. 다사 비교가 아니라 동일 업체·동일 사업량의 기둥 규격 대안 2안 비교 — compare_quotes 구조(같은 RFQ에 복수 견적)를 규격 의사결정에 적용한 사례다. 어느 안이 낫다는 판정은 하지 않는다(구조 안전성 확인은 별개 — 규격 선택은 컨설턴트·구조검토 몫).</p></section>
-<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-08-18 11:43</div>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-08-18 15:15</div>
 </div></body></html>

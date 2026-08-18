@@ -640,13 +640,25 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
     ri = data["rfq_input"]
     won = lambda v: f"{v:,.0f}"
 
+    # 38차 레드팀 F2: 각 사 총액의 원가 계층이 다를 수 있어(순공사비 vs 부가세 포함)
+    # 직접공사비(3사 공통 계층)와 금액 기준 요약을 병기한다. F4: 열 라벨은 종합 점수임을 명시.
+    vend_by_name = {v["vendor_name"]: v for v in data["vendor_quotes"]}
+    def _basis(v):
+        note = v.get("total_note", "")
+        head = note.split(".")[0][:30]
+        return f"<span title='{esc(note)}'>{esc(head)}{'…' if len(note) > len(head) else ''}</span>"
     comp_rows = "".join(
         f"<tr><td>{esc(r.vendor_name)}</td>"
         f"<td><span class='badge {_sc('정상' if r.overall_status == '일치' else ('경계' if '확인' in r.overall_status else '재확인'))}'>{esc(r.overall_status)}</span></td>"
         f"<td class='num'>{r.match_score_pct:.0f}%</td>"
         f"<td class='num'>{won(r.total_with_overhead_won)}</td>"
-        f"<td class='num'>{won(r.unit_won_m2)}</td></tr>"
+        f"<td class='num'>{won(vend_by_name[r.vendor_name]['direct_cost_total'])}</td>"
+        f"<td class='num'>{won(r.unit_won_m2)}</td>"
+        f"<td style='font-size:12px'>{_basis(vend_by_name[r.vendor_name])}</td></tr>"
         for r in cmp.rows)
+    # F5: 사양 부합도 동점이면 특정 업체를 '최고'로 호명하지 않는다(입력 순서 편향 방지)
+    _scores = {round(r.match_score_pct, 1) for r in cmp.rows}
+    top_txt = "전 업체 동점" if len(_scores) == 1 else esc(cmp.highest_match_score_vendor or "-")
 
     detail_cards = []
     for v in data["vendor_quotes"]:
@@ -676,12 +688,13 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
     <div class="row"><span class="lbl">입지</span><span class="val">{esc(ri['region'])} — 적설 {ri['region_snow_cm']}cm · 풍속 {ri['region_wind_ms']}m/s</span></div>
     <div class="row"><span class="lbl">채택 규격</span><span class="val">{esc(rfq.spec_name)} (설계 적설 {rfq.snow_cm}·풍속 {rfq.wind_ms})</span></div>
     <div class="row"><span class="lbl">규모·피복</span><span class="val">{ri['area_m2']:,}㎡ · {esc(ri['cover'])} · {esc(ri['form'])} · 작물 {esc(ri['crop'])}</span></div>
-    <div class="row"><span class="lbl">난방부하</span><span class="val">{rfq.heating.max_load_kcal_h:,.0f} kcal/h (커튼 {esc(ri['curtain'])})</span></div>
+    <div class="row"><span class="lbl">난방부하</span><span class="val">{rfq.heating.max_load_kcal_h:,.0f} kcal/h (커튼 {esc(ri['curtain'])} · t_target {ri['t_target']}℃/t_min {ri['t_min']}℃ 기준 — 입력 근거·한계는 하단 note)</span></div>
     <p class="note" style="border-top:0;margin-top:8px">{esc(ri['note'])}</p></section>
   <section class="card"><span class="axis">3사 비교</span>
     <h2>비교표 (입력 순서 그대로 — 정렬·순위·추천 없음)</h2>
-    <table><tr><th>업체</th><th>종합</th><th class="num">필수공종 일치도</th><th class="num">총액(원)</th><th class="num">원/㎡</th></tr>{comp_rows}</table>
-    <p class="note" style="border-top:0">참고: 최저가 {esc(cmp.lowest_cost_vendor or '-')} · 최고 일치도 {esc(cmp.highest_match_score_vendor or '-')} — 어느 쪽이 낫다는 판정이 아니다.</p></section>
+    <table><tr><th>업체</th><th>종합</th><th class="num">사양 부합도(종합)</th><th class="num">총액(원)</th><th class="num">직접공사비(원)</th><th class="num">원/㎡(총액 기준)</th><th>금액 기준(요약)</th></tr>{comp_rows}</table>
+    <p class="note" style="border-top:0">참고: 최저가 {esc(cmp.lowest_cost_vendor or '-')}(총액 기준 — ⚠️ 각 사 총액의 원가 계층이 다르면 직접 비교 불가: '금액 기준' 열과 업체 상세의 계층 서술을 반드시 확인) ·
+      최고 사양 부합도 {top_txt} — 어느 쪽이 낫다는 판정이 아니다. 사양 부합도는 필수공종·면적·규격코드·밴드 4개 검증의 종합 점수다.</p></section>
   {''.join(detail_cards)}
   <section class="card"><span class="axis">전사·매핑 원칙</span>
     <h2>데이터 출처와 한계</h2>

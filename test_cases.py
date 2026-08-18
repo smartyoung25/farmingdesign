@@ -130,27 +130,42 @@ def test_quotes_comparison_pipeline_flags_expected_signals():
     data, rfq, cmp = bs.load_quotes_comparison()
     # RFQ가 P1-11 crop 필터·P1-9 curtain 경로로 생성됨
     assert rfq.spec_name and rfq.heating.max_load_kcal_h > 0
-    # 임미라: hvac 누락(혼재 표기 검출)이 플래그돼야 한다 — 핵심 컨설팅 신호
-    recon = cmp.reconciliations["임미라(수현건설)"]
-    comp_check = next(c for c in recon.checks if c.name == "필수 공종 완전성")
-    assert comp_check.status == "불일치" and "hvac" in comp_check.detail
-    # 최선동·한수진: 필수 공종은 완전
-    for name in ("최선동(렉창)", "한수진"):
+    # 38차 레드팀 F1(39차 반영): 종전 "임미라 hvac 누락" 신호는 오검출이었다 —
+    # 원문 세부시트가 히트펌프 44,920,000을 블록 소계로 분리 계상(4블록 합이 집계표
+    # 행 178,420,700과 원단위 일치). 재전사 후 3사 전부 필수 공종 완전.
+    for name in ("임미라(수현건설)", "최선동(렉창)", "한수진"):
         c = next(c for c in cmp.reconciliations[name].checks if c.name == "필수 공종 완전성")
         assert c.status == "일치", name
-    # 3사 모두 벤치마크 밴드 내(참고정보), 추천 필드는 존재하되 판정 아님
+    # 임미라 hvac 분해값이 카테고리에 실려 있다(재발 방지 고정)
+    imr = {v["vendor_name"]: v for v in data["vendor_quotes"]}["임미라(수현건설)"]
+    assert imr["categories"]["hvac"] == 44_920_000
+    assert imr["categories"]["irrigation_fertigation"] == 133_500_700
+    # 종합: 임미라 87.5%(규격코드 확인요망만), 최선동·한수진 62.5%(면적 불일치)
+    scores = {r.vendor_name: r.match_score_pct for r in cmp.rows}
+    assert scores["임미라(수현건설)"] == 87.5
+    assert scores["최선동(렉창)"] == scores["한수진"] == 62.5
+    # 3사 모두 벤치마크 밴드 내(참고정보 — 단 임미라 총액은 순공사비 계층이라
+    # 밴드 기준[부가세 포함]과 계층이 다름을 데이터가 명시: F2)
     assert all(115000 <= r.unit_won_m2 <= 240000 for r in cmp.rows)
-    assert cmp.lowest_cost_vendor == "임미라(수현건설)"
+    assert "계층" in imr["total_note"]
+    assert cmp.lowest_cost_vendor == "임미라(수현건설)"  # 총액 기준 참고 필드(계층 경고 병기 전제)
 
 
 def test_quotes_comparison_page_renders():
     data, rfq, cmp = bs.load_quotes_comparison()
     html_out = bs.quotes_comparison_page(data, rfq, cmp)
     assert "추천" in html_out and "참고정보" in html_out   # 판단성 존중 문구
-    assert "hvac" in html_out                              # 누락 신호 노출
+    assert "hvac" in html_out                              # 매핑 노출(분해 재전사)
     assert "원단위 전사" in html_out                        # 출처 표기
     for v in data["vendor_quotes"]:
         assert v["vendor_name"] in html_out
+    # 38차 레드팀 F2·F4·F5 렌더 고정
+    assert "사양 부합도(종합)" in html_out                  # F4: 오표기 라벨 제거
+    assert "필수공종 일치도" not in html_out
+    assert "직접공사비(원)" in html_out                     # F2: 공통 계층 병기
+    assert "계층이 다르면 직접 비교 불가" in html_out
+    assert "이중계상" in html_out                           # F6: 원본 결함 기록 노출(provenance)
+    assert "t_target" in html_out                           # F7: 난방부하 조건 표시
 
 
 # ── P3-18(2026-08-17): 금융조달 상환표 렌더 분기 ────────────────────────
@@ -269,6 +284,60 @@ def test_hangul_amount_reconciliation_in_partial_cases():
     assert "팔천구백육십일만원정" in m_raw
     assert _parse_korean_amount("일금 팔천구백육십일만원정") \
         == m["construction"]["cost_summary_won"]["총공사비(도급, 천단위 절사)"] == 89_610_000
+
+
+def _sheet_values(rows):
+    out = set()
+    for row in rows:
+        for v in row:
+            try:
+                f = float(v)
+                if f == int(f):
+                    out.add(int(f))
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
+def test_quotes_nonsan_anchor_cells_match_source():
+    # 39차(레드팀 F8): 전사값을 원본 xls 셀에서 직접 재확인하는 앵커 대조 —
+    # 37차 가드(파일 존재)보다 한 계층 깊다. 관대 파서(chunking_lib_v2)가 3파일
+    # 전량 판독 가능함이 38차에 실증되어 실행 비용이 확인됨.
+    import pytest as _pt
+    _pt.importorskip("xlrd", reason="xlrd 미설치(환경 특성상 pip 유실 반복)")
+    from chunking_lib_v2 import _xls_sheets_lenient
+
+    data = json.load(open(os.path.join(_REPO, "견적비교_논산딸기3사.json"), encoding="utf-8"))
+    by = {v["vendor_name"]: v for v in data["vendor_quotes"]}
+
+    # 임미라: 집계표 총액 + 양액 세부시트 4블록 소계(F1 분해 재전사의 원문 근거 고정)
+    imr = _xls_sheets_lenient(os.path.join(_REPO, by["임미라(수현건설)"]["source_file"]))
+    assert imr, "임미라 xls 판독 실패"
+    assert 560_744_760 in _sheet_values(imr["집계표"])
+    yang = _sheet_values(imr["양액및 보일러.무인방제"])
+    for sub in (22_440_000, 85_953_000, 44_920_000, 25_107_700):
+        assert sub in yang, f"양액 세부 소계 {sub:,} 소실 — F1 분해 근거 붕괴"
+    assert 22_440_000 + 85_953_000 + 44_920_000 + 25_107_700 == 178_420_700
+    # F6 원본 결함 고정: 자동개폐 세부시트 블록 합계 30,022,000+15,230,000(노무 포함
+    # 45,252,000)이 집계표에서 재료비 45,252,000+노무 6,000,000=51,252,000으로 재가산
+    # — 이중계상 6,000,000이 "원본의 사실"임을 원문 셀로 못박음
+    auto = _sheet_values(imr["자동개폐시설,환경제어"])
+    assert 30_022_000 in auto and 15_230_000 in auto
+    assert 30_022_000 + 15_230_000 == 45_252_000
+    jib = _sheet_values(imr["집계표"])
+    assert 45_252_000 in jib and 51_252_000 in jib
+
+    # 최선동·한수진: 공종별집계표 직접공사비 합계 + 원가계산 총액
+    for name, direct, total in (("최선동(렉창)", 497_440_760, 613_782_000),
+                                ("한수진", 499_026_400, 618_001_000)):
+        sheets = _xls_sheets_lenient(os.path.join(_REPO, by[name]["source_file"]))
+        assert sheets, f"{name} xls 판독 실패"
+        allv = set()
+        for rows in sheets.values():
+            allv |= _sheet_values(rows)
+        assert direct in allv and total in allv, name
+        assert by[name]["direct_cost_total"] == direct
+        assert by[name]["total_with_overhead"] == total
 
 
 # ── P1-6 잔여 해소(2026-08-18): 감리비 참고 표시(CAPEX 불산입) ─────────────
