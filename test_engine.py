@@ -266,6 +266,36 @@ def test_lcc_replacement_schedule_deterministic():
         e.lcc_replacement_schedule([{"name": "x", "unit_cost_won": 1, "service_life_years": 0}], 10)
 
 
+def test_structure_service_life_statutory_values():
+    # 법인세법 시행규칙 별표5<개정 2024.11.11.>·별표6<개정 2024.3.22.> 원문 전사
+    # 가드(PDF 리포 사본과 대조) — 값이 바뀌면 법령 개정 확인 후 함께 갱신할 것
+    R = e.STRUCTURE_SERVICE_LIFE_STATUTORY
+    k3 = "별표5_제3호(연와조·블록조·콘크리트조·목조 등 기타 조)"
+    k4 = "별표5_제4호(철골·철근콘크리트조 등)"
+    assert R[k3]["years"] == 20 and R[k3]["range"] == (15, 25)
+    assert R[k4]["years"] == 40 and R[k4]["range"] == (30, 50)
+    assert R["별표5_비고3(제3호 단축)"]["years"] == 10
+    assert R["별표5_비고3(제3호 단축)"]["range"] == (8, 12)
+    assert R["별표5_비고3(제4호 단축)"]["years"] == 20
+    assert R["별표5_비고3(제4호 단축)"]["range"] == (15, 25)
+    assert R["별표6_제2호(농업 01 업종별 자산)"]["years"] == 5
+    assert R["별표6_제2호(농업 01 업종별 자산)"]["range"] == (4, 6)
+    # 전 항목: 하한 ≤ 기준내용연수 ≤ 상한 (별표의 내용연수범위 구조)
+    for v in R.values():
+        lo, hi = v["range"]
+        assert lo <= v["years"] <= hi and v["대상"]
+
+
+def test_structure_service_life_no_greenhouse_type_keys():
+    # 판단성 가드: 비고3 가목에 축사는 열거되나 온실은 미열거 — 온실유형→호
+    # 자동 매핑 키가 등록되면 유추 적용(원칙 위반)이므로 구조적으로 차단한다.
+    # 호 선택은 컨설턴트·세무사 몫(케이스에는 선택 근거와 함께 주입값으로).
+    for k in e.STRUCTURE_SERVICE_LIFE_STATUTORY:
+        assert k.startswith("별표"), k
+        assert not any(w in k for w in ("유리", "비닐", "온실", "하우스")), \
+            f"{k}: 온실유형 키 금지 — 호 적용은 판단성"
+
+
 # ── 3-4. P1-11(2026-08-17): select_specs 작물특화형 필터 ────────────
 def test_select_specs_default_excludes_crop_specific():
     # 왜곡 실측 지점(적설20·풍속26): 종전엔 파프리카 전용이 연동 최소사양으로 나왔음
