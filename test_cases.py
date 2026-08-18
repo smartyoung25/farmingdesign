@@ -286,6 +286,24 @@ def test_hangul_amount_reconciliation_in_partial_cases():
         == m["construction"]["cost_summary_won"]["총공사비(도급, 천단위 절사)"] == 89_610_000
 
 
+def test_actuals_hanil_greentech_source_reconciliation():
+    # 40차: ACTUALS 한일그린텍 원문 대조의 앵커 고정 — 설계예산서 p2~3에서
+    # 총액·구성·한글 표기를 재확인(부가세 포함 기준선 정합의 원문 근거).
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "스마트팜스펙", "한일그린텍", "설계예산서(한일그린텍).pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        t = "".join((p.extract_text() or "") for p in pdf.pages[:3])
+    assert "480,636,000" in t and "480,636,200" in t
+    assert "사억팔천육십삼만육천" in t.replace(" ", "")
+    assert _parse_korean_amount("일금사억팔천육십삼만육천원정") == 480_636_000
+    # 절사 전 구성 합(원단위): 공급가액(과세+환급+영세)+부가세+환급금 재투자
+    assert 236_626_148 + 160_021_553 + 19_424_405 + 39_664_769 + 24_899_325 == 480_636_200
+    row = next(r for r in e.ACTUALS if r[0] == "한일그린텍")
+    assert row[1] == 3202 and row[2] == 480_636_000  # 등록값 무변경(설계예산 성격 — 값 유지)
+
+
 def _sheet_values(rows):
     out = set()
     for row in rows:
