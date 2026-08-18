@@ -361,6 +361,34 @@ def test_actuals_hanil_greentech_source_reconciliation():
     assert row[1] == 3202 and row[2] == 480_636_000  # 등록값 무변경(설계예산 성격 — 값 유지)
 
 
+def test_capex_maeng_pdf_anchor_cells_match_source():
+    # 55차: CAPEX 표본 7호(맹주연, 명칭 '벤로형'이나 필름 피복) 전사값을 원본 PDF에서
+    # 재확인하는 앵커 — 원가계산서 3항목(known_total 구성)·집계표 소계·환급품목·
+    # 한글 표기·혼재 공종(010108) 분리 라인의 원문 근거를 고정.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "스마트팜스펙", "견적참조",
+                            "천안 맹주연님 견적서_251014(최종견적서).pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        head = "".join((p.extract_text() or "") for p in pdf.pages[1:3]).replace(" ", "")
+        p13 = (pdf.pages[12].extract_text() or "").replace(" ", "")
+    # 원가계산서(p2): 직재·직노·기계경비 = known_total 439,742,227의 세 구성(원단위)
+    for anchor in ("360,447,860", "72,269,120", "7,025,247", "601,838,000", "226,473,083"):
+        assert anchor in head, anchor
+    assert "육억일백팔십삼만팔천" in head
+    assert _parse_korean_amount("일금육억일백팔십삼만팔천원정") == 601_838_000
+    assert 360_447_860 + 72_269_120 + 7_025_247 == 439_742_227
+    # 집계표(p3): 총계행 표기는 439,742,226 — 구성 합 대비 1원 갭(원문 잔재, 채택은 구성 합)
+    assert "439,742,226" in head and "439,742,227" not in head
+    # 혼재 공종 010108(p13): hvac 분리 3라인(유동팬·환풍기·설치노무)과 소계의 원문 근거
+    for anchor in ("5,040,000", "1,123,200", "2,508,576", "23,423,222"):
+        assert anchor in p13, anchor
+    assert 5_040_000 + 1_123_200 + 2_508_576 == 8_671_776           # hvac 분리분
+    assert 8_671_776 + 14_751_446 == 23_423_222                     # 분리 검산=공종 소계
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["맹주연"]["hvac"] == 8_671_776
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
@@ -373,7 +401,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 52차: 이준희 표본 6호 승격으로 19→20(동일 상수에 1건 추가)
     # 53차: known_total 단일 출처 승격(CAPEX_MAJOR_KNOWN_TOTALS 신설, 레드팀 4회차 F8)으로
     #       상수 31→32, 표본 6건 역참조 병행 등재로 source_refs 20→26
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 26
+    # 55차: 맹주연 표본 7호 승격으로 26→28(CASE_CHUNKS·KNOWN_TOTALS에 각 1건)
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 28
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

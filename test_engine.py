@@ -644,13 +644,39 @@ def test_capex_major_breakdown_ljh_reconciles_to_source():
     assert cb.items["auto_opening_system"] == 47_477_403 + 125_978_303
     assert cb.items["hvac"] == 7_093_767            # 09 유동휀만(난방설비 11은 "본 공사제외")
     assert cb.items["irrigation_fertigation"] == 28_952_319 + 28_859_014 + 3_904_157 + 5_219_421
-    assert cb.items["ict_control"] == 83_463_440    # 1209 복합환경제어 — 표본 최대 관측치(벤로형 유리 사양)
+    assert cb.items["ict_control"] == 83_463_440    # 1209 복합환경제어 — 표본 최대(PRIVA Compact CC 80,000,000이 95.85%, 54차 F1 귀속 정정)
     assert cb.items["electrical"] == 21_799_523     # 13 동력간선공사
     assert 65_624_205 + 19_138_167 + 8_563_744 == 93_326_116  # 미분류 구성 원문 소계
     # 도급·부가세 환급 체인(견적서·원가계산서 시트 원단위 재현 — 환급 명시 표본 최초)
     assert 1_079_731_365 + 11_177_726 == 1_090_909_091          # 원가 계+이윤=공급가액(일반관리비 0%)
     assert 1_090_909_091 + 109_090_909 == 1_200_000_000         # +부가세=도급 합계
     assert 1_200_000_000 - 1_056_000 - 26_179_000 == 1_172_765_000  # 영세율·환급 차감=실부담
+
+
+def test_capex_major_breakdown_mjy_reconciles_to_source():
+    # 2026-08-18 추가(55차 "다른 견적 세부 분석" 3호) — 맹주연(천안, 명칭 '벤로형'
+    # 이나 피복은 전량 PO/PE 필름 — 명칭≠재질). 집계표 13공종 열합=원가계산서
+    # 직재+직노+기계경비=439,742,227이 known_total(총계행 표기 439,742,226은 원문
+    # 1원 갭 — 구성 합 채택). unclassified는 바닥재및행잉거터(재배시설, 윤성호 선례).
+    assert 360_447_860 + 72_269_120 + 7_025_247 == 439_742_227  # 원가계산서 3항목 원단위 재현
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["맹주연"],
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["맹주연"])
+    assert cb.total == 439_742_227
+    assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["맹주연"] == 46_977_648
+    assert sum(cb.items.values()) + cb.unclassified == 439_742_227
+    # 공종→카테고리 합성 앵커(집계표 원문 소계)
+    assert cb.items["greenhouse_structure"] == 28_148_966 + 124_024_505 + 14_080_913 + 29_487_743 + 25_521_173 + 17_890_613
+    assert cb.items["auto_opening_system"] == 36_129_616 + 50_479_524 + 14_751_446
+    # 혼재 공종 010108 '환기 및 개폐'의 명시 라인 분리(최혁진 0113·윤성호 축열조 방식):
+    # 유동팬 42대+환풍기 6대+설치노무 → hvac, 잔여(개폐모터·컨트롤박스·전선) → 자동개폐
+    assert cb.items["hvac"] == 5_040_000 + 1_123_200 + 2_508_576 == 8_671_776
+    assert 8_671_776 + 14_751_446 == 23_423_222                 # 분리 검산 = 공종 소계 재현
+    assert cb.items["irrigation_fertigation"] == 33_686_562 + 5_934_127 + 3_957_615
+    assert cb.items["ict_control"] == cb.items["electrical"] == 0
+    # 도급 체인(원가계산서 원단위): 순공사비 계+관리비 6%+이윤 15%=공급가액, +부가세→합계 절삭
+    assert 493_278_737 + 29_596_724 + 24_250_441 == 547_125_902  # 표기 547,125,903은 원문 1원 갭
+    assert 547_125_902 + 54_712_590 == 601_838_492               # 절삭 후 표기 601,838,000
+    assert 226_473_083 // 10 == 22_647_308                       # 부가세환급금 = 환급품목×10%
 
 
 def test_capex_major_known_totals_single_source_sync():
