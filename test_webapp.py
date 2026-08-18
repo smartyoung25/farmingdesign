@@ -323,6 +323,8 @@ def test_scenario_preview_and_save_match_engine(tmp_cases):
     rs = client.post("/entry/scenario/wonchaewon/save", data=form, follow_redirects=False)
     assert rs.status_code == 303
     saved = json.loads((tmp_cases / "wonchaewon.json").read_text(encoding="utf-8"))
-    assert saved["scenarios"]["sets"][0]["assumptions"] == {"price_won_per_kg": 2936}
+    # 50차부터 실케이스에 기본 세트(Best/Worst)가 실존 — 웹 추가분은 마지막에 append된다
+    assert saved["scenarios"]["sets"][-1]["assumptions"] == {"price_won_per_kg": 2936}
+    assert saved["scenarios"]["sets"][-1]["name"] == "Best(테스트)"
     rows = bs.scenario_rows(saved, C.case_to_input(saved))
-    assert rows[1]["name"] == "Best(테스트)"
+    assert rows[-1]["name"] == "Best(테스트)"  # Base + 기존 세트(50차 Best/Worst) 뒤에 append

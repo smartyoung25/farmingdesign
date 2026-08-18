@@ -539,8 +539,9 @@ def test_scenario_section_renders_conditionally_and_irr_label():
     html_with = bs.consulting_report_page(case, res, inp)
     assert "시나리오 표 (가정 주입" in html_with and "Worst" in html_with
     assert "산출불가(적자)" in html_with     # 적자 시나리오 IRR 오독 방지 분기
+    # 50차부터 실케이스에 scenarios가 실존 — "미제공" 분기는 세트를 제거한 사본으로 검증
     cases_by_id = {c["case_id"]: c for c in C.load_cases()}
-    plain = cases_by_id["uminjae"]
+    plain = {k: v for k, v in cases_by_id["uminjae"].items() if k != "scenarios"}
     html_without = bs.consulting_report_page(plain, res, inp)
     assert "시나리오 가정값 미제공" in html_without
     assert "시나리오 표 (가정 주입" not in html_without
