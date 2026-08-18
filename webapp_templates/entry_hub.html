@@ -1,0 +1,25 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}기입 워크플로{% endblock %}
+{% block main %}
+  <div class="top"><h1>기입 워크플로</h1></div>
+  <div class="subtitle">실조건·가정값을 근거와 함께 케이스에 기입한다 — 근거(출처) 없는 저장은 거부되며, 저장은 케이스 JSON에 기록되고 커밋은 사람이 한다</div>
+  <div class="card">
+    <table>
+      <thead><tr><th>케이스</th><th>① financing 실조건</th><th>④ 시나리오 가정</th><th>③ 리모델링 진단값</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+      <tr>
+        <td style="font-weight:500">{{ r.title }}</td>
+        <td>{% if r.fin %}<span class="chip chip-measured">기입됨</span>{% else %}<span class="chip chip-est">대기</span>{% endif %}
+            <a class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" href="/entry/financing/{{ r.case_id }}">폼 열기</a></td>
+        <td>{% if r.n_sets %}<span class="chip chip-measured">{{ r.n_sets }}세트</span>{% else %}<span class="chip chip-est">0세트</span>{% endif %}
+            <a class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" href="/entry/scenario/{{ r.case_id }}">폼 열기</a></td>
+        <td><span class="chip chip-ref">문서 절차</span> <span style="font-size:12px;color:var(--mut)">리모델링_진단값_수집명세서.md로 수집 후 별도 승격</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="note">양식 원문: financing_실조건_기입양식.md · 시나리오_가정값_기입양식.md · 근거팩: 시나리오_가정값_근거팩_토마토.md — 어떤 값을 쓸지는 컨설턴트 판단(판단성), 엔진은 검증·재계산만 한다</p>
+{% endblock %}

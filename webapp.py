@@ -1,4 +1,4 @@
-"""웹앱 트랙 1단계 — 읽기 전용 콘솔 (2026-08-18, 32차)
+"""웹앱 트랙 1~2단계 — 콘솔 + 기입 워크플로 (2026-08-18, 32~33차)
 
 화면 설계 근거: Figma "스마트팜 컨설팅 웹앱 UI"(2026-08-18) — 콘솔 홈(케이스 목록)
 + 기존 build_site 산출물 서빙. UI 원칙 4가지를 코드 수준에서 강제한다:
@@ -27,6 +27,8 @@ from fastapi import Request
 
 import cases as C
 import render_report as rr
+import smartfarm_engine as e
+import build_site as bs
 
 ROOT = Path(__file__).parent
 app = FastAPI(title="스마트팜 컨설팅 콘솔", docs_url=None, redoc_url=None)
@@ -127,3 +129,167 @@ def health():
     cs = C.load_cases()
     return {"cases": len(cs), "partial": sum(1 for c in cs if c.get("partial")),
             "engine": "smartfarm_engine(단일 계산 출처)", "note": "수치 검증은 pytest가 담당"}
+
+
+# ── 2단계(33차): 기입 워크플로 — financing·시나리오 웹폼 ─────────────────
+# 원칙: 검증·계산은 전부 엔진 계층(loan_amortization·scenario_rows)에 위임하고,
+# 앱은 폼 파싱과 저장만 한다. 근거(note) 없는 저장은 거부(시세성·판단성 주입 원칙).
+# 저장 대상은 케이스 JSON(git 추적) — 커밋은 사람이 한다(과제 단위 커밋 절차 유지).
+
+def _full_case_or_404(case_id: str) -> dict:
+    for c in C.load_cases():
+        if c["case_id"] == case_id:
+            if c.get("partial"):
+                raise HTTPException(400, detail="부분 케이스에는 기입할 수 없다(4축 미산출)")
+            return c
+    raise HTTPException(404, detail=f"케이스 {case_id} 없음")
+
+
+def _save_case(case: dict) -> None:
+    """케이스 JSON 원자적 저장 — 기존 EOL 보존, ensure_ascii=False·indent 2."""
+    path = Path(C.CASES_DIR) / f"{case['case_id']}.json"
+    old = path.read_bytes().decode("utf-8") if path.exists() else "\n"
+    eol = "\r\n" if "\r\n" in old else "\n"
+    text = json.dumps(case, ensure_ascii=False, indent=2)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_bytes((text.replace("\n", eol) + eol).encode("utf-8"))
+    tmp.replace(path)
+
+
+def _form_float(form, key, *, required=False, as_int=False):
+    raw = (form.get(key) or "").strip().replace(",", "")
+    if not raw:
+        if required:
+            raise HTTPException(400, detail=f"{key} 값이 비어 있다")
+        return None
+    try:
+        if as_int:
+            return int(raw)
+        v = float(raw)
+        return int(v) if v.is_integer() else v  # 2936.0 → 2936 (저장 JSON 오염 방지)
+    except ValueError:
+        raise HTTPException(400, detail=f"{key}: 숫자가 아니다 — {raw!r}")
+
+
+@app.get("/entry")
+def entry_hub(request: Request):
+    cs = [c for c in C.load_cases() if not c.get("partial")]
+    rows = [{
+        "case_id": c["case_id"], "title": c["title"],
+        "fin": bool(c.get("financing")),
+        "n_sets": len((c.get("scenarios") or {}).get("sets", [])),
+    } for c in cs]
+    return templates.TemplateResponse(request, "entry_hub.html", {"rows": rows})
+
+
+@app.get("/entry/financing/{case_id}")
+def financing_form(request: Request, case_id: str):
+    case = _full_case_or_404(case_id)
+    return templates.TemplateResponse(request, "entry_financing.html", {
+        "case": case, "fin": case.get("financing") or {}, "preview": None, "form_vals": None,
+    })
+
+
+def _parse_financing(form) -> dict:
+    fin = {
+        "loan_principal_won": _form_float(form, "loan_principal_won", required=True, as_int=True),
+        "annual_rate_pct": _form_float(form, "annual_rate_pct", required=True),
+        "term_years": _form_float(form, "term_years", required=True, as_int=True),
+        "grace_years": _form_float(form, "grace_years", as_int=True) or 0,
+        "method": (form.get("method") or "").strip(),
+        "note": (form.get("note") or "").strip(),
+    }
+    if fin["method"] not in ("원리금균등", "원금균등"):
+        raise HTTPException(400, detail="상환방식은 원리금균등/원금균등 중 하나")
+    return fin
+
+
+def _amortize_or_400(fin: dict):
+    try:
+        return e.loan_amortization(fin["loan_principal_won"], fin["annual_rate_pct"],
+                                   fin["term_years"], fin["grace_years"], fin["method"])
+    except ValueError as ex:  # 엔진 검증 메시지를 그대로 노출(제2 검증기 금지)
+        raise HTTPException(400, detail=str(ex))
+
+
+@app.post("/entry/financing/{case_id}/preview")
+async def financing_preview(request: Request, case_id: str):
+    case = _full_case_or_404(case_id)
+    form = await request.form()
+    fin = _parse_financing(form)
+    am = _amortize_or_400(fin)
+    return templates.TemplateResponse(request, "entry_financing.html", {
+        "case": case, "fin": fin, "preview": am, "form_vals": fin,
+    })
+
+
+@app.post("/entry/financing/{case_id}/save")
+async def financing_save(request: Request, case_id: str):
+    case = _full_case_or_404(case_id)
+    form = await request.form()
+    fin = _parse_financing(form)
+    if not fin["note"]:
+        raise HTTPException(400, detail="근거(note: 약정서/공고 출처·기준일)가 비어 있다 — 출처 없는 실조건 저장 금지")
+    _amortize_or_400(fin)  # 엔진 검증 통과분만 저장
+    case["financing"] = fin
+    _save_case(case)
+    return RedirectResponse(f"/entry/financing/{case_id}?saved=1", status_code=303)
+
+
+@app.get("/entry/scenario/{case_id}")
+def scenario_form(request: Request, case_id: str):
+    case = _full_case_or_404(case_id)
+    return templates.TemplateResponse(request, "entry_scenario.html", {
+        "case": case, "sets": (case.get("scenarios") or {}).get("sets", []),
+        "fields": sorted(bs.SCENARIO_ALLOWED_FIELDS), "preview": None, "form_vals": None,
+        "error": None,
+    })
+
+
+def _parse_scenario_set(form) -> dict:
+    assumptions = {}
+    for f in bs.SCENARIO_ALLOWED_FIELDS:
+        v = _form_float(form, f)
+        if v is not None:
+            assumptions[f] = v
+    return {"name": (form.get("name") or "").strip() or "이름없음",
+            "assumptions": assumptions,
+            "note": (form.get("note") or "").strip()}
+
+
+def _scenario_rows_or_400(case: dict, new_set: dict) -> list:
+    trial = dict(case)
+    sc = dict(case.get("scenarios") or {})
+    sc["sets"] = list(sc.get("sets", [])) + [new_set]
+    sc.setdefault("note", "웹폼 기입(33차) — 가정값은 컨설턴트 판단, 근거는 세트별 note")
+    trial["scenarios"] = sc
+    try:  # 화이트리스트·근거 필수 검증은 scenario_rows가 한다(단일 검증 경로)
+        rows = bs.scenario_rows(trial, C.case_to_input(case))
+    except ValueError as ex:
+        raise HTTPException(400, detail=str(ex))
+    return rows, trial
+
+
+@app.post("/entry/scenario/{case_id}/preview")
+async def scenario_preview(request: Request, case_id: str):
+    case = _full_case_or_404(case_id)
+    form = await request.form()
+    new_set = _parse_scenario_set(form)
+    rows, _ = _scenario_rows_or_400(case, new_set)
+    return templates.TemplateResponse(request, "entry_scenario.html", {
+        "case": case, "sets": (case.get("scenarios") or {}).get("sets", []),
+        "fields": sorted(bs.SCENARIO_ALLOWED_FIELDS), "preview": rows, "form_vals": new_set,
+        "error": None,
+    })
+
+
+@app.post("/entry/scenario/{case_id}/save")
+async def scenario_save(request: Request, case_id: str):
+    case = _full_case_or_404(case_id)
+    form = await request.form()
+    new_set = _parse_scenario_set(form)
+    if not new_set["assumptions"]:
+        raise HTTPException(400, detail="변경 필드가 하나도 없다 — 화이트리스트 필드 중 최소 1개 기입")
+    _, trial = _scenario_rows_or_400(case, new_set)  # 검증 통과분만 저장
+    _save_case(trial)
+    return RedirectResponse(f"/entry/scenario/{case_id}?saved=1", status_code=303)

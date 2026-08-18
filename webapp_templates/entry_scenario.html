@@ -1,0 +1,63 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}시나리오 기입 — {{ case.case_id }}{% endblock %}
+{% block main %}
+  {% set v = form_vals or {"name": "", "assumptions": {}, "note": ""} %}
+  <div class="top"><h1>④ 시나리오 가정 채택 — {{ case.title }}</h1></div>
+  <div class="subtitle">화이트리스트 필드만 허용(물리·구조 입력은 다른 케이스) · 근거 필수 · 검증과 재계산은 전부 build_site.scenario_rows(엔진)</div>
+  {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — scenarios.sets에 세트 추가. 통합보고서 다단 표 반영은 "엔진 재계산" 실행</div>{% endif %}
+  <div style="display:flex; gap:14px; align-items:flex-start">
+    <div class="card" style="width:420px; flex-shrink:0">
+      <form method="post" action="/entry/scenario/{{ case.case_id }}/preview">
+        <label>세트 이름 <span class="req">*</span></label>
+        <input type="text" name="name" value="{{ v.name }}" placeholder="예: Best / Worst / 수경통계-보수적">
+        {% for f in fields %}
+        <label>{{ f }} <span style="color:var(--mut)">(비우면 원값 유지)</span></label>
+        <input type="text" name="{{ f }}" value="{{ v.assumptions.get(f, '') }}" placeholder="케이스 원값: {{ case.input.get(f, '—') }}">
+        {% endfor %}
+        <label>근거 (note — 출처 필수) <span class="req">*</span></label>
+        <textarea name="note" placeholder="예: 단가 2,936 = 농진청 소득자료집 2024판 p46 시설토마토(수경) 2024 농가수취단가 — 근거팩 표 1-2 참조">{{ v.note }}</textarea>
+        <div class="hint">근거팩: 시나리오_가정값_근거팩_토마토.md (2019~2024 전국 + 강원·충남 지역표) — 어느 값을 쓸지는 컨설턴트 판단</div>
+        <div style="display:flex; gap:8px; margin-top:14px">
+          <button type="submit">엔진 미리보기 (저장 안 함)</button>
+          <button type="submit" class="btn-primary" formaction="/entry/scenario/{{ case.case_id }}/save">케이스에 반영 (세트 추가)</button>
+        </div>
+      </form>
+    </div>
+    <div style="flex:1; min-width:0">
+      {% if sets %}
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-weight:500; margin-bottom:6px">기존 세트 {{ sets | length }}건</div>
+        {% for s in sets %}
+        <div style="font-size:13px; padding:6px 0; border-bottom:1px solid #EFEFEA">
+          <b>{{ s.name }}</b> — {{ s.assumptions | tojson }} <span style="color:var(--mut)">{{ s.note[:60] }}…</span>
+        </div>
+        {% endfor %}
+        <p class="note">세트 수정·삭제는 케이스 JSON 직접 편집(가공값 방지를 위해 웹에서는 추가만)</p>
+      </div>
+      {% endif %}
+      {% if preview %}
+      <div class="card">
+        <div style="font-weight:500; margin-bottom:8px">엔진 미리보기 — Base + 기존 세트 + 새 세트</div>
+        <table>
+          <thead><tr><th>시나리오</th><th>가정(변경 필드)</th><th class="num">ROI</th><th class="num">Payback</th><th class="num">NPV</th></tr></thead>
+          <tbody>
+          {% for r in preview %}
+          <tr>
+            <td style="font-weight:500">{{ r.name }}</td>
+            <td style="font-size:12px">{% for k, val in r.assumptions.items() %}{{ k }}={{ "{:,}".format(val) if val is number else val }} {% else %}원값{% endfor %}</td>
+            <td class="num">{{ "%.1f" | format(r.res.economics.roi * 100) }}%</td>
+            <td class="num">{{ "%.1f년" | format(r.res.economics.payback) if r.res.economics.payback else "—" }}</td>
+            <td class="num">{{ "{:,.2f}억".format(r.res.economics.npv / 100000000) }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <p class="note">전 행이 scenario_rows(엔진 전지표 재호출) 반환값 그대로 — 적자 시나리오의 IRR은 통합보고서에서 "산출불가(적자)"로 표기된다</p>
+      </div>
+      {% else %}
+      <div class="card" style="color:var(--mut); font-size:13px">폼을 채우고 "엔진 미리보기"를 누르면 Base + 새 세트의 KPI가 여기 표시된다. 화이트리스트 밖 필드·근거 누락은 엔진 검증이 거부한다.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

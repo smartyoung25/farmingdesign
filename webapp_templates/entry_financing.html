@@ -1,0 +1,55 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}financing 기입 — {{ case.case_id }}{% endblock %}
+{% block main %}
+  {% set v = form_vals or fin %}
+  <div class="top"><h1>① financing 실조건 기입 — {{ case.title }}</h1></div>
+  <div class="subtitle">약정서·공고문의 실제 값만 기입한다(가공값 금지) — 검증·상환표 계산은 엔진 loan_amortization이 수행</div>
+  {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — 케이스 JSON에 financing 블록 기록. 통합보고서 반영은 "엔진 재계산" 실행</div>{% endif %}
+  <div style="display:flex; gap:14px; align-items:flex-start">
+    <div class="card" style="width:420px; flex-shrink:0">
+      <form method="post" action="/entry/financing/{{ case.case_id }}/preview" id="finform">
+        <label>대출 원금 (loan_principal_won, 원) <span class="req">*</span></label>
+        <input type="text" name="loan_principal_won" value="{{ v.loan_principal_won or '' }}" placeholder="예: 300000000">
+        <label>연 이율 (annual_rate_pct, %) <span class="req">*</span></label>
+        <input type="text" name="annual_rate_pct" value="{{ v.annual_rate_pct if v.annual_rate_pct is not none else '' }}" placeholder="예: 1.5 — 변동금리면 약정 시점 값">
+        <label>전체 기간 (term_years, 년 — 거치 포함) <span class="req">*</span></label>
+        <input type="text" name="term_years" value="{{ v.term_years or '' }}" placeholder="예: 25">
+        <label>거치 기간 (grace_years, 년)</label>
+        <input type="text" name="grace_years" value="{{ v.grace_years or '' }}" placeholder="없으면 비움(0)">
+        <label>상환 방식 <span class="req">*</span></label>
+        <select name="method">
+          <option value="원리금균등" {% if v.method == "원리금균등" %}selected{% endif %}>원리금균등</option>
+          <option value="원금균등" {% if v.method == "원금균등" %}selected{% endif %}>원금균등</option>
+        </select>
+        <label>근거 (note — 출처·기준일 필수: 약정서/공고명·일자·조항) <span class="req">*</span></label>
+        <textarea name="note" placeholder="예: ○○농협 시설자금 대출약정서(2026-08-XX) 제3조 — 변동금리 연 1회 조정">{{ v.note or '' }}</textarea>
+        <div class="hint">저장 시 note가 비어 있으면 거부된다 — 출처 없는 실조건 저장 금지</div>
+        <div style="display:flex; gap:8px; margin-top:14px">
+          <button type="submit">엔진 미리보기 (저장 안 함)</button>
+          <button type="submit" class="btn-primary" formaction="/entry/financing/{{ case.case_id }}/save">케이스에 반영 (근거 포함 저장)</button>
+        </div>
+      </form>
+    </div>
+    <div style="flex:1; min-width:0">
+      {% if preview %}
+      <div class="card">
+        <div style="font-weight:500; margin-bottom:8px">상환표 미리보기 — {{ preview["방식"] }}, 연 {{ preview["연이율_pct"] }}% · {{ preview["전체기간_년"] }}년{% if preview["거치기간_년"] %} · 거치 {{ preview["거치기간_년"] }}년{% endif %}</div>
+        <table>
+          <thead><tr><th class="num">연차</th><th>구분</th><th class="num">원금(원)</th><th class="num">이자(원)</th><th class="num">납입액(원)</th><th class="num">잔액(원)</th></tr></thead>
+          <tbody>
+          {% for row in preview.rows %}
+          <tr><td class="num">{{ row["연차"] }}</td><td>{{ row["구분"] }}</td>
+              <td class="num">{{ "{:,.0f}".format(row["원금"]) }}</td><td class="num">{{ "{:,.0f}".format(row["이자"]) }}</td>
+              <td class="num">{{ "{:,.0f}".format(row["납입액"]) }}</td><td class="num">{{ "{:,.0f}".format(row["잔액"]) }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <p class="note">총이자 {{ "{:,.0f}".format(preview["총이자"]) }}원 · 총납입액 {{ "{:,.0f}".format(preview["총납입액"]) }}원 — 전 행이 엔진 loan_amortization 반환값 그대로</p>
+      </div>
+      {% else %}
+      <div class="card" style="color:var(--mut); font-size:13px">왼쪽 폼을 채우고 "엔진 미리보기"를 누르면 연차별 상환표가 여기 표시된다. 저장 전 반드시 미리보기로 확인할 것(financing_미리보기.py와 동일 엔진 경로).</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

@@ -1,80 +1,27 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>스마트팜 컨설팅 콘솔 — 케이스</title>
-<style>
-  :root { --green:#0F6E56; --green-soft:#EAF1EE; --ink:#1A1A18; --sub:#6B6B66; --mut:#9B9B94;
-          --line:#E7E7E3; --bg:#FAFAF8; --card:#FFFFFF; }
-  * { box-sizing:border-box; margin:0; }
-  body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; background:var(--bg); color:var(--ink);
-         display:flex; min-height:100vh; }
-  aside { width:232px; background:var(--card); border-right:1px solid var(--line);
-          padding:20px 12px 16px; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
-  .logo { display:flex; align-items:center; gap:8px; padding:0 12px 12px; font-weight:500; font-size:15px; }
-  .logo .mark { width:22px; height:22px; border-radius:6px; background:#1D9E75; }
-  .navlabel { font-size:11px; color:var(--mut); padding:14px 12px 4px; }
-  .nav { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px;
-         font-size:14px; color:#55554F; text-decoration:none; }
-  .nav .dot { width:6px; height:6px; border-radius:50%; background:#B4B2A9; }
-  .nav.active { background:var(--green-soft); color:#0F3D2E; font-weight:500; }
-  .nav.active .dot { background:#1D9E75; }
-  .nav.soon { color:#B4B2A9; } .nav.soon em { font-style:normal; font-size:10px; border:1px solid var(--line);
-         border-radius:8px; padding:1px 6px; margin-left:auto; }
-  .foot { margin-top:auto; padding:10px 12px 0; font-size:11px; color:var(--sub); }
-  main { flex:1; min-width:0; padding:24px 28px; }
-  .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-  .top h1 { font-size:19px; font-weight:500; }
-  .actions { display:flex; gap:8px; }
-  button, .btn { font:inherit; font-size:13px; font-weight:500; padding:8px 14px; border-radius:8px;
-         border:1px solid #D9D9D4; background:var(--card); color:#3A3A36; cursor:pointer; text-decoration:none; }
-  .btn-primary { background:var(--green); border-color:var(--green); color:#fff; }
-  .banner { background:#FAEEDA; color:#633806; border-radius:10px; padding:10px 16px;
-            font-size:13px; font-weight:500; margin-bottom:16px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; margin-bottom:12px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px;
-          text-decoration:none; color:inherit; display:block; }
-  .card:hover { border-color:#B4B2A9; }
-  .card h2 { font-size:15px; font-weight:500; margin-bottom:6px; }
-  .card .meta { font-size:12px; color:var(--sub); margin-bottom:10px; }
-  .card .row { display:flex; align-items:center; gap:8px; }
-  .card .kpi { font-size:13px; font-weight:500; color:var(--green); }
-  .chip { font-size:11px; padding:2px 9px; border-radius:10px; margin-left:auto; white-space:nowrap; }
-  .chip-measured { background:#E1F5EE; color:#085041; }
-  .chip-statutory { background:#E6F1FB; color:#0C447C; }
-  .chip-ref { background:#F1EFE8; color:#444441; }
-  .chip-est { background:#FAEEDA; color:#633806; }
-  .chip-warn { background:#FCEBEB; color:#791F1F; }
-  .note { font-size:11.5px; color:var(--mut); margin-top:16px; }
-  h3.sec { font-size:13px; color:var(--sub); font-weight:500; margin:18px 0 8px; }
-</style>
-</head>
-<body>
-<aside>
-  <div class="logo"><span class="mark"></span>스마트팜 컨설팅</div>
-  <div class="navlabel">작업</div>
-  <a class="nav active" href="/"><span class="dot"></span>케이스</a>
-  {% for q in quote_pages %}
-  <a class="nav" href="/pages/{{ q }}"><span class="dot"></span>{{ q | replace("SmartFarm_견적비교_", "견적비교 — ") | replace(".html", "") }}</a>
-  {% endfor %}
-  <span class="nav soon"><span class="dot"></span>기입 워크플로<em>2단계 예정</em></span>
-  <div class="navlabel">참조</div>
-  <a class="nav" href="/pages/SmartFarm_근거대장.html"><span class="dot"></span>근거대장</a>
-  <a class="nav" href="/pages/SmartFarm_벤치마크비교.html"><span class="dot"></span>벤치마크</a>
-  <a class="nav" href="/pages/SmartFarm_CAPEX분해.html"><span class="dot"></span>CAPEX 분해</a>
-  <a class="nav" href="/pages/SmartFarm_케이스비교.html"><span class="dot"></span>케이스 비교뷰</a>
-  <a class="nav" href="/pages/index.html"><span class="dot"></span>정적 사이트(index)</a>
-  <div class="foot">근거대장 상수 {{ n_constants }}건 · 계산은 전부 엔진(smartfarm_engine)</div>
-</aside>
-<main>
+{% extends "_base.html" %}
+{% set active = "cases" %}
+{% block title %}스마트팜 컨설팅 콘솔 — 케이스{% endblock %}
+{% block foot %}근거대장 상수 {{ n_constants }}건 · 계산은 전부 엔진(smartfarm_engine){% endblock %}
+{% block main %}
+  <style>
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; margin-bottom:12px; }
+    a.card { text-decoration:none; color:inherit; display:block; }
+    a.card:hover { border-color:#B4B2A9; }
+    .card h2 { font-size:15px; font-weight:500; margin-bottom:6px; }
+    .card .meta { font-size:12px; color:var(--sub); margin-bottom:10px; }
+    .card .row { display:flex; align-items:center; gap:8px; }
+    .card .kpi { font-size:13px; font-weight:500; color:var(--green); }
+    .card .chip { margin-left:auto; }
+    h3.sec { font-size:13px; color:var(--sub); font-weight:500; margin:18px 0 8px; }
+  </style>
   <div class="top">
     <h1>케이스</h1>
     <div class="actions">
       <form method="post" action="/rebuild" style="display:inline"><button type="submit">엔진 재계산(사이트 재생성)</button></form>
-      <span class="btn btn-primary" title="2단계(기입 워크플로)에서 활성화">+ 새 케이스 (2단계)</span>
+      <a class="btn btn-primary" href="/entry">기입 워크플로 →</a>
     </div>
   </div>
+  <div class="subtitle">카드 수치는 요청 시점 엔진 실계산 · 칩은 provenance status 그대로</div>
   {% if waits %}<div class="banner">데이터 대기 {{ waits | length }}건 — {{ waits | join(" · ") }}</div>{% endif %}
   <div class="grid">
     {% for c in full_cards %}
@@ -96,6 +43,4 @@
     {% endfor %}
   </div>
   <p class="note">이 콘솔의 모든 수치는 엔진 호출 결과의 표시 전용이다(앱 내 재계산 없음) · 보고서는 build_site 산출물을 그대로 서빙 · 판정·추천 없음(케이스 나열은 로더 순서)</p>
-</main>
-</body>
-</html>
+{% endblock %}

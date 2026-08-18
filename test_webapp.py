@@ -64,3 +64,92 @@ def test_partial_case_links_to_partial_page():
 def test_health():
     j = client.get("/health").json()
     assert j["cases"] == len(C.load_cases()) and j["partial"] == 2
+
+
+# ── 2단계(33차): 기입 워크플로 ─────────────────────────────────────────
+
+import json
+import shutil
+from pathlib import Path
+
+
+@pytest.fixture
+def tmp_cases(tmp_path, monkeypatch):
+    """실케이스를 건드리지 않도록 wonchaewon 사본만 있는 임시 케이스 디렉터리."""
+    d = tmp_path / "cases"
+    d.mkdir()
+    shutil.copy(Path(C.CASES_DIR) / "wonchaewon.json", d / "wonchaewon.json")
+    monkeypatch.setattr(C, "CASES_DIR", str(d))
+    return d
+
+
+def test_entry_hub_lists_full_cases_only():
+    r = client.get("/entry")
+    assert r.status_code == 200
+    assert "원채원" in r.text and "물향기" not in r.text  # 부분 케이스는 기입 대상 아님
+    assert "폼 열기" in r.text
+
+
+def test_financing_preview_matches_engine():
+    import smartfarm_engine as e
+    form = {"loan_principal_won": "300000000", "annual_rate_pct": "1.5",
+            "term_years": "25", "grace_years": "5", "method": "원리금균등",
+            "note": "합성 예시(테스트)"}
+    r = client.post("/entry/financing/wonchaewon/preview", data=form)
+    assert r.status_code == 200
+    am = e.loan_amortization(300_000_000, 1.5, 25, 5, "원리금균등")
+    assert f"{am['총이자']:,.0f}" in r.text  # 상환표 수치 = 엔진 반환값 그대로
+    assert "거치 5년" in r.text
+
+
+def test_financing_engine_validation_surfaces():
+    # 거치 ≥ 전체기간은 엔진 ValueError → 400으로 그대로 노출(제2 검증기 없음)
+    form = {"loan_principal_won": "1000000", "annual_rate_pct": "2",
+            "term_years": "5", "grace_years": "5", "method": "원리금균등", "note": "x"}
+    r = client.post("/entry/financing/wonchaewon/preview", data=form)
+    assert r.status_code == 400
+
+
+def test_financing_save_requires_note_and_writes_case(tmp_cases):
+    form = {"loan_principal_won": "100000000", "annual_rate_pct": "0",
+            "term_years": "5", "grace_years": "", "method": "원리금균등", "note": ""}
+    assert client.post("/entry/financing/wonchaewon/save", data=form).status_code == 400  # 출처 없음
+    form["note"] = "테스트 약정서(합성) — 출처 형식 예시"
+    r = client.post("/entry/financing/wonchaewon/save", data=form, follow_redirects=False)
+    assert r.status_code == 303
+    saved = json.loads((tmp_cases / "wonchaewon.json").read_text(encoding="utf-8"))
+    assert saved["financing"]["loan_principal_won"] == 100_000_000
+    assert saved["financing"]["note"].startswith("테스트 약정서")
+    # 저장되면 홈 배너의 대기 ①이 사라진다(데이터 도출 배너의 증거)
+    assert "약정서" not in client.get("/").text.split("데이터 대기")[1][:300]
+
+
+def test_scenario_whitelist_rejected_via_engine():
+    form = {"name": "불량", "note": "x", "area_m2": "9999"}  # 물리 입력은 화이트리스트 밖
+    r = client.post("/entry/scenario/wonchaewon/preview", data=form)
+    assert r.status_code == 400 or "허용되지 않는" not in r.text  # 폼에 없는 필드는 무시됨
+    # 화이트리스트 필드가 하나도 없으면 저장 거부
+    r2 = client.post("/entry/scenario/wonchaewon/save", data={"name": "빈세트", "note": "x"})
+    assert r2.status_code == 400
+
+
+def test_scenario_preview_and_save_match_engine(tmp_cases):
+    import build_site as bs
+    import render_report as rr
+    form = {"name": "Best(테스트)", "price_won_per_kg": "2936",
+            "note": "농진청 소득자료집 2024판 p46 시설토마토(수경) 2024 농가수취단가(테스트 기입)"}
+    r = client.post("/entry/scenario/wonchaewon/preview", data=form)
+    assert r.status_code == 200
+    # 미리보기 ROI = 엔진 재계산값
+    case = {c["case_id"]: c for c in C.load_cases()}["wonchaewon"]
+    import dataclasses
+    inp = C.case_to_input(case)
+    ec = rr.compute(dataclasses.replace(inp, price_won_per_kg=2936))["economics"]
+    assert f"{ec['roi']*100:.1f}%" in r.text
+    # 저장 → 세트가 케이스에 추가되고 scenario_rows가 그대로 소비 가능
+    rs = client.post("/entry/scenario/wonchaewon/save", data=form, follow_redirects=False)
+    assert rs.status_code == 303
+    saved = json.loads((tmp_cases / "wonchaewon.json").read_text(encoding="utf-8"))
+    assert saved["scenarios"]["sets"][0]["assumptions"] == {"price_won_per_kg": 2936}
+    rows = bs.scenario_rows(saved, C.case_to_input(saved))
+    assert rows[1]["name"] == "Best(테스트)"

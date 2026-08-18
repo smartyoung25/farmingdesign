@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}스마트팜 컨설팅 콘솔{% endblock %}</title>
+<style>
+  :root { --green:#0F6E56; --green-soft:#EAF1EE; --ink:#1A1A18; --sub:#6B6B66; --mut:#9B9B94;
+          --line:#E7E7E3; --bg:#FAFAF8; --card:#FFFFFF; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; background:var(--bg); color:var(--ink);
+         display:flex; min-height:100vh; font-size:14px; }
+  aside { width:232px; background:var(--card); border-right:1px solid var(--line);
+          padding:20px 12px 16px; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+  .logo { display:flex; align-items:center; gap:8px; padding:0 12px 12px; font-weight:500; font-size:15px; }
+  .logo .mark { width:22px; height:22px; border-radius:6px; background:#1D9E75; }
+  .navlabel { font-size:11px; color:var(--mut); padding:14px 12px 4px; }
+  .nav { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px;
+         font-size:14px; color:#55554F; text-decoration:none; }
+  .nav .dot { width:6px; height:6px; border-radius:50%; background:#B4B2A9; flex-shrink:0; }
+  .nav.active { background:var(--green-soft); color:#0F3D2E; font-weight:500; }
+  .nav.active .dot { background:#1D9E75; }
+  .foot { margin-top:auto; padding:10px 12px 0; font-size:11px; color:var(--sub); }
+  main { flex:1; min-width:0; padding:24px 28px; max-width:1100px; }
+  .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .top h1 { font-size:19px; font-weight:500; }
+  .subtitle { font-size:12.5px; color:var(--sub); margin-bottom:16px; }
+  .actions { display:flex; gap:8px; }
+  button, .btn { font:inherit; font-size:13px; font-weight:500; padding:8px 14px; border-radius:8px;
+         border:1px solid #D9D9D4; background:var(--card); color:#3A3A36; cursor:pointer; text-decoration:none; display:inline-block; }
+  .btn-primary { background:var(--green); border-color:var(--green); color:#fff; }
+  .banner { background:#FAEEDA; color:#633806; border-radius:10px; padding:10px 16px;
+            font-size:13px; font-weight:500; margin-bottom:16px; }
+  .banner.ok { background:#E1F5EE; color:#085041; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .chip { font-size:11px; padding:2px 9px; border-radius:10px; white-space:nowrap; }
+  .chip-measured { background:#E1F5EE; color:#085041; }
+  .chip-statutory { background:#E6F1FB; color:#0C447C; }
+  .chip-ref { background:#F1EFE8; color:#444441; }
+  .chip-est { background:#FAEEDA; color:#633806; }
+  .chip-warn { background:#FCEBEB; color:#791F1F; }
+  .note { font-size:11.5px; color:var(--mut); margin-top:16px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:var(--mut); font-weight:500; font-size:12px; padding:6px 8px; border-bottom:1px solid var(--line); }
+  td { padding:7px 8px; border-bottom:1px solid #EFEFEA; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  label { display:block; font-size:12px; color:var(--sub); margin:10px 0 4px; }
+  input[type=text], select, textarea { width:100%; font:inherit; font-size:13px; padding:8px 12px;
+         border:1px solid #D9D9D4; border-radius:8px; background:var(--card); }
+  textarea { min-height:64px; resize:vertical; }
+  .req { color:#A32D2D; }
+  .hint { font-size:11.5px; color:var(--green); margin-top:3px; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><span class="mark"></span>스마트팜 컨설팅</div>
+  <div class="navlabel">작업</div>
+  <a class="nav {% if active == 'cases' %}active{% endif %}" href="/"><span class="dot"></span>케이스</a>
+  <a class="nav {% if active == 'entry' %}active{% endif %}" href="/entry"><span class="dot"></span>기입 워크플로</a>
+  {% for q in quote_pages | default([]) %}
+  <a class="nav" href="/pages/{{ q }}"><span class="dot"></span>{{ q | replace("SmartFarm_견적비교_", "견적비교 — ") | replace(".html", "") }}</a>
+  {% endfor %}
+  <div class="navlabel">참조</div>
+  <a class="nav" href="/pages/SmartFarm_근거대장.html"><span class="dot"></span>근거대장</a>
+  <a class="nav" href="/pages/SmartFarm_벤치마크비교.html"><span class="dot"></span>벤치마크</a>
+  <a class="nav" href="/pages/SmartFarm_CAPEX분해.html"><span class="dot"></span>CAPEX 분해</a>
+  <a class="nav" href="/pages/SmartFarm_케이스비교.html"><span class="dot"></span>케이스 비교뷰</a>
+  <a class="nav" href="/pages/index.html"><span class="dot"></span>정적 사이트(index)</a>
+  <div class="foot">{% block foot %}계산은 전부 엔진(smartfarm_engine) — 앱 내 산술 없음{% endblock %}</div>
+</aside>
+<main>
+{% block main %}{% endblock %}
+</main>
+</body>
+</html>
