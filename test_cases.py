@@ -470,6 +470,31 @@ def test_yonggyun_design_budget_pdf_matches_case():
     assert sum(case["construction"]["trades_material_won"].values()) == 318_929_987
 
 
+def test_capex_twin_pdf_anchor_cells_match_source():
+    # 59차: 백가은·조윤정 쌍 견적 앵커 — 두 PDF의 집계표·원가계산서 핵심 셀이 동일
+    # 값임을 각각 확인(통합 1건 편입의 근거: 쌍 동일성)하고, 명시 분리 라인·환급
+    # 총괄·절사 라벨 불일치의 원문 근거를 고정.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    files = ("논산딸기백가은님75각 시공 견적서(최종).pdf",
+             "논산딸기조윤정님75각 외몽골셀액분리(최종).pdf")
+    for fname in files:
+        pdf_path = os.path.join(_REPO, "스마트팜스펙", "견적참조", fname)
+        with pdfplumber.open(pdf_path) as pdf:
+            head = "".join((p.extract_text() or "") for p in pdf.pages[1:4]).replace(" ", "")
+            tail = (pdf.pages[22].extract_text() or "").replace(" ", "")
+        # 원가계산서(p2)·집계표(p3): known_total 구성 — 두 파일 모두 동일 값(쌍 동일성)
+        for anchor in ("286,680,383", "100,648,000", "11,300,000", "398,628,383",
+                       "466,000,000", "423,994,311"):
+            assert anchor in head, (fname, anchor)
+        # 환급/비환급 총괄(p23) — 라인 단위 환급 구분 표본의 총괄 셀
+        for anchor in ("195,448,500", "203,179,883"):
+            assert anchor in tail, (fname, anchor)
+    assert 286_680_383 + 100_648_000 + 11_300_000 == 398_628_383
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["백가은·조윤정"]["auto_opening_system"] == 63_365_600
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
@@ -485,7 +510,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 55차: 맹주연 표본 7호 승격으로 26→28(CASE_CHUNKS·KNOWN_TOTALS에 각 1건)
     # 56차: 강정구 표본 8호 승격으로 28→30(동일 2상수에 각 1건)
     # 57차: 오기수 표본 9호 승격으로 30→32(동일 2상수에 각 1건)
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 32
+    # 59차: 백가은·조윤정 통합 표본으로 32→35(CASE_CHUNKS에 쌍 2건+KNOWN_TOTALS 1건)
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 35
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
