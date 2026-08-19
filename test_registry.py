@@ -205,3 +205,45 @@ def test_spec_table_matches_registry():
             s.registered_year, s.developer, s.crop, s.rafter_spec] for s in e.SPEC_TABLE]
     assert eng == C["SPEC_TABLE"]["value"]
     assert len(e.SPEC_TABLE) == 249
+
+
+def test_heating_constants_registry_sync():
+    """72차 신규 4건의 엔진↔레지스트리 드리프트 가드(16회차 F2).
+
+    근거대장이 "값은 엔진과 자동 대조"라고 렌더하는데 이 4건만 그 대조 밖에
+    있었다 — 사용자향 진술과 실제가 어긋나던 지점이라 여기서 메운다.
+    """
+    C = REG["constants"]
+    assert C["FUEL_HHV"]["value"] == e.FUEL_HHV
+    assert C["HEATING_EFFICIENCY_DEFAULT"]["value"] == e.HEATING_EFFICIENCY_DEFAULT
+    assert C["DEGREE_HOURS_DEFAULT"]["value"] == e.DEGREE_HOURS_DEFAULT
+    assert C["HEATING_SAFETY_FACTOR"]["value"] == e.HEATING_SAFETY_FACTOR
+    # 승격의 요점: 함수 기본인자가 상수를 참조해야 한 곳만 고치면 된다
+    import inspect
+    sig = inspect.signature(e.heating_load)
+    assert sig.parameters["efficiency"].default == e.HEATING_EFFICIENCY_DEFAULT
+    assert sig.parameters["degree_hours"].default == e.DEGREE_HOURS_DEFAULT
+    assert sig.parameters["safety"].default == e.HEATING_SAFETY_FACTOR
+
+
+def test_fuel_hhv_is_declared_unused_in_calculation():
+    """FUEL_HHV가 '현재 계산에 미사용'이라는 주석·레지스트리 진술을 코드로 고정한다.
+
+    12회차 F2 교훈: "미사용"이라는 단정은 코드로 확인돼야 한다. 72차는 HHV 조합으로
+    바꿨다가 16회차 F1 반박으로 되돌렸으므로, 되돌림 상태가 유지되는지 여기서 지킨다.
+    누가 다시 HHV로 바꾸면 이 테스트가 먼저 깨진다 — 그때는 근거를 갖춰 이 테스트를
+    함께 고치는 것이 절차다.
+    """
+    r = e.heating_load(surface_area_m2=1000, cover="필름", t_target=15,
+                       t_min=-10, fr=0.5, fuel="등유")
+    period_load = e.DEGREE_HOURS_DEFAULT * e.U_VALUE["필름"] * 0.5 * 1000
+    lhv_based = period_load / (e.FUEL_LHV["등유"] * e.HEATING_EFFICIENCY_DEFAULT)
+    hhv_based = period_load / (e.FUEL_HHV["등유"] * e.HEATING_EFFICIENCY_DEFAULT)
+    assert abs(r.fuel_consumption - lhv_based) < 1e-9, "순발열량 조합이어야 한다(16회차 F1)"
+    assert abs(r.fuel_consumption - hhv_based) > 1.0, "총발열량 조합과 구별돼야 한다"
+    # 두 표의 키가 어긋나면 미등록 연료 가드가 새므로 함께 고정(16회차 F10)
+    assert set(e.FUEL_HHV) == set(e.FUEL_LHV)
+    import pytest
+    with pytest.raises(ValueError):
+        e.heating_load(surface_area_m2=100, cover="필름", t_target=15,
+                       t_min=-10, fr=0.5, fuel="도시가스")

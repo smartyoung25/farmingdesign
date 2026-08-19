@@ -577,6 +577,37 @@ def curtain_exposure_ratio(curtain: str) -> float:
 FUEL_LHV = {"등유": 8150, "경유": 8420, "B-C유": 9390,
             "LPG프로판": 11040, "LNG": 11800, "전기": 860}
 
+# 연료 총발열량 (kcal/단위) - 같은 별표의 총발열량 열
+# 📌 신설·보류(2026-08-20 72차): 14회차 F4의 "efficiency의 발열량 기준 미상" 문제를
+#   풀려고 도입했다. 72차 중반에 fuel_use를 이 표와 짝짓도록 바꿨으나 **레드팀 16회차
+#   F1의 반박으로 계산을 순발열량 조합으로 되돌렸다**(사용자 결정). 반박 요지:
+#   ①근거로 삼은 산업부 고시「고효율에너지기자재 보급촉진에 관한 규정」의 "열효율 표시는
+#   총발열량을 기준으로" 각주는 **가스식 응축(콘덴싱) 보일러 표**에 붙은 것이고, 이 엔진의
+#   대상은 리포 원출처가 명시하듯 **등유 온풍난방기**(비응축)다 — 범주를 넘은 일반화였다.
+#   ②물리적 개연성이 반대다: 0.85가 총발열량 기준이면 순발열량 환산 **91.2%**(비응축
+#   기기가 배기 현열손실 8.8% 이내여야 성립 — 도달 난이), 순발열량 기준이면 총발열량
+#   환산 **79.3%**(비응축 통상 대역).
+#   ⚠️ **따라서 이 상수는 현재 계산에 쓰이지 않는다** — 값 자체는 별표 원문 전사라 정확하고,
+#   0.85의 기준이 확정되면 곧바로 쓸 수 있도록 남겨 둔다. 두 조합의 차이는 등유 기준
+#   7.24%(8,740/8,150). 미사용 상태는 테스트로 고정한다(12회차 F2 교훈 — "미사용"이라는
+#   단정은 코드로 확인돼야 한다).
+#   ⚠️ 전기는 연소가 없어 총·순 구분이 성립하지 않는다 — 별표도 전기 행의 두 값이
+#   동일하다. FUEL_LHV와 같은 860(비고 5, 최종 사용자 환산)을 그대로 둔다.
+#   출처: 에너지법 시행규칙 [별표] 에너지열량 환산기준 <개정 2022.11.21.> 총발열량 열
+#   (법령_에너지법시행규칙_별표_에너지열량환산기준_20221121.pdf, 70차 확보)
+FUEL_HHV = {"등유": 8740, "경유": 9020, "B-C유": 9980,
+            "LPG프로판": 12000, "LNG": 13080, "전기": 860}
+
+# 난방 계산 기본값 3종 — 72차에 함수 기본인자에서 모듈 상수로 승격
+# ✅ 승격 이유(2026-08-20 72차): 셋 다 `heating_load()` 시그니처에 리터럴로만 있어
+#   레지스트리에 등재되지 않았고, 그래서 대조가능성 감사 게이트의 검사 대상에서 통째로
+#   빠져 있었다(71차 "미검증 0건"은 레지스트리 안쪽만의 이야기였다). 값을 바꾸지 않고
+#   자리만 옮겨 근거 표기 체계 안으로 들여왔다.
+# ⚠️ 세 값 모두 원출처 미확보 — 아래 status는 레지스트리에 정직하게 기재했다.
+HEATING_EFFICIENCY_DEFAULT = 0.85   # 난방기 열효율 [확인요망] — 원출처 미상, HHV 기준 가정
+DEGREE_HOURS_DEFAULT = 10098.0      # 난방 디그리아워 [추정] — A-5 예시값(지역 실측 아님)
+HEATING_SAFETY_FACTOR = 1.1         # 설비용량 안전율 [추정] — 원출처 미상
+
 
 @dataclass
 class HeatingResult:
@@ -588,8 +619,10 @@ class HeatingResult:
 
 
 def heating_load(surface_area_m2: float, cover: str, t_target: float,
-                 t_min: float, fr: Optional[float] = None, safety: float = 1.1,
-                 degree_hours: float = 10098.0, efficiency: float = 0.85,
+                 t_min: float, fr: Optional[float] = None,
+                 safety: float = HEATING_SAFETY_FACTOR,
+                 degree_hours: float = DEGREE_HOURS_DEFAULT,
+                 efficiency: float = HEATING_EFFICIENCY_DEFAULT,
                  fuel: str = "등유", floor_area_m2: Optional[float] = None,
                  u_design: Optional[float] = None, u_period: Optional[float] = None,
                  curtain: Optional[str] = None) -> HeatingResult:
@@ -623,11 +656,22 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
     max_load = surface_area_m2 * u_d * dt * fr
     heater = max_load * safety
     period_load = degree_hours * u_p * fr * surface_area_m2  # 기간난방부하 근사
-    if fuel not in FUEL_LHV:
+    # 16회차 F10: 가드는 두 표 모두를 본다 — 한쪽만 연료가 추가되면 여기서 잡힌다
+    # (14회차 F5의 도시가스 추가 같은 후속 작업에서 KeyError가 새지 않도록).
+    if fuel not in FUEL_LHV or fuel not in FUEL_HHV:
         # 14회차 F3: 종전 폴백 8170은 현행 별표에서 등유가 아니라 석유코크스 값이라
         # 어느 연료와도 연결되지 않는 고아 숫자였고, 오타·미등록 연료가 경고 없이
         # 계산되던 경로였다 — curtain_exposure_ratio와 같은 방식으로 거부한다.
         raise ValueError(f"'{fuel}'은 FUEL_LHV에 없는 연료다 (선택: {list(FUEL_LHV)})")
+    # ⚠️ 발열량 기준 미해결(72차 결론): 이 식은 리포 원출처(시설평가/20230627_스마트팜
+    # 시설의 구조와 이해_김평화(제공).pdf p.49)의 "난방연료소비량 = 기간난방부하 /
+    # (연료발열량 × 난방장치 열이용효율)"을 그대로 구현한 것인데, 원문이 "연료발열량"
+    # 이라고만 해 총발열량인지 순발열량인지 특정하지 않는다. 72차에 총발열량 조합으로
+    # 바꿨다가 **레드팀 16회차 F1의 반박으로 되돌렸다** — 근거로 삼았던 고시 각주가
+    # 가스식 응축보일러 표에 붙은 것이었고(이 시스템 대상은 등유 온풍난방기), 물리적
+    # 개연성도 순발열량 쪽이다: 0.85가 총발열량 기준이면 순발열량 환산 91.2%로 비응축
+    # 기기엔 도달 난이하나, 순발열량 기준이면 총발열량 환산 79.3%로 통상 대역이다.
+    # 두 조합의 차이는 등유 기준 7.24%다(FUEL_HHV 상수로 언제든 대조 가능).
     lhv = FUEL_LHV[fuel]
     fuel_use = period_load / (lhv * efficiency)
     denom = floor_area_m2 or surface_area_m2
@@ -1867,8 +1911,9 @@ def generate_rfq_package(region_snow_cm: float, region_wind_ms: float,
                          t_target: float, t_min: float,
                          fr: Optional[float] = None,
                          surface_area_m2: Optional[float] = None,
-                         safety: float = 1.1, degree_hours: float = 10098.0,
-                         efficiency: float = 0.85, fuel: str = "등유",
+                         safety: float = HEATING_SAFETY_FACTOR,
+                         degree_hours: float = DEGREE_HOURS_DEFAULT,
+                         efficiency: float = HEATING_EFFICIENCY_DEFAULT, fuel: str = "등유",
                          required_categories: Optional[list] = None,
                          curtain: Optional[str] = None,
                          crop: Optional[str] = None) -> RfqPackage:

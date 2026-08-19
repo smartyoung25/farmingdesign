@@ -634,7 +634,13 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       근거 물량 부풀림 방지 위해 source_refs 미등재, 14회차 F7)
     # 71차: 잔여 미검증 3건 재조사로 42→44(FINANCE_DEFAULTS 별표5 partial +
     #       SUBSIDY 농식품부 시행계획 원문). 이 차수로 status "미검증"은 0건이 된다.
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 44
+    # 72차: 32→36 — FUEL_HHV 신설 + 난방 기본값 3종(효율·디그리아워·안전율)을 함수
+    #       리터럴에서 상수로 승격해 등재. 71차의 "미검증 0건"은 레지스트리 안쪽만의
+    #       이야기였고, 이 3건은 애초에 감사 대상이 아니었다는 공백을 메운 것.
+    #       refs 44→48(별표 총발열량 · 고시 발췌 · 식 원출처 PDF · 근거 보존본).
+    #       16회차 F3·F9 반영 — 1차 원문(고시 발췌·김평화 p.49)이 refs에 빠져 있어
+    #       원문 소실 검사 대상 밖이던 것을 등재했다.
+    assert a["counts"]["registry_constants"] == 36 and a["counts"]["source_refs"] == 48
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
@@ -880,3 +886,47 @@ def test_partial_case_mulhyangki_renders():
     assert "89,610,000" in html_out
     assert "-432,000" in html_out or "−432,000" in html_out   # 공제 항목 노출
     assert "ROI" not in html_out                              # 4축 미산출 유지
+
+
+def test_fuel_hhv_matches_energy_law_gross_column():
+    # 72차: FUEL_HHV = 에너지법 시행규칙 [별표] **총발열량 열**(현행 2022.11.21.).
+    # FUEL_LHV(순발열량)와 같은 원문에서 왔으므로 같은 PDF로 검증한다 —
+    # 두 상수가 서로 다른 열을 정확히 참조하는지가 이 테스트의 요점이다.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "법령_에너지법시행규칙_별표_에너지열량환산기준_20221121.pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        t = (pdf.pages[0].extract_text() or "")
+    # 각 행: 단위 · 총발열량(MJ kcal toe) · 순발열량(MJ kcal toe) 순 — HHV가 LHV보다 앞
+    for fuel, hhv, lhv, key in (("등유", "8,740", "8,150", "등유"),
+                                ("경유", "9,020", "8,420", "경유"),
+                                ("B-C유", "9,980", "9,390", "B-C유"),
+                                ("LPG프로판", "12,000", "11,040", "프로판"),
+                                ("LNG", "13,080", "11,800", "천연가스")):
+        row = next(l for l in t.splitlines() if l.strip().startswith(key))
+        assert row.index(hhv) < row.index(lhv), (fuel, "HHV가 LHV보다 앞에 와야 한다", row)
+        assert e.FUEL_HHV[fuel] == int(hhv.replace(",", ""))
+        assert e.FUEL_LHV[fuel] == int(lhv.replace(",", ""))
+        assert e.FUEL_HHV[fuel] > e.FUEL_LHV[fuel]
+    # 전기는 연소가 없어 총·순 구분이 성립하지 않는다 — 양쪽 모두 비고 5의 860
+    assert e.FUEL_HHV["전기"] == e.FUEL_LHV["전기"] == 860
+    assert set(e.FUEL_HHV) == set(e.FUEL_LHV)
+
+
+def test_heating_fuel_use_uses_net_heating_value_after_revert():
+    # 72차: 총발열량 조합으로 바꿨다가 **레드팀 16회차 F1 반박으로 되돌렸다**(사용자 결정).
+    # 반박 요지 — 근거로 삼은 고시 각주가 가스식 응축보일러 표에 붙은 것이었고(이 엔진의
+    # 대상은 등유 온풍난방기), 물리적 개연성도 순발열량 쪽이다(0.85가 총발열량 기준이면
+    # 순발열량 환산 91.2%로 비응축 기기엔 도달 난이).
+    # 이 테스트는 되돌린 상태를 고정한다. 다시 총발열량으로 가려면 근거를 갖추고
+    # 이 테스트를 함께 고쳐야 한다 — 조용히 바뀌지 않게 하는 것이 요점이다.
+    r = e.heating_load(surface_area_m2=1000, cover="필름", t_target=15,
+                       t_min=-10, fr=0.5, fuel="등유")
+    period_load = e.DEGREE_HOURS_DEFAULT * e.U_VALUE["필름"] * 0.5 * 1000
+    expected = period_load / (e.FUEL_LHV["등유"] * e.HEATING_EFFICIENCY_DEFAULT)
+    assert abs(r.fuel_consumption - expected) < 1e-6
+    # 두 조합의 차이는 등유 기준 7.24% — 기준이 확정되면 이 값만큼 움직인다
+    hhv_based = period_load / (e.FUEL_HHV["등유"] * e.HEATING_EFFICIENCY_DEFAULT)
+    assert abs(expected / hhv_based - e.FUEL_HHV["등유"] / e.FUEL_LHV["등유"]) < 1e-9
+    assert r.fuel_unit_lhv == e.FUEL_LHV["등유"]
