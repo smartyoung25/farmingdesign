@@ -286,3 +286,37 @@ def test_heater_capacity_is_output_basis_not_input():
     assert r2.heater_capacity_kcal_h == r.heater_capacity_kcal_h
     # 반면 연료소비량은 입열량 계산이라 효율에 반응해야 한다
     assert r2.fuel_consumption > r.fuel_consumption
+
+
+def test_cluster_constants_registry_sync_and_unreached():
+    """74차: 단지 경제성 기본값 2종의 등재·동기와 도달성 사실을 함께 고정한다.
+
+    16회차 F8·17회차 F1이 지적한 '함수 기본인자 미등재' 2건이다
+    ("마지막"이라 단정하지 않는다 — 17회차 F1의 교훈).
+    값 자체는 근거 미확보(추정)이며, 현재 산출물 렌더 경로에 없다 —
+    후자가 바뀌면(누가 이 함수를 보고서에 연결하면) 근거 상태를 먼저
+    올려야 하므로, 도달성 사실을 여기서 명시적으로 지킨다.
+    """
+    C = REG["constants"]
+    assert C["CLUSTER_SCALE_SAVING_RATE"]["value"] == e.CLUSTER_SCALE_SAVING_RATE
+    assert C["CLUSTER_SUBSIDY_RATE_SHARED"]["value"] == e.CLUSTER_SUBSIDY_RATE_SHARED
+    # 근거 미확보 상태를 정직하게 표기하고 있는가
+    assert C["CLUSTER_SCALE_SAVING_RATE"]["status"] == "추정"
+    assert C["CLUSTER_SUBSIDY_RATE_SHARED"]["status"] == "추정"
+    # 함수 기본값이 상수를 참조해야 한 곳만 고치면 된다(승격의 요점)
+    import inspect
+    sig = inspect.signature(e.cluster_economics)
+    assert sig.parameters["scale_saving_rate"].default == e.CLUSTER_SCALE_SAVING_RATE
+    assert sig.parameters["subsidy_rate_shared"].default == e.CLUSTER_SUBSIDY_RATE_SHARED
+    # 도달성: 산출물 생성 모듈이 이 함수를 부르지 않는다(부르게 되면 여기서 알린다)
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    # 18회차 F7: 엔진을 import하는 렌더·스크립트 계열을 모두 본다
+    for fname in ("build_site.py", "webapp.py", "render_report.py", "app.py",
+                  "run_report.py", "render_chuncheon.py", "cases.py"):
+        if not os.path.exists(os.path.join(repo, fname)):
+            continue
+        with open(os.path.join(repo, fname), encoding="utf-8") as f:
+            assert "cluster_economics" not in f.read(), (
+                f"{fname}이 cluster_economics를 쓰기 시작했다 — 값 근거(현재 추정)를 "
+                f"먼저 확보하고 이 테스트를 함께 갱신할 것")

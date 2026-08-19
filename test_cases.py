@@ -640,8 +640,12 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       refs 44→48(별표 총발열량 · 고시 발췌 · 식 원출처 PDF · 근거 보존본).
     #       16회차 F3·F9 반영 — 1차 원문(고시 발췌·김평화 p.49)이 refs에 빠져 있어
     #       원문 소실 검사 대상 밖이던 것을 등재했다.
-    # 73차: 36→37 — PYEONG_TO_M2 등재(마지막 미등재 수치 상수, refs 48→49)
-    assert a["counts"]["registry_constants"] == 37 and a["counts"]["source_refs"] == 49
+    # 73차: 36→37 — PYEONG_TO_M2 등재(refs 48→49). 17회차 F1이 정정한 대로
+    #       이것이 "마지막"은 아니었다.
+    # 74차: 37→39 — cluster_economics 기본인자 2종 등재(16회차 F8·17회차 F1이
+    #       지적한 함수 기본인자 계열). refs 49→51 — 18회차 F1이 "근거 0건" 단정을
+    #       반증해(엑셀패키지·엔진 자기 주석에 70% 실재) 근거 보존본을 각각 등재
+    assert a["counts"]["registry_constants"] == 39 and a["counts"]["source_refs"] == 51
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
