@@ -135,6 +135,36 @@ def test_curtain_exposure_ratio_unknown_curtain_raises():
         e.curtain_exposure_ratio("존재하지않는커튼")
 
 
+def test_fr_table_values_match_public_sources():
+    # 68차: 0.85 재조사 후 교체(사용자 결정). 이중커튼·2중커튼은 농사로(농진청
+    # 공식 포털) "스크린 사용 적정 개수" 표의 2장 보온력 70%가 근거 — 값이 되돌아
+    # 가면(0.85 등) 근거 없는 상태로의 회귀이므로 여기서 잡는다.
+    assert e.FR_TABLE["이중커튼"] == e.FR_TABLE["2중커튼"] == 0.70
+    # PO단일·다겹보온은 NIHHS 공식 계산기 실측(33.6%·56.3%) 근사 정합값 — 변경 없음
+    assert e.FR_TABLE["PO단일"] == 0.35 and e.FR_TABLE["다겹보온"] == 0.5
+    # 순서(보온 성능)는 어떤 값 개정에서도 유지되어야 한다
+    assert e.FR_TABLE["PO단일"] < e.FR_TABLE["다겹보온"] < e.FR_TABLE["이중커튼"] < 1.0
+
+
+def test_fr_table_curtain_path_is_live_not_unused():
+    # 68차 레드팀 12회차 F2 고정: FR_TABLE은 "미사용 참고표"가 아니다 —
+    # curtain= 경로가 heating_load()에 실제로 반영된다(build_site·webapp이 이 경로
+    # 사용). 값 교체가 산출물에 그대로 흘러가므로, 경로가 살아 있음을 못박는다.
+    base = dict(surface_area_m2=1000, cover="필름", t_target=15, t_min=-10)
+    load_new = e.heating_load(**base, curtain="이중커튼").max_load_kcal_h
+    load_old_fr = e.heating_load(**base, fr=1 - 0.85).max_load_kcal_h   # 교체 전 값 재현
+    assert load_new == pytest_approx(load_old_fr * 2)   # 0.15→0.30: 정확히 2배
+    # 교체 후 값과 curtain 경로가 일치(표 → 노출비율 → 부하)
+    assert load_new == e.heating_load(**base, fr=1 - e.FR_TABLE["이중커튼"]).max_load_kcal_h
+
+
+def pytest_approx(v, tol=1e-6):
+    class _A:
+        def __eq__(self, other):
+            return abs(other - v) <= tol * max(1.0, abs(v))
+    return _A()
+
+
 # ── 3-3. P1-9(2026-08-17): fr/curtain 시그니처 수준 강제 ────────────
 def test_heating_load_curtain_param_converts_internally():
     base = dict(surface_area_m2=1000, cover="필름", t_target=15, t_min=-10)

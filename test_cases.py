@@ -556,7 +556,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 59차: 백가은·조윤정 통합 표본으로 32→35(CASE_CHUNKS에 쌍 2건+KNOWN_TOTALS 1건)
     # 60차: 박규현 표본 11호 승격으로 35→37(동일 2상수에 각 1건)
     # 61차: 구창회 표본 12호 승격으로 37→39(동일 2상수에 각 1건)
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 39
+    # 68차: FR_TABLE 0.85→0.70 교체로 39→40(농사로 근거 보존본 1건 등재)
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 40
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
