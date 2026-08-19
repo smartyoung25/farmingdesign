@@ -538,6 +538,32 @@ def test_capex_gu_pdf_anchor_cells_match_source():
     assert e.CAPEX_MAJOR_CASE_CHUNKS["구창회"]["auto_opening_system"] == 62_626_931 + 21_866_698
 
 
+def test_fuel_lhv_matches_energy_law_table():
+    # 70차: FUEL_LHV = 에너지법 시행규칙 [별표] 에너지열량 환산기준(현행 2022.11.21.)
+    # 순발열량. 원문 PDF를 리포에 보존했으므로 값이 원문에 실재하는지 직접 확인한다 —
+    # 값이 되돌아가면(2017판·전기 2,290 등) 여기서 잡힌다.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "법령_에너지법시행규칙_별표_에너지열량환산기준_20221121.pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        t = (pdf.pages[0].extract_text() or "")
+    flat = t.replace(" ", "")
+    assert "에너지열량환산기준" in flat and "개정2022.11.21." in flat
+    # 순발열량 열의 값이 원문 각 행에 실재(등유 8,150 / 경유 8,420 / B-C유 9,390 / LPG 11,040 / LNG 11,800)
+    for fuel, kcal, line_key in (("등유", "8,150", "등유"), ("경유", "8,420", "경유"),
+                                 ("B-C유", "9,390", "B-C유"), ("LPG프로판", "11,040", "프로판"),
+                                 ("LNG", "11,800", "천연가스")):
+        row = next(l for l in t.splitlines() if l.strip().startswith(line_key))
+        assert kcal in row, (fuel, row)
+        assert e.FUEL_LHV[fuel] == int(kcal.replace(",", ""))
+    # 전기: 별표 본문(2,130/2,290)이 아니라 비고 5의 최종사용자 환산값을 쓴다
+    assert "1kWh=860kcal" in flat and "최종에너지사용자" in flat
+    assert e.FUEL_LHV["전기"] == 860
+    # 물리 정합(1kWh = 3.6MJ, 1cal=4.1868J → 860kcal)
+    assert round(3.6e6 / 4.1868 / 1000) == 860
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
@@ -558,7 +584,9 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 61차: 구창회 표본 12호 승격으로 37→39(동일 2상수에 각 1건)
     # 68차: FR_TABLE 0.85→0.70 교체로 39→40(농사로 근거 보존본 1건 등재)
     # 69차: TOTAL_PYEONG_PRICE 원출처 확보로 40→41(내재해형 고시 근거 보존본 1건)
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 41
+    # 70차: FUEL_LHV 법정기준 격상으로 41→42(법령 원문 PDF 1건 — 자작 보존본은
+    #       근거 물량 부풀림 방지 위해 source_refs 미등재, 14회차 F7)
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 42
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

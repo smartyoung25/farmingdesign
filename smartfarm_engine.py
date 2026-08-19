@@ -547,8 +547,35 @@ def curtain_exposure_ratio(curtain: str) -> float:
         raise ValueError(f"'{curtain}'은 FR_TABLE에 없는 피복조합이다 (선택: {list(FR_TABLE)})")
     return 1 - FR_TABLE[curtain]
 # 연료 순발열량 (kcal/단위) - A-5
-FUEL_LHV = {"등유": 8170, "경유": 8410, "B-C유": 9360,
-            "LPG프로판": 11060, "LNG": 11800, "전기": 2290}
+# ✅ 원출처 확정·현행화(2026-08-19 70차, 사용자 지시 "FUEL_LHV 재조사" → 결정으로 교체):
+#   정체는 **에너지법 시행규칙 [별표] 에너지열량 환산기준(제5조제1항 관련)**이었다 —
+#   재조사 전 6종이 <개정 2017. 12. 28.> 판 순발열량 열과 **전량 원단위 일치**해 출처가
+#   확정됐고(미검증 → 법정기준), 현행 <개정 2022. 11. 21.> 판으로 갱신했다.
+#   원문 PDF 리포 보존: 법령_에너지법시행규칙_별표_에너지열량환산기준_20221121.pdf
+#   갱신 내역(2017판 → 2022판): 등유 8,170→8,150 · 경유 8,410→8,420 · B-C유 9,360→9,390 ·
+#   LPG프로판 11,060→11,040 · LNG 11,800(불변).
+#   ⚠️ **전기 2,290 → 860 정정(성격 오류)**: 같은 별표 **비고 5**가
+#   "최종 에너지사용자가 사용하는 전력량 값을 열량 값으로 환산할 경우에는 **1kWh=860kcal**를
+#   적용한다"고 명시한다. 이 상수의 사용처(fuel_use = 기간부하 ÷ (LHV×효율) = 사용자가 실제
+#   쓸 전력량)는 비고 5에 해당하므로 860이 맞다 — 물리적으로도 1kWh=3.6MJ=860kcal이며
+#   비고 6(1cal=4.1868J)만으로 독립 도출된다(3.6e6/4.1868/1000≈860).
+#   ⚠️ 14회차 F2로 단정 격하: 별표 본문의 전기 행(발전기준 2,130·소비기준 2,290)이 국가
+#   에너지통계용 1차에너지 계수라는 것은 **[추정]**이다 — 별표 비고 1~7 어디에도 두 기준의
+#   정의가 없다(860/2,290=37.6%·860/2,130=40.4%가 화력 발전효율대라는 정황뿐).
+#   ⚠️ 14회차 F1(중요): 2,290을 쓰면 필요 전력량이 2.66배 과소 산출"됐다"는 성립하지 않는다 —
+#   fuel 인자는 현재 어떤 live 경로에서도 지정되지 않고(render_report는 heating_load 반환에서
+#   fuel_consumption을 버리고, build_site·webapp의 generate_rfq_package 호출에 fuel 인자가
+#   없다) 연료소비량은 산출물 HTML에 렌더되지도 않는다. 즉 이 정정의 실효 영향은 **현재 0**이며,
+#   fuel 경로를 쓰기 시작할 때부터 효과가 난다(그 인터페이스부터 만들어야 한다).
+#   ⚠️ 단위가 연료마다 다르다: 등유·경유·B-C유=L, LNG·LPG프로판=kg, 전기=kWh —
+#   fuel_use 결과를 "리터"로 단정 표기하지 말 것.
+#   ⚠️ 커버리지 한계(14회차 F5): 별표 30여 행 중 **6종만** 담았다. 특히 **도시가스(LNG)
+#   9,190 kcal/Nm3**이 없어, 배관 도시가스(Nm3 과금)를 여기 "LNG"(kg 기준 11,800)로 넘기면
+#   소비량이 약 1.28배 과소 나온다 — 필요해지면 별표에서 추가할 것(부탄 10,880/kg·
+#   부생연료유1호 8,310/L·2호 9,010/L도 미등록).
+#   상세: 근거_에너지법_열량환산기준_20260819.md
+FUEL_LHV = {"등유": 8150, "경유": 8420, "B-C유": 9390,
+            "LPG프로판": 11040, "LNG": 11800, "전기": 860}
 
 
 @dataclass
@@ -596,7 +623,12 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
     max_load = surface_area_m2 * u_d * dt * fr
     heater = max_load * safety
     period_load = degree_hours * u_p * fr * surface_area_m2  # 기간난방부하 근사
-    lhv = FUEL_LHV.get(fuel, 8170)
+    if fuel not in FUEL_LHV:
+        # 14회차 F3: 종전 폴백 8170은 현행 별표에서 등유가 아니라 석유코크스 값이라
+        # 어느 연료와도 연결되지 않는 고아 숫자였고, 오타·미등록 연료가 경고 없이
+        # 계산되던 경로였다 — curtain_exposure_ratio와 같은 방식으로 거부한다.
+        raise ValueError(f"'{fuel}'은 FUEL_LHV에 없는 연료다 (선택: {list(FUEL_LHV)})")
+    lhv = FUEL_LHV[fuel]
     fuel_use = period_load / (lhv * efficiency)
     denom = floor_area_m2 or surface_area_m2
     return HeatingResult(max_load, max_load / denom, heater, fuel_use, lhv)
