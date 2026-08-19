@@ -247,3 +247,42 @@ def test_fuel_hhv_is_declared_unused_in_calculation():
     with pytest.raises(ValueError):
         e.heating_load(surface_area_m2=100, cover="필름", t_target=15,
                        t_min=-10, fr=0.5, fuel="도시가스")
+
+
+def test_pyeong_conversion_matches_shakkanho_definition():
+    """73차: PYEONG_TO_M2는 척관법 정의 400/121의 반올림값이다.
+
+    1척=10/33m → 1평=6척×6척=3600/1089=400/121=3.3057851…
+    값이 3.3(A-2 원표 관행)이나 다른 근사로 바뀌면 여기서 잡힌다 —
+    두 기준의 -0.175% 차이는 status_note에 기록돼 있다(13회차 F6).
+    """
+    exact = 400 / 121
+    assert abs(e.PYEONG_TO_M2 - exact) < 1e-4
+    assert round(exact, 4) == e.PYEONG_TO_M2
+    assert REG["constants"]["PYEONG_TO_M2"]["value"] == e.PYEONG_TO_M2
+    # 왕복 변환이 상수 하나로만 이뤄지는지(병렬 환산 계수 금지)
+    assert abs(e.m2_to_py(e.py_to_m2(100)) - 100) < 1e-9
+    # A-2 원표(3.3) 기준과의 차이가 기록된 대로인지
+    assert abs((3.3 / e.PYEONG_TO_M2 - 1) * 100 + 0.175) < 0.01
+
+
+def test_heater_capacity_is_output_basis_not_input():
+    """73차: heater_capacity는 정격 출력(난방능력) 기준이라 효율이 개입하지 않는다.
+
+    원출처(김평화 p.49)가 최대난방부하를 "난방기가 최대로 공급할 수 있는 열량"으로
+    정의하고 "난방기 용량 결정"이라 밝힌다. 누가 효율 나눗셈을 넣으면 여기서 깨진다.
+
+    ⚠️ 이 테스트가 고정하는 것은 **식 원출처의 정의를 따른다는 것**이지, 국내 등유
+    온풍난방기의 카탈로그 정격 표기 관행을 확인한 결과가 아니다(17회차 F4 — 리포 내
+    직접 증거는 히트펌프 1건의 부분 증거뿐). 입열량 표기 카탈로그와 직접 대조하면
+    효율만큼 언더사이징되므로, 그 경고는 엔진 주석에 함께 적혀 있다.
+    """
+    r = e.heating_load(surface_area_m2=1000, cover="필름", t_target=15,
+                       t_min=-10, fr=0.5)
+    assert abs(r.heater_capacity_kcal_h - r.max_load_kcal_h * e.HEATING_SAFETY_FACTOR) < 1e-9
+    # 효율을 바꿔도 용량은 그대로여야 한다(입열량 기준이면 함께 움직인다)
+    r2 = e.heating_load(surface_area_m2=1000, cover="필름", t_target=15,
+                        t_min=-10, fr=0.5, efficiency=0.5)
+    assert r2.heater_capacity_kcal_h == r.heater_capacity_kcal_h
+    # 반면 연료소비량은 입열량 계산이라 효율에 반응해야 한다
+    assert r2.fuel_consumption > r.fuel_consumption
