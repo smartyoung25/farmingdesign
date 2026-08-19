@@ -495,6 +495,31 @@ def test_capex_twin_pdf_anchor_cells_match_source():
     assert e.CAPEX_MAJOR_CASE_CHUNKS["백가은·조윤정"]["auto_opening_system"] == 63_365_600
 
 
+def test_capex_park_pdf_anchor_cells_match_source():
+    # 60차: CAPEX 표본 11호(박규현 — 경비 열 없는 재+노 레벨·환급 5% 산식) 앵커 —
+    # 원가계산서·집계표·전기 공종 3분할 실체 라인·한글 표기의 원문 근거를 고정.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "스마트팜스펙", "견적참조", "박규현 견적서.pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        head = "".join((p.extract_text() or "") for p in pdf.pages[1:3]).replace(" ", "")
+        p11 = (pdf.pages[10].extract_text() or "").replace(" ", "")
+    for anchor in ("370,315,435", "164,580,818", "534,896,253", "631,693,546",
+                   "313,542,997", "15,677,150", "616,016,396"):
+        assert anchor in head, anchor
+    assert 370_315_435 + 164_580_818 == 534_896_253
+    assert "육억삼천일백육십구만삼천오백사십육" in head
+    assert _parse_korean_amount("일금육억삼천일백육십구만삼천오백사십육원정") == 631_693_546
+    # 전기 공종(p11) 3분할의 실체 라인: 마그마 제어기·팬 3라인·공종 소계까지 원문 고정(10회차 F5)
+    assert "마그마스마트팜" in p11 and "24,000,000" in p11
+    assert "배기휀" in p11 and "800,000" in p11
+    assert "유동휀" in p11 and "2,280,000" in p11
+    assert "10,400" in p11 and "29,923,065" in p11               # 배기펜패드·공종 소계
+    assert 24_000_000 + 3_090_400 + 2_832_665 == 29_923_065
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["박규현"]["hvac"] == 3_090_400
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
@@ -511,7 +536,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 56차: 강정구 표본 8호 승격으로 28→30(동일 2상수에 각 1건)
     # 57차: 오기수 표본 9호 승격으로 30→32(동일 2상수에 각 1건)
     # 59차: 백가은·조윤정 통합 표본으로 32→35(CASE_CHUNKS에 쌍 2건+KNOWN_TOTALS 1건)
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 35
+    # 60차: 박규현 표본 11호 승격으로 35→37(동일 2상수에 각 1건)
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 37
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

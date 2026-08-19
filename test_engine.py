@@ -765,6 +765,36 @@ def test_capex_major_breakdown_bgj_reconciles_to_source():
     assert 195_448_500 + 203_179_883 == 398_628_383              # 환급/비환급 총괄 정합
 
 
+def test_capex_major_breakdown_pgh_reconciles_to_source():
+    # 2026-08-19 추가(60차 "다른 견적 세부 분석" 8호) — 박규현(충남, 표지가 스스로
+    # '벤로형+연질필름' 명시, 표본 최초 오이 작목 3,676.8㎡). ⚠️ 경비 열이 없는
+    # 표본: known_total은 재+노 2요소 레벨(원가계산서 기계경비 '직접산출' 공란).
+    assert 370_315_435 + 164_580_818 == 534_896_253              # 원가계산서 재+노 원단위 재현
+    assert 264_422_873 + 145_644_218 == 410_067_091              # a.온실 소계
+    assert 105_892_562 + 18_936_600 == 124_829_162               # b.양액 소계
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["박규현"],
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["박규현"])
+    assert cb.total == 534_896_253
+    assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["박규현"] == 77_758_030
+    assert sum(cb.items.values()) + cb.unclassified == 534_896_253
+    assert cb.items["greenhouse_structure"] == 18_299_200 + 75_849_039 + 89_477_387 + 49_680_698
+    # "전기 장치 공사"의 명칭≠실체 3분할(제어기→auto·실물 팬→hvac·잔여→electrical)
+    assert 24_000_000 + 3_090_400 + 2_832_665 == 29_923_065      # 분리 검산 = 공종 소계
+    assert 800_000 + 2_280_000 + 10_400 == 3_090_400             # 팬 세트(배기휀 4·유동휀 24·패드)
+    assert cb.items["auto_opening_system"] == 14_327_963 + 71_129_815 + 61_379_924 + 24_000_000
+    assert cb.items["hvac"] == 3_090_400
+    assert cb.items["electrical"] == 2_832_665
+    assert cb.items["irrigation_fertigation"] == 26_517_342 + 4_058_080 + 16_495_710
+    assert cb.items["ict_control"] == 0
+    # 도급 체인 + 환급 3분류·5% 산식 관찰 고정
+    assert 313_542_997 + 206_856_006 + 14_497_250 == 534_896_253  # 환급/비환급/영세 총괄
+    assert (575_584_792 - 14_497_250) // 10 == 56_108_754         # 부가세 = (공급−영세)×10%
+    # 합계 = 공급가액(영세 포함)+부가세 — 영세율 행은 부가세 산정에서만 차감되는 내역
+    assert 575_584_792 + 56_108_754 == 631_693_546                # 합계(한글 원단위 일치값)
+    assert round(313_542_997 * 0.05) == 15_677_150                # 환급 "×5%" 산식 재현([확인요망])
+    assert 631_693_546 - 15_677_150 == 616_016_396                # 부가세 공제 후
+
+
 def test_capex_major_known_totals_single_source_sync():
     # 2026-08-18 53차(레드팀 4회차 F8 구조 개선) — known_total은 엔진 상수
     # CAPEX_MAJOR_KNOWN_TOTALS가 단일 출처다(build_site major_totals가 직접 읽음 —
