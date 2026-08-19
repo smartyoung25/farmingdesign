@@ -564,6 +564,52 @@ def test_fuel_lhv_matches_energy_law_table():
     assert round(3.6e6 / 4.1868 / 1000) == 860
 
 
+def test_subsidy_program_names_match_mafra_plan():
+    # 71차: SUBSIDY_PROGRAM_TYPES_REFERENCE는 2026년 스마트농업 육성 시행계획
+    # (농식품부, 2025.11) 원문에서 확인된 명칭만 담는다. 원문 PDF를 리포에 보존했으므로
+    # 각 명칭의 핵심어가 원문에 실재하는지 직접 확인한다 — 미확인 사업명이 다시
+    # 들어오면 여기서 잡힌다.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "근거_농식품부_2026스마트농업육성시행계획_202511.pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        text = "\n".join((p.extract_text() or "") for p in pdf.pages)
+    flat = text.replace(" ", "")
+    assert "스마트농업육성시행계획" in flat
+    # 15회차 F6 정정: 종전에는 고정 키워드가 PDF에 있는지만 봐서, 엔진 리스트를 통째로
+    # 바꿔도 green이 됐다(PDF→PDF 검사였다). **엔진 원소 → 원문** 방향으로 뒤집어,
+    # 등재된 모든 명칭의 핵심어가 원문에 실재하는지 확인한다.
+    assert len(e.SUBSIDY_PROGRAM_TYPES_REFERENCE) == 5
+    for name in e.SUBSIDY_PROGRAM_TYPES_REFERENCE:
+        # 괄호 부가정보를 떼고 공백을 지운 핵심어가 원문에 있어야 한다
+        core = _re.sub(r"\(.*?\)", "", name).replace(" ", "").strip()
+        assert core and core in flat, f"원문에서 확인되지 않는 사업명: {name} (핵심어 {core})"
+    # 71차 초판이 잘못 제거했다가 15회차 F1로 되살린 온실신축이 빠지지 않았는지
+    joined = " ".join(e.SUBSIDY_PROGRAM_TYPES_REFERENCE)
+    assert "온실신축" in joined
+    # 시설현대화는 독립 사업명으로 확인되지 않아 미등재([확인요망]) — 되살아나면 red
+    assert "시설현대화" not in joined
+    # 보조율·자격요건은 담지 않는다(공모 회차마다 변경 — 자동판정 금지 원칙)
+    assert not any(("%" in s) or ("보조율" in s) for s in e.SUBSIDY_PROGRAM_TYPES_REFERENCE)
+
+
+def test_finance_useful_life_within_statutory_range():
+    # 71차: useful_life 기본값 15는 법인세법 시행규칙 [별표5] 제3호 내용연수범위
+    # 15~25년의 하한과 일치한다. 값의 유래 증명이 아니라 "법정 범위 안"임의 고정핀 —
+    # 케이스 5건이 이 기본값에 의존하므로 조용히 바뀌면 회귀 기준값이 함께 움직인다.
+    import inspect
+    defaults = {k: v.default for k, v in inspect.signature(e.finance).parameters.items()}
+    assert defaults["useful_life"] == 15
+    band = e.STRUCTURE_SERVICE_LIFE_STATUTORY["별표5_제3호(연와조·블록조·콘크리트조·목조 등 기타 조)"]
+    # 엔진은 튜플, 레지스트리 JSON은 리스트로 같은 범위를 담는다 — 타입 무관 비교
+    assert list(band["range"]) == [15, 25]
+    assert defaults["useful_life"] == band["range"][0]  # 범위의 하한(판단성 선택)
+    # 시세성·관행 인자는 중립 출발점 유지(주입 대상 — 1절 원칙)
+    assert defaults["discount_rate"] == 0.05 and defaults["years"] == 10
+    assert defaults["subsidy_rate"] == 0.0 and defaults["land_cost"] == 0.0
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
@@ -586,7 +632,9 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 69차: TOTAL_PYEONG_PRICE 원출처 확보로 40→41(내재해형 고시 근거 보존본 1건)
     # 70차: FUEL_LHV 법정기준 격상으로 41→42(법령 원문 PDF 1건 — 자작 보존본은
     #       근거 물량 부풀림 방지 위해 source_refs 미등재, 14회차 F7)
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 42
+    # 71차: 잔여 미검증 3건 재조사로 42→44(FINANCE_DEFAULTS 별표5 partial +
+    #       SUBSIDY 농식품부 시행계획 원문). 이 차수로 status "미검증"은 0건이 된다.
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 44
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
