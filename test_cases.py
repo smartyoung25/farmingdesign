@@ -520,6 +520,24 @@ def test_capex_park_pdf_anchor_cells_match_source():
     assert e.CAPEX_MAJOR_CASE_CHUNKS["박규현"]["hvac"] == 3_090_400
 
 
+def test_capex_gu_pdf_anchor_cells_match_source():
+    # 61차: CAPEX 표본 12호(구창회 — "시공견적서.pdf"의 실체는 한일그린텍 착공내역서)
+    # 앵커 — 원가계산서 3항목·집계표 소계·간노 증발 갭의 원문 값·한글 표기를 고정.
+    import pytest as _pt
+    _pt.importorskip("pdfplumber", reason="pdfplumber 미설치(pip 유실 환경 특성)")
+    import pdfplumber
+    pdf_path = os.path.join(_REPO, "스마트팜스펙", "견적참조", "시공견적서.pdf")
+    with pdfplumber.open(pdf_path) as pdf:
+        head = "".join((p.extract_text() or "") for p in pdf.pages[:5]).replace(" ", "")
+    for anchor in ("구창회", "250,002,799", "112,939,613", "15,922,187", "378,864,599",
+                   "16,940,941", "478,018,700", "547,580,000", "21,580,478"):
+        assert anchor in head, anchor  # 구창회는 p1 표지("구창회 귀하")
+    assert 250_002_799 + 112_939_613 + 15_922_187 == 378_864_599
+    assert "오억사천칠백오십팔만" in head
+    assert _parse_korean_amount("일금오억사천칠백오십팔만원정") == 547_580_000
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["구창회"]["auto_opening_system"] == 62_626_931 + 21_866_698
+
+
 def test_traceability_audit_gate_green_and_backlog_pinned():
     # 46차: 최종 검증 게이트 — hard 결함 0(실재·대사·enum·재계산)이어야 하고,
     # 커버리지 갭(백로그)은 정확히 파악된 상태를 고정(늘면 회귀, 줄면 여기 갱신).
@@ -537,7 +555,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 57차: 오기수 표본 9호 승격으로 30→32(동일 2상수에 각 1건)
     # 59차: 백가은·조윤정 통합 표본으로 32→35(CASE_CHUNKS에 쌍 2건+KNOWN_TOTALS 1건)
     # 60차: 박규현 표본 11호 승격으로 35→37(동일 2상수에 각 1건)
-    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 37
+    # 61차: 구창회 표본 12호 승격으로 37→39(동일 2상수에 각 1건)
+    assert a["counts"]["registry_constants"] == 32 and a["counts"]["source_refs"] == 39
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

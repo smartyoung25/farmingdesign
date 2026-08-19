@@ -795,6 +795,32 @@ def test_capex_major_breakdown_pgh_reconciles_to_source():
     assert 631_693_546 - 15_677_150 == 616_016_396                # 부가세 공제 후
 
 
+def test_capex_major_breakdown_gch_reconciles_to_source():
+    # 2026-08-19 추가(61차 "다른 견적 세부 분석" 9호) — 구창회(당진, "시공견적서
+    # .pdf"의 실체는 한일그린텍의 착공내역서 — 이영준 3,202㎡와 동일 업체 2호 현장,
+    # 3,714㎡ MS-8 5연동). 매핑은 한일 1호 선례 그대로.
+    assert 250_002_799 + 112_939_613 + 15_922_187 == 378_864_599  # 원가계산서 3항목 원단위 재현
+    cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS["구창회"],
+                                  known_total=e.CAPEX_MAJOR_KNOWN_TOTALS["구창회"])
+    assert cb.total == 378_864_599
+    assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED["구창회"] == 51_387_099
+    assert sum(cb.items.values()) + cb.unclassified == 378_864_599
+    assert cb.items["greenhouse_structure"] == 16_961_447 + 177_124_132 + 30_662_293
+    assert cb.items["auto_opening_system"] == 62_626_931 + 21_866_698
+    assert cb.items["irrigation_fertigation"] == 18_235_999
+    for k in ("hvac", "ict_control", "electrical"):
+        assert cb.items[k] == 0     # 환풍기는 환급 재투자 블록(분모 밖) — 한일 1호와 동일 구조
+    # 도급 체인 + 원문 갭 ①(간접노무비 증발) 고정: 관리비·이윤은 간노 포함 기준으로
+    # 재현되는데, 공급가액 소계는 간노 제외 빌드업과 일치 — Δ16,940,941 [확인요망]
+    assert 250_002_799 + 129_880_554 + 48_828_453 == 428_711_806        # 계(간노 포함)
+    assert round(428_711_806 * 0.08) == 34_296_944                       # 일반관리비 8%(간노 포함 기준)
+    assert (129_880_554 + 48_828_453 + 34_296_944) * 15 // 100 == 31_950_892  # 이윤 15%(간노 포함 기준, 원미만 절사)
+    assert 428_711_806 + 34_296_944 + 31_950_892 == 494_959_642          # 간노 포함 빌드업
+    assert (428_711_806 - 16_940_941) + 34_296_944 + 31_950_892 == 478_018_701  # 간노 제외=공급 소계(표기 …700은 1원 갭)
+    assert 478_018_700 + 45_823_198 == 523_841_898
+    assert (523_841_898 + 23_738_525) // 1000 * 1000 == 547_580_000      # 총공사비(한글 일치값)
+
+
 def test_capex_major_known_totals_single_source_sync():
     # 2026-08-18 53차(레드팀 4회차 F8 구조 개선) — known_total은 엔진 상수
     # CAPEX_MAJOR_KNOWN_TOTALS가 단일 출처다(build_site major_totals가 직접 읽음 —
