@@ -146,6 +146,26 @@ def test_fr_table_values_match_public_sources():
     assert e.FR_TABLE["PO단일"] < e.FR_TABLE["다겹보온"] < e.FR_TABLE["이중커튼"] < 1.0
 
 
+def test_total_pyeong_price_matches_source_table():
+    # 69차: 원출처(내재해형 고시 예정공사비 — 한국농업시설협회, "온실 선정 및 비용
+    # 견적 프로그램.xlsx" [골조예상비용]) 전사값 고정. 원표는 리포 밖 파일이라
+    # 여기서는 전사 결과를 핀으로 잡고, 근거·검산은 보존본 md가 담는다.
+    t = e.TOTAL_PYEONG_PRICE
+    assert len(t) == 33                       # 4종 → 33종(연동 5·단동 19·광폭 6·과수 3)
+    # 기존 4종은 재조사 후에도 원단위 불변(원표와 일치 확인됨)
+    assert t["07-연동-1"] == 430_465 and t["08-연동-1"] == 389_990
+    assert t["10-연동-1"] == 572_614 and t["12-연동-1"] == 584_794
+    # 69차 추가분의 앵커: 총금액÷평수=평단가 재현(원표 검산과 동일 산식)
+    assert round(470_629_000 / 720) == t["10-연동-2"] == 653_651   # 랙피니언식 천창개폐
+    assert round(12_431_000 / 206) == t["07-단동-1"] == 60_345
+    assert round(91_651_000 / 407) == t["13-광폭(보온재)-1"] == 225_187
+    assert round(111_209_000 / 582) == t["07-포도-1"] == 191_081
+    # 같은 10-연동이라도 개폐 방식이 단가를 가른다(권취식 < 랙피니언식)
+    assert t["10-연동-1"] < t["10-연동-2"]
+    # 개산 함수가 확장된 규격에서도 동작(방법 A — 골조 단독 아님)
+    assert e.greenhouse_total_estimate("10-연동-2", 100) == 653_651 * 100
+
+
 def test_fr_table_curtain_path_is_live_not_unused():
     # 68차 레드팀 12회차 F2 고정: FR_TABLE은 "미사용 참고표"가 아니다 —
     # curtain= 경로가 heating_load()에 실제로 반영된다(build_site·webapp이 이 경로

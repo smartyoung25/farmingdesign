@@ -150,7 +150,12 @@ def test_status_vocabulary_is_normalized_enum():
             assert isinstance(ent["status_note"], str) and ent["status_note"], key
     # 44차 F2 계열 정직성 고정: 원문 미대조가 남은 ACTUALS는 실측을 자칭하지 않는다
     assert C["ACTUALS_COUNT"]["status"] == "부분실측"
-    assert C["TOTAL_PYEONG_PRICE"]["status"] == "미검증"
+    # 69차: TOTAL_PYEONG_PRICE는 원출처(내재해형 고시 예정공사비/한국농업시설협회)를
+    # 확보하고 33종 전 행을 검산 재현했으나 **미검증→확인요망**까지만 간다 —
+    # 33종 중 실측된 종은 0(전량 단일 2차자료 전사)이라 '부분실측'("일부 표본만
+    # 실측")은 과대이고, 포함 공종 범위도 미확정이다(13회차 F3 — 격상 시 감사
+    # ④범주에서 행이 사라지는 부작용도 확인돼 되돌림).
+    assert C["TOTAL_PYEONG_PRICE"]["status"] == "확인요망"
     assert C["WARRANTY_STATUTORY"]["status"] == "법정기준"
 
 
