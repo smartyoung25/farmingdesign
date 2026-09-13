@@ -47,6 +47,37 @@ def test_92cha_actuals_additions_reproduce_source_chain():
     assert reg["constants"]["ACTUALS_COUNT"]["status"] == "부분실측"
 
 
+def test_93cha_actuals_area_basis_is_not_uniform():
+    """93차: ACTUALS의 면적 기준이 표본마다 다르다는 사실을 고정한다.
+
+    한수진·최선동의 사업량 면적은 도면상 **방풍 폭 포함 외곽**이고 관리동을 안에
+    담는다(평면도·측면골조도·주단면도). 이두희 2,736은 규격 8m×6연동×57m 역산이라
+    **골조 순면적**이다. 같은 온실을 어느 기준으로 재느냐로 ㎡당 단가가 4.8~7.0%
+    움직이므로, 밴드 대조는 그만큼의 기준 혼재를 안고 있다.
+
+    ⚠️ 이 테스트는 "기준을 통일했다"를 주장하지 않는다 — **통일돼 있지 않다는 것**과
+    **그럼에도 현재 판정이 뒤집히지 않는다**는 두 사실을 같이 박아 둔다. 기준을
+    통일하는 차수가 오면 이 테스트가 먼저 깨져서 알려 준다.
+    """
+    rows = {r[0]: r for r in e.ACTUALS}
+    # 도면 그리드: 사업량 폭 = 골조 스팬 합 + 방풍 2,000(양측 1,000)
+    assert 6 * 7 + 2 == 44 and 44 * 93 == 4092          # 한수진
+    assert 5 * 7 + 2 == 37 and 37 * 85 == 3145          # 최선동
+    # 이두희는 방풍 없는 골조 순면적(레지스트리 명기 규격 역산)
+    assert 8 * 6 * 57 == 2736 == rows["이두희"][1]
+    # 기준을 바꿔도 9건의 밴드 판정은 뒤집히지 않는다(밴드 폭 2.1배)
+    alt = {"한수진": (3906, 3528), "최선동": (2940, 2625),
+           "한일그린텍": (2995,), "이두희": (2850,)}
+    for nm, areas in alt.items():
+        _, area, total, cover = rows[nm]
+        for a in (area,) + areas:
+            assert e.benchmark_check(total, a, cover)["status"] == "정상", (nm, a)
+    # ⚠️ 우민재는 필름 밴드 상한에 159원/㎡ 차로 붙어 있고 상한이 우민재에서 나왔다
+    _, ua, ut, uc = rows["우민재"]
+    hi = e.BENCHMARK_BANDS[uc][1]
+    assert 0 < hi - ut / ua < 200, "우민재-상한 간격이 변했다 — 밴드 앵커를 재확인할 것"
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡

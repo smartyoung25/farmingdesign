@@ -692,7 +692,10 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 92차: 48(불변) — 상수 신설 없음. refs 72→74 — ★사용자 결정으로 ACTUALS에
     #       한수진·최선동 2건 편입(7→9건)하며 각 원문 xls를 ACTUALS_COUNT에 등재.
     #       **밴드·케이스 값은 불변**이고 두 건 다 필름 밴드 내부라 경계도 안 움직인다.
-    assert a["counts"]["registry_constants"] == 48 and a["counts"]["source_refs"] == 74
+    # 93차: 48(불변) — 상수 신설 없음. refs 74→80 — 한수진·최선동 면적 기준을
+    #       도면으로 확정(평면도·측면골조도·주단면도 각 3종×2농가)하며 ACTUALS_COUNT에 등재.
+    #       **ACTUALS 값·밴드·케이스 값은 전부 불변** — 확정한 것은 분모의 의미다.
+    assert a["counts"]["registry_constants"] == 48 and a["counts"]["source_refs"] == 80
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
