@@ -2150,6 +2150,50 @@ def test_weather_tables_not_wired_into_render_paths():
                 f"수치를 움직이므로(uminjae 1.29배) 결정 후 이 테스트를 갱신할 것")
 
 
+# ── 지역 커버리지 사실 고정 (89차) ──────────────────────────
+# 근거_스마트팜스펙_난방설계조건_부재_20260913.md 4절.
+# ★t_min 교체 결정의 핵심 제약이라 코드로 남긴다 — 커버리지가 변하면 결론도 변한다.
+def test_tac_table_covers_only_part_of_the_notice_regions():
+    """88차 TAC 표(69 관측지점)는 고시 REGION_DESIGN_LOAD의 일부만 덮는다.
+    지역명이 **기상관측지점명**이라 행정구역과 1:1이 아니기 때문이다 —
+    없는 지역은 인접 지점 대용이 필요하고 그 선택은 판단성이다.
+    ⚠️ 일괄 교체가 성립하지 않는 이유가 여기 있다."""
+    rl = set(e.REGION_DESIGN_LOAD)
+    tac = set(e.DESIGN_OUTDOOR_TEMP_TAC)
+    covered = rl & tac
+    assert len(rl) == 172, len(rl)
+    assert len(tac) == 69
+    assert len(covered) == 66, sorted(covered)
+    ratio = len(covered) / len(rl)
+    assert 0.37 < ratio < 0.40, f"고시 지역 커버율이 변했다({ratio:.0%}) — 결론 재검토"
+    # 스마트팜스펙 주요 지역 중 미보유 5종(89차 실측) — 실무 사례의 절반이 여기 걸린다
+    for r in ("경주", "김해", "논산", "횡성", "예산"):
+        assert r in rl, r
+        assert r not in tac, f"{r}가 TAC 표에 생겼다 — 커버리지 결론을 갱신할 것"
+
+
+def test_regression_case_sources_absent_from_corpus_is_pinned():
+    """86·89차: ACTUALS 7건 중 원채원·공주장원리·당진이상근은 스마트팜스펙에
+    폴더도 파일명도 없다. 원채원은 이 리포의 **회귀 기준**인데 그렇다 —
+    자료가 들어오면 이 테스트가 알려 준다(그때 provenance를 채울 수 있다)."""
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.join(repo, "스마트팜스펙")
+    if not os.path.isdir(root):
+        __import__("pytest").skip("스마트팜스펙 폴더 미보유(리포 밖 환경)")
+    names = []
+    for dp, dns, fns in os.walk(root):
+        dns[:] = [d for d in dns if d not in ("노지견적", "노지시방서", "대산온실")]
+        names += [os.path.join(os.path.relpath(dp, root), f) for f in fns]
+    blob = " ".join(names)
+    actuals = {a[0] for a in e.ACTUALS}
+    assert {"원채원", "공주장원리", "당진이상근"} <= actuals
+    for k in ("원채원", "장원리", "당진", "이상근"):
+        assert k not in blob, (
+            f"'{k}' 자료가 스마트팜스펙에 들어왔다 — 케이스 provenance 갭"
+            f"(87차 백로그)을 채울 수 있는지 확인하고 이 테스트를 갱신할 것")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
