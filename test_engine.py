@@ -393,6 +393,28 @@ def test_101cha_shares_not_wired_into_outputs():
             assert name not in src, f"{fname}가 {name}을 참조한다 — 케이스 값이 움직인다"
 
 
+def test_102cha_page_labels_are_unambiguous():
+    """102차 — 쪽번호 표기에서 `printed p.`를 전부 걷어냈다(95차 발견의 마무리).
+
+    83~88차가 적은 `printed p.X`의 X는 실제로는 **PDF 뷰어 쪽번호**였다(95차 발견).
+    PDF로 열면 맞지만 인쇄본 쪽번호로 읽으면 엉뚱한 곳이라, 표기 자체를 금지한다.
+    확인된 문서는 `PDF p.X(인쇄 Y)`로, 오프셋을 확인 못 한 문서(리포 밖 품셈)는
+    `[오프셋 미검증]`으로 적는다 — 둘 다 읽는 사람이 속지 않는다.
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    for fname in ("smartfarm_engine.py", "엔진데이터_레지스트리.json"):
+        src = open(_o.path.join(repo, fname), encoding="utf-8").read()
+        assert "printed p." not in src, (
+            f"{fname}에 `printed p.`가 다시 들어왔다 — 그 숫자는 PDF 쪽번호이지 "
+            f"인쇄 쪽번호가 아니다. `PDF p.X(인쇄 Y)` 또는 `[오프셋 미검증]`으로 적을 것")
+    # 확인된 오프셋이 표기에 실제로 반영돼 있는가(문서별 앵커 1건씩)
+    src = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    for anchor in ("PDF p.337(인쇄 301)", "PDF p.24(인쇄 18)", "PDF p.12(인쇄 6)",
+                   "PDF p.62(인쇄 55)", "PDF p.389(인쇄 353)"):
+        assert anchor in src, anchor
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡
