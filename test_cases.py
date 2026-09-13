@@ -712,7 +712,11 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 100차: 51(불변) · refs 88→89 — u_design/u_period 이원화의 정체 확정
     #       (이원화는 "현장 실측 보유 여부"의 반영). 표3-3-30 유리 RDA ref 1건 추가.
     #       **값 변경 0** — 유리 기간부하 과대 개연성은 [확인요망]으로만 남겼다.
-    assert a["counts"]["registry_constants"] == 51 and a["counts"]["source_refs"] == 89
+    # 101차: 51→53 · refs 89→92 — 🔴HEATING_SAFETY_FACTOR=1.1의 **출처 확정**
+    #       (원문 "온풍난방 10%", 14절 B3 종결)과 [표3-3-51] 3성분 비중 전사.
+    #       후자는 84차 공백(B5)을 정량화한다 — 엔진은 전체의 **91.9%**만 잡는다.
+    #       **보정하지 않았다**(약 8% 상승, 99차와 반대 방향 — ★결정).
+    assert a["counts"]["registry_constants"] == 53 and a["counts"]["source_refs"] == 92
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

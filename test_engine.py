@@ -340,6 +340,59 @@ def test_100cha_glass_period_load_overstatement_is_recorded():
     assert "원채원이 바로 그 케이스이고 회귀 기준" in src
 
 
+def test_101cha_safety_factor_origin_confirmed():
+    """🔴101차 — HEATING_SAFETY_FACTOR=1.1의 출처 확정(14절 B3 종결).
+
+    원문(PDF p.389/인쇄 353)이 "온풍난방 10% · 온수난방 20~30%"로 방식별 안전계수를
+    **본문으로** 준다. 이 엔진 대상은 등유 온풍난방기라 1.1이 맞다.
+    83차가 발견한 "표3-3-35 강풍·단일피복 1.1과 값이 같다"는 **우연의 일치**다 —
+    96차가 두 계수의 개념 분리를 원문으로 확정했다.
+    """
+    M = e.HEATING_SAFETY_FACTOR_BY_METHOD
+    assert M["온풍난방"] == (1.1, 1.1) and M["온수난방"] == (1.2, 1.3)
+    assert e.HEATING_SAFETY_FACTOR == M["온풍난방"][0]
+    # 원문 p.377의 "0.1~0.3" 범위와 방식별 값이 정합한다
+    lo = min(v[0] for v in M.values()) - 1.0
+    hi = max(v[1] for v in M.values()) - 1.0
+    assert abs(lo - 0.1) < 1e-9 and abs(hi - 0.3) < 1e-9
+
+
+def test_101cha_component_shares_quantify_engine_gap():
+    """🔴101차 — [표 3-3-51]이 84차의 구조적 공백(14절 B5)을 정량화한다.
+
+    엔진은 관류열부하만 계산하므로 원문 기준 **전체의 91.9%**만 잡는다.
+    전사 검산으로 각 행이 100%로 닫히는지 본다 — 닫히지 않으면 전사 결함이다.
+    """
+    S = e.HEATING_LOAD_COMPONENT_SHARES_PCT
+    assert set(S) == {1, 2, 3, 4, 5, "계"}
+    for k, v in S.items():
+        assert len(v) == 3 and abs(sum(v) - 100.0) <= 0.1, k
+    assert S["계"] == (91.9, 8.6, -0.5)
+    assert S[1][0] == 95.6 and S[5][0] == 88.7        # 본문 88.7~95.6과 일치
+    assert e.transmission_share_pct() == 91.9
+    assert e.transmission_share_pct(1) == 95.6 and e.transmission_share_pct(5) == 88.7
+    # 누락 몫 8.1% → 엔진 최대난방부하는 약 8% 과소다
+    assert abs(100.0 - e.transmission_share_pct() - 8.1) < 1e-9
+    for bad in (0, 6, "합계"):
+        try:
+            e.transmission_share_pct(bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"group={bad!r}를 통과시켰다")
+
+
+def test_101cha_shares_not_wired_into_outputs():
+    """도달성 가드 — 8% 보정은 ★사용자 결정이라 산출물 경로에 연결하지 않았다."""
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    for fname in ("build_site.py", "render_report.py", "webapp.py", "cases.py"):
+        src = open(_o.path.join(repo, fname), encoding="utf-8").read()
+        for name in ("HEATING_LOAD_COMPONENT_SHARES_PCT", "transmission_share_pct",
+                     "HEATING_SAFETY_FACTOR_BY_METHOD"):
+            assert name not in src, f"{fname}가 {name}을 참조한다 — 케이스 값이 움직인다"
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡
