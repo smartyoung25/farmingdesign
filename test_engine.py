@@ -398,8 +398,12 @@ def test_102cha_page_labels_are_unambiguous():
 
     83~88차가 적은 `printed p.X`의 X는 실제로는 **PDF 뷰어 쪽번호**였다(95차 발견).
     PDF로 열면 맞지만 인쇄본 쪽번호로 읽으면 엉뚱한 곳이라, 표기 자체를 금지한다.
-    확인된 문서는 `PDF p.X(인쇄 Y)`로, 오프셋을 확인 못 한 문서(리포 밖 품셈)는
-    `[오프셋 미검증]`으로 적는다 — 둘 다 읽는 사람이 속지 않는다.
+    확인된 문서는 `PDF p.X(인쇄 Y)`로 적는다 — 읽는 사람이 속지 않는다.
+
+    📌107차 정정: 이 도크스트링은 품셈을 "리포 밖"이라 적고 `[오프셋 미검증]`을
+    남겨 뒀는데 **둘 다 더는 사실이 아니다** — 품셈은 리포 안
+    `시설평가/202201_스마트팜 표준화_품셈.pdf`에 있고(104차 F1), 오프셋도
+    107차에 실측했다(인쇄 = PDF − 24). 미검증 표기는 104차에 전부 걷혔다.
     """
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
@@ -2781,6 +2785,83 @@ def test_103cha_pattern_change_leaves_index_untouched():
                 drifted.append(os.path.join(root, fn))
     assert not drifted, (
         f"오버라이드 밖에서 분류가 바뀐다 — 인덱스 재생성이 필요하다: {drifted[:5]}")
+
+
+def test_107cha_pumsem_source_points_into_the_repo_and_offset_is_measured():
+    """107차 — 품셈 원문의 **소재와 쪽번호 대응**을 고정한다.
+
+    두 가지가 반복해서 사람을 속였다. ①이 PDF가 리포 밖에 있다는 서술(102차가
+    그렇게 적었고 104차 레드팀 F1이 잡았다) ②`git ls-files | grep 품셈`이 0건을
+    내는 것(git이 비ASCII 경로를 8진 이스케이프로 출력하기 때문 — `core.quotepath`).
+    실제로는 리포 안에 있고, 107차에 인쇄↔PDF 오프셋을 **−24로 실측**했다
+    (10쪽 꼬리말 글리프 역해독, 글리프→숫자 대응이 모순 없이 하나로 결정).
+
+    이 테스트가 깨지면 표기가 다시 흐려진 것이다 — 값 문제가 아니라 **재현 경로**
+    문제이므로 라벨을 되돌릴 것. 근거: 근거_7절정합성감사_품셈오프셋실측_20260914.md
+    """
+    import os as _o
+    import re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+
+    # 원문이 실제로 리포 안에 있다(이 사실이 라벨의 전제다)
+    pdf = _o.path.join(repo, "시설평가", "202201_스마트팜 표준화_품셈.pdf")
+    assert _o.path.exists(pdf), "품셈 원문이 리포에서 사라졌다 — 인용의 전제가 깨진다"
+
+    # 불변식: 품셈 파일명은 **언제나** 리포 내 경로로만 등장한다.
+    #   ⚠️107차 초판 가드는 축약형(`E:\이암허브\...\`)만 막았다가
+    #   **전체 경로 형태 1건을 놓쳤다**(`…\2025\스마트팜견적타당성\…`).
+    #   경로 문자열을 열거하는 대신 **파일명의 앞자리**를 고정한다 — 어떤 형태의
+    #   외부 경로가 들어와도 걸린다(106차 좁은 glob과 같은 실패를 반복하지 않는다).
+    name = "202201_스마트팜 표준화_품셈.pdf"
+    for fname in ("smartfarm_engine.py", "엔진데이터_레지스트리.json"):
+        src = open(_o.path.join(repo, fname), encoding="utf-8").read()
+        hits = [m.start() for m in _re.finditer(_re.escape(name), src)]
+        assert hits, f"{fname}이 품셈 원문 인용을 통째로 잃었다"
+        for h in hits:
+            assert src[max(0, h - 5):h] == "시설평가/", (
+                f"{fname} 오프셋 {h}: 품셈이 리포 내 경로(`시설평가/`) 없이 "
+                f"인용됐다 — 리포 밖 자료로 오해되면 아무도 원문을 열어보지 "
+                f"않는다(102차가 그 오해 위에서 쪽번호를 흐렸고 104차 F1이 잡았다)")
+
+    # 실측 오프셋(인쇄 = PDF − 24)이 라벨에 반영돼 있는가
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    assert "인쇄 p.15~16 = **PDF 39~40**" in reg, (
+        "107차 실측으로 확정한 `인쇄 p.15~16 = PDF 39~40`이 사라졌다")
+    eng = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    assert "인쇄 = PDF − 24" in eng, "품셈 오프셋 실측 기록이 사라졌다"
+
+
+def test_107cha_section7_marks_what_later_cycles_overturned():
+    """107차 — 7절이 **닫힌 과제를 열린 것처럼** 보이게 두지 않는다.
+
+    7절은 해결 이력 로그라 시간이 지나면 낡는다. 65차가 문서 전체를 실제 상태와
+    대조하면서 7절만 **명시적으로 건너뛰었고**(그 차수의 「검증하지 않은 것」),
+    그 뒤 68·77·99·101·105·106차가 바로 그 항목들을 움직였다.
+
+    여기서 고정하는 것은 **정정 주석의 존재**다 — 원문 서술은 지우지 않는 것이
+    이 리포의 관례(31차)이므로, 낡은 문장 옆에 현재 상태가 반드시 붙어 있어야
+    한다. 주석이 사라지면 7절은 다시 사람을 속인다.
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    doc = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
+    i = doc.index("## 7. 미해결 이슈")
+    j = doc.index("## 8. 다음 세션", i)
+    sec = doc[i:j]
+
+    # 후행 차수가 뒤집은 자리마다 정정 주석이 붙어 있는가
+    for probe, why in (
+        ("99차에 5.7로 확정", "u_design 미해결 서술(99차가 닫았다)"),
+        ("결론은 \"둘 다 아니다\"였다", "핫박스 vs 현장 판단(99차가 제3경로로 갔다)"),
+        ("0.85 → 0.70으로 교체", "FR_TABLE 이중커튼 값(68차가 바꿨다)"),
+        ("품셈 PDF는 리포 안에 있다", "품셈 소재(104차 F1·107차 실측)"),
+        ("커밋 **112건**", "미커밋 유실 리스크(65차에 해소됐다)"),
+    ):
+        assert probe in sec, (
+            f"7절에서 `{probe}` 정정이 사라졌다 — {why}. 원문은 보존하되 현재 상태를 함께 적을 것(31차 관례)")
+
+    # 이 절이 현재 지도가 아니라는 안내(열린 것은 14절)
+    assert "14절" in sec, "7절이 14절로 넘기는 포인터를 잃었다 — 7절은 이력 로그다"
 
 
 if __name__ == "__main__":
