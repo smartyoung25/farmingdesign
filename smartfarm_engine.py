@@ -3393,6 +3393,217 @@ def loan_amortization(principal_won: float, annual_rate_pct: float,
     }
 
 
+# ─────────────────────────────────────────────────────────────
+# 금융 지표 확장: DSCR · 최대 감당 투자비 (2026-09-13, 81차 신설)
+#   경위: 79차 지침 편입 판정의 엔진 공백 지도 2·3번이다. 외부 패키지
+#   `00_MASTER` F절이 `DSCR = Cash Available for Debt Service / Debt Service`,
+#   `08_FINANCE_ROI`가 "목표 IRR·Payback·최소 DSCR을 만족하는 CAPEX 상한 역산"을
+#   요구한다. 79차는 **식은 채택하되 계산 주체를 엔진으로 돌린다**고 판정했다
+#   (패키지 원문은 Claude가 직접 계산하라고 하는데 그건 병렬 계산기라 거부).
+#   상세: 지침편입_SmartFarmROI패키지_v1.1_비판검토.md 3-2·5절.
+#
+#   ⚠️ 새 상수 0. 임계값(목표 IRR·Payback·DSCR)은 **전부 호출부가 주입**한다 —
+#     "DSCR 1.3 이상이면 양호" 같은 기준선을 엔진이 갖지 않는다. 그건 금융기관·
+#     사업자마다 다른 **판단성** 값이고, 1절이 금지하는 판정 자동화의 입구다.
+#
+#   ⚠️ CADS 정의(명시): 이 엔진에서 **CADS = revenue - opex** 다.
+#     `finance()`가 쓰는 연간 현금흐름(`operating_profit + depreciation`)과 같은
+#     값이며 감가상각은 비현금이라 되돌려 놓은 것이다. **세금·운전자본 변동·
+#     법인세 효과는 모델에 없다** — 표준 정의의 CADS보다 단순하므로 금융기관
+#     제출용으로 쓸 때는 이 차이를 반드시 밝힐 것[확인요망].
+#
+#   ⚠️ 이 엔진은 매출·운영비를 연도별로 바꾸지 않는다(램프업·물가 미반영).
+#     따라서 CADS는 전 연차 동일하고 DSCR의 연차 변동은 **상환액에서만** 온다.
+# ─────────────────────────────────────────────────────────────
+@dataclass
+class DscrRow:
+    year: int
+    cads: float                    # 부채상환가능현금(= revenue - opex)
+    debt_service: float            # 그 해 원리금 납입액
+    dscr: Optional[float]          # 납입액 0이면 None(무한대로 표기하지 않는다)
+
+
+@dataclass
+class DscrResult:
+    rows: list                     # DscrRow, 연차 순
+    cads_annual: float
+    min_dscr: Optional[float]
+    min_dscr_year: Optional[int]
+    basis_note: str                # CADS 정의·미반영 항목 명시(산출물에 그대로 노출용)
+
+
+def dscr_schedule(revenue: float, opex: float, loan: dict) -> DscrResult:
+    """대출상환표(`loan_amortization()` 반환)에 연간 CADS를 대입해 연차별 DSCR을 낸다.
+
+    loan: `loan_amortization()`이 돌려준 딕셔너리 그대로. 그 함수의 `rows`에서
+      `연차`·`납입액`만 읽는다 — 상환 계산을 여기서 다시 하지 않는다.
+
+    판정하지 않는다 — "DSCR 1.3 이상이면 통과" 같은 기준선을 두지 않고 값과
+    최솟값 위치만 돌려준다. 기준 충족 여부는 호출부·금융기관 몫이다.
+    """
+    if not isinstance(loan, dict) or "rows" not in loan:
+        raise ValueError("loan은 loan_amortization()의 반환 딕셔너리여야 한다")
+    cads = revenue - opex
+    rows = []
+    for r in loan["rows"]:
+        ds = float(r["납입액"])
+        rows.append(DscrRow(year=int(r["연차"]), cads=cads, debt_service=ds,
+                            dscr=(cads / ds if ds > 0 else None)))
+    vals = [(r.dscr, r.year) for r in rows if r.dscr is not None]
+    min_dscr, min_year = min(vals) if vals else (None, None)
+    note = ("CADS = 매출 - 운영비(감가상각 제외). 세금·운전자본 변동 미반영 — "
+            "표준 DSCR보다 단순하므로 금융기관 제출 시 차이를 밝힐 것. "
+            "매출·운영비가 연도별로 고정이라 DSCR 변동은 상환액에서만 온다.")
+    return DscrResult(rows=rows, cads_annual=cads, min_dscr=min_dscr,
+                      min_dscr_year=min_year, basis_note=note)
+
+
+@dataclass
+class MaxCapexResult:
+    max_capex_won: Optional[float]   # 제약을 전부 만족하는 CAPEX 상한. 불가면 None
+    current_capex_won: Optional[float]
+    gap_won: Optional[float]         # 상한 - 현재. 음수면 현재가 상한을 넘었다는 뜻
+    binding: list                    # 상한에서 걸리는 제약 이름(복수 가능)
+    constraints: dict                # 입력 echo
+    feasible_at_zero: bool           # 최소 규모에서도 제약을 못 맞추는지
+    notes: list
+
+
+def max_investable_capex(revenue: float, opex: float,
+                         target_irr: Optional[float] = None,
+                         max_payback_years: Optional[float] = None,
+                         min_dscr: Optional[float] = None,
+                         subsidy_rate: float = 0.0,
+                         equity_won: float = 0.0,
+                         loan_rate_pct: float = 0.0,
+                         loan_term_years: int = 0,
+                         loan_grace_years: int = 0,
+                         loan_method: str = "원리금균등",
+                         current_capex_won: Optional[float] = None,
+                         useful_life: int = 15,
+                         discount_rate: float = 0.05,
+                         years: int = 10,
+                         land_cost: float = 0.0) -> MaxCapexResult:
+    """지정한 재무 제약을 전부 만족하는 **CAPEX 상한**을 역산한다.
+
+    패키지가 말하는 질문의 전환이다 — "얼마에 지을 수 있는가"가 아니라
+    **"얼마 이하로 지어야 사업성이 있는가"**.
+
+    제약은 주는 것만 건다(전부 None이면 상한이 없어 None을 돌려준다):
+      target_irr        : IRR >= 이 값(소수. 0.08 = 8%)
+      max_payback_years : Payback <= 이 값
+      min_dscr          : 전 연차 최소 DSCR >= 이 값
+
+    금융구조(명시적 단순 모델): `대출 = max(0, CAPEX x (1 - 보조율) - 자기자본)`.
+    min_dscr을 걸면 loan_rate_pct·loan_term_years가 필요하다.
+
+    계산은 전부 기존 함수 위임이다 — `finance()`·`loan_amortization()`·
+    `dscr_schedule()`. 탐색만 여기서 한다(새 재무 산식 없음).
+
+    **단조성**: 이 엔진에서 연간 현금흐름(revenue - opex)은 CAPEX와 무관하므로
+    CAPEX가 커지면 IRR은 단조 감소, Payback은 단조 증가, 대출이 커져 DSCR은 단조
+    감소한다. 그래서 배가 탐색 + 이분 탐색이 성립한다.
+
+    판정하지 않는다 — 상한과 현재와의 차이를 돌려줄 뿐 "추진 가능/불가"를 말하지
+    않는다. 임계값도 엔진이 갖지 않고 호출부가 준다.
+    """
+    cons = {"target_irr": target_irr, "max_payback_years": max_payback_years,
+            "min_dscr": min_dscr, "subsidy_rate": subsidy_rate,
+            "equity_won": equity_won, "loan_rate_pct": loan_rate_pct,
+            "loan_term_years": loan_term_years, "loan_grace_years": loan_grace_years,
+            "loan_method": loan_method, "useful_life": useful_life,
+            "discount_rate": discount_rate, "years": years, "land_cost": land_cost}
+    notes = []
+    if target_irr is None and max_payback_years is None and min_dscr is None:
+        return MaxCapexResult(None, current_capex_won, None, [], cons, True,
+                              ["제약이 하나도 지정되지 않아 상한이 정의되지 않는다 — "
+                               "target_irr·max_payback_years·min_dscr 중 최소 1개 필요"])
+    if min_dscr is not None and loan_term_years <= 0:
+        raise ValueError("min_dscr 제약을 걸려면 loan_term_years(>0)가 필요하다")
+
+    def measured_irr(capex: float, fin) -> Optional[float]:
+        """`irr()`의 기본 탐색 상한은 hi=1.0(=100%)이라 그보다 높은 IRR에서
+        None을 돌려준다 — 작은 CAPEX 구간이 전부 그렇다. 그 None을 '위반'으로
+        읽으면 탐색이 하한에서 바로 실패한다(81차 실측). `irr()` 자체는 건드리지
+        않고(회귀 위험) 여기서 탐색 범위만 넓혀 다시 묻는다.
+        현금흐름은 `finance()`가 이미 계산한 값으로 재구성한다 — 현금흐름 '규칙'을
+        다시 쓰지 않는다(연간 CF = operating_profit + depreciation).
+        두 경로가 어긋나면 test_max_capex_irr_probe_agrees_with_finance가 잡는다."""
+        if fin.irr is not None:
+            return fin.irr
+        cfs = [-capex] + [fin.operating_profit + fin.depreciation] * years
+        # 1e9는 **알고리즘 탐색 상한**이지 도메인 상수가 아니다(레지스트리 대상 아님).
+        # CAPEX가 아주 작으면 IRR이 1e8%대까지 가므로 넉넉히 잡는다.
+        search_hi = 1e9
+        r = irr(cfs, hi=search_hi)
+        if r is not None:
+            return r
+        # 그래도 부호변화가 없으면 방향을 NPV 부호로 판별한다 —
+        # 고율에서도 NPV>0이면 IRR이 탐색 상한보다 높다는 뜻이라 '무한대'로 본다
+        # (제약 IRR>=target은 자동 충족). 반대면 하한 미만이라 측정 불가로 둔다.
+        return float("inf") if npv(search_hi, cfs) > 0 else None
+
+    def violated(capex: float) -> list:
+        """제약 위반 목록. 비어 있으면 이 CAPEX는 허용."""
+        bad = []
+        fin = finance(revenue, opex, capex, useful_life=useful_life,
+                      discount_rate=discount_rate, years=years,
+                      subsidy_rate=subsidy_rate, land_cost=land_cost)
+        if target_irr is not None:
+            r = measured_irr(capex, fin)
+            if r is None or r < target_irr:
+                bad.append("IRR")
+        if max_payback_years is not None:
+            if fin.payback_years is None or fin.payback_years > max_payback_years:
+                bad.append("Payback")
+        if min_dscr is not None:
+            principal = max(0.0, capex * (1 - subsidy_rate) - equity_won)
+            if principal <= 0:
+                pass                      # 대출이 없으면 DSCR 제약은 비활성
+            else:
+                loan = loan_amortization(principal, loan_rate_pct,
+                                         loan_term_years, loan_grace_years,
+                                         loan_method)
+                res = dscr_schedule(revenue, opex, loan)
+                if res.min_dscr is None or res.min_dscr < min_dscr:
+                    bad.append("DSCR")
+        return bad
+
+    # 하한: 아주 작은 CAPEX에서도 제약을 못 맞추면 상한 자체가 없다
+    lo = 1.0
+    if violated(lo):
+        return MaxCapexResult(None, current_capex_won, None, violated(lo), cons, False,
+                              notes + ["최소 규모에서도 제약을 만족하지 못한다 — "
+                                       "매출·운영비 가정 또는 제약 자체를 재검토할 것"])
+    # 배가 탐색으로 위반이 나오는 hi 확보(60회 = 알고리즘 가드, 도메인 값 아님)
+    hi = max(float(current_capex_won or 0.0), lo) * 2 or 2.0
+    for _ in range(60):
+        if violated(hi):
+            break
+        lo, hi = hi, hi * 2
+    else:
+        return MaxCapexResult(None, current_capex_won, None, [], cons, True,
+                              notes + ["탐색 상한(배가 60회)까지 제약이 걸리지 않았다 — "
+                                       "제약이 사실상 구속력이 없다는 뜻이다"])
+    # 이분 탐색: lo=허용, hi=위반. 1원 미만으로 좁힌다
+    for _ in range(200):
+        if hi - lo < 1.0:
+            break
+        mid = (lo + hi) / 2
+        if violated(mid):
+            hi = mid
+        else:
+            lo = mid
+    binding = violated(hi)
+    gap = None if current_capex_won is None else lo - current_capex_won
+    if gap is not None and gap < 0:
+        notes.append(f"현재 CAPEX가 상한을 {abs(gap):,.0f}원 초과한다 — "
+                     f"초과분은 설계 검토 대상이지 판정이 아니다")
+    return MaxCapexResult(max_capex_won=lo, current_capex_won=current_capex_won,
+                          gap_won=gap, binding=binding, constraints=cons,
+                          feasible_at_zero=True, notes=notes)
+
+
 @dataclass
 class OperatingBreakeven:
     breakeven_revenue_won: float

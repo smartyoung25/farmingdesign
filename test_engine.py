@@ -1554,6 +1554,170 @@ def test_doc_consistency_not_wired_into_render_paths():
                 f"처리를 먼저 정하고 이 테스트를 함께 갱신할 것")
 
 
+# ── DSCR · 최대 감당 투자비 (81차) ───────────────────────────
+# 79차 지침 편입 판정의 엔진 공백 2·3번. 임계값은 엔진이 갖지 않고 전부 주입한다.
+_WC_REV = 332_640_000.0      # 원채원 케이스 매출(엔진 재계산값)
+_WC_OPEX = 186_420_000.0
+_WC_CAPEX = 702_030_000.0
+
+
+def _wonchaewon_finance_inputs():
+    """회귀 케이스(원채원)의 매출·OPEX를 엔진으로 재계산해 픽스처와 대조한다 —
+    상수를 손으로 적어두면 케이스가 바뀌어도 눈치채지 못한다."""
+    import cases as C
+    c = [x for x in C.load_cases() if x["case_id"] == "wonchaewon"][0]
+    i = c["input"]
+    rev = e.production_kg(i["area_m2"], i["base_yield_kg_m2"],
+                          i["fitness_pct"]) * i["price_won_per_kg"]
+    return rev, i["opex"], i["total_construction_cost"], i["subsidy_rate"]
+
+
+def test_wonchaewon_fixture_constants_match_the_case():
+    """_WC_* 상수가 실제 케이스와 어긋나면 아래 DSCR 테스트들이 조용히 다른
+    농가를 검사하게 된다 — 손으로 적은 값의 드리프트를 여기서 잡는다."""
+    rev, opex, capex, _ = _wonchaewon_finance_inputs()
+    assert (rev, opex, capex) == (_WC_REV, _WC_OPEX, _WC_CAPEX)
+
+
+def test_dscr_matches_cads_over_debt_service():
+    """DSCR = (매출 - 운영비) / 그 해 납입액 — 원단위 일치. 상환 계산을 여기서
+    다시 하지 않고 loan_amortization 결과를 그대로 쓴다."""
+    loan = e.loan_amortization(500_000_000, 3.0, 10, 2)
+    res = e.dscr_schedule(_WC_REV, _WC_OPEX, loan)
+    assert res.cads_annual == _WC_REV - _WC_OPEX
+    assert len(res.rows) == len(loan["rows"])
+    for row, lr in zip(res.rows, loan["rows"]):
+        assert row.year == lr["연차"]
+        assert row.debt_service == lr["납입액"]
+        assert row.dscr == res.cads_annual / lr["납입액"]
+
+
+def test_dscr_min_is_the_worst_year_not_the_last():
+    """최소 DSCR과 그 연차를 정확히 집는가. 거치 2년은 이자만 내 납입액이 작아
+    DSCR이 높고, 상환 개시 후가 낮다 — '마지막 해'로 단정하면 안 된다."""
+    loan = e.loan_amortization(500_000_000, 3.0, 10, 2)
+    res = e.dscr_schedule(_WC_REV, _WC_OPEX, loan)
+    vals = [(r.dscr, r.year) for r in res.rows if r.dscr is not None]
+    assert (res.min_dscr, res.min_dscr_year) == min(vals)
+    grace = [r for r in res.rows if r.year <= 2]
+    assert all(r.dscr > res.min_dscr for r in grace), "거치기간이 최소일 리 없다"
+
+
+def test_dscr_zero_debt_service_is_none_not_infinity():
+    """납입액 0이면 무한대로 표기하지 않고 None — 근거 없는 수치를 만들지 않는다."""
+    fake = {"rows": [{"연차": 1, "납입액": 0.0}, {"연차": 2, "납입액": 1_000_000.0}]}
+    res = e.dscr_schedule(_WC_REV, _WC_OPEX, fake)
+    assert res.rows[0].dscr is None
+    assert res.rows[1].dscr == res.cads_annual / 1_000_000.0
+    assert res.min_dscr_year == 2
+
+
+def test_dscr_basis_note_states_what_is_not_modelled():
+    """CADS 정의와 미반영 항목(세금·운전자본)을 산출물에 드러낼 수 있어야 한다 —
+    표준 DSCR보다 단순하다는 사실을 숨기지 않는다."""
+    loan = e.loan_amortization(100_000_000, 3.0, 5)
+    note = e.dscr_schedule(_WC_REV, _WC_OPEX, loan).basis_note
+    for frag in ("매출 - 운영비", "세금", "운전자본"):
+        assert frag in note
+
+
+def test_dscr_rejects_non_loan_dict():
+    import pytest
+    with pytest.raises(ValueError):
+        e.dscr_schedule(_WC_REV, _WC_OPEX, {"연차": 1})
+
+
+def test_max_capex_combined_equals_min_of_individual_limits():
+    """제약을 동시에 걸면 상한은 개별 상한들의 최솟값이어야 한다(단조성의 귀결)."""
+    rev, opex, capex, sub = _wonchaewon_finance_inputs()
+    L = dict(loan_rate_pct=3.0, loan_term_years=10, loan_grace_years=2)
+    a = e.max_investable_capex(rev, opex, target_irr=0.08, subsidy_rate=sub).max_capex_won
+    b = e.max_investable_capex(rev, opex, max_payback_years=8, subsidy_rate=sub).max_capex_won
+    c = e.max_investable_capex(rev, opex, min_dscr=1.3, subsidy_rate=sub, **L).max_capex_won
+    both = e.max_investable_capex(rev, opex, target_irr=0.08, max_payback_years=8,
+                                  min_dscr=1.3, subsidy_rate=sub, **L)
+    assert abs(both.max_capex_won - min(a, b, c)) < 2.0, (a, b, c, both.max_capex_won)
+    assert both.binding, "상한에서 어떤 제약이 걸리는지 알려야 한다"
+
+
+def test_max_capex_irr_limit_is_consistent_with_case_regression():
+    """원채원 회귀값(CAPEX 702,030,000에서 IRR 16.2%)과 정합하는가 —
+    목표 IRR을 16%로 두면 상한이 현재 CAPEX '바로 위'에 있어야 한다.
+    역산 로직이 finance()와 어긋나면 여기서 깨진다."""
+    rev, opex, capex, sub = _wonchaewon_finance_inputs()
+    m = e.max_investable_capex(rev, opex, target_irr=0.16,
+                               subsidy_rate=sub, current_capex_won=capex)
+    assert m.max_capex_won > capex, "IRR 16.2% > 16%이므로 상한이 현재보다 커야 한다"
+    assert m.max_capex_won < capex * 1.05, "16.2%와 16%의 차이는 작다"
+    assert m.gap_won == m.max_capex_won - capex
+
+
+def test_max_capex_irr_probe_agrees_with_finance():
+    """`measured_irr`의 넓힌 탐색이 `finance()`가 측정 가능한 구간에서는
+    같은 값을 내는가 — 두 경로가 드리프트하면 역산이 조용히 틀어진다."""
+    rev, opex, _, _ = _wonchaewon_finance_inputs()
+    for capex in (3e8, 5e8, 7e8, 1.2e9):
+        fin = e.finance(rev, opex, capex)
+        if fin.irr is None:
+            continue                      # finance가 못 재는 구간은 대조 대상 아님
+        cfs = [-capex] + [fin.operating_profit + fin.depreciation] * 10
+        assert abs(e.irr(cfs, hi=1e9) - fin.irr) < 1e-6
+
+
+def test_max_capex_without_constraints_returns_none_with_reason():
+    rev, opex, _, _ = _wonchaewon_finance_inputs()
+    m = e.max_investable_capex(rev, opex)
+    assert m.max_capex_won is None and m.notes
+
+
+def test_max_capex_infeasible_when_opex_exceeds_revenue():
+    """매출보다 운영비가 크면 어떤 규모에서도 제약을 못 맞춘다 —
+    상한을 만들어내지 않고 None + 사유를 돌려준다."""
+    m = e.max_investable_capex(100_000_000, 150_000_000, target_irr=0.08)
+    assert m.max_capex_won is None
+    assert m.feasible_at_zero is False
+    assert any("최소 규모" in n for n in m.notes)
+
+
+def test_max_capex_requires_loan_terms_for_dscr_constraint():
+    import pytest
+    with pytest.raises(ValueError):
+        e.max_investable_capex(_WC_REV, _WC_OPEX, min_dscr=1.3)
+
+
+def test_finance_extension_exposes_no_verdict_or_threshold_constant():
+    """임계값을 엔진이 갖지 않는가 — 'DSCR 1.3 이상 양호' 같은 기준선은
+    판단성이라 상수로 두지 않는다(79차 거부 판정). 판정 어휘도 없어야 한다."""
+    import inspect
+    sig = inspect.signature(e.max_investable_capex)
+    for name in ("target_irr", "max_payback_years", "min_dscr"):
+        assert sig.parameters[name].default is None, f"{name}에 기본 임계값이 생겼다"
+    fields = (set(e.MaxCapexResult.__dataclass_fields__)
+              | set(e.DscrResult.__dataclass_fields__)
+              | set(e.DscrRow.__dataclass_fields__))
+    banned = ("grade", "score", "verdict", "recommend", "pass", "적합", "등급", "판정", "추천")
+    bad = [f for f in fields if any(k in f.lower() for k in banned)]
+    assert bad == [], f"판정 필드 유입: {bad}"
+
+
+def test_finance_extension_not_wired_into_render_paths():
+    """81차 도달성(74차 관례)."""
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    for fname in ("build_site.py", "webapp.py", "render_report.py", "app.py",
+                  "run_report.py", "render_chuncheon.py", "cases.py"):
+        path = os.path.join(repo, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            body = f.read()
+        for fn in ("dscr_schedule", "max_investable_capex"):
+            assert fn not in body, (
+                f"{fname}이 {fn}을 쓰기 시작했다 — CADS 정의가 세금·운전자본을 "
+                f"빼고 있다는 사실(basis_note)을 산출물에 함께 노출하고 "
+                f"이 테스트를 갱신할 것")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
