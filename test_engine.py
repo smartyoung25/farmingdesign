@@ -1840,6 +1840,40 @@ def test_cover_assemblies_not_wired_into_render_paths():
                 f"어느 조합으로 매핑할지(판단성) 결정하고 이 테스트를 갱신할 것")
 
 
+# ── 미검증 상수 재조사 결과 고정 (83차) ─────────────────────
+# 사용자 지시 "미검증인 내용에 대해 검증진행하라". 국내 표준 난방설계 매뉴얼
+# (신개념온실설계및표준화연구 p.344~346·350·359) 대조 결과를 코드로 남긴다.
+# **값은 하나도 바꾸지 않았다** — 정체 후보를 찾은 것이지 확정한 게 아니다.
+def test_heating_constants_match_manual_leads_found_in_83():
+    """83차에 찾은 원문 대응을 고정한다. 값이 바뀌면 근거 문서를 함께 갱신하라고 알린다."""
+    # p.346: "난방기의 효율로 온풍난방의 경우 0.8∼0.9" — 0.85는 그 범위의 중앙값
+    assert e.HEATING_EFFICIENCY_DEFAULT == 0.85
+    assert abs(e.HEATING_EFFICIENCY_DEFAULT - (0.8 + 0.9) / 2) < 1e-9, (
+        "0.85가 온풍난방 범위(0.8~0.9)의 중앙값이라는 83차 관측이 깨졌다")
+    # p.345 표3-3-35: 강풍지역 단일피복 풍속보정계수 1.1 — 엔진 안전율과 값이 같다
+    assert e.HEATING_SAFETY_FACTOR == 1.1
+    # p.359 표3-3-42에 10,098은 없다 — 최근접이 부산 8℃ 10,269(=10.269×10³)
+    assert e.DEGREE_HOURS_DEFAULT == 10098.0
+    assert e.DEGREE_HOURS_DEFAULT != 10269.0
+
+
+def test_glass_u_value_competing_hypothesis_is_recorded():
+    """83차: 표3-3-33 유리 1중피복 6.2 W/㎡·℃ × 0.86 = 5.33 → 5.3.
+    U_VALUE['유리']=5.3의 '출처 오염 확정적' 단정을 격하한 근거다.
+    레지스트리가 이 경쟁 가설을 계속 싣고 있는지 확인한다(단정 재발 방지)."""
+    import json
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8") as f:
+        src = json.load(f)["constants"]["U_VALUE"]["source"]
+    assert e.U_VALUE["유리"] == 5.3
+    assert abs(6.2 * 0.86 - 5.33) < 0.005
+    for frag in ("경쟁 가설", "표 3-3-33"):
+        assert frag in src, (
+            f"U_VALUE source에서 '{frag}'가 사라졌다 — 83차가 격하한 "
+            f"'출처 오염 확정적' 단정이 되살아났는지 확인할 것")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

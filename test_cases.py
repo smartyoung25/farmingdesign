@@ -654,7 +654,11 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       농진청 「온실 열손실 저감 및 차단 기술 연구」 표9·10·11 **49행 전량 전사**라
     #       ref는 match="exact"다(44차 F5의 취지대로 '값에 대한 근거력'이 전량 전사이므로).
     #       20회차 F3에서 exact를 과대라고 정정한 건은 정의·방향 근거였고 이건 값 근거다.
-    assert a["counts"]["registry_constants"] == 40 and a["counts"]["source_refs"] == 53
+    # 83차: 40(불변) — 상수 신설 없음. refs 53→57 — 미검증 상수 재조사(사용자 지시)로
+    #       국내 표준 난방설계 매뉴얼을 HEATING_EFFICIENCY_DEFAULT·HEATING_SAFETY_FACTOR·
+    #       DEGREE_HOURS_DEFAULT·U_VALUE 4건에 등재. **값·status는 전부 불변**이고
+    #       등재한 것은 정체 후보·확인 결과다(근거_미검증상수_표준매뉴얼대조_20260913.md).
+    assert a["counts"]["registry_constants"] == 40 and a["counts"]["source_refs"] == 57
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
