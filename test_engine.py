@@ -2716,6 +2716,11 @@ def test_103cha_name_patterns_precision_over_recall():
     assert persons and all(len(n) == 3 for n in persons), sorted(persons)
     assert names - persons == {"한일그린텍"}, sorted(names - persons)
     assert "한일" in F.NOT_A_NAME
+    # 104차 레드팀 F8 — 거부 목록에 **사문 항목**(캡처 {2,3}과 매치 불가한 4글자+)이
+    #   없어야 한다. 있으면 "막았다"는 착각만 남는다.
+    assert all(2 <= len(w) <= 3 for w in F.NOT_A_NAME),         sorted(w for w in F.NOT_A_NAME if not 2 <= len(w) <= 3)
+    # 104차 레드팀 F8 — 반대 방향: 실제 케이스명이 거부 목록과 겹치면 영구 미상이 된다
+    assert not (names & F.NOT_A_NAME), sorted(names & F.NOT_A_NAME)
 
 
 def test_103cha_pattern_change_leaves_index_untouched():
