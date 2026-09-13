@@ -1,0 +1,38 @@
+{
+  "package": "SmartFarm ROI / Design Assurance Claude Package",
+  "version": "1.1",
+  "language": "ko",
+  "master": "00_MASTER_INSTRUCTIONS.md",
+  "project_instruction": "CLAUDE.md",
+  "skills": [
+    "01_SITE_INTAKE_SKILL.md",
+    "02_DESIGN_REVIEW_SKILL.md",
+    "03_QOM_BOQ_SKILL.md",
+    "04_QUOTE_AUDIT_SKILL.md",
+    "05_CAPEX_SKILL.md",
+    "06_OPEX_LCC_SKILL.md",
+    "07_YIELD_REVENUE_SKILL.md",
+    "08_FINANCE_ROI_SKILL.md",
+    "09_SCENARIO_STRESS_SKILL.md",
+    "10_RFQ_CONTRACTOR_SKILL.md",
+    "11_COMMISSIONING_ACTUAL_SKILL.md",
+    "12_REPORT_GENERATOR_SKILL.md"
+  ],
+  "references": "REFERENCE_MANIFEST.md",
+  "all_in_one": "ALL_IN_ONE_CLAUDE_INSTRUCTIONS.md",
+  "bootstrap": "BOOTSTRAP_PROMPT.md",
+  "reference_files": [
+    "온실시공견적_시뮬레이터_171023_v1.2.xlsx",
+    "스마트팜코리아_DB(231025)_기자재정보_시공업체리스트_250117.xlsx",
+    "agriecture_가격예측.xlsx",
+    "온실공사업체_2025_온실설치공사시공능력평가결과(수시분).pdf",
+    "스마트팜사업타당성_경제성분석_서비스_v3_250122.xlsx",
+    "자동화비닐온실설계도(1ha)_박이사님.pdf",
+    "(간행물) 스마트온실 구축 가이드라인 개발.pdf",
+    "스마트농업견적방법_250328.docx",
+    "스마트농업 기자재 자가수리 매뉴얼_농진청 (2).pdf",
+    "스마트농업 시설 설치 및 관리 가이드라인_Vol.2_내지.pdf",
+    "스마트농업 시설 설치 및 관리 가이드라인_Vol.1_내지.pdf",
+    "보안 요청-영문 규격서.pdf"
+  ]
+}
