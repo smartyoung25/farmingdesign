@@ -25,7 +25,7 @@ import os
 import re
 
 from chunking_lib_v2 import (
-    ROOT, SPEC_DIR, FACILITY_DIR, ChunkWriter,
+    ROOT, SPEC_DIR, FACILITY_DIR, RESEARCH_DIR, ChunkWriter,
     chunk_pdf_by_page, chunk_pdf_table_or_lines, chunk_xlsx, chunk_xls_legacy, chunk_docx,
     chunk_hwp, chunk_image_ocr, chunk_pdf_scan_ocr, write_outputs,
 )
@@ -63,6 +63,10 @@ def guess_doc_type(basename, rel_dir):
             return dtype
     if rel_dir.startswith("시설평가"):
         return "기자재현황/품셈/가이드라인"
+    if rel_dir.startswith("스마트팜연구DB"):
+        # 78차: 농진청 국가연구개발보고서. 파일명 규칙이 없어 폴더 기본값을 준다 —
+        # 주지 않으면 PDF가 "doc_type 자동분류 실패"로 **전량 스킵**된다(L295).
+        return "연구보고서"
     return "미분류"
 
 
@@ -209,6 +213,11 @@ def classify(path):
             case = "제도문서"
     elif parts[0] == "시설평가":
         case = "범용자료"
+    elif parts[0] == "스마트팜연구DB":
+        # 78차: 농진청 국가연구개발보고서 모음. 특정 농가 사례가 아니므로 케이스가
+        # 아니라 성격 라벨을 붙인다("범용자료"와 구분해야 출처 등급 판단이 쉬워진다 —
+        # 이쪽은 실험·실측 보고서라 계수 1차 출처 후보다).
+        case = "연구자료"
     else:
         case = "미상"
 
@@ -220,7 +229,11 @@ def classify(path):
 
 PAGE_LEVEL_TYPES = {"설계도면", "구조계산서", "시방서", "사업공모"}
 TABLE_LEVEL_TYPES = {"공사비내역서", "설계예산서", "수량산출서", "공사공정표",
-                     "기자재현황/품셈/가이드라인"}
+                     "기자재현황/품셈/가이드라인",
+                     # 78차: 연구보고서는 본문(줄)과 실측표가 섞여 있다.
+                     # chunk_pdf_table_or_lines가 표를 먼저 뜨고 없으면 줄로 떨어지므로
+                     # 표 10·11 같은 계수표를 놓치지 않는다.
+                     "연구보고서"}
 
 
 def md5_of(path):
@@ -320,7 +333,7 @@ def run():
     n_processed = 0
 
     all_files = []
-    for base in (SPEC_DIR, FACILITY_DIR):
+    for base in (SPEC_DIR, FACILITY_DIR, RESEARCH_DIR):
         for dirpath, dirnames, filenames in os.walk(base):
             dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
             for fn in filenames:

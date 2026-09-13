@@ -13,6 +13,7 @@
 사용:
   python3 run_chunk_incremental.py spec       # 스마트팜스펙/ 만 (기본값)
   python3 run_chunk_incremental.py facility   # 시설평가/ 만
+  python3 run_chunk_incremental.py research   # 스마트팜연구DB/ 만 (78차 신설)
   python3 run_chunk_incremental.py all        # 둘 다
   python3 run_chunk_incremental.py --merge     # 부분파일 → 최종 jsonl+요약 병합
   python3 run_chunk_incremental.py --view      # 정본 인덱스 ⊕ 오버레이 → 뷰 파일 생성
@@ -47,6 +48,16 @@ os.makedirs(PARTS, exist_ok=True)
 SEEN = os.path.join(PARTS, "_seen_hashes.json")
 BUDGET = float(os.environ.get("CHUNK_BUDGET", "35"))
 RUN_ID = time.strftime("%Y-%m-%dT%H%M%S")
+
+
+# 78차: 이 환경의 콘솔 기본 인코딩이 cp949라 진행 로그의 em dash 한 글자에
+#   드라이버가 UnicodeEncodeError로 죽는다(실측). 처리 자체와 무관한 사유로
+#   파이프라인이 멈추지 않도록 표준출력을 UTF-8로 고정한다.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 
 def relpath(p):
@@ -277,9 +288,11 @@ def main():
         retag_only(); return
     assert_pipeline_dependencies()  # P2-23: 처리 시작 전 필수 파서 존재 확인
     if "all" in args:
-        bases = [full.SPEC_DIR, full.FACILITY_DIR]
+        bases = [full.SPEC_DIR, full.FACILITY_DIR, full.RESEARCH_DIR]
     elif "facility" in args:
         bases = [full.FACILITY_DIR]
+    elif "research" in args:
+        bases = [full.RESEARCH_DIR]   # 78차 신설 — 스마트팜연구DB/
     else:
         bases = [full.SPEC_DIR]  # 기본: 스마트팜스펙 (사용자 지정 시방서/설계서/견적서/도면)
 
@@ -303,6 +316,15 @@ def main():
         else:
             current[rel] = file_fingerprint(p)
     states = classify_file_states(current, mf)
+
+    # 78차 버그 수정: classify_file_states는 매니페스트 **전체**를 current와 대조하므로,
+    #   부분 타깃(spec/facility/research)으로 돌리면 **스캔하지 않은 폴더의 파일이
+    #   전부 "삭제"로 오판**된다(research 신설 실행에서 186건 전량 tombstone 시도로 실측).
+    #   삭제 판정은 "이번에 실제로 훑은 폴더" 안에서만 의미가 있다 — 범위를 좁힌다.
+    #   ⚠️ 이 수정 전에는 `python run_chunk_incremental.py facility` 한 번으로도
+    #   스마트팜스펙 168건이 tombstoned로 마킹될 수 있었다(잠복 결함).
+    scan_prefixes = tuple(relpath(b) + "/" for b in bases)
+    states["deleted"] = [r for r in states["deleted"] if r.startswith(scan_prefixes)]
 
     # 삭제 감지 → tombstone(청크·파트는 지우지 않음, 추적성 보존)
     for rel in states["deleted"]:

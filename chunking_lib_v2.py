@@ -16,6 +16,11 @@ import openpyxl
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SPEC_DIR = os.path.join(ROOT, "스마트팜스펙")
 FACILITY_DIR = os.path.join(ROOT, "시설평가")
+# 78차(2026-09-13): 레드팀 20회차 F1·F4가 "인덱스가 2폴더만 커버한다"를 실측으로
+#   지적하면서 드러난 공백. 스마트팜연구DB/(농진청 국가연구개발보고서 36건)는
+#   FR_TABLE·U_VALUE·U_DESIGN의 1차 출처 후보를 담고 있는데 청킹 대상에 한 번도
+#   들어간 적이 없었다(파서 공백이 아니라 base 목록 누락이었다).
+RESEARCH_DIR = os.path.join(ROOT, "스마트팜연구DB")
 
 
 # ── P2-23(2026-08-17): 파이프라인 의존성·산출물 급감 가드 ──────────────
