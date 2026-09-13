@@ -2797,7 +2797,14 @@ def test_107cha_pumsem_source_points_into_the_repo_and_offset_is_measured():
     (10쪽 꼬리말 글리프 역해독, 글리프→숫자 대응이 모순 없이 하나로 결정).
 
     이 테스트가 깨지면 표기가 다시 흐려진 것이다 — 값 문제가 아니라 **재현 경로**
-    문제이므로 라벨을 되돌릴 것. 근거: 근거_7절정합성감사_품셈오프셋실측_20260914.md
+    문제이므로 라벨을 되돌릴 것.
+
+    🔴108차 정정: 107차는 오프셋을 `p.15~16`에도 곱해 "= PDF 39~40"이라 확정했는데
+    **틀렸다**. 그 라벨은 처음부터 PDF 쪽번호였다(해당 내용은 PDF 15~16의
+    요약보고서에 있고, 그 구간엔 쪽 꼬리말이 아예 없다). **오프셋을 알게 됐다고
+    모든 기존 라벨이 인쇄 쪽번호인 것은 아니다** — 라벨의 종류는 따로 확인해야
+    한다. 근거: 근거_7절정합성감사_품셈오프셋실측_20260914.md(오프셋),
+            근거_품셈요약보고서_원문확인_20260914.md(원문 육안 대조)
     """
     import os as _o
     import re as _re
@@ -2823,10 +2830,22 @@ def test_107cha_pumsem_source_points_into_the_repo_and_offset_is_measured():
                 f"인용됐다 — 리포 밖 자료로 오해되면 아무도 원문을 열어보지 "
                 f"않는다(102차가 그 오해 위에서 쪽번호를 흐렸고 104차 F1이 잡았다)")
 
-    # 실측 오프셋(인쇄 = PDF − 24)이 라벨에 반영돼 있는가
+    # 실측 오프셋(인쇄 = PDF − 24)이 기록돼 있는가
     reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
-    assert "인쇄 p.15~16 = **PDF 39~40**" in reg, (
-        "107차 실측으로 확정한 `인쇄 p.15~16 = PDF 39~40`이 사라졌다")
+
+    # 🔴108차 — 107차가 여기 박아 뒀던 `인쇄 p.15~16 = PDF 39~40`은 **틀렸다**.
+    #   원문을 렌더링해 보니 PDF 39~40은 [표 2-3] 스마트팜 도입 성과조사이고,
+    #   해당 내용은 PDF 15~16(요약보고서)에 있다. 앵커를 **반대 방향으로** 건다 —
+    #   그 표기가 되살아나면 실패한다.
+    #   이력 보존이 이 리포의 관례라 **정정문 안의 인용은 허용**한다 —
+    #   금지하는 것은 `정정` 표시 없이 살아 있는 라벨이다.
+    for m in _re.finditer("인쇄 p.15~16", reg):
+        near = reg[max(0, m.start() - 300):m.start()]
+        assert "108차 정정" in near, (
+            "`인쇄 p.15~16`이 정정 표시 없이 살아 있다 — 그 구간은 요약보고서라 "
+            "**쪽번호가 인쇄되지 않는다**(108차 원문 육안 확인). "
+            "`PDF p.15~16(요약보고서 — 인쇄 쪽번호 없음)`으로 적을 것")
+    assert "PDF p.15~16" in reg, "요약보고서 구간의 PDF 쪽 표기가 사라졌다"
     eng = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
     assert "인쇄 = PDF − 24" in eng, "품셈 오프셋 실측 기록이 사라졌다"
 
@@ -2863,6 +2882,39 @@ def test_107cha_section7_marks_what_later_cycles_overturned():
     # 이 절이 현재 지도가 아니라는 안내(열린 것은 14절)
     assert "14절" in sec, "7절이 14절로 넘기는 포인터를 잃었다 — 7절은 이력 로그다"
 
+
+def test_108cha_pumsem_summary_section_numbers_are_verified_against_the_page():
+    """108차 — 원문을 **열어 보고** 확인한 것만 확정으로 적는다.
+
+    107차의 실패는 방법이 아니라 **순서**였다: 오프셋을 측정한 뒤 그 오프셋을
+    기존 라벨에 곱해 "확정"이라 적었고, 정작 **그 쪽을 열어보지 않았다**.
+    108차는 pypdfium2로 렌더링해 육안 대조했다.
+
+    여기서 고정하는 것은 두 가지다.
+      ① 원문에서 직접 읽은 네 수치(4,196 / 3,487 / 3,509 / 3,009 백만원/ha)
+      ② 정부지원 기준단가(3,000 / 1,500)는 **상수로 승격되지 않았다** —
+         정책 기준단가는 1절이 정한 시세성이라 주입만 받는다.
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+
+    # ① 원문 육안 대조로 확인된 수치가 기록에 남아 있는가
+    for v in ("4,196", "3,487", "3,509", "3,009"):
+        assert v in reg, f"품셈 요약보고서 대조 수치 {v}가 사라졌다(108차 육안 확인)"
+    assert "108차" in reg, "108차 육안 대조 기록이 사라졌다"
+
+    # ② 정부지원 기준단가는 **엔진 상수가 아니다**(시세성 — 주입만 받는다)
+    import smartfarm_engine as _e
+    for attr in dir(_e):
+        if attr.startswith("_"):
+            continue
+        val = getattr(_e, attr, None)
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            assert val not in (3000.0, 1500.0) or "PYEONG" in attr.upper(), (
+                f"{attr}={val}: 정부지원 기준단가(3,000/1,500 백만원/ha)로 보이는 값이 "
+                f"엔진 상수로 올라왔다 — 정책 기준단가는 시세성이라 인자 주입만 "
+                f"허용된다(1절). 승격은 ★사용자 결정 사안이다")
 
 if __name__ == "__main__":
     import sys, traceback
