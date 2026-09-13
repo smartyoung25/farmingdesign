@@ -1874,6 +1874,107 @@ def test_glass_u_value_competing_hypothesis_is_recorded():
             f"'출처 오염 확정적' 단정이 되살아났는지 확인할 것")
 
 
+# ── 최대난방부하 3성분 구조 (84차, 사용자 지시 "c 진행") ─────
+# 원문 식(3-3-1): 최대난방부하 = (관류 + 틈새환기 + 지중) × 풍속보정계수
+# 83차가 "엔진이 관류열부하만 계산한다"를 발견한 데 대한 구조 보강.
+def test_heating_components_reproduce_report_testbed_transmission():
+    """정밀계측 보고서 p.62 테스트베드(U=4.3·A=1983.47·Δt=10)의 관류열부하를
+    재현하는가. 3성분 함수는 이 값을 **받아 쓸 뿐 재계산하지 않는다**."""
+    h = e.heating_load(1983.47, "필름", 7, -3, fr=1.0, u_design=4.3)
+    assert abs(h.max_load_kcal_h - 4.3 * 1983.47 * 10) < 1e-6
+    r = e.heating_load_components(h.max_load_kcal_h, 7, -3)
+    assert r.transmission_kcal_h == h.max_load_kcal_h
+
+
+def test_heating_components_does_not_invent_missing_inputs():
+    """없는 입력을 지어내지 않는다 — 못 구한 성분은 None이고 missing에 무엇이
+    필요한지 적는다. total은 3성분이 다 있을 때만 채워진다(부분합을 완전한
+    최대난방부하로 오독하면 과소산정이다)."""
+    r = e.heating_load_components(100_000.0, 20, -10)
+    assert r.infiltration_kcal_h is None and r.ground_kcal_h is None
+    assert r.total_kcal_h is None
+    assert r.partial_total_kcal_h == 100_000.0
+    assert len(r.missing) == 2
+    # 하나만 채워도 여전히 미완이다
+    r2 = e.heating_load_components(100_000.0, 20, -10, perimeter_m=240,
+                                   ground_loss_coef=7.5, ground_base_dt=10.0)
+    assert r2.ground_kcal_h is not None and r2.total_kcal_h is None
+    assert len(r2.missing) == 1
+
+
+def test_heating_components_full_formula():
+    """3성분이 다 있을 때 원문 식대로 조립되는가 — 각 항을 손으로 계산해 대조."""
+    tr, tt, tm = 100_000.0, 20.0, -10.0
+    dt = tt - tm
+    r = e.heating_load_components(
+        tr, tt, tm, volume_m3=6000, infiltration_per_hour=0.45,
+        air_density_kg_m3=1.2, perimeter_m=240, ground_loss_coef=7.5,
+        ground_base_dt=10.0, wind_factor=1.1)
+    assert r.infiltration_kcal_h == 1.2 * e.AIR_SPECIFIC_HEAT_KCAL_KG_C * 0.45 * 6000 * dt
+    assert r.ground_kcal_h == 7.5 * 240 * (dt - 10.0)
+    assert r.total_kcal_h == (tr + r.infiltration_kcal_h + r.ground_kcal_h) * 1.1
+    assert r.missing == []
+
+
+def test_ground_load_clipped_when_dt_below_base():
+    """Δt가 부하경감 기준온도차 이하면 지중열류 방향이 바뀐다 — 음수 부하를
+    만들지 않고 0으로 절삭한다."""
+    r = e.heating_load_components(100_000.0, 5, 0, perimeter_m=240,
+                                  ground_loss_coef=7.5, ground_base_dt=10.0,
+                                  volume_m3=1, infiltration_per_hour=0, air_density_kg_m3=1.2)
+    assert r.ground_kcal_h == 0.0
+
+
+def test_wind_correction_factor_table_matches_source():
+    """[표 3-3-35] 전사 + 강풍지역 판정 기준(동절기 평균풍속 3.0m/s 이상)."""
+    assert e.WIND_STRONG_THRESHOLD_MS == 3.0
+    assert e.wind_correction_factor(2.9, False) == 1.0
+    assert e.wind_correction_factor(2.9, True) == 1.0
+    assert e.wind_correction_factor(3.0, False) == 1.1     # 강풍·단일피복
+    assert e.wind_correction_factor(3.0, True) == 1.05     # 강풍·보온피복
+    assert set(e.WIND_CORRECTION_FACTOR.values()) == {1.0, 1.1, 1.05}
+
+
+def test_infiltration_and_ground_tables_are_ranges_not_single_values():
+    """79차 채택 §G — 근거가 범위면 단일값으로 접지 않는다.
+    표 3-3-34는 7종 전부 (low, high)이고 low <= high여야 한다."""
+    assert len(e.INFILTRATION_RATE_PER_HOUR) == 7
+    for name, (lo, hi) in e.INFILTRATION_RATE_PER_HOUR.items():
+        assert lo <= hi, name
+    assert e.INFILTRATION_RATE_PER_HOUR["완전기밀"] == (0.0, 0.0)
+    assert e.INFILTRATION_RATE_PER_HOUR["단일피복"] == (0.5, 1.0)
+    # 정밀계측 보고서 테스트베드 0.0001265 회/s = 0.4554 회/h 가 이중피복 범위 안
+    lo, hi = e.INFILTRATION_RATE_PER_HOUR["이중피복"]
+    assert lo <= 0.0001265 * 3600 <= hi
+    # 지중 계수도 범위 + 기준온도차
+    assert e.GROUND_LOSS_COEF["대규모"] == (7.5, 10.0, 10.0)
+    assert e.GROUND_LOSS_COEF["소규모"] == (2.5, 5.0, 15.0)
+
+
+def test_heating_load_unchanged_by_component_addition():
+    """84차가 heating_load()를 건드리지 않았는가 — 케이스·견적비교가 이 함수를 탄다."""
+    Aw = 6027.47001696239
+    r = e.heating_load(Aw, "필름", 7, -21.7, curtain="다겹보온", floor_area_m2=2016.0)
+    assert r.max_load_kcal_h == Aw * e.U_DESIGN["필름"] * 28.7 * (1 - e.FR_TABLE["다겹보온"])
+
+
+def test_heating_components_not_wired_into_render_paths():
+    """84차 도달성(74차 관례)."""
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    for fname in ("build_site.py", "webapp.py", "render_report.py", "app.py",
+                  "run_report.py", "render_chuncheon.py", "cases.py"):
+        path = os.path.join(repo, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            body = f.read()
+        assert "heating_load_components" not in body, (
+            f"{fname}이 3성분 구조를 쓰기 시작했다 — 케이스에 체적·둘레길이 입력이 "
+            f"없어 partial_total이 렌더될 위험이 있다(과소산정 오독). 입력 스키마를 "
+            f"먼저 정하고 이 테스트를 갱신할 것")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

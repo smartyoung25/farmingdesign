@@ -918,6 +918,152 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
     return HeatingResult(max_load, max_load / denom, heater, fuel_use, lhv)
 
 
+# ─────────────────────────────────────────────────────────────
+# 최대난방부하 3성분 구조 (2026-09-13 84차 신설 — 사용자 지시 "c 진행")
+#   경위: 83차가 원문 식에서 **엔진의 구조적 공백**을 발견했다 —
+#   `에너지절감과생산성향상을위한신개념온실설계및표준화연구.pdf` printed p.344 식(3-3-1):
+#     **최대난방부하 = (관류열부하 + 틈새환기전열부하 + 지중전열부하) × 풍속보정계수**
+#   `heating_load()`는 **관류열부하만** 계산한다(Aw×U×ΔT×fr). 76~82차 내내 "U를 얼마로
+#   볼 것인가"를 다퉜는데 식 자체가 3성분 중 1성분만 담고 있었다.
+#
+#   ⚠️ **식 이미지는 추출되지 않는다.** 변수 정의와 단위는 같은 계열 보고서가 실제
+#   사용값을 실어 확정했다 — `시설에너지절감을위한온실내부전영역정밀환경계측시스템
+#   연구.pdf` printed p.62: 공기비열 **0.24 kcal/kg·℃**, 틈새환기율 이중피복 **0.0001265
+#   회/s**(=0.455 회/h, 표 3-3-34의 0.3~0.6 범위 안), 외주부 열손실계수 **7.5**,
+#   둘레길이 240m, 풍속보정계수 1.0. 이 값들로 각 항의 차원이 닫힘을 확인했다.
+#
+#   ⚠️ **`heating_load()`를 건드리지 않았다.** 기존 케이스·견적비교가 그 함수를 타므로
+#   신규 구조는 **별도 함수**로 얹는다(82차 assembly와 같은 방식). 관류열부하는
+#   `heating_load()` 결과를 그대로 받아 쓴다 — 재계산하지 않는다.
+#
+#   ⚠️ **누락 입력을 숨기지 않는다**(79차 채택 원칙 §J: "자료가 부족하면 계산 가능한
+#   범위까지만 계산하고 누락 입력값을 명확히 표시한다"). 틈새환기(체적·환기율·공기밀도)
+#   와 지중(둘레길이·열손실계수)은 **케이스에 없는 입력**이라, 주지 않으면 그 성분을
+#   None으로 두고 `missing`에 무엇이 필요한지 적는다. 임의값으로 채우지 않는다.
+# ─────────────────────────────────────────────────────────────
+
+# [표 3-3-34] 온실의 종류별 틈새환기율 (신개념온실 p.345 전사)
+#   원문이 회/s와 회/h 두 단위를 병기한다. 여기선 **회/h**를 쓴다(부하 단위가 kcal/h).
+#   ⚠️ 전부 **범위**다 — 79차 채택 §G "계수 근거가 약하면 임의의 소수점 값으로 만들지
+#   말고 Low/Base/High 범위를 사용한다"에 따라 단일값으로 접지 않는다.
+INFILTRATION_RATE_PER_HOUR = {
+    "단일피복": (0.5, 1.0),
+    "이중피복": (0.3, 0.6),
+    "단일피복+보온커튼1층": (0.2, 0.4),
+    "단일피복+보온커튼2층": (0.1, 0.2),
+    "단일피복+보온커튼3층": (0.05, 0.1),
+    "이중피복+보온커튼1층": (0.1, 0.2),
+    "완전기밀": (0.0, 0.0),
+}
+
+# 지중전열부하 계수 (신개념온실 p.345 본문 전사)
+#   외주부 단위길이당 열손실계수 P, 부하경감 기준온도차 Δt0.
+#   원문: "대규모 온실 7.5~10, 소규모 온실 2.5~5.0" / "대규모 10℃, 소규모 15℃ 정도"
+#   ⚠️ 원문이 대규모·소규모의 **면적 경계를 정의하지 않는다**[확인요망].
+GROUND_LOSS_COEF = {           # (P_low, P_high, Δt0)
+    "대규모": (7.5, 10.0, 10.0),
+    "소규모": (2.5, 5.0, 15.0),
+}
+
+# [표 3-3-35] 풍속보정계수 (신개념온실 p.345 전사)
+#   주) 강풍지역 = 난방설계용 **동절기 평균풍속 3.0m/s 이상**인 지역
+#   📌 83차 발견: `HEATING_SAFETY_FACTOR = 1.1`이 이 표의 "강풍지역·단일피복"과 값이
+#      같다. 다만 엔진은 조건 없이 항상 곱하고 원문은 조건부다 — 정체는 미확정.
+WIND_CORRECTION_FACTOR = {
+    ("일반지역", "단일피복"): 1.0,
+    ("일반지역", "보온피복"): 1.0,
+    ("강풍지역", "단일피복"): 1.1,
+    ("강풍지역", "보온피복"): 1.05,
+}
+WIND_STRONG_THRESHOLD_MS = 3.0   # 강풍지역 판정 기준(동절기 평균풍속, m/s) — 원문 주석
+
+# 공기 비열 (kcal/kg·℃) — 정밀계측 보고서 p.62가 "공기비열은 0.24"로 명시.
+#   ⚠️ 공기 **밀도**는 같은 쪽이 "1"로 적히는데 추출 과정에서 소수점이 떨어졌을
+#   가능성이 있고(상온 공기는 약 1.2kg/㎥) 확정할 수 없다 — **상수로 두지 않고
+#   호출부가 주입**한다(근거 없는 값 금지).
+AIR_SPECIFIC_HEAT_KCAL_KG_C = 0.24
+
+
+@dataclass
+class HeatingLoadComponents:
+    transmission_kcal_h: float              # 관류열부하 — heating_load() 결과 그대로
+    infiltration_kcal_h: Optional[float]    # 틈새환기전열부하
+    ground_kcal_h: Optional[float]          # 지중전열부하
+    wind_factor: float
+    total_kcal_h: Optional[float]           # 3성분이 모두 있을 때만. 아니면 None
+    partial_total_kcal_h: float             # 계산된 성분만 합 × 보정계수
+    missing: list                           # 빠진 성분과 그에 필요한 입력
+    basis_note: str
+
+
+def wind_correction_factor(winter_mean_wind_ms: float, has_thermal_screen: bool) -> float:
+    """[표 3-3-35] 조회. 강풍지역은 동절기 평균풍속 3.0m/s 이상(원문 주석).
+    판정이 아니라 표 조회다 — 조건을 주면 계수를 돌려줄 뿐이다."""
+    region = "강풍지역" if winter_mean_wind_ms >= WIND_STRONG_THRESHOLD_MS else "일반지역"
+    cover = "보온피복" if has_thermal_screen else "단일피복"
+    return WIND_CORRECTION_FACTOR[(region, cover)]
+
+
+def heating_load_components(
+        transmission_kcal_h: float,
+        t_target: float, t_min: float,
+        volume_m3: Optional[float] = None,
+        infiltration_per_hour: Optional[float] = None,
+        air_density_kg_m3: Optional[float] = None,
+        perimeter_m: Optional[float] = None,
+        ground_loss_coef: Optional[float] = None,
+        ground_base_dt: Optional[float] = None,
+        wind_factor: float = 1.0) -> HeatingLoadComponents:
+    """원문 식(3-3-1)의 3성분 구조로 최대난방부하를 조립한다.
+
+      최대난방부하 = (관류 + 틈새환기 + 지중) × 풍속보정계수
+
+    transmission_kcal_h: `heating_load().max_load_kcal_h`를 그대로 넘긴다 —
+      관류열부하를 여기서 다시 계산하지 않는다(단일 출처 유지).
+
+    틈새환기전열부하 = 공기밀도 × 공기비열 × 틈새환기율(회/h) × 체적 × Δt
+      → volume_m3 · infiltration_per_hour · air_density_kg_m3 셋이 다 있어야 계산한다.
+        환기율은 `INFILTRATION_RATE_PER_HOUR`가 온실 종류별 **범위**를 준다.
+    지중전열부하 = 외주부 열손실계수 × 둘레길이 × (Δt − 부하경감 기준온도차)
+      → perimeter_m · ground_loss_coef · ground_base_dt 셋이 다 있어야 계산한다.
+        Δt가 기준온도차 이하면 지중열류 방향이 바뀌므로 0으로 둔다(음수 부하 금지).
+
+    **없는 입력을 지어내지 않는다** — 못 구한 성분은 None이고 `missing`이 무엇이
+    필요한지 적는다. `total_kcal_h`는 3성분이 다 있을 때만 채워지고, 그 전까지는
+    `partial_total_kcal_h`(구한 것만 합산)를 쓴다. 둘을 구분하는 이유는 부분합을
+    완전한 최대난방부하로 오독하면 **과소산정**이 되기 때문이다.
+    """
+    dt = t_target - t_min
+    missing = []
+
+    infiltration = None
+    if all(v is not None for v in (volume_m3, infiltration_per_hour, air_density_kg_m3)):
+        infiltration = (air_density_kg_m3 * AIR_SPECIFIC_HEAT_KCAL_KG_C
+                        * infiltration_per_hour * volume_m3 * dt)
+    else:
+        missing.append("틈새환기전열부하: volume_m3·infiltration_per_hour·"
+                       "air_density_kg_m3 필요(환기율은 INFILTRATION_RATE_PER_HOUR 참고)")
+
+    ground = None
+    if all(v is not None for v in (perimeter_m, ground_loss_coef, ground_base_dt)):
+        ground = ground_loss_coef * perimeter_m * max(dt - ground_base_dt, 0.0)
+    else:
+        missing.append("지중전열부하: perimeter_m·ground_loss_coef·ground_base_dt "
+                       "필요(계수는 GROUND_LOSS_COEF 참고)")
+
+    parts = [transmission_kcal_h] + [x for x in (infiltration, ground) if x is not None]
+    partial = sum(parts) * wind_factor
+    total = partial if not missing else None
+    note = ("원문 식(3-3-1) 3성분 구조 — 신개념온실설계및표준화연구 p.344. "
+            "관류열부하는 heating_load() 결과를 그대로 받는다(재계산 아님). "
+            "⚠️미입력 성분은 지어내지 않고 None으로 둔다 — partial_total을 완전한 "
+            "최대난방부하로 읽으면 과소산정이다.")
+    return HeatingLoadComponents(
+        transmission_kcal_h=transmission_kcal_h, infiltration_kcal_h=infiltration,
+        ground_kcal_h=ground, wind_factor=wind_factor, total_kcal_h=total,
+        partial_total_kcal_h=partial, missing=missing, basis_note=note)
+
+
 def verify_heating_vs_actual(load_per_m2: float, cover: str) -> dict:
     """A-12 실측(유리 약 231 kcal/h·㎡)과 이중검증.
     실측은 설계외기온·목표온도·보온비에 따라 크게 변동하므로 넓은 허용범위 사용.
