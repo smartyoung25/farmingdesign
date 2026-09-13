@@ -78,6 +78,39 @@ def test_93cha_actuals_area_basis_is_not_uniform():
     assert 0 < hi - ut / ua < 200, "우민재-상한 간격이 변했다 — 밴드 앵커를 재확인할 것"
 
 
+def test_94cha_area_basis_unification_is_blocked():
+    """94차: 면적 기준 통일이 **왜 불가능한지**를 고정한다(결론이 아니라 차단 지점).
+
+    사용자가 통일+밴드 재산정을 지시했고, 선행 조건이던 우민재 기준은 확정됐다
+    (설계설명서·도면 면적개요: 온실내부+방풍벽+작업장=2,321.87, 방풍 포함).
+    그러나 원문이 아예 없는 3건이 남고, 그중 하나가 **필름 밴드의 하한 앵커**다 —
+    그래서 밴드를 다시 그을 수 없다. 원문이 확보되면 이 테스트가 먼저 깨진다.
+    """
+    import os as _o
+    rows = {r[0]: r for r in e.ACTUALS}
+    # 우민재 면적 구성 — 도면 면적개요가 원단위로 닫힌다(94차 확정)
+    assert abs(32 * 60.05 - 1921.6) < 0.01                    # 온실내부
+    assert abs((1 * 60.05 + 1 * 20.02) - 80.07) < 0.01        # 방풍벽 폭 1.0m
+    assert abs(1921.6 + 80.07 + 320.2 - 2321.87) < 0.01       # 합계
+    assert abs(2001.67 + 320.20 - 2321.87) < 0.01             # 설계설명서 면적표
+    assert 32 + 8 + 1 == 41                                    # 폭 41M 분해
+    # ⚠️ 등재값은 총표지 계열 2,323 — 원문 합계 2,321.87과 1.13㎡ 어긋난다
+    assert rows["우민재"][1] == 2323
+    assert round(2323 - 2321.87, 2) == 1.13
+    # 원문 미보유 3건은 여전히 ACTUALS에 있고, 그중 하나가 필름 밴드 하한 앵커다
+    no_source = {"공주장원리", "당진이상근", "원채원"}
+    assert no_source <= set(rows), "원문 미보유 3건이 ACTUALS에서 사라졌다 — 94차 결론 재확인"
+    lo = e.BENCHMARK_BANDS[e.Cover.FILM][0]
+    _, ga, gt, _ = rows["공주장원리"]
+    assert lo < gt / ga < lo * 1.05, "하한 앵커(공주장원리)와 밴드 하한의 관계가 변했다"
+    # 스마트팜스펙에 그 3건 자료가 들어오면 통일 재시도가 가능해진다(89차 핀과 연동)
+    root = _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), "스마트팜스펙")
+    if _o.path.isdir(root):
+        blob = " ".join(fn for _d, _s, fns in _o.walk(root) for fn in fns)
+        assert "장원리" not in blob and "이상근" not in blob, \
+            "원문 미보유 3건 자료가 들어왔다 — 면적 기준 통일을 재시도할 것(94차 ⓐ)"
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡
