@@ -709,7 +709,10 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 99차: 51(불변) — 상수 신설 없음. refs 85→88 — ★U_DESIGN 8.9→5.7 교체의 근거
     #       3건 등재([표3-3-30] 원문·PE 5.7 기준 원문·이견 문서). **값이 바뀐 차수**다:
     #       최대난방부하·난방기 용량만 −36%, 연료소비량 불변이라 원채원 회귀는 안전.
-    assert a["counts"]["registry_constants"] == 51 and a["counts"]["source_refs"] == 88
+    # 100차: 51(불변) · refs 88→89 — u_design/u_period 이원화의 정체 확정
+    #       (이원화는 "현장 실측 보유 여부"의 반영). 표3-3-30 유리 RDA ref 1건 추가.
+    #       **값 변경 0** — 유리 기간부하 과대 개연성은 [확인요망]으로만 남겼다.
+    assert a["counts"]["registry_constants"] == 51 and a["counts"]["source_refs"] == 89
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

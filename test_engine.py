@@ -298,6 +298,48 @@ def test_98cha_sunshine_k_not_auto_applied():
             assert name not in src, f"{fname}가 {name}을 참조한다 — OPEX가 움직인다"
 
 
+def test_100cha_dual_u_structure_and_residual_decomposition():
+    """100차 — u_design/u_period 이원화의 정체를 고정한다.
+
+    이원화는 결함이 아니라 **그 재질에 현장 실측이 있느냐**의 반영이다.
+    필름 계열만 이현우 등(2013) 연료소비 역산 실측(2.66)을 갖고 있어 갈리고,
+    유리·필름_이중은 그 실측이 없어 설계 계열 값이 그대로 들어가 통일돼 보인다.
+
+    그리고 98차가 "필름은 이 축만으로 설명되지 않는다"며 남긴 잔차 1.560이
+    **이원화 × 일조**로 정확히 분해된다 — 이 분해가 깨지면 두 차수의 결론을
+    함께 다시 봐야 한다.
+    """
+    def ud(c):
+        return e.U_DESIGN.get(c, e.U_VALUE[c])
+    split = {c for c in e.U_VALUE if abs(ud(c) / e.U_VALUE[c] - 1) > 1e-9}
+    assert split == {"필름", "불소필름", "단동"}, split
+    for c in split:
+        assert abs(ud(c) / e.U_VALUE[c] - 5.7 / 2.66) < 1e-12
+    # 통일돼 보이는 재질은 U_DESIGN에 키가 없어 폴백된 것뿐이다
+    for c in ("유리", "필름_이중"):
+        assert c not in e.U_DESIGN and ud(c) == e.U_VALUE[c]
+    # 98차 잔차 분해: 1.560 = 2.1429(이원화) × 0.7278(일조 k/3600)
+    k6 = e.PERIOD_LOAD_ADJUST_K[6.0] / e.PERIOD_LOAD_K_NO_SUNSHINE
+    assert abs((5.7 / 2.66) * k6 - 1.5595) < 1e-3
+    assert abs(1.0 * k6 - 0.7278) < 1e-3
+
+
+def test_100cha_glass_period_load_overstatement_is_recorded():
+    """⚠️[확인요망] 유리 기간난방부하 과대 개연성이 기록으로 남아 있는가.
+
+    필름은 실측/설계 비가 0.467인데 유리엔 그런 보정이 없다. 유리 현장 실측이
+    들어오면 연료소비량이 크게 내려갈 수 있고, **원채원이 바로 그 케이스이자
+    회귀 기준**이다. 값을 바꾸지는 않되 사실이 잊히지 않게 코드에 남긴다.
+    """
+    import os as _o
+    assert abs(e.U_VALUE["필름"] / e.U_DESIGN["필름"] - 0.4667) < 1e-3
+    assert e.U_VALUE["유리"] == 5.3 and "유리" not in e.U_DESIGN
+    src = open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
+                            "smartfarm_engine.py"), encoding="utf-8").read()
+    assert "유리 케이스의 기간난방부하가 과대일 개연성" in src
+    assert "원채원이 바로 그 케이스이고 회귀 기준" in src
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡
