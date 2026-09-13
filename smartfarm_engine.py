@@ -2282,6 +2282,132 @@ def compare_design_options(region_snow_cm: float, region_wind_ms: float,
 
 
 # ─────────────────────────────────────────────────────────────
+# 설계 문서 정합성 매트릭스 (2026-09-13, 80차 신설)
+#   경위: 79차 지침 편입 판정에서 **채택 1순위**로 뽑힌 항목이다. 외부 패키지
+#   `00_MASTER_INSTRUCTIONS.md` K절이 "도면 수량 ↔ 시방서 규격 ↔ QOM 수량 ↔
+#   견적 단가/금액" 순서 대조를 요구하고, 사용자 첨부 A파일(스마트팜 수출단지
+#   구축 체크리스트 v1.2)의 `P2_정합성매트릭스` 시트가 그 요구를 **Rev 문자열
+#   일치 비교**로 이미 구현하고 있었다 — 둘이 같은 사양을 가리킨다.
+#   상세 판정: 지침편입_SmartFarmROI패키지_v1.1_비판검토.md 2-1절.
+#
+#   원본 수식(A파일 `P2_정합성매트릭스!N4`, 전사):
+#     =IF(A4="","",
+#        IF(OR(C4="",E4="",G4="",I4=""),"MISSING_DOC",
+#          IF(OR(D4="",F4="",H4="",J4=""),"MISSING_REV",
+#            IF(AND(D4=F4,D4=H4,D4=J4),"OK","REV_MISMATCH"))))
+#   4축 = C/D 도면번호·Rev · E/F 시방서번호·Rev · G/H BoQ항목ID·Rev ·
+#         I/J 규격서ID·Rev. 분기 우선순위(DOC > REV > MISMATCH)도 그대로 따른다.
+#
+#   ⚠️ 상태 코드는 **영문 원문 그대로** 둔다(리포 관례는 한글이지만 여기선 예외).
+#     이 함수는 그 시트 로직의 전사이고, 엔진 출력과 엑셀 셀을 **직접 대조**할 수
+#     있어야 대조가능성이 유지된다(전사값 원단위 보존과 같은 취지).
+#
+#   ⚠️ **판정이 아니다.** 네 코드는 전부 *사실 분류*(문서가 있나·Rev가 적혔나·
+#     서로 같나)이지 *가치 판단*(적합·부적합·추진 여부)이 아니다. 79차가 거부한
+#     판정 자동화(100점 평가·최종판정 4문구·Site Score)와 갈리는 지점이 정확히
+#     여기다. 설계 적합 여부는 구조기술사·컨설턴트 몫으로 남는다.
+#
+#   ⚠️ 스코프: **Rev 정합성만** 본다. 수량 차이(도면수량 vs 견적수량)와 금액
+#     대사는 이 함수가 아니라 `reconcile_quote()`·`compare_quotes()` 소관이다 —
+#     둘을 한 함수에 합치면 "무엇이 안 맞는지"가 뭉개진다.
+# ─────────────────────────────────────────────────────────────
+DOC_AXES = ("도면", "시방서", "BoQ", "규격서")
+
+
+@dataclass
+class DocRefRow:
+    """요구사항 1건이 걸쳐 있는 4개 문서의 식별자·Rev. 공란은 ""(또는 None)."""
+    req_id: str
+    requirement: str = ""
+    drawing_no: str = ""
+    drawing_rev: str = ""
+    spec_no: str = ""
+    spec_rev: str = ""
+    boq_id: str = ""
+    boq_rev: str = ""
+    std_id: str = ""
+    std_rev: str = ""
+    equipment_model: str = ""   # 참고 정보(판정에 쓰지 않음)
+    manufacturer: str = ""      # 참고 정보
+    verification: str = ""      # 검증/시험항목 — 참고 정보
+
+
+@dataclass
+class DocConsistencyRow:
+    req_id: str
+    requirement: str
+    status: str                 # OK | MISSING_DOC | MISSING_REV | REV_MISMATCH
+    missing_docs: list          # 식별자가 빈 축 이름
+    missing_revs: list          # 식별자는 있으나 Rev가 빈 축 이름
+    rev_map: dict               # 축 이름 -> Rev 문자열(빈 것 포함)
+    mismatch_detail: str        # REV_MISMATCH일 때만 채움
+
+
+@dataclass
+class DocConsistencyReport:
+    rows: list                  # DocConsistencyRow, 입력 순서 그대로(정렬·순위 없음)
+    counts: dict                # 상태별 건수
+    notes: list                 # str
+
+
+def _blank(v) -> bool:
+    """A파일 수식의 ="" 판정과 같은 의미. None·공백문자열·공백만 있는 문자열."""
+    return v is None or str(v).strip() == ""
+
+
+def doc_consistency_check(rows: list) -> DocConsistencyReport:
+    """도면·시방서·BoQ·규격서 4축의 식별자·Rev 정합성을 행 단위로 분류한다.
+
+    A파일 `P2_정합성매트릭스`의 판정 수식을 그대로 옮긴 것이라 분기 우선순위도
+    동일하다: 식별자 누락(MISSING_DOC) > Rev 누락(MISSING_REV) > Rev 불일치
+    (REV_MISMATCH) > 전부 일치(OK). 앞 단계에서 걸리면 뒤 단계는 보지 않는다 —
+    식별자가 없는데 Rev를 비교하는 것은 의미가 없기 때문이다.
+
+    Rev 비교는 **문자열 그대로** 한다("Rev2"와 "rev2"는 다르다). 표기 정규화를
+    넣으면 원본 시트와 결과가 갈리고, 무엇이 실제 불일치인지 흐려진다.
+
+    판정이 아니라 사실 분류다 — 어느 행이 좋다/나쁘다고 결론짓지 않고 순위·추천
+    필드도 두지 않는다(설계 적합 판단은 구조기술사·컨설턴트 몫).
+    """
+    out, notes = [], []
+    for r in rows:
+        axes = {
+            "도면": (r.drawing_no, r.drawing_rev),
+            "시방서": (r.spec_no, r.spec_rev),
+            "BoQ": (r.boq_id, r.boq_rev),
+            "규격서": (r.std_id, r.std_rev),
+        }
+        rev_map = {k: ("" if _blank(v[1]) else str(v[1])) for k, v in axes.items()}
+        missing_docs = [k for k, v in axes.items() if _blank(v[0])]
+        missing_revs = [k for k, v in axes.items() if _blank(v[1])]
+
+        if missing_docs:
+            status, detail = "MISSING_DOC", ""
+            notes.append(f"{r.req_id}: 식별자 누락 — {', '.join(missing_docs)}")
+        elif missing_revs:
+            status, detail = "MISSING_REV", ""
+            notes.append(f"{r.req_id}: Rev 미기재 — {', '.join(missing_revs)}")
+        else:
+            revs = {rev_map[k] for k in axes}
+            if len(revs) == 1:
+                status, detail = "OK", ""
+            else:
+                status = "REV_MISMATCH"
+                detail = " / ".join(f"{k}={rev_map[k]}" for k in axes)
+                notes.append(f"{r.req_id}: Rev 불일치 — {detail}")
+
+        out.append(DocConsistencyRow(
+            req_id=r.req_id, requirement=r.requirement, status=status,
+            missing_docs=missing_docs, missing_revs=missing_revs,
+            rev_map=rev_map, mismatch_detail=detail))
+
+    counts = {s: 0 for s in ("OK", "MISSING_DOC", "MISSING_REV", "REV_MISMATCH")}
+    for row in out:
+        counts[row.status] += 1
+    return DocConsistencyReport(rows=out, counts=counts, notes=notes)
+
+
+# ─────────────────────────────────────────────────────────────
 # 시공발주관리(7단계): 공정표 근거 — 표준 품셈(노무투입량) (2026-07-19, Phase G)
 #   출처: 「스마트팜 표준화를 위한 사전설계 및 온실공사 품셈 정립」최종보고서
 #   (한국농어촌공사 발주·농어촌연구원×㈜지엘종합건축사사무소 수행, 2021-12,

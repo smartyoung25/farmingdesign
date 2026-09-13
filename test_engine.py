@@ -1436,6 +1436,124 @@ def test_u_design_baseline_mismatch_is_recorded_not_silently_resolved():
             f"원문 정의 검산 실패(절감률 {savings} → {measured})")
 
 
+# ── 설계 문서 정합성 매트릭스 (80차) ─────────────────────────
+# 원본: 사용자 첨부 A파일 `스마트팜_수출단지_구축_체크리스트_템플릿_v1.2` 의
+#   `P2_정합성매트릭스` 시트. 아래 4행은 그 시트의 **샘플 데이터 전사**라
+#   엔진 출력과 엑셀 셀을 직접 대조할 수 있다(전사값 원단위 보존과 같은 취지).
+def _matrix_rows():
+    return [
+        e.DocRefRow("R-ENV-01", "온도 제어 설정값 유지",
+                    "HVAC-201", "Rev2", "SPEC-HVAC", "Rev1",
+                    "BOQ-ENV-12", "Rev2", "STD-CTRL-01", "Rev1"),
+        e.DocRefRow("R-ICT-01", "센서 데이터 1분 주기 수집",
+                    "ICT-102", "Rev3", "SPEC-ICT", "Rev2",
+                    "BOQ-ICT-05", "Rev3", "STD-DATA-01", "Rev1"),
+        e.DocRefRow("R-IRR-02", "EC/pH 자동 보정",
+                    "FERT-110", "Rev1", "SPEC-FERT", "Rev1",
+                    "BOQ-FERT-07", "Rev1", "STD-FERT-02", "Rev1"),
+        e.DocRefRow("R-STR-01", "내재해 설계(풍/설) 충족",
+                    "STR-001", "Rev4", "SPEC-STR", "Rev3",
+                    "BOQ-STR-01", "Rev4", "STD-STR-01", "Rev2"),
+    ]
+
+
+def test_doc_consistency_reproduces_source_matrix_sample():
+    """A파일 샘플 4행을 원본 수식과 같은 결과로 재현하는가.
+    R-IRR-02만 4축 Rev가 전부 Rev1이라 OK, 나머지 3건은 REV_MISMATCH다."""
+    rep = e.doc_consistency_check(_matrix_rows())
+    assert [r.status for r in rep.rows] == [
+        "REV_MISMATCH", "REV_MISMATCH", "OK", "REV_MISMATCH"]
+    assert rep.counts == {"OK": 1, "MISSING_DOC": 0,
+                          "MISSING_REV": 0, "REV_MISMATCH": 3}
+    assert [r.req_id for r in rep.rows] == ["R-ENV-01", "R-ICT-01",
+                                            "R-IRR-02", "R-STR-01"]
+
+
+def test_doc_consistency_branch_priority_matches_source_formula():
+    """원본 수식의 중첩 IF 우선순위: MISSING_DOC > MISSING_REV > REV_MISMATCH.
+    앞 단계에서 걸리면 뒤는 보지 않는다 — 식별자가 없는데 Rev를 비교하는 것은
+    의미가 없기 때문이다. 세 조건을 동시에 만족시키는 행으로 순서를 고정한다."""
+    row = e.DocRefRow("R-ALL", "세 결함 동시",
+                      "", "Rev1",          # 도면: 식별자 누락
+                      "SPEC-X", "",        # 시방서: Rev 누락
+                      "BOQ-X", "Rev9",     # BoQ: Rev 불일치 유발
+                      "STD-X", "Rev1")
+    rep = e.doc_consistency_check([row])
+    assert rep.rows[0].status == "MISSING_DOC", "누락이 불일치보다 앞서야 한다"
+    # Rev 누락도 함께 기록은 하되 status는 MISSING_DOC이어야 한다
+    assert rep.rows[0].missing_docs == ["도면"]
+    assert rep.rows[0].missing_revs == ["시방서"]
+
+
+def test_doc_consistency_missing_rev_is_not_mismatch():
+    """식별자는 다 있는데 Rev만 비면 MISSING_REV — '불일치'로 뭉개지 않는다."""
+    row = e.DocRefRow("R-REV", "Rev 미기재",
+                      "D-1", "Rev1", "S-1", "", "B-1", "Rev1", "T-1", "Rev1")
+    rep = e.doc_consistency_check([row])
+    assert rep.rows[0].status == "MISSING_REV"
+    assert rep.rows[0].missing_revs == ["시방서"]
+    assert rep.rows[0].mismatch_detail == ""
+    assert any("Rev 미기재" in n for n in rep.notes)
+
+
+def test_doc_consistency_treats_blank_and_whitespace_as_empty():
+    """원본 수식의 ="" 판정과 같은 의미 — None·""·공백만 있는 값 전부 공란."""
+    row = e.DocRefRow("R-BLANK", "공백 처리",
+                      None, "Rev1", "   ", "Rev1", "B-1", "Rev1", "T-1", "Rev1")
+    rep = e.doc_consistency_check([row])
+    assert rep.rows[0].status == "MISSING_DOC"
+    assert rep.rows[0].missing_docs == ["도면", "시방서"]
+
+
+def test_doc_consistency_rev_compare_is_literal_not_normalized():
+    """Rev 비교는 문자열 그대로다 — 표기를 정규화하면 원본 시트와 결과가 갈리고
+    무엇이 실제 불일치인지 흐려진다."""
+    row = e.DocRefRow("R-CASE", "대소문자 차이",
+                      "D-1", "Rev2", "S-1", "rev2", "B-1", "Rev2", "T-1", "Rev2")
+    rep = e.doc_consistency_check([row])
+    assert rep.rows[0].status == "REV_MISMATCH"
+    assert "시방서=rev2" in rep.rows[0].mismatch_detail
+
+
+def test_doc_consistency_exposes_no_verdict_or_ranking():
+    """79차가 거부한 판정 자동화(점수·등급·적합 여부)가 유입되지 않았는가.
+    네 코드는 사실 분류이지 가치 판단이 아니다 — 필드명과 notes 문구 양쪽을 본다."""
+    rep = e.doc_consistency_check(_matrix_rows())
+    fields = (set(rep.__dataclass_fields__) | set(rep.rows[0].__dataclass_fields__)
+              | set(e.DocRefRow.__dataclass_fields__))
+    banned = ("score", "grade", "rank", "recommend", "verdict", "pass_fail",
+              "점수", "등급", "판정", "적합", "추천", "순위")
+    bad_f = [f for f in fields if any(k in f.lower() for k in banned)]
+    assert bad_f == [], f"판정·점수 필드 유입: {bad_f}"
+    bad_n = [n for n in rep.notes if any(k in n for k in ("적합", "부적합", "추천", "점수", "등급"))]
+    assert bad_n == [], f"notes에 판정 어휘 유입: {bad_n}"
+    # 상태 코드는 원본 시트의 4종 그대로여야 한다(대조가능성)
+    assert set(rep.counts) == {"OK", "MISSING_DOC", "MISSING_REV", "REV_MISMATCH"}
+
+
+def test_doc_consistency_empty_input():
+    rep = e.doc_consistency_check([])
+    assert rep.rows == [] and rep.notes == []
+    assert rep.counts == {"OK": 0, "MISSING_DOC": 0,
+                          "MISSING_REV": 0, "REV_MISMATCH": 0}
+
+
+def test_doc_consistency_not_wired_into_render_paths():
+    """80차 도달성: 아직 산출물 렌더에 연결돼 있지 않다(74차 관례)."""
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    for fname in ("build_site.py", "webapp.py", "render_report.py", "app.py",
+                  "run_report.py", "render_chuncheon.py", "cases.py"):
+        path = os.path.join(repo, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            assert "doc_consistency_check" not in f.read(), (
+                f"{fname}이 doc_consistency_check를 쓰기 시작했다 — 산출물에 "
+                f"도달하면 입력 스키마(도면·시방·BoQ·규격서 4축)의 provenance "
+                f"처리를 먼저 정하고 이 테스트를 함께 갱신할 것")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
