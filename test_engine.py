@@ -415,6 +415,32 @@ def test_102cha_page_labels_are_unambiguous():
         assert anchor in src, anchor
 
 
+def test_105cha_verify_ref_is_registered_and_ratio_is_not_a_quality_signal():
+    """105차 — A-12 실측 대조 기준을 상수로 승격하고 **한계를 코드에 박는다**.
+
+    231·180은 함수 안 하드코딩이라 감사기가 볼 수 없었다(감사 사각). 원문서
+    `SmartFarm_엔진데이터.md`가 리포에 없어 **측정 조건을 확인할 수 없으므로**,
+    이 비율의 이동을 품질 신호로 읽으면 안 된다는 것도 함께 고정한다.
+    """
+    import os as _o
+    assert e.HEATING_VERIFY_REF_KCAL_H_M2 == {"유리": 231.0, "기타": 180.0}
+    assert e.HEATING_VERIFY_RATIO_BAND == (0.35, 1.8)
+    assert e.verify_heating_vs_actual(231.0, "유리")["ratio"] == 1.0
+    assert e.verify_heating_vs_actual(180.0, "필름")["ratio"] == 1.0
+    assert e.verify_heating_vs_actual(180.0, "불소필름")["ref_kcal_h_m2"] == 180.0
+    # 대역 경계
+    assert e.verify_heating_vs_actual(231.0 * 0.35, "유리")["status"] == "정상"
+    assert e.verify_heating_vs_actual(231.0 * 0.34, "유리")["status"].startswith("재확인")
+    # 원문서가 정말 없다 — 있으면 이 테스트가 알리고 status를 올릴 수 있다
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    assert not _o.path.exists(_o.path.join(repo, "SmartFarm_엔진데이터.md")), (
+        "A-12 원문서가 들어왔다 — 231/180의 측정 조건을 확인하고 status를 갱신할 것")
+    # 한계가 코드에 적혀 있는가(잊히지 않게)
+    src = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    assert "자릿수 검증 전용" in src
+    assert "99차 결정에 대한 반대 신호" in src
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡

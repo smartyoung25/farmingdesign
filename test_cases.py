@@ -716,7 +716,10 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       (원문 "온풍난방 10%", 14절 B3 종결)과 [표3-3-51] 3성분 비중 전사.
     #       후자는 84차 공백(B5)을 정량화한다 — 엔진은 전체의 **91.9%**만 잡는다.
     #       **보정하지 않았다**(약 8% 상승, 99차와 반대 방향 — ★결정).
-    assert a["counts"]["registry_constants"] == 53 and a["counts"]["source_refs"] == 92
+    # 105차: 53→54 · refs 92(불변) — 🔴`HEATING_VERIFY_REF_KCAL_H_M2` **감사 사각 편입**.
+    #       231·180이 함수 안 하드코딩이라 감사기가 볼 수 없었다(72·74차와 같은 패턴).
+    #       원문서 A-12가 리포에 없어 status는 **확인요망**이고 ref는 붙일 수 없다.
+    assert a["counts"]["registry_constants"] == 54 and a["counts"]["source_refs"] == 92
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
