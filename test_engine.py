@@ -2025,6 +2025,72 @@ def test_air_specific_heat_is_kcal_not_the_labelled_joule():
     assert 1000 < joules < 1010, f"0.24가 kcal 계열이라는 판정이 깨졌다({joules})"
 
 
+# ── 케이스 기하 데이터 (86차, 사용자 지시 "a 진행") ──────────
+# 우민재 도면(0. 도면(우민재).pdf p.3·p.4)에서 치수를 전사해 cases/uminjae.json의
+# **형제 블록** `dimensions`에 넣었다(`input`에 넣으면 FarmInput(**input)이 깨진다).
+def _uminjae_case():
+    import cases as C
+    return [c for c in C.load_cases() if c["case_id"] == "uminjae"][0]
+
+
+def test_uminjae_dimensions_transcription_checksum():
+    """도면 자체 검산 — 세 면적 항의 합이 도면 합계와 원단위로 맞아야 전사가 온전하다."""
+    g = _uminjae_case()["dimensions"]["transcribed"]
+    assert g["status" if False else "form"] == "5연동"
+    assert abs(32 * 60.05 - g["area_inner_m2"]) < 0.01
+    assert abs(1 * 60.05 + 1 * 20.02 - g["area_windbreak_m2"]) < 0.01
+    total = g["area_inner_m2"] + g["area_windbreak_m2"] + g["area_workroom_m2"]
+    assert abs(total - g["area_total_m2"]) < 0.01, "도면 면적개요 합계가 안 맞는다"
+    assert (g["eave_height_m"], g["ridge_height_m"]) == (6, 7.25)
+
+
+def test_uminjae_dimensions_do_not_break_the_case_loader():
+    """`dimensions`는 형제 블록이라 FarmInput 변환에 영향이 없어야 한다 —
+    `input`에 넣으면 `cases.case_to_input()`이 TypeError로 깨진다."""
+    import cases as C
+    c = _uminjae_case()
+    assert "dimensions" in c and "volume_m3" not in c["input"]
+    inp = C.case_to_input(c)          # 깨지면 여기서 잡힌다
+    assert inp.area_m2 == 2323        # 기존 입력 불변(도면 합계 2,321.87과는 1.13㎡ 차)
+
+
+def test_uminjae_volume_is_a_range_not_a_single_value():
+    """지붕 형상 가정에 따라 평균높이가 달라지므로 단일 체적을 정하지 않았다
+    (79차 채택 §G). 범위가 박공~아치 평균높이와 맞는지 확인한다."""
+    g = _uminjae_case()["dimensions"]
+    lo, hi = g["derived"]["volume_inner_m3_range"]
+    area = g["transcribed"]["area_inner_m2"]
+    eave, ridge = g["transcribed"]["eave_height_m"], g["transcribed"]["ridge_height_m"]
+    assert abs(lo - area * (eave + (ridge - eave) / 2)) < 1        # 박공
+    assert abs(hi - area * (eave + (ridge - eave) * 2 / 3)) < 1    # 아치
+    assert g["derived"]["perimeter_inner_m"] == round(2 * (32 + 60.05), 2)
+
+
+def test_uminjae_three_component_impact_is_small_unlike_the_synthetic_example():
+    """🔴 84·85차의 합성 예시(관류 대비 1.80배)는 **대표성이 없다**.
+    실제 우민재 케이스에 표 범위를 양 끝으로 돌리면 **1.0~1.1배**에 그친다 —
+    ΔT가 17.8℃로 작아 지중 항이 (ΔT−Θ)에서 거의 사라지고, 이중피복+커튼 온실의
+    틈새환기율(0.1~0.2 회/h)도 낮기 때문이다. 과소산정 크기를 케이스 없이
+    일반화하면 안 된다는 사실을 여기서 고정한다."""
+    c = _uminjae_case()
+    i, g = c["input"], c["dimensions"]
+    h = e.heating_load(i["surface_area_m2"], i["cover"], i["t_target"], i["t_min"],
+                       fr=i["fr"], floor_area_m2=i["area_m2"])
+    L = g["derived"]["perimeter_inner_m"]
+    ratios = []
+    for N in (0.1, 0.2):                                   # 표3-3-34 이중피복+커튼1층
+        for V in g["derived"]["volume_inner_m3_range"]:
+            for F, th in ((2.5, 15.0), (10.0, 10.0)):      # 소규모/대규모 양 끝
+                r = e.heating_load_components(
+                    h.max_load_kcal_h, i["t_target"], i["t_min"], volume_m3=V,
+                    infiltration_per_hour=N, air_density_kg_m3=1.2, perimeter_m=L,
+                    ground_loss_coef_w_m_c=F, ground_base_dt=th, wind_factor=1.0)
+                assert r.missing == []
+                ratios.append(r.total_kcal_h / h.max_load_kcal_h)
+    assert 1.0 < min(ratios) < 1.05, min(ratios)
+    assert 1.05 < max(ratios) < 1.15, max(ratios)
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
