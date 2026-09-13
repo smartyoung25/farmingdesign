@@ -1268,6 +1268,79 @@ def test_compare_design_options_empty_list():
     assert r.rows == [] and r.notes == []
 
 
+# ── 난방 계수 이견의 사실관계 고정 (76차) ────────────────────
+# 근거_난방계수_이견_20260913.md의 결론("현행값 유지")은 두 사실에 기대고 있다:
+#   ①2중커튼 계열 키가 live 산출물에서 쓰이지 않는다(바꿔도 안 움직인다)
+#   ②케이스의 fr=0.7을 노출비율로 읽어야 실측 대조를 통과한다
+# 둘 중 하나가 깨지면 이견을 다시 열어야 하므로 여기서 지킨다.
+def test_fr_table_rejects_additive_composition_value():
+    # 19회차 F3: E파일의 0.85는 0.35+0.5의 단순 가산이었다. 직렬/독립 합성은
+    # 0.675이고 농사로 직렬 열저항은 0.700 — 68차가 채택한 값이 후자다.
+    # 가산값 0.85가 표에 되돌아오면 실패한다(68차 결정의 회귀 방어).
+    assert e.FR_TABLE["PO단일"] == 0.35
+    assert e.FR_TABLE["다겹보온"] == 0.5
+    assert e.FR_TABLE["이중커튼"] == 0.70
+    assert e.FR_TABLE["2중커튼"] == 0.70
+    assert 0.85 not in e.FR_TABLE.values(), (
+        "0.85는 절감률 단순 가산(0.35+0.5) 값이다 — 되돌리려면 "
+        "근거_난방계수_이견_20260913.md의 3모델 비교부터 갱신할 것")
+    # 가산이 아니라 독립 곱으로 합성하면 현행값과 근사한다(모델 동질성은 [추정])
+    assert abs((1 - (1 - 0.35) * (1 - 0.5)) - 0.675) < 1e-12
+
+
+def test_double_curtain_keys_have_no_live_usage():
+    """76차 영향범위 실측: 2중커튼 계열이 산출물 입력에 쓰이지 않음을 고정한다.
+    쓰이기 시작하면 0.70 값의 근거 등급(부분실측·4키 중 2키)을 먼저 올려야 하므로
+    여기서 알린다(74차 도달성 가드와 같은 관례)."""
+    import glob
+    import json
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    used = []
+    for pat in ("견적비교_*.json", os.path.join("cases", "*.json")):
+        for path in glob.glob(os.path.join(repo, pat)):
+            if os.path.getsize(path) == 0:      # gyeongbuk_ddalgi tombstone
+                continue
+            with open(path, encoding="utf-8") as f:
+                d = json.load(f)
+            for blob in (d, d.get("input") or {}, d.get("rfq_input") or {}):
+                if isinstance(blob, dict) and blob.get("curtain") in ("이중커튼", "2중커튼"):
+                    used.append(os.path.basename(path))
+    assert used == [], (
+        f"{used}가 2중커튼 계열을 쓰기 시작했다 — FR_TABLE 0.70은 4키 중 2키만 "
+        f"공공 출처(status 부분실측)이고 이견이 열려 있다. "
+        f"근거_난방계수_이견_20260913.md를 먼저 갱신할 것")
+
+
+def test_case_fr_is_exposure_ratio_not_reduction_rate():
+    """76차 3-2: 케이스의 fr=0.7은 '노출비율'이어야 실측 대조를 통과한다.
+    열절감률로 읽으면(노출 0.3) chuncheon·wonchaewon이 '재확인'으로 떨어진다.
+    fr에 provenance가 없어 문서상 확정이 아니므로(이견 문서 5절) 이 방증을
+    코드로 남긴다 — P1-9가 시그니처로 막은 방향반전이 데이터 쪽에서 새는지 본다."""
+    import glob
+    import json
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    checked = 0
+    for path in sorted(glob.glob(os.path.join(repo, "cases", "*.json"))):
+        if os.path.getsize(path) == 0:
+            continue
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        i = d.get("input", d)
+        if not (i.get("surface_area_m2") and i.get("fr")):
+            continue                            # 부분 케이스
+        h = e.heating_load(i["surface_area_m2"], i["cover"], i["t_target"],
+                           i["t_min"], fr=i["fr"], floor_area_m2=i["area_m2"])
+        v = e.verify_heating_vs_actual(h.load_per_m2, i["cover"])
+        assert v["status"] == "정상", (
+            f"{os.path.basename(path)}: fr={i['fr']}를 노출비율로 읽었는데 "
+            f"실측 대조가 {v['status']}(ratio {v['ratio']}) — fr의 성격을 "
+            f"근거_난방계수_이견_20260913.md 3-2와 함께 재검토할 것")
+        checked += 1
+    assert checked == 3, f"설계 파라미터를 가진 케이스가 3건이어야 한다(실측 {checked})"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
