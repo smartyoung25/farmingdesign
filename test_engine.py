@@ -111,6 +111,66 @@ def test_94cha_area_basis_unification_is_blocked():
             "원문 미보유 3건 자료가 들어왔다 — 면적 기준 통일을 재시도할 것(94차 ⓐ)"
 
 
+def test_95cha_monthly_mean_wind_transcription():
+    """95차 [표 3-3-44] 전사 고정 — 값·구조·자기정합성.
+
+    원문 앵커(PDF p.364~365 / 인쇄 328~329)를 리터럴로 박고, 표 자체의
+    자기검증(12개월 평균 = 표기 연평균)을 69행 전량에 건다. 88차 두 표와 같은
+    69지역이어야 하되 **'마산'↔'창원' 1건만 다르다** — 이 차이는 결함이 아니라
+    원문 그대로 둔 상태이므로 사라지거나 늘어나면 알려야 한다.
+    """
+    W = e.MONTHLY_MEAN_WIND_MS
+    assert len(W) == 69
+    # 원문 앵커 3건(첫 행·케이스 지역·최대 지역)
+    assert W["속초"] == (3.3, 3.1, 3.1, 3.3, 3.0, 2.4, 2.3, 2.2, 2.4, 2.7, 3.0, 3.2, 2.8)
+    assert W["천안"] == (1.5, 1.7, 2.0, 1.9, 1.7, 1.5, 1.5, 1.5, 1.4, 1.3, 1.5, 1.5, 1.6)
+    assert W["고산"] == (9.9, 9.3, 8.2, 6.6, 5.6, 4.7, 5.3, 5.2, 5.5, 6.6, 7.9, 9.4, 7.0)
+    # 표의 자기정합성 — 69행 전부 12개월 평균이 표기 연평균과 맞는다
+    for nm, row in W.items():
+        assert len(row) == 13, nm
+        assert abs(sum(row[:12]) / 12 - row[12]) <= 0.06, nm
+    # 88차 두 표와 지역 집합 — '마산'↔'창원' 1건만 다르다(원문 표기 유지)
+    tac = set(e.DESIGN_OUTDOOR_TEMP_TAC)
+    assert len(tac) == 69 and set(e.HEATING_DEGREE_HOURS_1000) == tac
+    assert set(W) - tac == {"마산"} and tac - set(W) == {"창원"}
+
+
+def test_95cha_mean_wind_requires_explicit_months():
+    """원문이 '동절기'를 정의하지 않으므로 엔진이 개월을 고르면 안 된다.
+
+    mean_wind(region, months)의 months는 **기본값이 없어야** 한다 — 기본값이
+    생기는 순간 근거 없는 동절기 정의가 엔진에 박힌다(1절).
+    """
+    import inspect
+    sig = inspect.signature(e.mean_wind)
+    assert sig.parameters["months"].default is inspect.Parameter.empty, \
+        "mean_wind(months)에 기본값이 생겼다 — 동절기 정의는 원문에 없다(판단성)"
+    assert e.monthly_mean_wind("천안")[12] == 1.6      # 연평균은 원문 표기값 그대로
+    assert abs(e.mean_wind("천안", (12, 1, 2)) - (1.5 + 1.5 + 1.7) / 3) < 1e-9
+    assert e.monthly_mean_wind("없는지역") is None and e.mean_wind("없는지역", (1,)) is None
+    for bad in ((), (0,), (13,), (1.5,)):
+        try:
+            e.mean_wind("천안", bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"months={bad!r}를 통과시켰다")
+    # 표 3-3-35 연결 — 군산은 12·1·2월 기준 강풍지역이다(참고 관찰, 적용은 안 함)
+    assert e.mean_wind("군산", (12, 1, 2)) >= e.WIND_STRONG_THRESHOLD_MS
+    assert e.wind_correction_factor(e.mean_wind("군산", (12, 1, 2)), True) == 1.05
+    assert e.wind_correction_factor(e.mean_wind("천안", (12, 1, 2)), True) == 1.0
+
+
+def test_95cha_wind_table_not_wired_into_outputs():
+    """도달성 가드(74차 관례) — 전사만 했고 산출물 경로에 연결하지 않았다."""
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    for fname in ("build_site.py", "render_report.py", "webapp.py", "cases.py"):
+        src = open(_o.path.join(repo, fname), encoding="utf-8").read()
+        for name in ("MONTHLY_MEAN_WIND_MS", "monthly_mean_wind", "mean_wind"):
+            assert name not in src, f"{fname}가 {name}을 참조한다 — 케이스 값이 움직인다"
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡

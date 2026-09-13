@@ -698,7 +698,11 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 94차: 48(불변) — 상수 신설 없음. refs 80→82 — 우민재 면적 기준 확정 근거
     #       (공사설명서 p1 면적표·도면 배치도 면적개요) 2건 등재. **면적 기준 통일은
     #       불가로 판정**(원문 미보유 3건)이라 ACTUALS 값·밴드는 전부 불변이다.
-    assert a["counts"]["registry_constants"] == 48 and a["counts"]["source_refs"] == 82
+    # 95차: 48→49 · refs 82→83 — [표 3-3-44] 지역별·월별 평균풍속 69지역 전사
+    #       (MONTHLY_MEAN_WIND_MS). 84차 wind_correction_factor()가 호출부에
+    #       떠넘겼던 winter_mean_wind_ms 인자를 채우는 자료다.
+    #       **계산 미연결(도달성 가드)이라 케이스 값은 불변.**
+    assert a["counts"]["registry_constants"] == 49 and a["counts"]["source_refs"] == 83
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
