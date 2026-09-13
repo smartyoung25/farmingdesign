@@ -35,9 +35,29 @@ import smartfarm_engine as e
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 STATUS_ENUM = ("실측", "부분실측", "법정기준", "공공기준", "참고기준", "추정", "확인요망", "미검증")
-# 필수 provenance 커버 필드 — 웹 마법사(35차)의 근거 필수 5필드 + 설계하중 2필드
+# 필수 provenance 커버 필드
+#   종전(46~86차): 웹 마법사(35차)의 근거 필수 5필드 + 설계하중 2필드 = 7.
+#   ⚠️ 87차 용어 정정: 이 범위는 **실수로 빠뜨린 '사각'이 아니라 35차에 사용자가 확정한
+#     정책의 결과**였다(86차 기록의 "감사 사각"은 부정확한 표기라 정정한다). 72·74차의
+#     '사각'은 상수가 레지스트리에 **아예 없어 감사가 볼 수 없던** 경우이고, 이건 감사가
+#     케이스를 정상적으로 보되 **그 필드의 근거를 요구하지 않기로 정해 둔** 경우다.
+#   ✅ 87차 확대(사용자 지시): 산출물 수치를 직접 움직이는 5필드를 추가한다 —
+#     area_m2(생산량·벤치마크·ROI) · surface_area_m2·fr·t_target(난방부하) ·
+#     fitness_pct(생산량). 계기는 86차 실측이다: uminjae는 provenance 14건으로 이미
+#     이 필드들을 갖췄는데 wonchaewon·chuncheon은 7건 최소만 갖춰 **케이스 간 문서화
+#     편차**가 드러나지 않고 있었다.
+#   ⚠️ cover·crop·region은 제외했다 — 분류·식별자라 '근거'보다 '입력 자체'에 가깝고
+#     uminjae조차 crop에는 provenance가 없다(일관된 기준을 세우기 전엔 넣지 않는다).
+#   ⚠️ 확대 결과 coverage_gaps가 생긴다. 그것이 **감사기 설계 의도**다(위 docstring:
+#     "FAIL은 아니고 백로그 목록 — 첫 감사 리포트의 갭 목록이 다음 작업 대상이 된다").
+#     wonchaewon·chuncheon의 갭은 86차가 확인한 **원천자료 부재** 때문에 당장 채울 수
+#     없다(원채원은 말뭉치 검색 0건).
+#   ⚠️ webapp.WIZARD_PROV_FIELDS와 **짝**이다 — 한쪽만 넓히면 마법사로 만든 새 케이스가
+#     생성 즉시 갭을 낸다. 87차에 함께 넓혔다(설계하중 2종은 마법사가 고시 조회로
+#     자동 생성하므로 WIZARD_PROV_FIELDS에는 들어가지 않는다).
 CASE_REQUIRED_PROV = ("base_yield_kg_m2", "price_won_per_kg", "opex",
-                      "total_construction_cost", "subsidy_rate", "snow_cm", "wind_ms")
+                      "total_construction_cost", "subsidy_rate", "snow_cm", "wind_ms",
+                      "area_m2", "surface_area_m2", "fr", "t_target", "fitness_pct")
 PARTIAL_REQUIRED_PROV = ("input.total_construction_cost", "construction.cost_summary_won",
                          "construction.trades_material_won")
 

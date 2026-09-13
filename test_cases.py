@@ -617,7 +617,23 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     a = at.audit()
     assert a["ok"], a["hard_failures"]
     # 49차: 첫 감사의 백로그 5필드(정직 provenance 기입)를 해소 — 갭 0 유지가 새 기준
-    assert a["case_coverage_gaps"] == {}, a["case_coverage_gaps"]
+    # 87차: `== {}` 단정을 **명시적 백로그 핀**으로 전환한다.
+    #   CASE_REQUIRED_PROV를 7→12로 넓히면서(산출물 수치를 직접 움직이는 5필드 추가)
+    #   갭이 드러났다. 그것이 감사기 설계 의도다 — docstring: "FAIL은 아니고 백로그
+    #   목록, 첫 감사 리포트의 갭 목록이 다음 작업 대상이 된다".
+    #   ⚠️ 갭을 숨기지 않고 **목록 자체를 고정**한다: 늘면(새 케이스가 근거 없이 들어오면)
+    #   실패하고, 줄면(근거를 채우면) 여기를 줄이라고 알린다.
+    #   ⚠️ wonchaewon·chuncheon의 갭은 86차가 확인한 **원천자료 부재** 때문에 당장 채울 수
+    #   없다(원채원은 말뭉치 검색 0건). uminjae는 t_target 1건만 남았다.
+    EXPECTED_GAPS = {
+        "chuncheon": ["area_m2", "surface_area_m2", "fr", "t_target", "fitness_pct"],
+        "wonchaewon": ["area_m2", "surface_area_m2", "fr", "t_target", "fitness_pct"],
+        "uminjae": ["t_target"],
+    }
+    got = {k: sorted(v) for k, v in a["case_coverage_gaps"].items()}
+    assert got == {k: sorted(v) for k, v in EXPECTED_GAPS.items()}, (
+        f"근거 커버리지 갭이 변했다 — 채웠으면 EXPECTED_GAPS를 줄이고, 늘었으면 "
+        f"새 케이스가 근거 없이 들어왔는지 확인할 것: {got}")
     # 51차: 한일그린텍 CAPEX 표본 5호 승격으로 source_refs 18→19(CAPEX_MAJOR_CASE_CHUNKS에 1건 추가)
     # 52차: 이준희 표본 6호 승격으로 19→20(동일 상수에 1건 추가)
     # 53차: known_total 단일 출처 승격(CAPEX_MAJOR_KNOWN_TOTALS 신설, 레드팀 4회차 F8)으로

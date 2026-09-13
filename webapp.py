@@ -303,8 +303,14 @@ async def scenario_save(request: Request, case_id: str):
 #   출처는 사용자가 아니라 엔진 레지스트리이므로 "실측(고시 조회)"를 자동 기입한다.
 
 WIZARD_ALLOWED_STATUS = ("추정", "확인요망")
+# 87차: 대조가능성 감사 게이트의 필수 provenance 목록(CASE_REQUIRED_PROV)과
+#   **짝**으로 확대했다(5→10). ⚠️모듈명을 적지 않는 이유: 감사기는 감사자이지
+#   계산 참여자가 아니라 이 계층이 참조하지 않는다는 원칙이 테스트로 고정돼 있다.
+#   한쪽만 넓히면 마법사로 만든 새 케이스가 생성 즉시 감사 갭을 낸다.
+#   설계하중(snow_cm·wind_ms)은 고시 조회 경로가 provenance를 자동 생성하므로 여기엔 없다.
 WIZARD_PROV_FIELDS = ("base_yield_kg_m2", "price_won_per_kg", "opex",
-                      "total_construction_cost", "subsidy_rate")
+                      "total_construction_cost", "subsidy_rate",
+                      "area_m2", "surface_area_m2", "fr", "t_target", "fitness_pct")
 _CASE_ID_RE = re.compile(r"^[a-z][a-z0-9_\-]{1,40}$")
 
 
