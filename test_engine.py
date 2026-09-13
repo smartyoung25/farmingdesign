@@ -217,6 +217,87 @@ def test_96cha_wind_factor_is_not_the_safety_factor():
     assert e.WIND_CORRECTION_FACTOR[("강풍지역", "단일피복")] == e.HEATING_SAFETY_FACTOR
 
 
+def test_98cha_sunshine_tables_transcription():
+    """98차 [표3-3-36]·[표3-3-45] 전사 고정.
+
+    표3-3-45의 지역 집합은 88차 두 표와 **완전 일치**한다 — 즉 세 표 중
+    [표3-3-44] 풍속표만 '마산'을 쓴다(95차 이례가 1/3로 좁혀졌다).
+    연평균 자기검산은 68행이 ±0.06 안이고 **장흥 1행만** Δ0.067이다(원문 반올림 차) —
+    이 예외를 이름으로 고정해, 다른 행이 어긋나면 바로 드러나게 한다.
+    """
+    S = e.MONTHLY_SUNSHINE_HOURS
+    assert len(S) == 69
+    assert S["속초"] == (5.9, 6.1, 6.1, 7.1, 7.0, 5.4, 4.4, 4.9, 5.5, 6.1, 5.6, 5.9, 5.8)
+    assert S["군산"] == (4.8, 5.9, 6.2, 7.0, 6.9, 5.9, 4.8, 5.8, 6.2, 6.2, 5.0, 4.7, 5.8)
+    tac = set(e.DESIGN_OUTDOOR_TEMP_TAC)
+    assert set(S) == tac == set(e.HEATING_DEGREE_HOURS_1000)
+    assert "창원" in S and "마산" not in S
+    assert set(e.MONTHLY_MEAN_WIND_MS) - tac == {"마산"}      # 풍속표만 마산
+    off = {nm for nm, v in S.items() if abs(sum(v[:12]) / 12 - v[12]) > 0.06}
+    assert off == {"장흥"}, off
+    for nm, v in S.items():
+        assert len(v) == 13 and abs(sum(v[:12]) / 12 - v[12]) <= 0.07, nm
+    # 표3-3-36은 원문 5점 그대로 — 보간하지 않는다
+    assert e.PERIOD_LOAD_ADJUST_K == {3.0: 3020.0, 4.5: 2820.0, 6.0: 2620.0,
+                                      7.5: 2420.0, 9.0: 2220.0}
+    hit = e.period_load_adjust_k(6.0)
+    assert hit["k"] == 2620.0 and abs(hit["ratio_vs_current"] - 2620 / 3600) < 1e-12
+    miss = e.period_load_adjust_k(5.0)
+    assert miss["k"] is None
+    assert miss["lower"]["k"] == 2820.0 and miss["upper"]["k"] == 2620.0
+
+
+def test_98cha_engine_period_load_equals_k_3600():
+    """🔴 98차 핵심 — 엔진의 현행 기간난방부하가 **원문 식에서 k=3600**임을 고정한다.
+
+    u_design == u_period인 유리 케이스에서 Ū = u·fr이 되어 원문 식(3-3-5)과
+    엔진 식이 k만 다르다. 이 항등이 성립해야 "현행은 일조 취득 0의 상한"이라는
+    98차 결론이 선다 — 깨지면 그 결론부터 다시 봐야 한다.
+    """
+    Aw, dt = 5000.0, 24.7
+    t_target, t_min, fr = 18.0, 18.0 - dt, 0.7
+    r = e.heating_load(Aw, "유리", t_target, t_min, fr=fr)
+    # 항등의 전제: 유리는 U_DESIGN에 키가 없어 u_design이 U_VALUE로 폴백된다
+    assert "유리" not in e.U_DESIGN and e.U_VALUE["유리"] == 5.3
+    eng_period = r.fuel_consumption * r.fuel_unit_lhv * e.HEATING_EFFICIENCY_DEFAULT
+    # 원문 식: Q_H = k·Ū·A_c·HDH  (Ū = H_T/(A_c·dt), H_T는 W)
+    U_bar = (r.max_load_kcal_h / e.W_TO_KCAL_PER_HOUR) / (Aw * dt)
+    for h, k in ((4.5, 2820.0), (6.0, 2620.0), (7.5, 2420.0)):
+        QH_kcal = k * U_bar * Aw * e.DEGREE_HOURS_DEFAULT / 4186.8
+        assert abs(QH_kcal / eng_period - k / 3600.0) < 1e-3, h
+    assert e.PERIOD_LOAD_K_NO_SUNSHINE == 3600.0
+
+
+def test_98cha_sunshine_k_not_auto_applied():
+    """적용은 ★사용자 결정 — 기본은 현행 그대로여야 한다(원채원 회귀 보호).
+
+    sunshine_k는 기본 None이고, 주면 **연료소비량만** k/3600으로 움직이며
+    최대난방부하·난방기 용량은 불변이다(원문 식에서 k는 기간부하 쪽 계수다).
+    """
+    import inspect
+    assert inspect.signature(e.heating_load).parameters["sunshine_k"].default is None
+    base = e.heating_load(5000, "유리", 18, -6.7, fr=0.7)
+    adj = e.heating_load(5000, "유리", 18, -6.7, fr=0.7, sunshine_k=2620.0)
+    assert adj.max_load_kcal_h == base.max_load_kcal_h
+    assert adj.heater_capacity_kcal_h == base.heater_capacity_kcal_h
+    assert abs(adj.fuel_consumption / base.fuel_consumption - 2620 / 3600) < 1e-12
+    for bad in (2700.0, 3600.0, 1.0, 0.728):
+        try:
+            e.heating_load(5000, "유리", 18, -6.7, fr=0.7, sunshine_k=bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"sunshine_k={bad}를 통과시켰다")
+    # 도달성 가드 — 산출물 경로가 이 상수·함수를 참조하면 안 된다
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    for fname in ("build_site.py", "render_report.py", "webapp.py", "cases.py"):
+        src = open(_o.path.join(repo, fname), encoding="utf-8").read()
+        for name in ("MONTHLY_SUNSHINE_HOURS", "PERIOD_LOAD_ADJUST_K",
+                     "monthly_sunshine", "period_load_adjust_k", "sunshine_k"):
+            assert name not in src, f"{fname}가 {name}을 참조한다 — OPEX가 움직인다"
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡

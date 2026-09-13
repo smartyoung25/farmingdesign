@@ -702,7 +702,11 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       (MONTHLY_MEAN_WIND_MS). 84차 wind_correction_factor()가 호출부에
     #       떠넘겼던 winter_mean_wind_ms 인자를 채우는 자료다.
     #       **계산 미연결(도달성 가드)이라 케이스 값은 불변.**
-    assert a["counts"]["registry_constants"] == 49 and a["counts"]["source_refs"] == 83
+    # 98차: 49→51 · refs 83→85 — [표3-3-36] 기간난방부하 조정계수 k(5점)와
+    #       [표3-3-45] 월별 평균 일조시간(69지역) 전사. 🔴엔진의 현행 기간난방부하가
+    #       **k=3600**(일조 취득 0)임을 유리 케이스 검산으로 확인했고, 적용하면
+    #       연료소비량이 21.7~32.8% 줄어 **원채원 회귀가 깨지므로 자동 적용하지 않았다**.
+    assert a["counts"]["registry_constants"] == 51 and a["counts"]["source_refs"] == 85
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
