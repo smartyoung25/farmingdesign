@@ -650,7 +650,11 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       기본값 쪽에 등재하면서 FR_TABLE 쪽은 비워 뒀는데, fr의 **정의·방향**
     #       근거가 바로 이 자구다(76차 이견 ① 해소의 근거). 값 근거는 불변 —
     #       절감률 수치의 status는 그대로 '부분실측'이다.
-    assert a["counts"]["registry_constants"] == 39 and a["counts"]["source_refs"] == 52
+    # 82차: 39→40 · refs 52→53 — COVER_ASSEMBLIES 신설(사용자 결정 ⓒ).
+    #       농진청 「온실 열손실 저감 및 차단 기술 연구」 표9·10·11 **49행 전량 전사**라
+    #       ref는 match="exact"다(44차 F5의 취지대로 '값에 대한 근거력'이 전량 전사이므로).
+    #       20회차 F3에서 exact를 과대라고 정정한 건은 정의·방향 근거였고 이건 값 근거다.
+    assert a["counts"]["registry_constants"] == 40 and a["counts"]["source_refs"] == 53
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

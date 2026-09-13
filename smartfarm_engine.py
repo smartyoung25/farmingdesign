@@ -582,6 +582,142 @@ def curtain_exposure_ratio(curtain: str) -> float:
     if curtain not in FR_TABLE:
         raise ValueError(f"'{curtain}'은 FR_TABLE에 없는 피복조합이다 (선택: {list(FR_TABLE)})")
     return 1 - FR_TABLE[curtain]
+# ─────────────────────────────────────────────────────────────
+# 피복·보온재 조합별 난방부하계수 (2026-09-13 82차 신설 — 사용자 결정 "ⓒ로 결정")
+#   결정 경위: 76~78차 난방 계수 이견의 3안 중 **ⓒ(조합별 계수 직접 조회)**를
+#   사용자가 채택했다. 근거는 78차에 확보한 국내 표준 매뉴얼 권고다 —
+#   `스마트팜연구DB/에너지절감과생산성향상을위한신개념온실설계및표준화연구.pdf`
+#   printed p.337: "관류열부하 계산에서는 **보온피복의 열절감율을 포함시킨
+#   열관류율**을 **외피복과 보온피복의 조합에 따른 설계자료로 제시**하기로 하였다."
+#   즉 `U x (1 - 절감률)` 런타임 곱셈 대신 **조합별 값을 표에서 바로 읽는다**.
+#
+#   ✅ 출처: `스마트팜연구DB/온실열손실저감및차단기술연구.pdf`
+#     (농진청 국가연구개발보고서 — KISTI TRKO202100009930. 78차에 리포 안에서
+#      발견됐다. 7절이 오랫동안 "로그인 장벽으로 확보 실패"로 적어 온 그 문서다)
+#     printed p.24 [표 9] 단일 피복재 9종 · p.25 [표 10] 단일 보온재 16종 ·
+#     p.26 [표 11] 이중 조합 24종 = **49행 전량 전사**.
+#     측정: 핫박스(Hotbox) 실측, 외기 -10℃·내부 18~20℃(내외부 온도차 28~30℃),
+#     피복재 9종·보온재 16종·이중 24조합·삼중 59조합(p.12).
+#
+#   ✅ 전사 검산 49/49 통과: 원문이 `열절감율 = (피복재 난방부하계수 - 5.7) x 100 / 5.7`
+#     (PE필름 0.08mm = 5.7 kcal 기준)로 정의하므로 `계수 = round(5.7 x (1 - 절감율), 1)`이
+#     성립해야 한다 — **49행 전부 일치**. 반대로 `계수 = round(열관류율 x 0.86, 1)`은
+#     3행에서 0.1 어긋나는데, 이는 열관류율 열이 소수 1자리로 반올림돼 정밀도를
+#     잃은 탓이다(절감율 열이 더 정밀하다). 세 열을 **원문 그대로** 싣고 이 관계를
+#     테스트로 고정한다.
+#
+#   ⚠️ **원문의 재료명 표기가 표마다 다르다** — 표 9·10은 "PE필름(0.08)"·
+#     "다겹보온커튼(4겹)", 표 11은 "pe-0.15"·"5겹다겹". 정규화하지 않고 **원문
+#     표기를 그대로 키로** 쓴다(전사값 원단위 보존). 사용 가능한 키는
+#     `cover_assembly_options()`로 조회한다.
+#
+#   ⚠️ **유리온실이 없다.** 이 표는 플라스틱온실(PE/PO/EVA) 전용이라
+#     `chuncheon`·`wonchaewon`(유리) 케이스는 이 경로로 옮길 수 없다.
+#     유리 계열 조합값은 [표 3-3-30](신개념온실 p.336)이 주지만 **원문 단위 표기가
+#     깨져 있어 kcal인지 W인지 미확정**이다(78차 ④c) — 별도 차수.
+#
+#   ⚠️ `FR_TABLE`을 **삭제하지 않았다.** 견적비교 2건이 `curtain="다겹보온"`으로
+#     그 경로를 쓰고 있어 지우면 산출물이 깨진다. 두 경로의 값이 어긋나는 것도
+#     이미 관측됐다(표 10 다겹보온커튼 4겹 53.7% vs `FR_TABLE["다겹보온"]` 0.5).
+#     **어느 조합으로 매핑할지는 판단성**이라 이 차수에서 정하지 않는다 —
+#     신규 경로를 정본으로 추가하고 기존 경로는 그대로 둔다(마이그레이션은 별도 결정).
+# ─────────────────────────────────────────────────────────────
+@dataclass(frozen=True)
+class CoverAssembly:
+    layers: tuple        # 구성(원문 표기 그대로). 1중=1개, 2중=2개
+    u_w_m2k: float       # 열관류율 (W/m2·℃) — 원문 열 그대로
+    coef_kcal: float     # 난방부하계수 (kcal/h·m2·℃) — 원문 열 그대로
+    savings_pct: float   # 열절감율 (%) — PE필름(0.08mm) 5.7 기준 상대값
+    table: str           # 원문 표 번호
+
+
+# 열절감율 산정 기준값(원문 p.12) — 표 9 #1 PE필름(0.08)의 난방부하계수와 같다.
+# 별도 상수로 두지 않고 표에서 찾아 쓴다(중복 선언 방지) — `_pe_baseline_coef()`.
+COVER_ASSEMBLIES: list = [
+    CoverAssembly(("PE필름(0.08)",), 6.6, 5.7, 0.0, "표9"),
+    CoverAssembly(("PE필름(0.10)",), 6.2, 5.3, 7.0, "표9"),
+    CoverAssembly(("PE필름(0.15)",), 5.6, 4.8, 15.8, "표9"),
+    CoverAssembly(("PO필름(0.08)",), 6.0, 5.2, 8.8, "표9"),
+    CoverAssembly(("PO필름(0.10)",), 5.2, 4.5, 21.1, "표9"),
+    CoverAssembly(("PO필름(0.15)",), 5.1, 4.4, 22.8, "표9"),
+    CoverAssembly(("EVA필름(0.10)",), 6.2, 5.3, 7.0, "표9"),
+    CoverAssembly(("EVA필름(0.08)",), 6.4, 5.5, 3.5, "표9"),
+    CoverAssembly(("EVA필름(0.05)",), 6.6, 5.7, 0.0, "표9"),
+    CoverAssembly(("부직포 80g",), 5.7, 4.9, 13.6, "표10"),
+    CoverAssembly(("직조필름(0.15mm)",), 6.0, 5.2, 9.2, "표10"),
+    CoverAssembly(("옥스포드 300",), 5.6, 4.8, 15.6, "표10"),
+    CoverAssembly(("옥스포드 600",), 5.7, 4.9, 13.8, "표10"),
+    CoverAssembly(("AL스크린(차광율10%)",), 5.9, 5.1, 10.4, "표10"),
+    CoverAssembly(("AL스크린(차광율55%)",), 5.5, 4.7, 16.7, "표10"),
+    CoverAssembly(("AL스크린(차광율75%)",), 5.4, 4.7, 18.1, "표10"),
+    CoverAssembly(("AL스크린(차광율85%)",), 5.4, 4.6, 18.8, "표10"),
+    CoverAssembly(("AL스크린(차광율95%)",), 5.2, 4.5, 21.3, "표10"),
+    CoverAssembly(("AL스크린(차광율100%)",), 4.8, 4.2, 27.0, "표10"),
+    CoverAssembly(("다겹보온커튼(3겹)",), 4.5, 3.9, 32.3, "표10"),
+    CoverAssembly(("다겹보온커튼(4겹)",), 3.1, 2.6, 53.7, "표10"),
+    CoverAssembly(("다겹보온커튼(5겹)",), 2.7, 2.3, 59.6, "표10"),
+    CoverAssembly(("다겹보온커튼(외피)",), 2.0, 1.7, 70.2, "표10"),
+    CoverAssembly(("다겹보온커튼(AL+3겹)",), 2.4, 2.1, 63.2, "표10"),
+    CoverAssembly(("고기능다겹보온커튼",), 3.2, 2.8, 51.7, "표10"),
+    CoverAssembly(("pe-0.15", "pe-0.10",), 3.24, 2.8, 51.0, "표11"),
+    CoverAssembly(("pe-0.10", "pe-0.10",), 3.47, 3.0, 47.0, "표11"),
+    CoverAssembly(("po-0.15", "po-0.10",), 2.88, 2.5, 56.0, "표11"),
+    CoverAssembly(("po-0.10", "po-0.10",), 2.92, 2.5, 56.0, "표11"),
+    CoverAssembly(("pe-0.15", "5겹다겹",), 1.96, 1.7, 70.0, "표11"),
+    CoverAssembly(("pe-0.15", "3겹다겹",), 2.87, 2.5, 56.0, "표11"),
+    CoverAssembly(("pe-0.15", "4겹알루미늄",), 1.8, 1.6, 72.0, "표11"),
+    CoverAssembly(("pe-0.15", "고기능다겹",), 2.41, 2.1, 63.0, "표11"),
+    CoverAssembly(("pe-0.15", "알루미늄스크린(차광55%)",), 2.93, 2.5, 56.0, "표11"),
+    CoverAssembly(("pe-0.10", "5겹다겹",), 1.87, 1.6, 72.0, "표11"),
+    CoverAssembly(("pe-0.10", "3겹다겹",), 2.9, 2.5, 56.0, "표11"),
+    CoverAssembly(("pe-0.10", "4겹알루미늄",), 1.82, 1.6, 72.0, "표11"),
+    CoverAssembly(("pe-0.10", "고기능다겹",), 2.41, 2.1, 63.0, "표11"),
+    CoverAssembly(("pe-0.10", "알루미늄스크린(차광55%)",), 2.87, 2.5, 56.0, "표11"),
+    CoverAssembly(("po-0.15", "5겹다겹",), 1.84, 1.6, 72.0, "표11"),
+    CoverAssembly(("po-0.15", "3겹다겹",), 2.79, 2.4, 58.0, "표11"),
+    CoverAssembly(("po-0.15", "4겹알루미늄",), 1.71, 1.5, 74.0, "표11"),
+    CoverAssembly(("po-0.15", "고기능다겹",), 2.28, 2.0, 65.0, "표11"),
+    CoverAssembly(("po-0.15", "알루미늄스크린(차광55%)",), 2.8, 2.4, 58.0, "표11"),
+    CoverAssembly(("po-0.10", "5겹다겹",), 1.67, 1.4, 75.0, "표11"),
+    CoverAssembly(("po-0.10", "3겹다겹",), 2.59, 2.2, 61.0, "표11"),
+    CoverAssembly(("po-0.10", "4겹알루미늄",), 1.73, 1.5, 74.0, "표11"),
+    CoverAssembly(("po-0.10", "고기능다겹",), 2.28, 2.0, 65.0, "표11"),
+    CoverAssembly(("po-0.10", "알루미늄스크린(차광55%)",), 2.84, 2.4, 58.0, "표11"),
+]
+
+
+def _pe_baseline_coef() -> float:
+    """열절감율 산정 기준(PE필름 0.08mm)의 난방부하계수를 표에서 찾는다.
+    원문 p.12가 5.7 kcal/h·m2·℃로 명시한 값이며, 표 9 #1이 그 행이다."""
+    for a in COVER_ASSEMBLIES:
+        if a.layers == ("PE필름(0.08)",):
+            return a.coef_kcal
+    raise RuntimeError("표 9 #1(PE필름 0.08) 행이 표에서 사라졌다 — 전사 확인 필요")
+
+
+def cover_assembly_options(n_layers: Optional[int] = None) -> list:
+    """조회 가능한 조합 키 목록. n_layers를 주면 그 층수만.
+    원문 표기가 표마다 달라(표9·10 vs 표11) 사용 전에 이 목록으로 확인할 것."""
+    return [a.layers for a in COVER_ASSEMBLIES
+            if n_layers is None or len(a.layers) == n_layers]
+
+
+def cover_assembly_lookup(layers) -> Optional[CoverAssembly]:
+    """피복·보온재 조합 -> 실측 난방부하계수. 원문 표기 **정확 일치**만 찾는다.
+
+    정규화(대소문자·공백·표기 통일)를 하지 않는 이유: 원문 재료명이 표마다 다르게
+    적혀 있는데 임의로 통일하면 어느 행을 집었는지 추적할 수 없게 된다. 표기가
+    헷갈리면 `cover_assembly_options()`로 실제 키를 확인할 것.
+
+    찾지 못하면 None — 가까운 조합을 대신 돌려주지 않는다(근거 없는 값 금지).
+    """
+    key = tuple(layers) if not isinstance(layers, str) else (layers,)
+    for a in COVER_ASSEMBLIES:
+        if a.layers == key:
+            return a
+    return None
+
+
 # 연료 순발열량 (kcal/단위) - A-5
 # ✅ 원출처 확정·현행화(2026-08-19 70차, 사용자 지시 "FUEL_LHV 재조사" → 결정으로 교체):
 #   정체는 **에너지법 시행규칙 [별표] 에너지열량 환산기준(제5조제1항 관련)**이었다 —
@@ -661,7 +797,8 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
                  efficiency: float = HEATING_EFFICIENCY_DEFAULT,
                  fuel: str = "등유", floor_area_m2: Optional[float] = None,
                  u_design: Optional[float] = None, u_period: Optional[float] = None,
-                 curtain: Optional[str] = None) -> HeatingResult:
+                 curtain: Optional[str] = None,
+                 assembly: Optional[tuple] = None) -> HeatingResult:
     """최대난방부하 = Aw × u_design × ΔT × 보온비. 기간(연료소비)부하는 u_period 사용.
 
     ✅ 식 원출처 자구 확보(2026-09-13 77차, 사용자 지시 "최대부하 산정 커튼 전제 진행"):
@@ -707,13 +844,30 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
       curtain = FR_TABLE 피복조합명("PO단일"/"다겹보온"/"이중커튼"/"2중커튼").
                 내부에서 curtain_exposure_ratio()로 변환해 방향반전이 구조적으로
                 불가능하다."""
-    # ── P1-9: fr 방향반전 버그의 시그니처 수준 차단 ──
-    if (fr is None) == (curtain is None):
+    # ── P1-9: fr 방향반전 버그의 시그니처 수준 차단(82차에 assembly 추가로 3분기) ──
+    if sum(x is not None for x in (fr, curtain, assembly)) != 1:
         raise ValueError(
-            "fr(노출비율)과 curtain(피복조합명) 중 정확히 하나만 지정할 것 — "
-            "FR_TABLE 원값(열절감률)을 그대로 곱하는 방향반전 사고를 막기 위한 강제. "
-            "커튼 이름만 알면 curtain='다겹보온' 식으로 넘겨라")
-    if curtain is not None:
+            "fr(노출비율) / curtain(FR_TABLE 조합명) / assembly(실측 조합키) 중 "
+            "정확히 하나만 지정할 것 — FR_TABLE 원값(열절감률)을 그대로 곱하는 "
+            "방향반전 사고를 막기 위한 강제(P1-9). 실측 조합값을 쓰려면 "
+            "assembly=('pe-0.15','5겹다겹') 식으로 넘겨라(cover_assembly_options 참고)")
+    if assembly is not None:
+        # 82차(사용자 결정 ⓒ): 조합별 실측 난방부하계수를 직접 쓴다.
+        # 이 계수에는 **보온 효과가 이미 포함**돼 있으므로 절감률을 또 곱하지
+        # 않는다(fr=1.0) — 국내 표준 매뉴얼이 권고하는 구조다(신개념온실 p.337).
+        if u_design is not None or u_period is not None:
+            raise ValueError(
+                "assembly와 u_design/u_period를 함께 줄 수 없다 — 조합 계수에 "
+                "보온 효과가 이미 포함돼 있어 이중 지정이 된다")
+        a = cover_assembly_lookup(assembly)
+        if a is None:
+            raise ValueError(
+                f"{tuple(assembly)!r}은 COVER_ASSEMBLIES에 없는 조합이다 — "
+                f"원문 표기가 표마다 다르니 cover_assembly_options()로 실제 키를 "
+                f"확인할 것(가까운 조합으로 대신 계산하지 않는다)")
+        u_design = u_period = a.coef_kcal
+        fr = 1.0
+    elif curtain is not None:
         fr = curtain_exposure_ratio(curtain)
     if not (0 < fr <= 1):
         raise ValueError(f"fr(노출비율)은 0<fr<=1 범위여야 한다(입력: {fr})")

@@ -1718,6 +1718,128 @@ def test_finance_extension_not_wired_into_render_paths():
                 f"이 테스트를 갱신할 것")
 
 
+# ── 피복·보온재 조합별 난방부하계수 (82차, 사용자 결정 ⓒ) ────
+# 출처: 농진청 「온실 열손실 저감 및 차단 기술 연구」 표9(피복재 9)·표10(보온재 16)·
+#   표11(이중 24) = 49행 전량 전사. 원문 p.12가 산정식을 정의한다.
+def test_cover_assemblies_transcription_is_internally_consistent():
+    """전사 검산 — 원문 정의 `열절감율 = (계수 − 5.7) × 100 / 5.7`(PE필름 0.08 기준)이
+    성립하면 `계수 = round(5.7 × (1 − 절감율), 1)`이어야 한다. **49행 전부** 통과해야
+    전사가 온전한 것이다(한 행이라도 어긋나면 옮겨 적다 틀린 것).
+
+    ⚠️ 역방향(`계수 = round(열관류율 × 0.86, 1)`)은 3행에서 0.1 어긋난다 — 열관류율
+    열이 소수 1자리로 반올림돼 정밀도를 잃은 탓이지 전사 오류가 아니다. 그래서
+    검산 기준을 절감율 쪽으로 잡는다."""
+    base = e._pe_baseline_coef()
+    assert base == 5.7
+    assert len(e.COVER_ASSEMBLIES) == 49
+    for a in e.COVER_ASSEMBLIES:
+        derived = round(base * (1 - a.savings_pct / 100), 1)
+        assert abs(derived - a.coef_kcal) <= 0.051, (
+            f"{a.layers}: 계수 {a.coef_kcal} vs 절감율 역산 {derived} — 전사 확인 필요")
+
+
+def test_cover_assemblies_table_composition():
+    """표별 행 수와 층수 분포 — 원문 구성이 바뀌면(또는 일부만 옮겨졌으면) 깨진다."""
+    from collections import Counter
+    by_table = Counter(a.table for a in e.COVER_ASSEMBLIES)
+    assert by_table == {"표9": 9, "표10": 16, "표11": 24}
+    assert len(e.cover_assembly_options(1)) == 25      # 표9 9 + 표10 16
+    assert len(e.cover_assembly_options(2)) == 24      # 표11
+    # 원문 앵커 3행(각 표에서 1건씩) — 값이 바뀌면 잡는다
+    assert e.cover_assembly_lookup(("PE필름(0.08)",)).coef_kcal == 5.7
+    assert e.cover_assembly_lookup(("다겹보온커튼(4겹)",)).savings_pct == 53.7
+    assert e.cover_assembly_lookup(("pe-0.15", "5겹다겹")).coef_kcal == 1.7
+
+
+def test_cover_assembly_lookup_is_exact_match_only():
+    """원문 표기를 정규화하지 않는다 — 임의 통일하면 어느 행을 집었는지 추적 불가.
+    못 찾으면 가까운 조합을 대신 주지 않고 None(근거 없는 값 금지)."""
+    assert e.cover_assembly_lookup(("pe-0.15",)) is None       # 표9 표기는 'PE필름(0.15)'
+    assert e.cover_assembly_lookup(("PE필름(0.15)",)) is not None
+    assert e.cover_assembly_lookup(("PE필름(0.15)", "5겹다겹")) is None
+    assert e.cover_assembly_lookup(("없는자재",)) is None
+
+
+def test_heating_load_assembly_uses_measured_coefficient_without_extra_reduction():
+    """assembly 경로: 조합 계수에 보온 효과가 이미 포함돼 있으므로 절감률을 또
+    곱하지 않는다(fr=1.0). 결과가 `면적 × 조합계수 × ΔT`와 원단위 일치해야 한다."""
+    Aw, tt, tm = 6027.47001696239, 7.0, -21.7
+    key = ("pe-0.15", "5겹다겹")
+    a = e.cover_assembly_lookup(key)
+    r = e.heating_load(Aw, "필름", tt, tm, assembly=key, floor_area_m2=2016.0)
+    assert r.max_load_kcal_h == Aw * a.coef_kcal * (tt - tm)
+
+
+def test_heating_load_assembly_is_mutually_exclusive_with_fr_and_curtain():
+    """82차에 배타 가드가 3분기로 넓어졌다 — 셋 중 정확히 하나."""
+    import pytest
+    Aw, key = 1000.0, ("pe-0.15", "5겹다겹")
+    for kw in ({}, {"fr": 0.3, "curtain": "다겹보온"},
+               {"fr": 0.3, "assembly": key}, {"curtain": "다겹보온", "assembly": key},
+               {"fr": 0.3, "curtain": "다겹보온", "assembly": key}):
+        with pytest.raises(ValueError):
+            e.heating_load(Aw, "필름", 7, -10, **kw)
+    # 하나씩은 전부 통과
+    for kw in ({"fr": 0.3}, {"curtain": "다겹보온"}, {"assembly": key}):
+        e.heating_load(Aw, "필름", 7, -10, **kw)
+
+
+def test_heating_load_assembly_rejects_u_override_and_unknown_key():
+    """조합 계수와 u_design/u_period를 함께 주면 이중 지정이라 거부.
+    미등록 조합도 거부한다 — 가까운 값으로 대신 계산하지 않는다."""
+    import pytest
+    key = ("pe-0.15", "5겹다겹")
+    with pytest.raises(ValueError):
+        e.heating_load(1000.0, "필름", 7, -10, assembly=key, u_design=8.9)
+    with pytest.raises(ValueError):
+        e.heating_load(1000.0, "필름", 7, -10, assembly=key, u_period=2.66)
+    with pytest.raises(ValueError):
+        e.heating_load(1000.0, "필름", 7, -10, assembly=("없는것", "없는것2"))
+
+
+def test_existing_fr_and_curtain_paths_unchanged_by_assembly_addition():
+    """82차 변경이 기존 두 경로의 값을 건드리지 않았는가(회귀).
+    견적비교 2건이 curtain='다겹보온'으로 live다."""
+    Aw = 6027.47001696239
+    r_fr = e.heating_load(Aw, "필름", 7, -21.7, fr=0.15, u_design=5.7, floor_area_m2=2016.0)
+    assert r_fr.max_load_kcal_h == Aw * 5.7 * 28.7 * 0.15
+    r_c = e.heating_load(Aw, "필름", 7, -21.7, curtain="다겹보온", floor_area_m2=2016.0)
+    assert r_c.max_load_kcal_h == Aw * e.U_DESIGN["필름"] * 28.7 * (1 - e.FR_TABLE["다겹보온"])
+
+
+def test_fr_table_and_assembly_disagree_and_that_is_recorded_not_silently_merged():
+    """두 경로가 같은 이름의 자재에 다른 값을 준다 — 82차는 이를 **합치지 않고**
+    기록만 했다(매핑은 판단성). 그 불일치를 사실로 고정해 둔다.
+    FR_TABLE['다겹보온']=0.5 vs 표10 다겹보온커튼 3겹 32.3%·4겹 53.7%·5겹 59.6%."""
+    fr_val = e.FR_TABLE["다겹보온"] * 100
+    measured = [e.cover_assembly_lookup((n,)).savings_pct
+                for n in ("다겹보온커튼(3겹)", "다겹보온커튼(4겹)", "다겹보온커튼(5겹)")]
+    assert not any(abs(m - fr_val) < 1.0 for m in measured), (
+        f"FR_TABLE 0.5가 실측 {measured} 중 하나와 일치하게 됐다 — "
+        f"매핑이 확정된 것이라면 근거_난방계수_이견_20260913.md를 함께 갱신할 것")
+    # 유리온실이 표에 없다는 사실도 고정(chuncheon·wonchaewon 이관 불가 근거)
+    assert not [a for a in e.COVER_ASSEMBLIES
+                if any("유리" in x for x in a.layers)]
+
+
+def test_cover_assemblies_not_wired_into_render_paths():
+    """82차 도달성: 신규 경로는 아직 산출물에 연결돼 있지 않다(74차 관례).
+    연결 시 케이스 값이 움직이므로 마이그레이션 결정이 선행돼야 한다."""
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    for fname in ("build_site.py", "webapp.py", "render_report.py", "app.py",
+                  "run_report.py", "render_chuncheon.py", "cases.py"):
+        path = os.path.join(repo, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            body = f.read()
+        for token in ("assembly=", "cover_assembly_lookup", "COVER_ASSEMBLIES"):
+            assert token not in body, (
+                f"{fname}이 조합 경로를 쓰기 시작했다 — 케이스 난방부하가 움직이므로 "
+                f"어느 조합으로 매핑할지(판단성) 결정하고 이 테스트를 갱신할 것")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
