@@ -171,6 +171,52 @@ def test_95cha_wind_table_not_wired_into_outputs():
             assert name not in src, f"{fname}가 {name}을 참조한다 — 케이스 값이 움직인다"
 
 
+def test_96cha_wind_factor_scope_and_validation():
+    """96차 풍속보정계수 — 적용 범위와 입력 검증.
+
+    원문 식(3-3-1)의 f_w는 **최대난방부하**에 곱한다. 기간난방부하 식에는 f_w가
+    없으므로(그 자리는 일조시간 조정계수 [표3-3-36]) 연료소비량은 움직이면 안 된다.
+    기본값 1.0이라 기존 호출은 전부 불변이다.
+    """
+    base = e.heating_load(1000, "필름", 15, -12.4, curtain="다겹보온")
+    win = e.heating_load(1000, "필름", 15, -12.4, curtain="다겹보온", wind_factor=1.05)
+    assert abs(win.max_load_kcal_h / base.max_load_kcal_h - 1.05) < 1e-12
+    assert abs(win.load_per_m2 / base.load_per_m2 - 1.05) < 1e-12
+    assert abs(win.heater_capacity_kcal_h / base.heater_capacity_kcal_h - 1.05) < 1e-12
+    # 🔴 기간난방부하 계열은 불변 — f_w가 거기 들어가면 원문에 없는 계산이 된다
+    assert win.fuel_consumption == base.fuel_consumption
+    # 표 조회값만 받는다(임의 실수 거부) — "근거 없는 값 금지"의 시그니처 수준 방어
+    assert set(e.WIND_CORRECTION_FACTOR.values()) == {1.0, 1.05, 1.1}
+    for bad in (1.02, 0.9, 2.0, 1.2):
+        try:
+            e.heating_load(1000, "필름", 15, -12.4, curtain="다겹보온", wind_factor=bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"wind_factor={bad}를 통과시켰다")
+
+
+def test_96cha_wind_factor_is_not_the_safety_factor():
+    """83차가 '정체 미확정'으로 남긴 이중계상 의혹을 구조로 고정한다.
+
+    원문(신개념온실 PDF p.343/인쇄 307)이 "풍속에 따른 보정계수"와 "난방방식에
+    따른 안전계수"를 **별개 항목으로 나란히** 나열한다. 엔진도 적용 단계가 다르다 —
+    wind_factor는 max_load에, safety는 heater(설치용량)에만 곱한다. 두 계수가
+    같은 단계로 합쳐지면 이 테스트가 깨진다.
+    """
+    r = e.heating_load(1000, "필름", 15, -12.4, curtain="다겹보온",
+                       safety=1.1, wind_factor=1.05)
+    # heater = max_load × safety (wind_factor는 이미 max_load 안에 있다)
+    assert abs(r.heater_capacity_kcal_h - r.max_load_kcal_h * 1.1) < 1e-9
+    # safety만 바꾸면 max_load는 불변이어야 한다(단계 분리의 증거)
+    r2 = e.heating_load(1000, "필름", 15, -12.4, curtain="다겹보온",
+                        safety=1.0, wind_factor=1.05)
+    assert r2.max_load_kcal_h == r.max_load_kcal_h
+    assert abs(r2.heater_capacity_kcal_h - r2.max_load_kcal_h) < 1e-9
+    # 1.1이 표의 '강풍·단일피복'과 값이 같다는 관찰은 유지되나 별개 개념이다
+    assert e.WIND_CORRECTION_FACTOR[("강풍지역", "단일피복")] == e.HEATING_SAFETY_FACTOR
+
+
 def test_benchmark_flags_gross_error():
     # 명백한 과소 견적은 경고로 잡혀야 함
     r = e.benchmark_check(50_000_000, 3000, e.Cover.FILM)  # 16,667원/㎡

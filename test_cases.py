@@ -794,6 +794,40 @@ def test_91cha_redteam_f1_f3_no_regression():
     assert "ict 이동 감응 1.91%p" in src
 
 
+def test_96cha_gunsan_wind_factor_applied_others_untouched():
+    """96차 ★사용자 결정 — 군산 견적비교에만 풍속보정계수 1.05를 적용했다.
+
+    적용 근거가 데이터에 있어야 한다(엔진이 지역·동절기를 고르지 않는다).
+    그리고 **군산은 12개월 최소가 3.4m/s라 동절기 정의와 무관하게 강풍지역**이다 —
+    이 성질이 깨지면 '정의 없이도 판정 확정'이라는 근거가 무너지므로 고정한다.
+    나머지 케이스·견적비교는 계수를 받지 않아야 한다(원채원 회귀 보호).
+    """
+    import glob as _g
+    gs = json.load(open(os.path.join(_REPO, "견적비교_군산무화과_규격대안.json"),
+                        encoding="utf-8"))["rfq_input"]
+    assert gs["region"] == "군산" and gs["curtain"] == "다겹보온"
+    assert gs["wind_factor"] == 1.05
+    assert "wind_factor_note" in gs and "표 3-3-35" in gs["wind_factor_note"]
+    # 표3-3-44로 1.05가 재현되는가 — 12개월 전부 임계 이상이라 달 선택과 무관
+    row = e.MONTHLY_MEAN_WIND_MS["군산"]
+    assert min(row[:12]) >= e.WIND_STRONG_THRESHOLD_MS, "군산이 더는 '항상 강풍'이 아니다"
+    for months in ((12, 1, 2), (11, 12, 1, 2, 3), tuple(range(1, 13))):
+        assert e.wind_correction_factor(e.mean_wind("군산", months), True) == 1.05
+    # 다른 견적비교·케이스는 계수를 받지 않는다
+    other = json.load(open(os.path.join(_REPO, "견적비교_논산딸기3사.json"),
+                           encoding="utf-8"))["rfq_input"]
+    assert "wind_factor" not in other
+    for path in sorted(_g.glob(os.path.join(_REPO, "cases", "*.json"))):
+        if os.path.getsize(path) == 0:
+            continue
+        cj = json.load(open(path, encoding="utf-8"))
+        assert "wind_factor" not in json.dumps(cj), os.path.basename(path)
+        # 케이스 region은 기상관측지점명이 아니라 표 조회가 안 된다(계수 1.0 유지)
+        reg = cj.get("input", {}).get("region")
+        if reg:
+            assert e.monthly_mean_wind(reg) is None, (path, reg)
+
+
 def _sheet_values(rows):
     out = set()
     for row in rows:

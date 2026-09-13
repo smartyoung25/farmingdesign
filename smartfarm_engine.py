@@ -798,7 +798,8 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
                  fuel: str = "등유", floor_area_m2: Optional[float] = None,
                  u_design: Optional[float] = None, u_period: Optional[float] = None,
                  curtain: Optional[str] = None,
-                 assembly: Optional[tuple] = None) -> HeatingResult:
+                 assembly: Optional[tuple] = None,
+                 wind_factor: float = 1.0) -> HeatingResult:
     """최대난방부하 = Aw × u_design × ΔT × 보온비. 기간(연료소비)부하는 u_period 사용.
 
     ✅ 식 원출처 자구 확보(2026-09-13 77차, 사용자 지시 "최대부하 산정 커튼 전제 진행"):
@@ -874,7 +875,34 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
     u_d = u_design if u_design is not None else U_DESIGN.get(cover, U_VALUE.get(cover, 5.7))
     u_p = u_period if u_period is not None else U_VALUE.get(cover, 5.7)
     dt = t_target - t_min
-    max_load = surface_area_m2 * u_d * dt * fr
+    # ── 풍속보정계수 f_w (2026-09-13 96차 신설 — 사용자 지시 "a 진행") ──
+    #   원문 식(3-3-1): 최대난방부하 = (관류+틈새+지중) × **풍속보정계수**.
+    #   엔진은 3성분 중 관류만 계산하므로(84차 기록) 그 범위 안에서 f_w를 곱한다.
+    #   값은 [표 3-3-35] WIND_CORRECTION_FACTOR 조회값만 받는다(임의 실수 거부)
+    #   — 83차부터의 "근거 없는 값 금지"를 시그니처 수준에서 지킨다.
+    #
+    #   ✅ **safety(1.1)와의 이중계상이 아님을 원문으로 확정했다**(96차). 83차가
+    #   "HEATING_SAFETY_FACTOR 1.1이 표 3-3-35의 강풍·단일피복과 값이 같은데 정체
+    #   미확정"으로 남긴 항목이다. 신개념온실 **PDF p.343(인쇄 307)**:
+    #     "최대난방부하는 … 구한다. 여기에 온실 설치지역의 **풍속에 따른 보정계수**,
+    #      **난방방식에 따른 안전계수**, 공기분산방식에 따른 보정계수, 난방배관방식에
+    #      따른 보정계수를 적용하여 최종 난방시스템의 설치용량을 결정한다."
+    #   → 원문이 **풍속보정계수와 안전계수를 별개 항목으로 나란히 나열**한다.
+    #   게다가 엔진은 safety를 max_load가 아니라 **heater(설치용량)에만** 곱한다
+    #   (아래 `heater = max_load * safety`) — 적용 단계도 서로 다르다.
+    #   ⚠️ 다만 1.1이라는 **값 자체의 출처는 여전히 미상**이다(17회차 F4 이월).
+    #   확정된 것은 "두 계수가 다른 개념"이라는 것뿐이고, 원문이 주는 "난방방식별
+    #   안전계수" 표는 이 리포에서 아직 못 찾았다[확인요망].
+    #
+    #   ⚠️ **기간난방부하(period_load)에는 곱하지 않는다** — 원문의 기간난방부하 식은
+    #   난방디그리아워 × 평균난방부하계수 × 피복면적 계열이고 f_w가 들어가지 않는다
+    #   (일조시간 조정계수 [표 3-3-36]이 그 자리의 보정이다). 따라서 fuel_use도 불변.
+    if wind_factor not in set(WIND_CORRECTION_FACTOR.values()):
+        raise ValueError(
+            f"wind_factor는 [표 3-3-35] 조회값이어야 한다"
+            f"(가능: {sorted(set(WIND_CORRECTION_FACTOR.values()))}, 입력: {wind_factor!r}) — "
+            f"wind_correction_factor()로 구할 것. 임의 값은 근거가 없다")
+    max_load = surface_area_m2 * u_d * dt * fr * wind_factor
     # ✅ heater_capacity의 발열량 기준 확정(2026-08-20 73차, 사용자 지시로 조사):
     #   16회차가 "정격 **출력** 기준인지 **입열량** 기준인지 어느 문서에도 정의 없음 —
     #   출력 기준이면 현행이 옳고 입열량 기준이면 효율 나눗셈이 빠진 것"으로 확인 불가에
@@ -2964,7 +2992,8 @@ def generate_rfq_package(region_snow_cm: float, region_wind_ms: float,
                          efficiency: float = HEATING_EFFICIENCY_DEFAULT, fuel: str = "등유",
                          required_categories: Optional[list] = None,
                          curtain: Optional[str] = None,
-                         crop: Optional[str] = None) -> RfqPackage:
+                         crop: Optional[str] = None,
+                         wind_factor: float = 1.0) -> RfqPackage:
     """설계 축 함수만 호출해 구조화한 RFQ 사양서(=구조화 사양표, CAD 도면 아님).
     form(연동/단동/광폭)은 판단성 결정이라 필수 인자로 받는다 — 엔진이 임의로
     고르지 않는다. 해당 지역강도를 만족하는 규격이 그 형식에 없으면 예외.
@@ -2980,9 +3009,12 @@ def generate_rfq_package(region_snow_cm: float, region_wind_ms: float,
             f"충족하는 규격이 없다")
     surf = surface_area_m2 if surface_area_m2 is not None else area_m2
     # P1-9: fr/curtain을 그대로 위임 — 정확히-하나 검증은 heating_load()가 수행
+    # 96차: wind_factor는 그대로 위임한다(값 검증은 heating_load가 수행).
+    #   호출부가 [표 3-3-44] MONTHLY_MEAN_WIND_MS → mean_wind() → 
+    #   wind_correction_factor()로 구해 넘긴다 — 엔진이 지역·동절기를 고르지 않는다.
     heating = heating_load(surf, cover.value, t_target, t_min, fr, safety,
                            degree_hours, efficiency, fuel, floor_area_m2=area_m2,
-                           curtain=curtain)
+                           curtain=curtain, wind_factor=wind_factor)
     area_py = m2_to_py(area_m2)
     est_a = greenhouse_total_estimate(chosen.name, area_py)
     est_b = structure_only_estimate(area_py)

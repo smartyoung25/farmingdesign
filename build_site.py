@@ -694,7 +694,10 @@ def load_quotes_comparison(path: str = QUOTES_JSON):
         area_m2=ri["area_m2"], cover=e.Cover(ri["cover"]), form=ri["form"],
         t_target=ri["t_target"], t_min=ri["t_min"],
         curtain=ri["curtain"], crop=ri["crop"],
-        required_categories=ri.get("required_categories"))
+        required_categories=ri.get("required_categories"),
+        # 96차: 풍속보정계수(표3-3-35). JSON이 명시한 경우만 적용하고 기본은 1.0 —
+        # 지역·동절기 선택은 판단성이라 데이터가 근거와 함께 들고 있어야 한다.
+        wind_factor=ri.get("wind_factor", 1.0))
     vqs = [e.VendorQuote(v["vendor_name"], v["categories"], v["direct_cost_total"],
                          v["total_with_overhead"], v.get("area_m2"), v.get("spec_name"))
            for v in data["vendor_quotes"]]
