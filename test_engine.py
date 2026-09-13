@@ -2681,6 +2681,77 @@ def test_estimate_reference_case_overrides_only_cover_named_files():
             assert os.path.exists(rel), f"오버라이드 경로가 없다(무시된다): {rel}"
 
 
+def test_103cha_name_patterns_precision_over_recall():
+    """103차 — `NAME_PATTERNS` 개정(90차 이월). **정밀도 우선**으로 보수화했다.
+
+    개정은 둘뿐이다: ①`{2,4}`→`{2,3}`(앞 글자 먹던 greedy 제거) ②`NOT_A_NAME`
+    거부(지명·문서종류·업체명). 더 많이 맞히려는 공격적 패턴은 시제품에서 새 오탐을
+    만들고 기존 정답을 잃어 **채택하지 않았다** — 틀린 이름은 조용히 틀리지만
+    None(미상)은 복구 가능하다.
+    """
+    import pytest
+    F = pytest.importorskip("build_document_chunks_full_v2")
+    g = F.guess_case_from_filename
+    # ① greedy 제거 — 앞 글자를 먹지 않는다
+    assert g("군산이명환농가-(커튼1중)-753평견적서.pdf") == "이명환"
+    assert g("논산딸기백가은님75각 시공 견적서(최종).pdf") == "백가은"
+    assert g("수현건설임미라님견적서.xls") == "임미라"
+    # ② 지명·문서종류·업체명은 이름이 아니다 → 틀린 이름 대신 None
+    for fn in ("시공견적서.pdf", "산출내역서(본)_250630.pdf",
+               "__원가설계도서_이두희(천안) 20251028.pdf",
+               "스마트팜하우스(렉창)5연동견적서_최선동.xls",
+               "설계내역서_이동혁.pdf"):
+        assert g(fn) is None, fn
+    # 기존에 맞던 것은 그대로 맞아야 한다(재현율 손실 금지)
+    assert g("최선동 - 평면도.pdf") == "최선동"
+    assert g("[맹주연]_충청남도 천안시 서북구.pdf") == "맹주연"
+    assert g("박규현 견적서.pdf") == "박규현"
+    assert g("충남 서산(이준희) 도면.pdf") == "이준희"
+    assert g("논산_백가은 대표님 최종도면_0616.pdf") == "백가은"
+    # {2,3}의 근거: 이 말뭉치의 **사람 이름은 전원 3글자**다.
+    #   유일한 예외 "한일그린텍"(5자)은 사람이 아니라 **업체 case명**이고
+    #   폴더 기반으로 잡히므로 파일명 패턴의 대상이 아니다('한일'은 NOT_A_NAME).
+    names = {v for v in F.CASE_OVERRIDES.values() if v != "견적참조-미상"}
+    persons = {n for n in names if len(n) != 5}
+    assert persons and all(len(n) == 3 for n in persons), sorted(persons)
+    assert names - persons == {"한일그린텍"}, sorted(names - persons)
+    assert "한일" in F.NOT_A_NAME
+
+
+def test_103cha_pattern_change_leaves_index_untouched():
+    """🔴개정이 기존 인덱스를 건드리지 않는가 — 90차가 요구한 '전후 분포 대조'.
+
+    패턴이 바뀌어 분류가 달라지는 파일이 **전부 `CASE_OVERRIDES`에 들어 있어야**
+    한다. 그래야 오버라이드가 최종값을 결정하므로 148,424청크 인덱스가 불변이고
+    재청킹이 필요 없다. 오버라이드 밖에서 하나라도 바뀌면 인덱스가 드리프트한다.
+    """
+    import os
+    import re
+    import pytest
+    F = pytest.importorskip("build_document_chunks_full_v2")
+    if not os.path.isdir("스마트팜스펙"):
+        pytest.skip("말뭉치 미보유(리포 밖 환경)")
+    # 개정 전 패턴을 재현해 대조한다(현재 패턴과 다른 점은 {2,3}·NOT_A_NAME뿐)
+    old_pats = [re.compile(p.pattern.replace("{2,3}", "{2,4}")) for p in F.NAME_PATTERNS]
+
+    def old_guess(bn):
+        for pat in old_pats:
+            m = pat.search(bn)
+            if m:
+                return m.group(1)
+        return None
+
+    ov = {os.path.basename(k) for k in F.CASE_OVERRIDES}
+    drifted = []
+    for root, dirs, files in os.walk("스마트팜스펙"):
+        dirs[:] = [d for d in dirs if d not in F.EXCLUDE_DIRS]
+        for fn in files:
+            if old_guess(fn) != F.guess_case_from_filename(fn) and fn not in ov:
+                drifted.append(os.path.join(root, fn))
+    assert not drifted, (
+        f"오버라이드 밖에서 분류가 바뀐다 — 인덱스 재생성이 필요하다: {drifted[:5]}")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
