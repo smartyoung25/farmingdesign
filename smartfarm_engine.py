@@ -2111,6 +2111,129 @@ def compare_quotes(rfq: RfqPackage, vendor_quotes: list) -> QuoteComparison:
 
 
 # ─────────────────────────────────────────────────────────────
+# 설계 대안 비교 (2026-09-13, 75차 신설 — 컨설팅 흐름 "몇 가지 대안 선정" 단계)
+#   경위: 사용자 첨부 자료 5종 검토에서, 같은 입지조건 위에 규격·피복·커튼
+#   조합을 달리한 대안을 나란히 놓는 계층이 엔진에 통째로 없음을 확인했다.
+#   `compare_quotes`는 "같은 사양서에 여러 업체 견적"(7단계)이고, 이 함수는
+#   "같은 입지에 여러 설계안"(4단계)이라 대상이 다르다.
+#   ⚠️ 새 계산은 하나도 하지 않는다 — select_specs·heating_load·
+#   verify_heating_vs_actual·greenhouse_total_estimate·structure_only_estimate를
+#   호출해 한 표로 모을 뿐이다(1절 "병렬 계산기 금지"). 새 상수도 없다.
+#   ⚠️ `compare_quotes`와 달리 "최저비용"·"최소부하" 같은 참고 순위 필드를
+#   두지 않는다(75차 사용자 확인). 업체 비교는 금액이라는 단일 축이 있지만
+#   설계 대안의 우열은 작목·작형·운영조건에 따라 뒤집히므로, 참고정보로
+#   노출해도 판정으로 읽힌다 — 대안 선정은 판단성 영역이다.
+#   ⚠️ 설계강도 미달·미등재 대안도 행에서 빼지 않는다. 사용자가 올린 대안을
+#   조용히 버리면 "왜 빠졌는지"가 산출물에 남지 않는다 — spec_ok 플래그와
+#   notes로 드러낸다.
+#   ⚠️ 도달성(12~14회차 교훈): 75차 시점에 이 함수는 build_site·webapp 렌더
+#   경로에 연결돼 있지 않다 — 산출물 수치에 참여하지 않는다. 이 사실은 주석이
+#   아니라 `test_compare_design_options_not_wired_into_render_paths`가 지킨다
+#   (19회차 F4 — 74차 test_cluster_..._unreached와 같은 관례).
+#   ⚠️ 렌더 연결 전에 처리할 입력 가드 4건(19회차, 76차 범위 — 셋 다 heating_load
+#   기존 동작이라 이번 차수 범위 밖):
+#     ①cover 미지원 문자열 → U_DESIGN→U_VALUE→5.7 순 폴백으로 예외도 note도
+#       없이 계산된다. 5.7은 2026-07-19에 교체돼 어느 표에도 없는 고아값이다
+#       (14회차 F3이 FUEL_LHV 8170 폴백을 같은 사유로 제거한 선례).
+#     ②curtain 오타는 반대로 ValueError로 비교표 전체를 소멸시킨다 — 같은 표
+#       안에서 오류 처리 원칙이 갈린다(spec_name 미등재는 행을 남기는데).
+#     ③floor_area_m2=0은 falsy라 표면적으로 조용히 폴백해 heating_verify가
+#       "재확인"에서 "정상"으로 뒤집힌다.
+#     ④area_py=0은 개산 0원을 note 없이 낸다(미등재 None과 구분 불가).
+# ─────────────────────────────────────────────────────────────
+@dataclass
+class DesignOption:
+    """설계 대안 1건의 입력. surface_area_m2(표면적)는 난방부하용,
+    area_py(평)는 개산 단가용 — 서로 다른 면적이므로 호출부가 각각 준다."""
+    label: str                      # 대안 이름(사용자 지정, 표 식별용)
+    spec_name: str                  # SPEC_TABLE 규격명
+    cover: str                      # U_VALUE/U_DESIGN 키("유리"/"필름"/…)
+    curtain: str                    # FR_TABLE 피복조합명
+    area_py: float                  # 재배면적(평) — 평단가 개산용
+    surface_area_m2: float          # 온실 표면적(㎡) — 난방부하용
+    t_target: float                 # 난방 목표온도(℃)
+    t_min: float                    # 설계 외기온(℃)
+    floor_area_m2: Optional[float] = None   # 면적당 부하 분모(미지정 시 표면적)
+
+
+@dataclass
+class DesignOptionRow:
+    label: str
+    spec_name: str
+    cover: str
+    curtain: str
+    spec_ok: Optional[bool]         # 입지 설계강도 충족 여부(None=SPEC_TABLE 미등재)
+    snow_cm: Optional[int]          # 그 규격의 설계 적설심
+    wind_ms: Optional[int]          # 그 규격의 설계 풍속
+    max_load_kcal_h: float
+    load_per_m2: float
+    heater_capacity_kcal_h: float
+    heating_verify: dict            # verify_heating_vs_actual() 결과 그대로
+    greenhouse_total_won: Optional[float]   # 평단가 미등재 규격이면 None(0 날조 금지)
+    structure_only_won: float
+
+
+@dataclass
+class DesignOptionComparison:
+    region_snow_cm: float
+    region_wind_ms: float
+    rows: list                      # DesignOptionRow, 입력 순서 그대로(정렬·순위 없음)
+    notes: list                     # str, 대안별 경고(설계강도 미달·미등재 등)
+
+
+def compare_design_options(region_snow_cm: float, region_wind_ms: float,
+                           options: list) -> DesignOptionComparison:
+    """같은 입지조건(적설심·풍속) 위에 설계 대안 여러 건을 나란히 놓는다.
+
+    기존 설계축 함수만 호출해 한 표로 모으는 조립 함수다 — 어느 대안이 낫다고
+    결론짓지 않으며 순위·추천 필드도 두지 않는다(대안 선정은 판단성 영역,
+    최종 선택은 컨설턴트·사용자 몫).
+
+    spec_ok: select_specs(crop="*")의 후보 집합에 해당 규격이 들어가는지로
+      판정한다 — 설계강도 필터 규칙을 이 함수가 다시 쓰지 않고 그대로 빌린다.
+      crop="*"를 쓰는 이유는 "추천"이 아니라 "이 규격이 강도를 넘는가"라는
+      멤버십 질의이기 때문이다(작물특화형이라고 탈락시키면 안 된다).
+    """
+    passing = {s.name for s in select_specs(region_snow_cm, region_wind_ms,
+                                            crop="*")["candidates"]}
+    by_name = {s.name: s for s in SPEC_TABLE}
+
+    rows, notes = [], []
+    for o in options:
+        spec = by_name.get(o.spec_name)
+        if spec is None:
+            spec_ok, snow, wind = None, None, None
+            notes.append(f"{o.label}: '{o.spec_name}'은 SPEC_TABLE(고시 제2025-108호) "
+                         f"미등재 규격 — 설계강도 충족 여부를 판정할 수 없다")
+        else:
+            spec_ok = o.spec_name in passing
+            snow, wind = spec.snow_cm, spec.wind_ms
+            if not spec_ok:
+                notes.append(f"{o.label}: '{o.spec_name}'의 설계강도"
+                             f"(적설 {snow}cm·풍속 {wind}m/s)가 입지 요구"
+                             f"(적설 {region_snow_cm}cm·풍속 {region_wind_ms}m/s)에 미달")
+
+        h = heating_load(surface_area_m2=o.surface_area_m2, cover=o.cover,
+                         t_target=o.t_target, t_min=o.t_min, curtain=o.curtain,
+                         floor_area_m2=o.floor_area_m2)
+        total = greenhouse_total_estimate(o.spec_name, o.area_py)
+        if total is None:
+            notes.append(f"{o.label}: '{o.spec_name}'은 A-2 평단가표"
+                         f"(TOTAL_PYEONG_PRICE) 미등재 — 온실 전체 개산 불가")
+
+        rows.append(DesignOptionRow(
+            label=o.label, spec_name=o.spec_name, cover=o.cover, curtain=o.curtain,
+            spec_ok=spec_ok, snow_cm=snow, wind_ms=wind,
+            max_load_kcal_h=h.max_load_kcal_h, load_per_m2=h.load_per_m2,
+            heater_capacity_kcal_h=h.heater_capacity_kcal_h,
+            heating_verify=verify_heating_vs_actual(h.load_per_m2, o.cover),
+            greenhouse_total_won=total,
+            structure_only_won=structure_only_estimate(o.area_py)))
+
+    return DesignOptionComparison(region_snow_cm, region_wind_ms, rows, notes)
+
+
+# ─────────────────────────────────────────────────────────────
 # 시공발주관리(7단계): 공정표 근거 — 표준 품셈(노무투입량) (2026-07-19, Phase G)
 #   출처: 「스마트팜 표준화를 위한 사전설계 및 온실공사 품셈 정립」최종보고서
 #   (한국농어촌공사 발주·농어촌연구원×㈜지엘종합건축사사무소 수행, 2021-12,

@@ -1131,6 +1131,143 @@ def test_reconcile_quote_flags_band_deviation():
     assert result.overall_status.startswith("불일치")
 
 
+# ── 설계 대안 비교 (75차) ─────────────────────────────────────
+# 입지: 적설 55cm·풍속 35m/s 기준 3대안
+#   12-연동-01(55/40)      → 충족 + A-2 평단가 등재
+#   07-연동-01(53/40)      → 적설 미달
+#   07-연동(민)-01(60/35)  → 충족이나 A-2 평단가 미등재
+# ⚠️ 19회차 레드팀 F1: 대안마다 면적·온도·피복·커튼을 **전부 다르게** 준다.
+#   초판 픽스처는 3대안이 난방 입력을 공유해 행-옵션 매핑이 뒤틀려도 테스트가
+#   통과했다(뮤테이션으로 실증). 또 area_py와 floor_area_m2를 독립 상수로 줘
+#   같은 대안 안에서 1,488㎡와 2,016㎡가 섞여 있었다 — 여기서는 바닥면적
+#   하나에서 평을 파생시켜 어긋날 수 없게 묶는다(generate_rfq_package 관례).
+def _design_opts():
+    def opt(label, spec, cover, curtain, floor_m2, surface_m2, t_target, t_min):
+        return e.DesignOption(label=label, spec_name=spec, cover=cover,
+                              curtain=curtain, area_py=e.m2_to_py(floor_m2),
+                              surface_area_m2=surface_m2, t_target=t_target,
+                              t_min=t_min, floor_area_m2=floor_m2)
+    return [
+        opt("A안", "12-연동-01", "필름", "다겹보온", 2016.0, 6027.47, 7.0, -21.7),
+        opt("B안", "07-연동-01", "유리", "2중커튼", 1050.0, 3200.0, 12.0, -15.0),
+        opt("C안", "07-연동(민)-01", "필름", "PO단일", 1500.0, 4400.0, 9.0, -10.0),
+    ]
+
+
+def test_compare_design_options_preserves_input_order():
+    r = e.compare_design_options(55, 35, _design_opts())
+    assert [row.label for row in r.rows] == ["A안", "B안", "C안"]
+    assert (r.region_snow_cm, r.region_wind_ms) == (55, 35)
+
+
+def test_compare_design_options_keeps_understrength_option_visible():
+    # 설계강도 미달 대안을 조용히 버리지 않는다 — 행에 남고 spec_ok=False + note
+    r = e.compare_design_options(55, 35, _design_opts())
+    by = {row.label: row for row in r.rows}
+    assert by["A안"].spec_ok is True
+    assert by["B안"].spec_ok is False, "07-연동-01(적설 53)은 적설 55 요구에 미달"
+    assert by["C안"].spec_ok is True
+    assert (by["B안"].snow_cm, by["B안"].wind_ms) == (53, 40)
+    assert any("B안" in n and "미달" in n for n in r.notes)
+
+
+def test_compare_design_options_unlisted_price_is_none_not_zero():
+    # 평단가 미등재 규격에 0을 날조하지 않는다(1절 "근거 없는 값 금지")
+    r = e.compare_design_options(55, 35, _design_opts())
+    by = {row.label: row for row in r.rows}
+    assert by["C안"].greenhouse_total_won is None
+    assert by["A안"].greenhouse_total_won is not None
+    assert any("C안" in n and "평단가" in n for n in r.notes)
+    # 골조 단독은 면적만 있으면 항상 나온다
+    assert by["C안"].structure_only_won == e.structure_only_estimate(e.m2_to_py(1500.0))
+
+
+def test_compare_design_options_is_not_a_second_calculator():
+    # 난방·비용 수치가 원 함수 직접 호출과 원단위까지 일치해야 한다
+    # (병렬 계산기 금지 — 이 함수는 조립만 한다).
+    # 19회차 F1 반영: 대안별 입력이 전부 달라 행-옵션 오배선도 여기서 잡힌다.
+    opts = _design_opts()
+    r = e.compare_design_options(55, 35, opts)
+    seen = set()
+    for o, row in zip(opts, r.rows):
+        h = e.heating_load(surface_area_m2=o.surface_area_m2, cover=o.cover,
+                           t_target=o.t_target, t_min=o.t_min,
+                           curtain=o.curtain, floor_area_m2=o.floor_area_m2)
+        assert row.max_load_kcal_h == h.max_load_kcal_h
+        assert row.load_per_m2 == h.load_per_m2
+        assert row.heater_capacity_kcal_h == h.heater_capacity_kcal_h
+        assert row.heating_verify == e.verify_heating_vs_actual(h.load_per_m2, o.cover)
+        assert row.greenhouse_total_won == e.greenhouse_total_estimate(o.spec_name, o.area_py)
+        assert row.structure_only_won == e.structure_only_estimate(o.area_py)
+        seen.add(row.max_load_kcal_h)
+    # 세 대안의 난방부하가 서로 달라야 위 대조가 의미를 갖는다(픽스처 자기검사)
+    assert len(seen) == 3, "대안별 입력이 구분되지 않으면 오배선을 잡지 못한다"
+
+
+def test_compare_design_options_exposes_no_ranking_or_recommendation():
+    # compare_quotes와 달리 참고 순위 필드조차 두지 않는다(대안 선정=판단성)
+    r = e.compare_design_options(55, 35, _design_opts())
+    fields = set(r.__dataclass_fields__) | set(r.rows[0].__dataclass_fields__)
+    banned_kw = ("lowest", "highest", "best", "recommend", "rank",
+                 "추천", "순위", "최적", "최저", "1위", "우수")
+    bad_fields = [f for f in fields if any(k in f.lower() for k in banned_kw)]
+    assert bad_fields == [], f"판정·순위 필드 발견: {bad_fields}"
+    # 19회차 F7: 필드명뿐 아니라 사용자가 읽는 notes 문구도 본다
+    bad_notes = [n for n in r.notes if any(k in n.lower() for k in banned_kw)]
+    assert bad_notes == [], f"notes에 판정 어휘 유입: {bad_notes}"
+
+
+def test_compare_design_options_unlisted_spec_name_yields_none_spec_ok():
+    # 19회차 F11: spec_ok 3분기 중 None(SPEC_TABLE 미등재) 경로도 고정한다.
+    # 미등재는 "미달"과 다르다 — 판정 불가이지 탈락이 아니다.
+    o = _design_opts()[0]
+    o.spec_name = "99-없는규격-99"
+    r = e.compare_design_options(55, 35, [o])
+    assert r.rows[0].spec_ok is None
+    assert r.rows[0].snow_cm is None and r.rows[0].wind_ms is None
+    assert any("미등재" in n and "판정할 수 없다" in n for n in r.notes)
+    assert not any("미달" in n for n in r.notes), "미등재를 미달로 표기하면 안 된다"
+
+
+def test_compare_design_options_membership_uses_star_crop():
+    # 19회차 F6: crop="*" 선택을 고정한다. 기본값(None)이면 작물특화형은
+    # 설계강도를 충족해도 후보 집합에서 빠져 spec_ok=False로 오검출된다.
+    # 규격명을 하드코딩하지 않고 "작물특화형이면서 55/35를 충족하는 규격"을
+    # 표에서 직접 고른다 — 이름이 바뀌어도 검사 의도가 살아 있다.
+    spec = next(s for s in e.SPEC_TABLE
+                if s.crop and s.snow_cm >= 55 and s.wind_ms >= 35)
+    # 이 규격이 기본값(crop=None) 후보에서는 실제로 빠지는지부터 확인한다
+    # (빠지지 않으면 이 테스트는 아무것도 증명하지 못한다)
+    assert spec.name not in {s.name for s in e.select_specs(55, 35)["candidates"]}
+    o = _design_opts()[0]
+    o.spec_name = spec.name
+    r = e.compare_design_options(55, 35, [o])
+    assert r.rows[0].spec_ok is True, \
+        "작물특화형이라는 이유로 강도 충족 규격을 미달 처리하면 안 된다"
+
+
+def test_compare_design_options_not_wired_into_render_paths():
+    # 19회차 F4 + 74차 관례(test_cluster_constants_registry_sync_and_unreached):
+    # "렌더 경로 미연결"은 주석이 아니라 코드로 확인돼야 한다(12회차 F2).
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    for fname in ("build_site.py", "webapp.py", "render_report.py", "app.py",
+                  "run_report.py", "render_chuncheon.py", "cases.py"):
+        path = os.path.join(repo, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            assert "compare_design_options" not in f.read(), (
+                f"{fname}이 compare_design_options를 쓰기 시작했다 — 설계 대안 "
+                f"비교가 산출물에 도달하면 cover 무검증 폴백(19회차 F2)·면적 "
+                f"가드(F8·F9)를 먼저 처리하고 이 테스트를 함께 갱신할 것")
+
+
+def test_compare_design_options_empty_list():
+    r = e.compare_design_options(55, 35, [])
+    assert r.rows == [] and r.notes == []
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
