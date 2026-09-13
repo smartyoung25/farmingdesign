@@ -685,13 +685,100 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 88차: 46→48 · refs 64→66 — 온실 환경설계용 기상자료 2표 전사(사용자 지시 "c 진행").
     #       DESIGN_OUTDOOR_TEMP_TAC(표3-3-38 69지역)·HEATING_DEGREE_HOURS_1000(표3-3-42).
     #       계산 미연결(도달성 가드)이라 케이스 값은 불변이다.
-    assert a["counts"]["registry_constants"] == 48 and a["counts"]["source_refs"] == 66
+    # 91차: 48(불변) — 상수 신설 없음. refs 66→72 — CAPEX 표본 12→15건(사용자 지시
+    #       "b 진행"). 논산 3현장(한수진·최선동·임미라) xls 원문을 직접 파싱해
+    #       CAPEX_MAJOR_CASE_CHUNKS·CAPEX_MAJOR_KNOWN_TOTALS에 각 3건씩 ref 등재.
+    #       **엔진 상수·케이스 값은 불변**이고 추가된 것은 표본뿐이라 회귀 기준은 움직이지 않는다.
+    assert a["counts"]["registry_constants"] == 48 and a["counts"]["source_refs"] == 72
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
     for fname in ("smartfarm_engine.py", "build_site.py", "webapp.py", "render_report.py", "cases.py"):
         src = open(os.path.join(_REPO, fname), encoding="utf-8").read()
         assert "audit_traceability" not in src, fname
+
+
+
+def test_91cha_nonsan_samples_reconcile_to_known_total():
+    """91차 논산 3표본: 분류합+unclassified가 known_total과 원단위 일치(잔차 0).
+
+    원문 대조 앵커 — 각 known_total은 공종별집계표 합계행 = 원가계산서 소계이고,
+    한수진·최선동은 '합계열이 아니라 재+노+경 열합'으로 집계했다(원문 1행 갭 회피).
+    """
+    for name, known in (("한수진", 499_026_400), ("최선동", 497_440_760),
+                        ("임미라", 560_744_760)):
+        assert e.CAPEX_MAJOR_KNOWN_TOTALS[name] == known, name
+        cb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS[name],
+                                     known_total=known)
+        assert cb.unclassified == e.CAPEX_MAJOR_UNCLASSIFIED[name], name
+        assert sum(cb.items.values()) + cb.unclassified == known, name
+    # 한수진·최선동은 동일 업체(다온팜)·동일 9공종 양식 — ict·electrical 구조가 같다
+    for name in ("한수진", "최선동"):
+        assert e.CAPEX_MAJOR_CASE_CHUNKS[name]["ict_control"] == 0
+        assert e.CAPEX_MAJOR_CASE_CHUNKS[name]["electrical"] == 0
+
+
+def test_91cha_first_cooling_and_second_thermal_storage_samples():
+    """91차가 실제로 채운 공백 2개를 고정한다(표본 추가가 '건수 증가'로 끝나지 않음).
+
+    ① 한수진 hvac에 냉방 설비(블라젠 냉난방기 31,500,000+냉온수기 22,000,000)가
+       들어와 기존 12표본의 유동휀·보일러 일색에서 처음 벗어났다 — 6공종 66,930,000에
+       지온 계열 2,904,600을 더한 값이 앵커.
+    ② 임미라가 thermal_storage_insulation의 두 번째 실측(축열조탱크 FRP보온 20톤).
+       윤성호 1건뿐이던 카테고리가 2건이 됐다.
+    """
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["한수진"]["hvac"] == 66_930_000 + 2_904_600
+    tsi = [k for k, v in e.CAPEX_MAJOR_CASE_CHUNKS.items()
+           if v.get("thermal_storage_insulation")]
+    assert set(tsi) == {"윤성호", "임미라"}
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["임미라"]["thermal_storage_insulation"] == 11_000_000
+    # 임미라 ict는 센서·관제 실재라 구동 제어반(자동개폐)과 분리된 6번째 표본
+    assert e.CAPEX_MAJOR_CASE_CHUNKS["임미라"]["ict_control"] == 15_230_000
+    ict = [k for k, v in e.CAPEX_MAJOR_CASE_CHUNKS.items() if v.get("ict_control")]
+    assert len(ict) == 6 and "임미라" in ict
+
+
+def test_91cha_unadopted_judgment_calls_stay_unclassified():
+    """판단성 항목을 조용히 카테고리로 밀어넣지 않았는지 고정(1절 — 판정 자동화 금지).
+
+    무인방제 설비 2건(최선동 안개분무 18,500,000·임미라 무인방제시설 25,107,700)과
+    임미라 컨설팅의뢰비 10,000,000은 13분류에 강제 매핑하지 않고 unclassified로 뒀다.
+    equipment_procurement·design_supervision_fee가 실측으로 승격되지 않았음을 함께 본다.
+    """
+    assert e.CAPEX_MAJOR_UNCLASSIFIED["최선동"] == 49_535_800 + 18_500_000
+    assert e.CAPEX_MAJOR_UNCLASSIFIED["임미라"] == (76_924_600 + 25_107_700
+                                                 + 8_000_000 + 10_000_000 + 6_000_000)
+    # 어느 표본도 9·10번 카테고리를 채우지 않았다
+    for v in e.CAPEX_MAJOR_CASE_CHUNKS.values():
+        assert not v.get("equipment_procurement")
+        assert not v.get("design_supervision_fee")
+    assert e.CAPEX_MAJOR_EVIDENCE_STATUS["equipment_procurement"].startswith("미검증")
+    assert e.CAPEX_MAJOR_EVIDENCE_STATUS["design_supervision_fee"].startswith("참고요율")
+    # 임미라 미분류엔 원문 중복계상 6,000,000이 섞여 있다 — 주석이 이를 명시해야 한다
+    src = open(os.path.join(_REPO, "smartfarm_engine.py"), encoding="utf-8").read()
+    assert "원문 중복계상 6,000,000" in src
+
+
+def test_91cha_redteam_f1_f3_no_regression():
+    """91차 레드팀이 잡은 서술 결함 2건의 재발 방지(값이 아니라 단정문을 고정한다).
+
+    F1 — 초판이 최선동 콘트롤박스 9,500,000을 "구동 제어반 계열 최대 관측"으로 적었는데,
+      같은 파일의 박규현 '동력피복제어기기' 24,000,000이 이미 그 자리를 차지하고 있었다.
+      한 파일이 두 최대치를 주장하면 안 된다 — 박규현 표기가 살아 있고 최선동은 명칭
+      계열 한정 표현이어야 한다.
+    F3 — '일사량,기상대' 단자 명세는 한수진·최선동 **양쪽** 원문에 있다. 캐비엇을 한쪽에만
+      달면 감응이 더 큰 쪽(최선동 1.91%p)이 무표기로 남는다.
+    """
+    src = open(os.path.join(_REPO, "smartfarm_engine.py"), encoding="utf-8").read()
+    # F1: 박규현 24,000,000이 구동 제어반 계열 최대라는 표기가 살아 있어야 한다
+    assert "동력피복제어기 24,000,000 포함 — 구동 제어반 계열 최대 관측" in src
+    assert "동력피복제어기(24,000,000 — 구동 제어반 최대 관측)" in src
+    # F1: 최선동에 무조건적 '최대 관측' 단정이 다시 들어오면 안 된다
+    assert "9,500,000원 — 한일그린텍" not in src
+    assert "9,500,000은 **구동 제어반 계열 최대 관측**" not in src
+    # F3: 두 표본 모두 캐비엇을 달고 감응이 병기돼야 한다
+    assert "한수진 0.90%p·최선동 1.91%p" in src
+    assert "ict 이동 감응 1.91%p" in src
 
 
 def _sheet_values(rows):
