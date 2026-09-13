@@ -1703,20 +1703,57 @@ def test_heating_formula_source_text_still_in_original_pdf():
             f"하이픈이 U+2212로 바뀌었거나(20회차 F6 실제 사례) 표기가 드리프트했다")
 
 
-def test_u_design_baseline_mismatch_is_recorded_not_silently_resolved():
-    """20회차 F2 미해결 고정: 열절감율은 PE필름(0.08mm) 난방부하계수 5.7 기준의
-    상대값인데 엔진은 식의 그 자리에 U_DESIGN=8.9를 넣는다. 값은 ★사용자 판단이라
-    바꾸지 않되, **불일치가 조용히 잊히지 않도록** 사실을 코드로 남긴다.
-    U_DESIGN을 바꾸는 순간 이 테스트가 알리고, 이견 문서를 함께 갱신하게 된다."""
-    PE_BASELINE = 5.7          # 표 9 #1 PE필름(0.08) 난방부하계수 = 열절감율 0% 기준
-    assert e.U_DESIGN["필름"] == 8.9, "U_DESIGN 변경 시 이견 문서 4절 ①을 함께 갱신할 것"
-    assert e.U_DESIGN["필름"] != PE_BASELINE, (
-        "U_DESIGN이 PE 기준값 5.7과 같아졌다 — 20회차 F2가 제기한 불일치가 해소된 "
-        "것이라면 근거_난방계수_이견_20260913.md 4절 ①의 판정과 이 테스트를 함께 갱신할 것")
-    # 원문 정의의 검산: 5.7 × (1 - 절감률) = 그 조합의 난방부하계수(보고서 실측표)
+def test_u_design_resolved_to_57_by_two_converging_paths():
+    """🔴 99차 ★사용자 결정 — U_DESIGN 8.9 → 5.7. 77차부터의 최대 미해결을 닫는다.
+
+    이 테스트의 앞 버전(77차)은 "불일치가 조용히 잊히지 않도록" 8.9를 고정하고
+    U_DESIGN이 바뀌면 이견 문서를 함께 갱신하라고 알렸다 — 실제로 그렇게 작동했다.
+    이제는 **왜 5.7인지**를 고정한다. 다투던 두 경로가 같은 값으로 수렴한다:
+
+      ① 20회차 F2 — 열절감율이 PE필름(0.08mm) 난방부하계수 **5.7 기준 상대값**이므로
+         식의 계수 자리엔 5.7이 와야 한다(검산 3건이 닫힌다).
+      ② 78차 반론 — 계수 자리엔 "**그 온실의 단일피복 열관류율**"이 온다(신개념온실
+         PDF p.334). 그 값을 [표 3-3-30]에서 읽으면 플라스틱 1중피복 RDA
+         **6.63 W × 0.86 = 5.70**이다.
+
+    ②가 엔진과 같은 축임은 같은 행의 유리값으로 보증된다 —
+    유리 1중피복 RDA 6.16 × 0.86 = 5.2976 ≈ `U_VALUE["유리"]` 5.3.
+    """
+    PE_BASELINE = 5.7
+    assert e.U_DESIGN["필름"] == PE_BASELINE == 5.7
+    assert e.U_DESIGN["불소필름"] == e.U_DESIGN["단동"] == 5.7
+    assert "유리" not in e.U_DESIGN and "필름_이중" not in e.U_DESIGN   # 대상 밖(불변)
+    # ① 원문 정의 검산: 5.7 × (1 - 절감률) = 그 조합의 난방부하계수(보고서 실측표)
     for savings, measured in ((0.70, 1.7), (0.537, 2.6), (0.323, 3.9)):
-        assert abs(PE_BASELINE * (1 - savings) - measured) < 0.06, (
-            f"원문 정의 검산 실패(절감률 {savings} → {measured})")
+        assert abs(PE_BASELINE * (1 - savings) - measured) < 0.06, savings
+    # ② [표 3-3-30] 1중피복 RDA(W/㎡·℃) × 0.86 → kcal 난방부하계수
+    assert abs(6.63 * e.W_TO_KCAL_PER_HOUR - 5.70) < 0.01      # 플라스틱 → U_DESIGN
+    assert abs(6.16 * e.W_TO_KCAL_PER_HOUR - e.U_VALUE["유리"]) < 0.01   # 유리 → 엔진과 같은 축
+    # 버린 값 8.9의 정체도 남긴다(Diop 핫박스 고풍속 10.4 W)
+    assert abs(10.4 * e.W_TO_KCAL_PER_HOUR - 8.94) < 0.01
+    # ⚠️ 방향: 부하가 **줄어드는** 교체다 — 장비 언더사이징 위험이 새로 생긴다
+    assert e.U_DESIGN["필름"] < 8.9
+
+
+def test_99cha_u_design_change_scope_and_regression_safety():
+    """99차 교체의 영향 범위를 고정한다 — 특히 **원채원 회귀가 왜 안전한가**.
+
+    u_design은 최대난방부하에만 쓰이고 기간난방부하·연료소비량은 u_period(U_VALUE)를
+    쓴다. 그래서 OPEX·ROI가 안 움직인다. 유리 케이스는 U_DESIGN에 키 자체가 없어
+    폴백되므로 완전 불변이다. 이 두 성질이 깨지면 회귀 기준이 위험해진다.
+    """
+    Aw, t_t, t_m, fr = 3362.0, 11.1, -6.7, 0.7
+    film = e.heating_load(Aw, "필름", t_t, t_m, fr=fr)
+    # 필름: max_load = Aw × 5.7 × dt × fr  (8.9였다면 0.6404배 더 컸다)
+    assert abs(film.max_load_kcal_h - Aw * 5.7 * (t_t - t_m) * fr) < 1e-6
+    assert abs(film.max_load_kcal_h / (Aw * 8.9 * (t_t - t_m) * fr) - 5.7 / 8.9) < 1e-12
+    # 연료소비량은 u_period(U_VALUE 2.66) 기반이라 u_design과 무관하다
+    assert abs(film.fuel_consumption
+               - (e.DEGREE_HOURS_DEFAULT * e.U_VALUE["필름"] * fr * Aw)
+               / (e.FUEL_LHV["등유"] * e.HEATING_EFFICIENCY_DEFAULT)) < 1e-6
+    # 유리는 U_DESIGN에 키가 없어 U_VALUE로 폴백 — 원채원·chuncheon 불변의 근거
+    glass = e.heating_load(5000.0, "유리", 18.0, -6.7, fr=fr)
+    assert abs(glass.max_load_kcal_h - 5000.0 * e.U_VALUE["유리"] * 24.7 * fr) < 1e-6
 
 
 # ── 설계 문서 정합성 매트릭스 (80차) ─────────────────────────

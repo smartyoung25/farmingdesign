@@ -706,7 +706,10 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       [표3-3-45] 월별 평균 일조시간(69지역) 전사. 🔴엔진의 현행 기간난방부하가
     #       **k=3600**(일조 취득 0)임을 유리 케이스 검산으로 확인했고, 적용하면
     #       연료소비량이 21.7~32.8% 줄어 **원채원 회귀가 깨지므로 자동 적용하지 않았다**.
-    assert a["counts"]["registry_constants"] == 51 and a["counts"]["source_refs"] == 85
+    # 99차: 51(불변) — 상수 신설 없음. refs 85→88 — ★U_DESIGN 8.9→5.7 교체의 근거
+    #       3건 등재([표3-3-30] 원문·PE 5.7 기준 원문·이견 문서). **값이 바뀐 차수**다:
+    #       최대난방부하·난방기 용량만 −36%, 연료소비량 불변이라 원채원 회귀는 안전.
+    assert a["counts"]["registry_constants"] == 51 and a["counts"]["source_refs"] == 88
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
