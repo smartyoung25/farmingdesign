@@ -682,7 +682,10 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 85차: 45→46 · refs 62→64 — 수식 원문 확정(사용자 지시 "a 진행") 중
     #       W_TO_KCAL_PER_HOUR 신설(84차 지중 항 단위 결함 수정) +
     #       AIR_SPECIFIC_HEAT·GROUND_LOSS_COEF에 1차 출처 대조 결과 등재.
-    assert a["counts"]["registry_constants"] == 46 and a["counts"]["source_refs"] == 64
+    # 88차: 46→48 · refs 64→66 — 온실 환경설계용 기상자료 2표 전사(사용자 지시 "c 진행").
+    #       DESIGN_OUTDOOR_TEMP_TAC(표3-3-38 69지역)·HEATING_DEGREE_HOURS_1000(표3-3-42).
+    #       계산 미연결(도달성 가드)이라 케이스 값은 불변이다.
+    assert a["counts"]["registry_constants"] == 48 and a["counts"]["source_refs"] == 66
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

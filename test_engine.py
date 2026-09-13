@@ -2091,6 +2091,65 @@ def test_uminjae_three_component_impact_is_small_unlike_the_synthetic_example():
     assert 1.05 < max(ratios) < 1.15, max(ratios)
 
 
+# ── 온실 환경설계용 기상자료 (88차, 사용자 지시 "c 진행") ────
+# [표 3-3-38] TAC 설계외기온 · [표 3-3-42] 난방디그리아워, 각 69지역 전사.
+def test_weather_tables_transcription_and_monotonicity():
+    """전사 검산 — 앵커 원문 일치 + 단조성 3종. 한 행이라도 어긋나면 전사 오류다."""
+    assert len(e.DESIGN_OUTDOOR_TEMP_TAC) == 69
+    assert len(e.HEATING_DEGREE_HOURS_1000) == 69
+    assert set(e.DESIGN_OUTDOOR_TEMP_TAC) == set(e.HEATING_DEGREE_HOURS_1000)
+    # 원문 앵커
+    assert e.design_outdoor_temp("속초") == -9.3
+    assert e.design_outdoor_temp("전주") == -9.4
+    assert e.heating_degree_hours("부산", 8)["value"] == 10269.0
+    assert e.heating_degree_hours("속초", 8)["value"] == 18895.0
+    # ①TAC 1% <= 2.5% <= 5%  ②설정온도 단조증가
+    for r in e.DESIGN_OUTDOOR_TEMP_TAC:
+        a1, a2, a5 = (e.design_outdoor_temp(r, t) for t in ("1%", "2.5%", "5%"))
+        assert a1 <= a2 <= a5, r
+    for r, v in e.HEATING_DEGREE_HOURS_1000.items():
+        assert v[0] < v[1] < v[2] < v[3], r
+
+
+def test_heating_degree_hours_refuses_to_interpolate():
+    """원문이 8/12/16/20℃만 주므로 사이 값을 지어내지 않는다 — value=None과 함께
+    인접 설정온도를 알려준다(케이스 t_target 10·15℃가 전부 여기 걸린다)."""
+    r = e.heating_degree_hours("전주", 15)
+    assert r["value"] is None and "보간" in r["reason"]
+    assert r["lower"]["set_temp_c"] == 12 and r["upper"]["set_temp_c"] == 16
+    assert e.heating_degree_hours("전주", 16)["value"] == 51273.0
+    # 표에 없는 지역도 값을 만들지 않는다(인접 지점 대용은 판단성)
+    assert e.heating_degree_hours("논산", 8)["value"] is None
+    assert e.design_outdoor_temp("논산") is None
+
+
+def test_degree_hours_default_is_not_in_the_table():
+    """83차 확인 재고정: DEGREE_HOURS_DEFAULT=10,098은 이 표의 어느 값도 아니다
+    (최근접 부산 8℃ 10,269). NIHHS 예시값이라는 [추정] 표기가 맞다."""
+    vals = {round(v[i] * 1000, 1) for v in e.HEATING_DEGREE_HOURS_1000.values() for i in range(4)}
+    assert e.DEGREE_HOURS_DEFAULT not in vals
+    assert min(abs(x - e.DEGREE_HOURS_DEFAULT) for x in vals) == 171.0   # 부산 8℃와의 차
+
+
+def test_weather_tables_not_wired_into_render_paths():
+    """88차 도달성 — 케이스 t_min을 이 표로 바꾸면 난방부하가 움직인다(uminjae 1.29배).
+    교체는 ★사용자 결정이라 렌더 연결 전까지 여기서 지킨다."""
+    import os
+    repo = os.path.dirname(os.path.abspath(__file__))
+    for fname in ("build_site.py", "webapp.py", "render_report.py", "app.py",
+                  "run_report.py", "render_chuncheon.py", "cases.py"):
+        path = os.path.join(repo, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as f:
+            body = f.read()
+        for tok in ("design_outdoor_temp", "heating_degree_hours",
+                    "DESIGN_OUTDOOR_TEMP_TAC", "HEATING_DEGREE_HOURS_1000"):
+            assert tok not in body, (
+                f"{fname}이 기상자료 표를 쓰기 시작했다 — 케이스 t_min 교체는 산출물 "
+                f"수치를 움직이므로(uminjae 1.29배) 결정 후 이 테스트를 갱신할 것")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
