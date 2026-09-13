@@ -645,7 +645,12 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 74차: 37→39 — cluster_economics 기본인자 2종 등재(16회차 F8·17회차 F1이
     #       지적한 함수 기본인자 계열). refs 49→51 — 18회차 F1이 "근거 0건" 단정을
     #       반증해(엑셀패키지·엔진 자기 주석에 70% 실재) 근거 보존본을 각각 등재
-    assert a["counts"]["registry_constants"] == 39 and a["counts"]["source_refs"] == 51
+    # 77차: 39(불변) — 상수 신설 없음. refs 51→52 — FR_TABLE에 **식 원출처 PDF**
+    #       (김평화 p.49 "…* (1 - 피복 열절감률)")를 등재. 72차가 같은 PDF를 난방
+    #       기본값 쪽에 등재하면서 FR_TABLE 쪽은 비워 뒀는데, fr의 **정의·방향**
+    #       근거가 바로 이 자구다(76차 이견 ① 해소의 근거). 값 근거는 불변 —
+    #       절감률 수치의 status는 그대로 '부분실측'이다.
+    assert a["counts"]["registry_constants"] == 39 and a["counts"]["source_refs"] == 52
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

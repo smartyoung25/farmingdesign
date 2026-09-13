@@ -1341,6 +1341,101 @@ def test_case_fr_is_exposure_ratio_not_reduction_rate():
     assert checked == 3, f"설계 파라미터를 가진 케이스가 3건이어야 한다(실측 {checked})"
 
 
+# ── 최대난방부하 식의 원출처 자구 고정 (77차) ────────────────
+# 김평화 p.49: "난방부하 = 하우스표면적 * 난방부하계수 * (내부설정온도 - 외부기온)
+#               * (1 - 피복 열절감률)"
+# 이 자구가 확정하는 것은 **fr = (1-열절감률) = 노출비율**이라는 정의 하나다.
+# ⚠️ 77차 중반에 "식이 두 항을 분리하니 U_DESIGN 이중계상은 해소"라고 결론냈다가
+#   레드팀 20회차 F2로 **철회**했다 — 스마트팜연구DB/온실열손실저감및차단기술연구.pdf
+#   p.12가 열절감율을 "PE필름(0.08mm) 난방부하계수 5.7 기준 상대값"으로 정의하므로
+#   식의 난방부하계수 자리에는 5.7이 와야 하고, 8.9는 1.56배 과대 혐의다(미해결).
+#   상세·선택지는 근거_난방계수_이견_20260913.md 4절 ①(78차 ★사용자 판단).
+def test_heating_load_matches_source_formula_structure():
+    """식이 네 인자의 곱 그대로인지 — 원출처 구조에서 벗어나면 실패한다."""
+    Aw, dt_target, dt_min, fr = 6027.47, 7.0, -21.7, 0.30
+    u = 8.9
+    r = e.heating_load(Aw, "필름", dt_target, dt_min, fr=fr, u_design=u)
+    expected = Aw * u * (dt_target - dt_min) * fr
+    assert r.max_load_kcal_h == expected, "max_load가 원출처 식의 단순 곱이 아니다"
+    # 각 항이 선형으로 들어가는지(어느 항에도 숨은 보정이 없는지)
+    r2 = e.heating_load(Aw * 2, "필름", dt_target, dt_min, fr=fr, u_design=u)
+    assert r2.max_load_kcal_h == expected * 2
+    r3 = e.heating_load(Aw, "필름", dt_target, dt_min, fr=fr / 2, u_design=u)
+    assert r3.max_load_kcal_h == expected / 2
+
+
+def test_higher_savings_rate_lowers_load_per_source_formula():
+    """(1 - 열절감률) 구조상 절감률이 클수록 부하가 작아야 한다.
+    2026-07-20의 방향 수정이 원문 자구와 맞음을 결과 수준에서 고정한다."""
+    common = dict(surface_area_m2=6027.47, cover="필름", t_target=7.0, t_min=-21.7)
+    loads = {c: e.heating_load(curtain=c, **common).max_load_kcal_h
+             for c in ("PO단일", "다겹보온", "2중커튼")}
+    assert loads["2중커튼"] < loads["다겹보온"] < loads["PO단일"], (
+        f"절감률이 클수록 부하가 커진다 — 방향반전 {loads}")
+    # 원출처 식 그대로인지: 부하비 = (1-절감률)비
+    assert abs(loads["2중커튼"] / loads["PO단일"]
+               - (1 - e.FR_TABLE["2중커튼"]) / (1 - e.FR_TABLE["PO단일"])) < 1e-9
+
+
+# 인용 자구의 정본(正本) — 원문 p.49에서 그대로 옮긴 조각이다.
+# 20회차 F5: 초판 가드는 PDF 쪽만 봐서, 엔진 docstring의 인용을 훼손해도
+#   (예: '열절감률'→'열절감율') 3건 전부 green이었다(뮤테이션 M8로 실증).
+#   71차 F6이 "PDF→PDF 검사라 무력"이라며 뒤집었던 것과 같은 유형이라 확장한다.
+_P49_FRAGMENTS = ("난방부하 = 하우스표면적", "난방부하계수",
+                  "내부설정온도 - 외부기온", "1 - 피복 열절감률")
+
+
+def test_heating_formula_source_text_still_in_original_pdf():
+    """인용 자구가 ①원문 PDF ②엔진 docstring ③레지스트리 source ④이견 문서에
+    모두 살아 있는지 — 원문 교체·소실과 **인용 드리프트**를 함께 검출한다.
+    audit_traceability는 ref 파일의 '실재'만 보고 '내용'은 보지 않는다(설계 경계).
+    ⚠️ pdfplumber 유실 시 조용히 skip된다(환경 특성) — skip 수를 확인할 것."""
+    import json
+    import os
+    pytest = __import__("pytest")
+    pdfplumber = pytest.importorskip("pdfplumber")
+    repo = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(repo, "시설평가",
+                        "20230627_스마트팜 시설의 구조와 이해_김평화(제공).pdf")
+    if not os.path.exists(path):
+        pytest.skip("원문 PDF 미보유(리포 밖 환경)")
+    with pdfplumber.open(path) as pdf:
+        text = pdf.pages[48].extract_text() or ""    # printed p.49
+    for frag in _P49_FRAGMENTS:
+        assert frag in text, (
+            f"김평화 p.49 원문에서 '{frag}'를 찾지 못했다 — 원문이 바뀌었거나 "
+            f"정본 조각이 틀렸다")
+
+    # 인용을 담은 리포 산출물 3곳이 원문과 같은 자구를 쓰고 있는가(드리프트 검출)
+    with open(os.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8") as f:
+        reg_src = json.load(f)["constants"]["FR_TABLE"]["source"]
+    with open(os.path.join(repo, "근거_난방계수_이견_20260913.md"), encoding="utf-8") as f:
+        issue_md = f.read()
+    quoted = {"엔진 heating_load docstring": e.heating_load.__doc__,
+              "레지스트리 FR_TABLE.source": reg_src,
+              "근거_난방계수_이견_20260913.md": issue_md}
+    for where, blob in quoted.items():
+        assert "1 - 피복 열절감률" in blob, (
+            f"{where}의 인용이 원문 자구('1 - 피복 열절감률')와 어긋났다 — "
+            f"하이픈이 U+2212로 바뀌었거나(20회차 F6 실제 사례) 표기가 드리프트했다")
+
+
+def test_u_design_baseline_mismatch_is_recorded_not_silently_resolved():
+    """20회차 F2 미해결 고정: 열절감율은 PE필름(0.08mm) 난방부하계수 5.7 기준의
+    상대값인데 엔진은 식의 그 자리에 U_DESIGN=8.9를 넣는다. 값은 ★사용자 판단이라
+    바꾸지 않되, **불일치가 조용히 잊히지 않도록** 사실을 코드로 남긴다.
+    U_DESIGN을 바꾸는 순간 이 테스트가 알리고, 이견 문서를 함께 갱신하게 된다."""
+    PE_BASELINE = 5.7          # 표 9 #1 PE필름(0.08) 난방부하계수 = 열절감율 0% 기준
+    assert e.U_DESIGN["필름"] == 8.9, "U_DESIGN 변경 시 이견 문서 4절 ①을 함께 갱신할 것"
+    assert e.U_DESIGN["필름"] != PE_BASELINE, (
+        "U_DESIGN이 PE 기준값 5.7과 같아졌다 — 20회차 F2가 제기한 불일치가 해소된 "
+        "것이라면 근거_난방계수_이견_20260913.md 4절 ①의 판정과 이 테스트를 함께 갱신할 것")
+    # 원문 정의의 검산: 5.7 × (1 - 절감률) = 그 조합의 난방부하계수(보고서 실측표)
+    for savings, measured in ((0.70, 1.7), (0.537, 2.6), (0.323, 3.9)):
+        assert abs(PE_BASELINE * (1 - savings) - measured) < 0.06, (
+            f"원문 정의 검산 실패(절감률 {savings} → {measured})")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
