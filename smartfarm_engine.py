@@ -926,7 +926,15 @@ def heating_load(surface_area_m2: float, cover: str, t_target: float,
 #   `heating_load()`는 **관류열부하만** 계산한다(Aw×U×ΔT×fr). 76~82차 내내 "U를 얼마로
 #   볼 것인가"를 다퉜는데 식 자체가 3성분 중 1성분만 담고 있었다.
 #
-#   ⚠️ **식 이미지는 추출되지 않는다.** 변수 정의와 단위는 같은 계열 보고서가 실제
+#   ✅ **85차에 식을 확정했다**(사용자 지시 "a 진행"): 수식이 이미지라 텍스트 추출이
+#   안 되므로 `pypdfium2`로 해당 페이지를 300dpi 렌더해 **직접 열람**했다 —
+#     H_T = (H_W + H_V + H_S)·f_w   (3-3-1)
+#     H_W = U·A_c·(T_i − T_o)       (3-3-2)
+#     H_V = ρ_i·c_p·N·V·(T_i − T_o) (3-3-3)
+#     H_S = F·L_s·(ΔT − Θ)          (3-3-4)
+#   84차에 "추정"으로 남겼던 지중전열부하 식 형태가 1차 출처(신개념온실 p.345)와
+#   2차(정밀계측 p.62) **양쪽에서 동일하게 확인**됐다. 표 3-3-34 전사도 원문과 완전 일치.
+#   ⚠️ **원문 변수 정의·단위는 아래 보고서가 실제
 #   사용값을 실어 확정했다 — `시설에너지절감을위한온실내부전영역정밀환경계측시스템
 #   연구.pdf` printed p.62: 공기비열 **0.24 kcal/kg·℃**, 틈새환기율 이중피복 **0.0001265
 #   회/s**(=0.455 회/h, 표 3-3-34의 0.3~0.6 범위 안), 외주부 열손실계수 **7.5**,
@@ -960,7 +968,10 @@ INFILTRATION_RATE_PER_HOUR = {
 #   외주부 단위길이당 열손실계수 P, 부하경감 기준온도차 Δt0.
 #   원문: "대규모 온실 7.5~10, 소규모 온실 2.5~5.0" / "대규모 10℃, 소규모 15℃ 정도"
 #   ⚠️ 원문이 대규모·소규모의 **면적 경계를 정의하지 않는다**[확인요망].
-GROUND_LOSS_COEF = {           # (P_low, P_high, Δt0)
+#   ⚠️ 85차 확인: P의 단위는 원문이 **W/m·℃**로 명시한다(신개념온실 p.345).
+#     kcal/h 체계로 쓰려면 W_TO_KCAL_PER_HOUR를 곱해야 한다 —
+#     `heating_load_components()`가 내부에서 환산한다.
+GROUND_LOSS_COEF = {           # (P_low[W/m·℃], P_high[W/m·℃], Δt0[℃])
     "대규모": (7.5, 10.0, 10.0),
     "소규모": (2.5, 5.0, 15.0),
 }
@@ -977,10 +988,23 @@ WIND_CORRECTION_FACTOR = {
 }
 WIND_STRONG_THRESHOLD_MS = 3.0   # 강풍지역 판정 기준(동절기 평균풍속, m/s) — 원문 주석
 
-# 공기 비열 (kcal/kg·℃) — 정밀계측 보고서 p.62가 "공기비열은 0.24"로 명시.
-#   ⚠️ 공기 **밀도**는 같은 쪽이 "1"로 적히는데 추출 과정에서 소수점이 떨어졌을
-#   가능성이 있고(상온 공기는 약 1.2kg/㎥) 확정할 수 없다 — **상수로 두지 않고
-#   호출부가 주입**한다(근거 없는 값 금지).
+# 와트 → kcal/h 환산 (85차 신설). 원문 온실열손실저감및차단기술연구 p.12가
+#   "1W=0.86kcal/h 인 점을 고려하여"로 명시한 관행 환산값이다(정확값 0.859845).
+#   ⚠️ 필요한 이유: **원문 난방부하 식 체계는 SI(W)인데 이 엔진은 kcal/h**다.
+#   특히 지중전열부하의 F는 원문이 **W/m·℃**로 준다 — 환산 없이 관류열부하(kcal/h)와
+#   더하면 단위가 섞인다(84차 구현의 실제 결함, 85차에 수식 원문 확인 중 발견).
+W_TO_KCAL_PER_HOUR = 0.86
+
+# 공기 비열 (kcal/kg·℃)
+#   ✅ 85차 수식 원문 확인(페이지 렌더 열람): 정밀계측 보고서 p.62는 값 0.24를 쓰면서
+#     단위를 "J/kg℃"로 적고, 1차 출처(신개념온실 p.345)도 c_p를 "J/kg℃"로 라벨한다.
+#     그러나 **0.24는 J 값이 아니다** — 0.24 kcal/kg·℃ × 4,186.8 = 1,004.8 J/kg·K로
+#     표준 공기 정압비열과 일치한다. 즉 **원문의 단위 라벨이 오기**이고 값은 kcal 계열이다.
+#     1차 출처는 c_p의 **수치를 제시하지 않아** 이 판정과 충돌하지 않는다.
+#   ⚠️ 공기 **밀도**는 상수로 두지 않는다 — 정밀계측 p.62가 "1 kg/m³"로 명시하는데
+#     (85차 렌더 확인: 추출 결손이 아니라 **원문 그대로 1**이다 — 84차 주석의
+#     "소수점이 떨어졌을 가능성"은 정정한다) 상온 공기 물리값 약 1.2와 다르다.
+#     어느 쪽을 쓸지는 호출부가 정한다(근거 없는 값 금지).
 AIR_SPECIFIC_HEAT_KCAL_KG_C = 0.24
 
 
@@ -1011,7 +1035,7 @@ def heating_load_components(
         infiltration_per_hour: Optional[float] = None,
         air_density_kg_m3: Optional[float] = None,
         perimeter_m: Optional[float] = None,
-        ground_loss_coef: Optional[float] = None,
+        ground_loss_coef_w_m_c: Optional[float] = None,
         ground_base_dt: Optional[float] = None,
         wind_factor: float = 1.0) -> HeatingLoadComponents:
     """원문 식(3-3-1)의 3성분 구조로 최대난방부하를 조립한다.
@@ -1021,12 +1045,18 @@ def heating_load_components(
     transmission_kcal_h: `heating_load().max_load_kcal_h`를 그대로 넘긴다 —
       관류열부하를 여기서 다시 계산하지 않는다(단일 출처 유지).
 
-    틈새환기전열부하 = 공기밀도 × 공기비열 × 틈새환기율(회/h) × 체적 × Δt
+    틈새환기전열부하 H_V = ρ_i·c_p·N·V·(T_i − T_o)  ← 원문 식(3-3-3), 85차 확정
+      ⚠️ 원문 체계는 SI(c_p J/kg℃ · N 회/s → W)인데 이 엔진은 kcal/h다. 여기서는
+      **c_p kcal/kg·℃ · N 회/h**로 일관되게 옮겨 결과가 곧 kcal/h가 되게 했다
+      (차원 확인 완료). 원문 c_p 라벨의 오기는 AIR_SPECIFIC_HEAT_KCAL_KG_C 주석 참고.
       → volume_m3 · infiltration_per_hour · air_density_kg_m3 셋이 다 있어야 계산한다.
         환기율은 `INFILTRATION_RATE_PER_HOUR`가 온실 종류별 **범위**를 준다.
-    지중전열부하 = 외주부 열손실계수 × 둘레길이 × (Δt − 부하경감 기준온도차)
-      → perimeter_m · ground_loss_coef · ground_base_dt 셋이 다 있어야 계산한다.
-        Δt가 기준온도차 이하면 지중열류 방향이 바뀌므로 0으로 둔다(음수 부하 금지).
+    지중전열부하 H_S = F·L_s·(ΔT − Θ)   ← 원문 식(3-3-4), 85차에 페이지 렌더로 확정
+      → perimeter_m · ground_loss_coef_w_m_c · ground_base_dt 셋이 다 있어야 계산한다.
+        Δt가 기준온도차 이하면 지중열류 방향이 바뀌므로 0으로 둔다(음수 부하 금지 —
+        이 절삭은 원문에 없는 구현 판단이다).
+        ⚠️ F의 단위가 **W/m·℃**라 결과가 W다 — 내부에서 W_TO_KCAL_PER_HOUR로 환산해
+        관류열부하(kcal/h)와 더한다. 84차 구현은 이 환산이 빠져 단위가 섞여 있었다.
 
     **없는 입력을 지어내지 않는다** — 못 구한 성분은 None이고 `missing`이 무엇이
     필요한지 적는다. `total_kcal_h`는 3성분이 다 있을 때만 채워지고, 그 전까지는
@@ -1045,11 +1075,13 @@ def heating_load_components(
                        "air_density_kg_m3 필요(환기율은 INFILTRATION_RATE_PER_HOUR 참고)")
 
     ground = None
-    if all(v is not None for v in (perimeter_m, ground_loss_coef, ground_base_dt)):
-        ground = ground_loss_coef * perimeter_m * max(dt - ground_base_dt, 0.0)
+    if all(v is not None for v in (perimeter_m, ground_loss_coef_w_m_c, ground_base_dt)):
+        # 원문 F는 W/m·℃라 결과가 W다 — kcal/h 체계로 환산해 더한다(85차 정정).
+        ground = (ground_loss_coef_w_m_c * perimeter_m * max(dt - ground_base_dt, 0.0)
+                  * W_TO_KCAL_PER_HOUR)
     else:
-        missing.append("지중전열부하: perimeter_m·ground_loss_coef·ground_base_dt "
-                       "필요(계수는 GROUND_LOSS_COEF 참고)")
+        missing.append("지중전열부하: perimeter_m·ground_loss_coef_w_m_c·ground_base_dt "
+                       "필요(계수는 GROUND_LOSS_COEF 참고 — 단위 W/m·℃)")
 
     parts = [transmission_kcal_h] + [x for x in (infiltration, ground) if x is not None]
     partial = sum(parts) * wind_factor

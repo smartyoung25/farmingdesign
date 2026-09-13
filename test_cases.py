@@ -663,7 +663,10 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       WIND_CORRECTION_FACTOR(표3-3-35)·AIR_SPECIFIC_HEAT_KCAL_KG_C·
     #       WIND_STRONG_THRESHOLD_MS. 전부 국가연구개발보고서 설계 매뉴얼 전사라
     #       status는 공공기준이고, heating_load()는 건드리지 않아 케이스 값은 불변이다.
-    assert a["counts"]["registry_constants"] == 45 and a["counts"]["source_refs"] == 62
+    # 85차: 45→46 · refs 62→64 — 수식 원문 확정(사용자 지시 "a 진행") 중
+    #       W_TO_KCAL_PER_HOUR 신설(84차 지중 항 단위 결함 수정) +
+    #       AIR_SPECIFIC_HEAT·GROUND_LOSS_COEF에 1차 출처 대조 결과 등재.
+    assert a["counts"]["registry_constants"] == 46 and a["counts"]["source_refs"] == 64
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

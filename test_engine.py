@@ -1878,8 +1878,10 @@ def test_glass_u_value_competing_hypothesis_is_recorded():
 # 원문 식(3-3-1): 최대난방부하 = (관류 + 틈새환기 + 지중) × 풍속보정계수
 # 83차가 "엔진이 관류열부하만 계산한다"를 발견한 데 대한 구조 보강.
 def test_heating_components_reproduce_report_testbed_transmission():
-    """정밀계측 보고서 p.62 테스트베드(U=4.3·A=1983.47·Δt=10)의 관류열부하를
-    재현하는가. 3성분 함수는 이 값을 **받아 쓸 뿐 재계산하지 않는다**."""
+    """정밀계측 보고서 p.62 테스트베드(U=4.3·A=1983.47·Δt=10)의 관류열부하 **산식**을
+    재현하는가. 3성분 함수는 이 값을 **받아 쓸 뿐 재계산하지 않는다**.
+    ⚠️ 85차 주의: 원문 U는 W/㎡·℃라 원문 결과는 W이고 엔진 결과는 kcal/h다 —
+    여기서 확인하는 것은 **곱셈 구조의 일치**이지 단위 동일성이 아니다."""
     h = e.heating_load(1983.47, "필름", 7, -3, fr=1.0, u_design=4.3)
     assert abs(h.max_load_kcal_h - 4.3 * 1983.47 * 10) < 1e-6
     r = e.heating_load_components(h.max_load_kcal_h, 7, -3)
@@ -1897,7 +1899,7 @@ def test_heating_components_does_not_invent_missing_inputs():
     assert len(r.missing) == 2
     # 하나만 채워도 여전히 미완이다
     r2 = e.heating_load_components(100_000.0, 20, -10, perimeter_m=240,
-                                   ground_loss_coef=7.5, ground_base_dt=10.0)
+                                   ground_loss_coef_w_m_c=7.5, ground_base_dt=10.0)
     assert r2.ground_kcal_h is not None and r2.total_kcal_h is None
     assert len(r2.missing) == 1
 
@@ -1908,10 +1910,10 @@ def test_heating_components_full_formula():
     dt = tt - tm
     r = e.heating_load_components(
         tr, tt, tm, volume_m3=6000, infiltration_per_hour=0.45,
-        air_density_kg_m3=1.2, perimeter_m=240, ground_loss_coef=7.5,
+        air_density_kg_m3=1.2, perimeter_m=240, ground_loss_coef_w_m_c=7.5,
         ground_base_dt=10.0, wind_factor=1.1)
     assert r.infiltration_kcal_h == 1.2 * e.AIR_SPECIFIC_HEAT_KCAL_KG_C * 0.45 * 6000 * dt
-    assert r.ground_kcal_h == 7.5 * 240 * (dt - 10.0)
+    assert r.ground_kcal_h == 7.5 * 240 * (dt - 10.0) * e.W_TO_KCAL_PER_HOUR
     assert r.total_kcal_h == (tr + r.infiltration_kcal_h + r.ground_kcal_h) * 1.1
     assert r.missing == []
 
@@ -1920,7 +1922,7 @@ def test_ground_load_clipped_when_dt_below_base():
     """Δt가 부하경감 기준온도차 이하면 지중열류 방향이 바뀐다 — 음수 부하를
     만들지 않고 0으로 절삭한다."""
     r = e.heating_load_components(100_000.0, 5, 0, perimeter_m=240,
-                                  ground_loss_coef=7.5, ground_base_dt=10.0,
+                                  ground_loss_coef_w_m_c=7.5, ground_base_dt=10.0,
                                   volume_m3=1, infiltration_per_hour=0, air_density_kg_m3=1.2)
     assert r.ground_kcal_h == 0.0
 
@@ -1973,6 +1975,54 @@ def test_heating_components_not_wired_into_render_paths():
             f"{fname}이 3성분 구조를 쓰기 시작했다 — 케이스에 체적·둘레길이 입력이 "
             f"없어 partial_total이 렌더될 위험이 있다(과소산정 오독). 입력 스키마를 "
             f"먼저 정하고 이 테스트를 갱신할 것")
+
+
+# ── 수식 원문 확정 + 단위 환산 (85차, 사용자 지시 "a 진행") ──
+# 수식이 이미지라 pypdfium2로 300dpi 렌더해 직접 열람했다. 1차 출처(신개념온실
+# p.345)와 2차(정밀계측 p.62) 양쪽에서 같은 식을 확인했다.
+def test_ground_load_unit_conversion_w_to_kcal():
+    """🔴 84차 결함 회귀 방지: 원문 F는 **W/m·℃**라 F·L·(ΔT−Θ)의 결과가 W다.
+    관류열부하(kcal/h)와 더하려면 환산해야 하는데 84차 구현은 그냥 더했다.
+    환산이 빠지면 지중 항이 1/0.86 = 약 16% 과대 계상된다."""
+    assert e.W_TO_KCAL_PER_HOUR == 0.86
+    r = e.heating_load_components(
+        0.0, 20, -10, perimeter_m=240, ground_loss_coef_w_m_c=7.5,
+        ground_base_dt=10.0, volume_m3=1, infiltration_per_hour=0.0,
+        air_density_kg_m3=1.2)
+    raw_w = 7.5 * 240 * (30.0 - 10.0)          # = 36,000 W (원문 단위)
+    assert r.ground_kcal_h == raw_w * 0.86     # = 30,960 kcal/h
+    assert r.ground_kcal_h != raw_w, "환산이 빠지면 단위가 섞인다(84차 결함)"
+
+
+def test_source_formula_shape_is_pinned():
+    """85차에 렌더로 확정한 식 형태를 결과 수준에서 고정한다.
+      H_T = (H_W + H_V + H_S)·f_w · H_V = ρ·c_p·N·V·ΔT · H_S = F·L_s·(ΔT−Θ)
+    구현이 다른 형태로 바뀌면(예: 보정계수를 관류에만 곱하면) 여기서 깨진다."""
+    tr, tt, tm, fw = 50_000.0, 18.0, -12.0, 1.05
+    dt = tt - tm
+    rho, N, V = 1.2, 0.3, 4000.0
+    F, L, th = 5.0, 180.0, 15.0
+    r = e.heating_load_components(tr, tt, tm, volume_m3=V, infiltration_per_hour=N,
+                                  air_density_kg_m3=rho, perimeter_m=L,
+                                  ground_loss_coef_w_m_c=F, ground_base_dt=th,
+                                  wind_factor=fw)
+    hv = rho * e.AIR_SPECIFIC_HEAT_KCAL_KG_C * N * V * dt
+    hs = F * L * (dt - th) * e.W_TO_KCAL_PER_HOUR
+    assert r.infiltration_kcal_h == hv
+    assert r.ground_kcal_h == hs
+    # 보정계수는 **세 성분의 합 전체**에 곱한다(관류에만 곱하는 형태가 아니다)
+    assert r.total_kcal_h == (tr + hv + hs) * fw
+    assert r.total_kcal_h != tr * fw + hv + hs
+
+
+def test_air_specific_heat_is_kcal_not_the_labelled_joule():
+    """원문 두 보고서가 c_p를 'J/kg℃'로 라벨하지만 정밀계측이 쓰는 값 0.24는
+    J 값이 아니다 — 0.24 kcal/kg·℃ × 4,186.8 = 1,004.8 J/kg·K로 표준 공기
+    정압비열과 일치한다. 즉 원문 라벨이 오기이고 값은 kcal 계열이다.
+    이 판정이 뒤집히면(누가 0.24를 J로 읽어 상수를 고치면) 여기서 알린다."""
+    assert e.AIR_SPECIFIC_HEAT_KCAL_KG_C == 0.24
+    joules = e.AIR_SPECIFIC_HEAT_KCAL_KG_C * 4186.8
+    assert 1000 < joules < 1010, f"0.24가 kcal 계열이라는 판정이 깨졌다({joules})"
 
 
 if __name__ == "__main__":
