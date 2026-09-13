@@ -2194,6 +2194,56 @@ def test_regression_case_sources_absent_from_corpus_is_pinned():
             f"(87차 백로그)을 채울 수 있는지 확인하고 이 테스트를 갱신할 것")
 
 
+# ── 견적참조 case 분류 오류 수정 (90차) ──────────────────────
+# 근거_견적참조_농가문서_인벤토리_20260913.md 3절.
+# NAME_PATTERNS가 ①괄호·대괄호 안 지명 ②앞 글자 먹기 ③문서종류를 사람 이름으로
+# 오인한다. 정규식을 고치지 않고 CASE_OVERRIDES로 바로잡았다(패턴 수정은 전 말뭉치
+# 분류를 바꿔 회귀 범위가 크다). classify()를 직접 불러 고정한다 — 인덱스 전수
+# 스캔(148,424청크)보다 빠르고 의도를 정확히 짚는다.
+def test_estimate_reference_case_overrides_fix_misclassification():
+    """오분류 9건이 바로잡혔는가. 특히 이두희는 CAPEX_MAJOR 표본 12건 중 하나인데
+    그 설계예산서·원가계산서가 '천안'(지명)으로 잡혀 있었다."""
+    import os
+    import pytest
+    F = pytest.importorskip("build_document_chunks_full_v2")
+    if not os.path.isdir("스마트팜스펙/견적참조"):
+        pytest.skip("말뭉치 미보유(리포 밖 환경)")
+    expect = {
+        "__원가설계도서_이두희(천안) 20251028.pdf": "이두희",
+        "원가계산서_이두희(천안) 20251028.pdf": "이두희",
+        "설계도25 - 233 - [천안] 이두희 온실 검토서_251024 final.pdf": "이두희",
+        "군산이명환농가-(커튼1중)-753평견적서.pdf": "이명환",
+        "논산딸기백가은님75각 시공 견적서(최종).pdf": "백가은",
+        "수현건설임미라님견적서.xls": "임미라",
+        "스마트팜하우스(렉창)5연동견적서_최선동.xls": "최선동",
+        "설계내역서_이동혁.pdf": "이동혁",
+        # 이름이 없는 문서는 잘못된 이름 대신 미상으로 되돌린다
+        "시공견적서.pdf": "견적참조-미상",
+        "산출내역서(본)_250630.pdf": "견적참조-미상",
+    }
+    for fn, want in expect.items():
+        p = os.path.join("스마트팜스펙", "견적참조", fn)
+        if not os.path.exists(p):
+            continue
+        got = F.classify(p)
+        assert got and got[0] == want, f"{fn}: case={got[0] if got else None} (기대 {want})"
+
+
+def test_estimate_reference_case_overrides_only_cover_named_files():
+    """추측 금지 — 오버라이드는 파일명에 이름이 명확한 것만 건드린다.
+    값이 사람 이름(2~4자 한글)이거나 '견적참조-미상'이어야 하고, 대상 경로는
+    전부 실재해야 한다(경로가 틀리면 오버라이드가 조용히 무시된다)."""
+    import os
+    import re
+    import pytest
+    F = pytest.importorskip("build_document_chunks_full_v2")
+    ok = re.compile(r"^[가-힣]{2,5}$")
+    for rel, case in F.CASE_OVERRIDES.items():
+        assert case == "견적참조-미상" or ok.match(case), (rel, case)
+        if os.path.isdir("스마트팜스펙"):
+            assert os.path.exists(rel), f"오버라이드 경로가 없다(무시된다): {rel}"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
