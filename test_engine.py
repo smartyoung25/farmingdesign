@@ -7,12 +7,44 @@ SmartFarm 엔진 회귀 테스트
 import smartfarm_engine as e
 
 
-# ── 1. 실측 벤치마크 밴드 검증 (현재 7건) ───────────────────────────
+# ── 1. 실측 벤치마크 밴드 검증 (현재 9건) ───────────────────────────
 def test_all_actuals_within_band():
     for name, area, total, cover in e.ACTUALS:
         r = e.benchmark_check(total, area, cover)
         assert r["status"] in ("정상", "경계"), \
             f"{name}: {r['unit_won_m2']}원/㎡ 밴드이탈 {r['band']}"
+
+
+def test_92cha_actuals_additions_reproduce_source_chain():
+    """92차 ★사용자 결정 편입 2건의 원문 체인을 고정한다.
+
+    ACTUALS의 집계 기준은 "부가세 포함 최종 총공사금액"(P1-7)이다. 두 건 모두
+    공급가액+부가세를 천원미만절삭한 값이고, 부가세는 (공급가액-영세율품목)×10%로
+    원문 표기와 원단위 일치한다 — 그 체인을 여기 리터럴로 박아 둔다.
+    밴드는 건드리지 않았다: 두 건 다 필름 밴드 내부라 경계가 움직이면 안 된다.
+    """
+    rows = {r[0]: r for r in e.ACTUALS}
+    assert len(e.ACTUALS) == 9
+    # 한수진: 공급가액 568,001,200 + 부가세 49,999,900 = 618,001,100 → 절삭
+    assert rows["한수진"] == ("한수진", 4092, 618_001_000, e.Cover.FILM)
+    assert int((568_001_200 + 49_999_900) // 1000) * 1000 == 618_001_000
+    assert round((568_001_200 - 68_002_200) * 0.1) == 49_999_900
+    # 최선동: 562,001,482 + 51,780,848 = 613,782,330 → 절삭
+    assert rows["최선동"] == ("최선동", 3145, 613_782_000, e.Cover.FILM)
+    assert int((562_001_482 + 51_780_848) // 1000) * 1000 == 613_782_000
+    assert round((562_001_482 - 44_193_000) * 0.1) == 51_780_848
+    # 면적은 규격 곱과 일치(문서 사업량 표기 채택)
+    assert 44 * 93 == 4092 and 37 * 85 == 3145
+    # 밴드 경계는 불변 — 두 건 다 내부여서 넓힐 이유가 없었다
+    assert e.BENCHMARK_BANDS[e.Cover.FILM] == (115000, 240000)
+    for nm in ("한수진", "최선동"):
+        _, area, total, cover = rows[nm]
+        assert e.benchmark_check(total, area, cover)["status"] == "정상", nm
+    # 견적서 성격이라 실측 확정이 아니다 — 레지스트리 status가 이를 지켜야 한다
+    import json as _j, os as _o
+    reg = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
+                                    "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    assert reg["constants"]["ACTUALS_COUNT"]["status"] == "부분실측"
 
 
 def test_benchmark_flags_gross_error():
@@ -2173,7 +2205,7 @@ def test_tac_table_covers_only_part_of_the_notice_regions():
 
 
 def test_regression_case_sources_absent_from_corpus_is_pinned():
-    """86·89차: ACTUALS 7건 중 원채원·공주장원리·당진이상근은 스마트팜스펙에
+    """86·89차: ACTUALS 9건(92차 한수진·최선동 편입) 중 원채원·공주장원리·당진이상근은 스마트팜스펙에
     폴더도 파일명도 없다. 원채원은 이 리포의 **회귀 기준**인데 그렇다 —
     자료가 들어오면 이 테스트가 알려 준다(그때 provenance를 채울 수 있다)."""
     import os

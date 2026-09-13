@@ -689,7 +689,10 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       "b 진행"). 논산 3현장(한수진·최선동·임미라) xls 원문을 직접 파싱해
     #       CAPEX_MAJOR_CASE_CHUNKS·CAPEX_MAJOR_KNOWN_TOTALS에 각 3건씩 ref 등재.
     #       **엔진 상수·케이스 값은 불변**이고 추가된 것은 표본뿐이라 회귀 기준은 움직이지 않는다.
-    assert a["counts"]["registry_constants"] == 48 and a["counts"]["source_refs"] == 72
+    # 92차: 48(불변) — 상수 신설 없음. refs 72→74 — ★사용자 결정으로 ACTUALS에
+    #       한수진·최선동 2건 편입(7→9건)하며 각 원문 xls를 ACTUALS_COUNT에 등재.
+    #       **밴드·케이스 값은 불변**이고 두 건 다 필름 밴드 내부라 경계도 안 움직인다.
+    assert a["counts"]["registry_constants"] == 48 and a["counts"]["source_refs"] == 74
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
