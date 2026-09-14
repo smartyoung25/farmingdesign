@@ -3275,7 +3275,7 @@ def test_116cha_pumsem_observation_source_is_recorded():
     reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
 
     for probe, why in (
-        ("부여군 가월리", "관측 현장 — 단일 현장이다"),
+        ("부여군 가설유리", "관측 현장 — 단일 현장이다(117차 정정: `가월리`가 아니라 `가설유리`)"),
         ("2,033", "총 투입 인·일(계수의 표본 크기)"),
         ("온실공", "품셈 `철골공`의 실체"),
         ("철근공 48", "`철근공`이 관측된 별개 직종이라는 근거"),
@@ -3296,6 +3296,51 @@ def test_116cha_pumsem_observation_source_is_recorded():
         assert not hasattr(_e, attr), (
             f"{attr}: 공사일보 관측 총량이 엔진 상수로 올라왔다 — 이것은 품셈이 "
             f"만들어진 근거이지 이 리포가 계산에 쓰는 값이 아니다(★사용자 결정)")
+
+def test_117cha_trade_to_item_mapping_and_sample_scope():
+    """117차 — 직종↔품목 매핑과 **관측 표본의 실제 크기**를 고정한다.
+
+    116차는 `2,033 인·일이 계수의 표본 크기`라 적었다. 직종을 품목에 매핑해 보면
+    그중 **388(19.1%)은 품셈 범위 밖**(기초·가설·설비)이고 실제 표본은 **1,645**다.
+
+    그리고 유리공·내장공은 각각 **2품목에만** 쓰여 역산에 쓸 수 있는 유일한 통로다 —
+    이 구조가 깨지면 부분 검산(117차 A/B)의 전제가 사라진다.
+    """
+    import collections as _c
+    by = _c.defaultdict(list)
+    for x in e.PUMSEM_ITEMS:
+        for job in x.labor_per_unit:
+            by[job].append((x.category, x.name))
+
+    # 품셈에 등장하는 직종은 7종뿐이다
+    assert set(by) == {
+        "철골공", "조력공", "특별인부", "보통인부",
+        "철근공", "유리공", "내장공",
+    }, sorted(by)
+
+    # 역산 통로 — 이 둘만 2품목이고 모두 ㎡ 단위다
+    assert len(by["유리공"]) == 2, by["유리공"]
+    assert len(by["내장공"]) == 2, by["내장공"]
+    glass = {n for _, n in by["유리공"]}
+    inner = {n for _, n in by["내장공"]}
+    assert glass == {"천창유리", "측면강화유리"}, glass
+    assert inner == {"천장우레탄판넬", "샌드위치판넬"}, inner
+
+    # 관측 표본의 구분 — 품셈 범위 안 1,645 / 밖 388
+    inside = 517 + 48 + 42 + 166 + 243 + 276 + 353
+    outside = 2 + 12 + 132 + 23 + 77 + 11 + 131
+    assert inside == 1645 and outside == 388 and inside + outside == 2033
+
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    for probe, why in (
+        ("가설유리", "공사명 — `가월리`가 아니다(117차 정정)"),
+        ("1,645", "품셈 범위 안 표본(2,033이 아니다)"),
+        ("불성립", "유리공 역산이 맞지 않는다는 기록"),
+    ):
+        assert probe in reg, (
+            f"117차 역산 기록에서 `{probe}`가 사라졌다 — {why}")
 
 if __name__ == "__main__":
     import sys, traceback
