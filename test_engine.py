@@ -2916,6 +2916,67 @@ def test_108cha_pumsem_summary_section_numbers_are_verified_against_the_page():
                 f"엔진 상수로 올라왔다 — 정책 기준단가는 시세성이라 인자 주입만 "
                 f"허용된다(1절). 승격은 ★사용자 결정 사안이다")
 
+def test_109cha_pumsem_cost_sheet_reproduces_and_transcription_is_fixed():
+    """109차 — `<그림 7-18>` 공사원가계산서가 **스스로 재현되는지**로 전사를 검증한다.
+
+    108차까지 이 리포는 유리 총공사비를 `3,487,006,776`으로 적어 왔는데 원문은
+    **`3,487,006,773`**이다. 확대해 읽은 것만으로는 오독 가능성이 남으므로,
+    원가계산서의 **계층 산식을 그대로 계산해** 도급액이 나오는지 확인한다 —
+    맞아떨어지면 읽은 값들이 서로를 검증한다.
+
+    ⚠️ 이 수치들은 **교차검증용 서술**이지 엔진 상수가 아니다. 여기서 고정하는
+    것은 기록의 정확성이다. 근거: 근거_요약본6.2_본문출처추적_20260914.md
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+
+    # <그림 7-18>(인쇄 p.163) 공사원가계산서 — 원문에서 읽은 값
+    gye = 2_852_203_252          # 계
+    ilban = 171_132_195          # 일반관리비 = 계 * 6%
+    iyun = 146_670_711           # 이윤 = (노무비+경비+일반관리비) * 15%
+    gonggeup = 3_170_006_158     # 공급가액
+    vat = 317_000_615            # 부가가치세 = 공급가액 * 10%
+    dogeup = 3_487_006_773       # 도급액 = 총공사비
+
+    # 원문 비고란의 산식이 그대로 성립하는가(절사 기준)
+    assert int(gye * 0.06) == ilban, (gye * 0.06, ilban)
+    assert gye + ilban + iyun == gonggeup, (gye + ilban + iyun, gonggeup)
+    assert int(gonggeup * 0.1) == vat, (gonggeup * 0.1, vat)
+    assert gonggeup + vat == dogeup, (gonggeup + vat, dogeup)
+
+    # <그림 7-19>(인쇄 p.164) 비닐 공종별 집계표 — 계가 성분 합과 일치하는가
+    assert 1_691_276_568 + 438_555_609 + 42_800_490 == 2_172_632_667
+
+    for fname in ("smartfarm_engine.py", "엔진데이터_레지스트리.json"):
+        src = open(_o.path.join(repo, fname), encoding="utf-8").read()
+        assert "3,487,006,773" in src, (
+            f"{fname}에서 정정된 유리 총공사비가 사라졌다")
+        # 이력 보존 관례상 정정문 안의 인용은 허용 — 금지는 정정 표시 없는 잔존
+        import re as _re
+        for m in _re.finditer("3,487,006,776", src):
+            near = src[max(0, m.start() - 200):m.start()]
+            assert "109차" in near or "오기" in near, (
+                f"{fname}에 전사 오기 `3,487,006,776`이 정정 표시 없이 남아 있다 "
+                f"— 원문은 `…773`이다(109차 계층 검산으로 확정)")
+
+
+def test_109cha_source_mapping_is_recorded():
+    """109차 — 요약본 6.2가 **본문 어디서 왔는지**를 기록에 고정한다.
+
+    108차의 「검증하지 않은 것」이 바로 이 항목이었다. 매핑이 사라지면 다음 사람이
+    다시 300쪽을 뒤져야 한다.
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    for probe, why in (
+        ("제7장 제3절 2", "요약본 6.2의 본문 출처"),
+        ("제4장 제2절 4", "표준품셈 축(4,196/3,509)의 1차 출처"),
+        ("첨단온실신축지원사업", "정부지원 기준단가 3,000/1,500의 사업명"),
+        ("표 7-11", "비닐 연도별 표 — 원문 결함을 기록해 둔 자리"),
+    ):
+        assert probe in reg, f"109차 출처 매핑에서 `{probe}`가 사라졌다 — {why}"
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
