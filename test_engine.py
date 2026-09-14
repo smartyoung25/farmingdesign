@@ -3619,6 +3619,93 @@ def test_121cha_phase_labor_split_and_rebar_absence():
         assert probe in reg, (
             f"121차 공종별 배분 기록에서 `{probe}`가 사라졌다 — {why}")
 
+def test_122cha_daily_headcount_and_missing_logs():
+    """122차 — 일별 투입 전량 판독: 작업일수·실측 crew size·**일보 3일 누락**.
+
+    121차는 공종 **경계** 누계만 차분했다. 이번엔 168일보의 `계` 행을 전량 읽어
+    일별 합산으로 같은 배분이 나오는지 확인한다(다른 경로의 교차검증).
+
+    🔴 그 과정에서 **2021-05-18·19·20 일보가 편철에 없다**는 것이 드러났다 —
+    05-17 누계 1,992 + 05-21 금일 7 ≠ 05-21 누계 2,019이고 **+20이 설명되지
+    않는다**. 118차의 `168장 전량`은 맞지만 **전체 공사일을 덮지 않는다**.
+
+    🎯 실측 평균은 품셈 7공종에서 **10.1~14.5명/일**이고, 119차가 원문에서 찾은
+    *"인원 10~15명"*과 맞는다. ⚠️ 등재는 하지 않는다(공기는 판단성·★사용자 결정).
+    """
+    # 공종별 일별 투입(원문 `계` 행 금일, 시간 순) — 기록된 일보만
+    DAILY = {
+        "가설":       [3, 11, 11, 11],
+        "토목":       [1, 1],
+        "철근콘크리트①": [4, 7, 4, 8, 18, 18, 10] + [13] * 14 + [30, 11, 16, 16, 16, 12],
+        "철골":       [12] * 20,
+        "알루미늄①":   [12] * 12 + [14],
+        "피복":       [9] * 8 + [13] * 20,
+        "알루미늄②":   [12] * 3,
+        "천창개폐":    [10] * 10 + [12],
+        "수평스크린":   [16] * 5 + [13] * 5,
+        "측벽스크린":   [13] * 7,
+        "양액시스템":   [1, 1, 11, 11, 11, 11, 15, 5, 1, 1, 10, 10, 10, 14, 10, 6] + [19] * 8,
+        "철근콘크리트②": [14] * 6 + [31],
+        "행잉거터":    [2] + [13] * 7 + [7] * 4,
+    }
+    # 121차가 경계 누계 차분으로 낸 값 — 행잉거터만 누락 3일(20 인·일)이 빠져 있다
+    FROM_121 = {
+        "가설": 36, "토목": 2, "철근콘크리트①": 352, "철골": 240, "알루미늄①": 158,
+        "피복": 332, "알루미늄②": 36, "천창개폐": 112, "수평스크린": 145,
+        "측벽스크린": 91, "양액시스템": 280, "철근콘크리트②": 115, "행잉거터": 141,
+    }
+    MISSING = 20            # 2021-05-18·19·20 — 일보가 없는 구간의 인·일
+
+    for name, days in DAILY.items():
+        got = sum(days) + (MISSING if name == "행잉거터" else 0)
+        assert got == FROM_121[name], (name, got, FROM_121[name])
+
+    # 총계가 118차 정정값 2,040과 맞는다
+    assert sum(sum(v) for v in DAILY.values()) + MISSING == 2040
+    assert sum(len(v) for v in DAILY.values()) == 168, "기록된 일보는 168장이다"
+
+    # 🔴 누락 구간 — 05-17 누계 + 05-21 금일 ≠ 05-21 누계
+    assert 1992 + 7 != 2019
+    assert 2019 - 1992 - 7 == MISSING
+
+    # 📌 선조립 공정은 일별 편차가 0이다(120차 ④ 모듈형 반입과 정합)
+    for name in ("철골", "알루미늄②", "측벽스크린"):
+        assert len(set(DAILY[name])) == 1, (name, sorted(set(DAILY[name])))
+
+    # 🎯 품셈 7공종의 실측 평균이 원문 "10~15명" 구간에 들어간다
+    PUMSEM_PHASES = ("철골", "알루미늄①", "알루미늄②", "피복",
+                     "천창개폐", "수평스크린", "측벽스크린", "행잉거터")
+    for name in PUMSEM_PHASES:
+        avg = sum(DAILY[name]) / len(DAILY[name])
+        assert 10 <= avg <= 15, (name, round(avg, 1))
+    man_days = sum(sum(DAILY[n]) for n in PUMSEM_PHASES)
+    work_days = sum(len(DAILY[n]) for n in PUMSEM_PHASES)
+    assert man_days == 1235 and work_days == 104
+    assert round(man_days / work_days, 1) == 11.9
+
+    # 피크 2건은 품셈 범위 **밖** 공종에서 나온다 — 품셈 공종 피크는 16명이다
+    assert max(DAILY["철근콘크리트②"]) == 31 and max(DAILY["철근콘크리트①"]) == 30
+    assert max(max(DAILY[n]) for n in PUMSEM_PHASES) == 16
+
+    # crew size는 **엔진 상수가 아니다**(공기 산정은 판단성 — ★사용자 결정)
+    import smartfarm_engine as _e
+    for attr in ("PUMSEM_CREW_SIZE", "PUMSEM_WORK_DAYS", "PUMSEM_DAILY_HEADCOUNT"):
+        assert not hasattr(_e, attr), (
+            f"{attr}: 실측 crew size가 엔진 상수로 올라왔다 — 이 현장 하나의 관측이고 "
+            f"공기 산정은 판단성이다(★사용자 결정)")
+
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    for probe, why in (
+        # 119·120차 교훈: 짧은 앵커는 우연히 만족된다. 날짜 셋을 통째로 고정한다.
+        ("2021-05-18·19·20", "누락 일보 — 168장이 전체 공사일을 덮지 않는다"),
+        ("편차 0", "선조립 공정의 균일성 — 120차 모듈형 서술과 정합"),
+        ("10~15명", "원문 서술과 실측이 맞는다는 기록"),
+    ):
+        assert probe in reg, (
+            f"122차 일별 판독 기록에서 `{probe}`가 사라졌다 — {why}")
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
