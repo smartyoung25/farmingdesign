@@ -197,6 +197,53 @@ def extract_page(pdf, reader, print_page):
     return [(n, v) for n, v in items if v]
 
 
+# 제7장 제1절·조사 절의 제원 표(115·119차가 육안으로 읽은 것들).
+#   같은 텍스트층 경로로 기계 재확인한다. 숫자는 Batang이라 전량 복원되고,
+#   표 제목(YDIYGO120 서브셋)은 시스템에 없는 폰트라 복원되지 않는다.
+TABLE_PAGES = {
+    110: "표 7-2 유리온실 구역별 면적",
+    112: "표 7-4·7-5 비닐온실 개요·구역별 면적",
+    120: "표 7-7·7-8 부여 현장 개요·구역별 면적",
+    122: "표 7-9 함평 현장 개요",
+}
+
+
+def page_lines(pdf, reader, print_page):
+    """한 쪽의 복원 텍스트를 줄 단위로 돌려준다(미복원 글자는 U+FFFD)."""
+    i = print_page + PRINT_TO_PDF - 1
+    page = pdf.pages[i]
+    cidmaps = build_cid_map(reader.pages[i])
+    fontkey_by_name = {}
+    for key, ref in reader.pages[i]["/Resources"]["/Font"].items():
+        base = str(ref.get_object().get("/BaseFont") or "").lstrip("/")
+        if base:
+            fontkey_by_name[base] = str(key)
+    lines = {}
+    for c in page.chars:
+        c["_u"] = _decode(c, cidmaps, fontkey_by_name)
+        lines.setdefault(round(c["top"] / 3), []).append(c)
+    out = []
+    for _, row in sorted(lines.items()):
+        text = "".join(c["_u"] for c in sorted(row, key=lambda c: c["x0"])).strip()
+        if text:
+            out.append(text)
+    return out
+
+
+def extract_tables():
+    """{인쇄 쪽: [복원된 줄]} — 제원 표 쪽의 텍스트."""
+    import pdfplumber
+    from pypdf import PdfReader
+
+    _system_index()
+    out = {}
+    reader = PdfReader(PDF_PATH)
+    with pdfplumber.open(PDF_PATH) as pdf:
+        for pp in sorted(TABLE_PAGES):
+            out[pp] = page_lines(pdf, reader, pp)
+    return out
+
+
 def extract_all():
     """(공종, 순번, 계수 시퀀스) 전량. 원문 차례 순서로 돌려준다."""
     import pdfplumber

@@ -3947,6 +3947,69 @@ def test_125cha_pumsem_64_reextracted_from_pdf_textlayer():
                       + list(x.equipment_hours_per_unit.values()))
     assert flat == eng_flat, (len(flat), len(eng_flat), flat[:3], flat[-3:])
 
+def test_126cha_spec_tables_reextracted_from_pdf():
+    """126차 — 제원 표 5종을 **원문 텍스트층에서 기계 재확인**한다.
+
+    115·119차가 육안으로 읽은 값(9,792 · 10,106 · 314 · 18,707.03 · 1,600)과
+    115차 E1(`재배 1구역`이 두 번)을 **기계 추출로 재현**한다. 125차가 계수에 대해
+    한 일을 제원 표로 넓힌 것이다.
+
+    🔴 그 과정에서 **원문 표기 오기 2건**이 드러났다:
+      · `4032.00`에 **천단위 쉼표가 없다**(세 표 전부 — 같은 표의 다른 값에는 있다)
+      · [표 7-5] 합계만 **소수점이 없다**(`10,106㎡`)
+    115·119차는 이것을 `4,032.00`으로 **정규화해 옮겼다** — 사람이 표를 읽을 때
+    자연스럽게 하는 일이고 **기계 추출이라야 잡힌다**.
+
+    ⚠️ 의존성·시스템 폰트가 없으면 skip한다(125차와 같다).
+    """
+    import re
+    import pytest
+    pytest.importorskip("pdfplumber")
+    pytest.importorskip("fontTools")
+    pytest.importorskip("pypdf")
+    import pumsem_extract as px
+
+    try:
+        tables = px.extract_tables()
+    except px.FontsUnavailable as exc:
+        pytest.skip("시스템 Batang/Gulim 없음: %s" % exc)
+
+    assert set(tables) == {110, 112, 120, 122}
+
+    def nums(pp):
+        return re.findall(r"[\d,]+\.\d+|[\d,]{3,}", " ".join(tables[pp]))
+
+    # [표 7-2] 유리온실 — 115차 육안과 일치
+    assert "4,608.00" in nums(110) and "1,152.00" in nums(110)
+    assert "9,792.00" in nums(110)
+    # 🔴 N1 — 재배 2구역만 천단위 쉼표가 없다
+    assert "4032.00" in nums(110) and "4,032.00" not in nums(110)
+
+    # [표 7-4]·[표 7-5] 비닐온실 — 방풍실 314가 차이 전부다(115차 ②)
+    assert "10,106.00" in nums(112)          # [표 7-4] 연면적
+    assert "314" in nums(112)
+    assert "10,106" in nums(112)             # 🔴 N2 — 합계만 소수점이 없다
+    assert "4032.00" in nums(112)
+
+    # [표 7-7]·[표 7-8] 부여 — 119차가 잡은 내부 불일치
+    assert "18,707.03" in nums(120)          # 연면적
+    assert "9,792.00" in nums(120)           # 구역별 합계
+    assert "18,707.03" != "9,792.00"         # 같은 쪽에서 서로 다르다
+
+    # [표 7-9] 함평 — 24회차 F13: 사업명에 "나비"가 없다
+    assert "1,600" in nums(122)
+    joined = " ".join(tables[122])
+    assert "함평" in joined and "나비" not in joined
+
+    # ✅ 115차 E1 — "재배 1구역"이 세 표 전부에서 2회
+    for pp in (110, 112, 120):
+        hits = [x for x in tables[pp] if "재배" in x and "1구역" in x]
+        assert len(hits) == 2, (pp, hits)
+
+    # 검산: 4,608 + 4,032 + 1,152 = 9,792 / +314 = 10,106
+    assert 4608 + 4032 + 1152 == 9792
+    assert 9792 + 314 == 10106
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
