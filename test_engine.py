@@ -3462,6 +3462,79 @@ def test_119cha_pumsem_survey_section_is_recorded():
             f"{attr}: 원문이 값을 준다고 해서 엔진에 올리면 안 된다 — 크루 규모는 "
             f"판단성(★사용자 결정), 장비 임대료는 시세성(주입만 받는다)이다")
 
+def test_120cha_toc_matches_pumsem_category_layout():
+    """120차 — 원문 **목차**가 `PUMSEM_ITEMS`의 공종 배분·1번 품목과 정합한다.
+
+    113차는 품셈 표 25쪽을 렌더링해 64종을 전수 대조했다. 목차는 **다른 경로**로
+    같은 구조를 확인해 준다 — 공종별 시작 쪽에서 쪽수를 유도하면 유리 22쪽 + 비닐
+    3쪽 = **25쪽**이 나오고, 각 공종의 **1번 품목**이 본문 표의 1번과 일치한다.
+
+    🔴 다만 **엔진의 공종 선언 순서는 원문 차례와 다르다**(원문은 철골→알루미늄→
+    피복→천창개폐, 엔진은 철골→피복→천창개폐→알루미늄). 조회가 (공종,품목명)
+    키라서 **값·합산에는 영향이 없다** — 그래서 순서를 강제하지 않고, 대신
+    **집합과 1번 품목**을 고정한다.
+
+    그리고 목차에 「온실품셈의 조사」가 **없다** — 본문 인쇄 p.120의 그 제목은
+    목차에 실리지 않았고 절 번호가 p.138의 제2절과 충돌한다(원문 편집 오류).
+    119차가 그것을 보고 `제1절은 p.109~119에서 끝난다`고 적었는데, 목차 기준
+    제1절은 **p.109~137**이다 — 115차의 `29쪽`이 맞았다.
+    """
+    # 원문 목차(PDF 19): 제7장 제2절 하위 7공종의 시작 쪽 + 각 공종 본문 1번 품목
+    TOC = [
+        ("철골공사",         138, "스틸돌리",     {"철골공": 0.21, "특별인부": 0.07}),
+        ("알루미늄공사",     141, "거터",         {"철골공": 0.04, "특별인부": 0.01}),
+        ("온실피복공사",     144, "천창유리",     {"유리공": 0.02, "조력공": 0.01}),
+        ("천창개폐장치공사", 146, "천창개폐모터", {"철골공": 0.3, "조력공": 0.25}),
+        ("수평스크린공사",   151, "스크린개폐모터", {"철골공": 1, "조력공": 0.5}),
+        ("측벽스크린공사",   156, "스크린개폐모터", {"철골공": 1.33, "조력공": 0.67}),
+        ("행잉거터공사",     158, "트러스걸이",   {"철골공": 0.004, "조력공": 0.006}),
+    ]
+    VINYL_START, VINYL_END = 160, 162      # 제3절 경량철골비닐온실공사
+
+    # ① 시작 쪽에서 유도한 쪽수 — 유리 22쪽 + 비닐 3쪽 = 113차가 렌더링한 25쪽
+    #   ⚠️120차 자가 발견: **총합만 보면 안 된다**. 시작 쪽 하나를 옮겨도 인접 구간이
+    #   상쇄해 합은 그대로다(변이가 통과했다). 공종별 쪽수를 **개별로** 고정한다.
+    bounds = [p for _, p, _, _ in TOC] + [VINYL_START]
+    per_cat = [bounds[k + 1] - bounds[k] for k in range(len(TOC))]
+    assert per_cat == [3, 3, 2, 5, 5, 2, 2], per_cat
+    glass_pages = sum(per_cat)
+    vinyl_pages = VINYL_END - VINYL_START + 1
+    assert glass_pages == 22 and vinyl_pages == 3
+    assert glass_pages + vinyl_pages == 25, "113차가 전수 대조한 쪽수와 어긋난다"
+
+    # ② 공종 집합이 일치한다(순서는 강제하지 않는다 — 위 docstring 참조)
+    cats = {x.category for x in e.PUMSEM_ITEMS}
+    assert {n for n, _, _, _ in TOC} | {"철골공사(비닐·파이프자재)",
+                                        "온실피복공사(비닐)"} == cats, sorted(cats)
+
+    # ③ 각 공종의 **1번 품목**이 원문 표의 1번과 일치한다 — 113차 전수 대조의 교차검증
+    first = {}
+    for x in e.PUMSEM_ITEMS:
+        first.setdefault(x.category, x)
+    for name, _, item_name, labor in TOC:
+        got = first[name]
+        assert got.name == item_name, (name, got.name, item_name)
+        assert got.labor_per_unit == labor, (name, got.labor_per_unit, labor)
+    assert first["철골공사(비닐·파이프자재)"].name == "지붕서까래"
+    assert first["온실피복공사(비닐)"].name == "농업용PO필름(천창및지붕)"
+
+    # ④ 비닐은 2공종(철골 5 + 피복 2)이고 목차에서 3쪽을 차지한다
+    vinyl = [x for x in e.PUMSEM_ITEMS if "비닐" in x.category]
+    assert len({x.category for x in vinyl}) == 2 and len(vinyl) == 7
+
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    for probe, why in (
+        ("목차에 「온실품셈의 조사」가 없다", "절 번호 중복이 원문 편집 오류라는 확정 근거"),
+        ("30% 이상 적은 품", "철골 계수의 정량 근거 — 유리 쪽 이견과 대비된다"),
+        ("70%이하의 볼트본조임", "철골 계수의 두 번째 정량 근거"),
+        ("10kg당", "알루미늄은 단위가 달라 119차식 대비가 불가능하다는 기록"),
+        ("선언 순서", "엔진 카테고리 순서가 원문 차례와 다르다는 기록(값 영향 0)"),
+    ):
+        assert probe in reg, (
+            f"120차 목차 대조 기록에서 `{probe}`가 사라졌다 — {why}")
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
