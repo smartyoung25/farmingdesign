@@ -3535,6 +3535,90 @@ def test_120cha_toc_matches_pumsem_category_layout():
         assert probe in reg, (
             f"120차 목차 대조 기록에서 `{probe}`가 사라졌다 — {why}")
 
+def test_121cha_phase_labor_split_and_rebar_absence():
+    """121차 — 공종별 인·일 배분과 **`철근공`이 해당 공종에 없다**는 사실을 고정한다.
+
+    공종 경계 12시점의 누계를 차분하면 13단계 배분이 나오고, 그 배분이 품셈의
+    **직종 구성과 0인 자리까지 일치**한다 — 피복공사에 철골공 0, 철골·알루미늄에
+    조력공 0, 천창개폐·스크린에 특별인부 0.
+
+    🔴 예외가 `철근공`이다. 품셈은 수평스크린 3품목 + 행잉거터 1품목에 철근공을
+    배분했는데, **그 두 공종 기간의 철근공 투입이 0**이다(48은 전부 기초 구간에서
+    나왔다). 116차의 *"관측 결과일 개연성이 높다"*를 **뒤집는다** — 다만 준용인지
+    표기 잔존인지는 판정하지 않는다(원문이 말하지 않는다).
+
+    이 배분이 사라지면 116차의 뒤집힌 판단으로 되돌아가고, 공사일보 83쪽을 다시
+    차분해야 한다.
+    """
+    # 공종 경계 누계(원문 판독) — 직종별, 시점 순서는 시간 순
+    CUM = [                      # (라벨, 온실공, 조력공, 특별인부, 보통인부, 철근공, 계)
+        ("11-05 가설末",          0,   0,   0,  22,  0,   36),
+        ("11-07 토목末",          0,   0,   0,  24,  0,   38),
+        ("12-08 철근콘크리트①末", 42,   0,  24, 107, 48,  390),
+        ("12-31 철골末",         202,   0,  84, 127, 48,  630),
+        ("01-18 알루미늄①末",    306,   0, 124, 141, 48,  788),
+        ("02-23 피복末",         306,  78, 124, 187, 48, 1120),
+        ("02-26 알루미늄②末",    330,  78, 133, 190, 48, 1156),
+        ("03-12 천장개폐末",     341, 166, 133, 202, 48, 1268),
+        ("03-24 수평스크린末",   421, 206, 133, 217, 48, 1413),
+        ("03-31 측벽스크린末",   477, 234, 133, 224, 48, 1504),
+        ("04-27 양액末",         477, 234, 238, 280, 48, 1784),
+        ("05-07 철근콘크리트②末", 477, 234, 243, 301, 48, 1899),
+        ("05-25 행잉거터末(최종)", 517, 276, 243, 360, 48, 2040),
+    ]
+    # 누계는 단조증가여야 한다
+    for k in range(1, len(CUM)):
+        for c in range(1, 6):
+            assert CUM[k][c] >= CUM[k - 1][c], (CUM[k][0], c)
+    # 최종 누계가 116차 정정값(118차 확인)과 맞는다
+    assert CUM[-1][1:] == (517, 276, 243, 360, 48, 2040)
+
+    def delta(idx, col):
+        return CUM[idx][col] - (CUM[idx - 1][col] if idx else 0)
+
+    # 🔴 철근공 — 기초 구간에서 48 전부, 스크린·행잉거터 구간은 0
+    assert delta(2, 5) == 48, "철근공 48은 철근콘크리트①(기초)에서 나왔다"
+    assert delta(8, 5) == 0, "수평스크린 구간의 철근공 투입은 0이다"
+    assert delta(12, 5) == 0, "행잉거터 구간의 철근공 투입은 0이다"
+
+    # 그런데 품셈은 그 두 공종에만 철근공을 쓴다 — 관측과 어긋나는 유일한 자리
+    rebar = {(x.category, x.name) for x in e.PUMSEM_ITEMS
+             if "철근공" in x.labor_per_unit}
+    assert {c for c, _ in rebar} == {"수평스크린공사", "행잉거터공사"}, rebar
+    assert len(rebar) == 4, rebar
+
+    # ✅ 직종 구성이 0인 자리까지 맞는다 — 품셈에 없는 직종은 관측도 0이다
+    trades = {}
+    for x in e.PUMSEM_ITEMS:
+        trades.setdefault(x.category, set()).update(x.labor_per_unit)
+    assert "철골공" not in trades["온실피복공사"]
+    assert delta(5, 1) == 0, "피복공사 구간의 온실공(=철골공) 투입은 0이다"
+    assert "조력공" not in trades["철골공사"] and "조력공" not in trades["알루미늄공사"]
+    assert delta(3, 2) == 0 and delta(4, 2) == 0, "철골·알루미늄 구간의 조력공은 0이다"
+    assert "특별인부" not in trades["천창개폐장치공사"]
+    assert delta(7, 3) == 0, "천장개폐 구간의 특별인부는 0이다"
+
+    # ✅ 118차 역산의 독립 검증 — 유리공으로 구한 물량이 조력공 관측을 설명한다
+    coef = {(x.category, x.name): x.labor_per_unit for x in e.PUMSEM_ITEMS}
+    roof_m2, side_m2 = 6800, 3000            # 118차 역산(유리공 136·30 ÷ 계수)
+    pred = (coef[("온실피복공사", "천창유리")]["조력공"] * roof_m2
+            + coef[("온실피복공사", "측면강화유리")]["조력공"] * side_m2)
+    assert pred == 80
+    observed = delta(5, 2)                   # 피복 구간 조력공
+    assert observed == 78
+    assert abs(pred - observed) / pred < 0.03, (pred, observed)
+
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    for probe, why in (
+        ("철근공 투입이 0", "116차 판단을 뒤집는 근거"),
+        ("1,255", "공종 기준 관측 모집단 — 직종 기준 1,652보다 좁다"),
+        ("03-25~03-31", "측벽스크린 기간(120차의 04-01 정정)"),
+    ):
+        assert probe in reg, (
+            f"121차 공종별 배분 기록에서 `{probe}`가 사라졌다 — {why}")
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
