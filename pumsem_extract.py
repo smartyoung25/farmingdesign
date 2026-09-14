@@ -244,6 +244,92 @@ def extract_tables():
     return out
 
 
+def extract_notes():
+    """64품목의 **[주] 항목**을 공종·순번별로 뽑는다.
+
+    125차 파서는 [주]를 **버린다**(수량이 아니므로). 그런데 [주]에는 계수의
+    **적용 조건**이 적혀 있다 — 공구손료 3%·재료량 설계수량 적용·장비 8시간 기준 등.
+    이 함수가 그것을 기록으로 남긴다.
+
+    ⚠️ 한글 일부는 복원되지 않아 `�`가 섞인다. 그래서 **문자열 그대로 쓰지 말고
+    아래 `NOTE_RULES`처럼 복원되는 부분만으로 판정**해야 한다.
+    """
+    import pdfplumber
+    from pypdf import PdfReader
+
+    _system_index()
+    out = []
+    reader = PdfReader(PDF_PATH)
+    with pdfplumber.open(PDF_PATH) as pdf:
+        for cat, lo, hi in SECTION_PAGES:
+            per_item = []
+            for pp in range(lo, hi + 1):
+                lines = page_lines(pdf, reader, pp)
+                cur, in_note = None, False
+                for text in lines:
+                    if "분" in text and "위" in text and text.count("수") >= 1:
+                        cur = []
+                        per_item.append(cur)
+                        in_note = False
+                        continue
+                    # 줄 앞에 세로쓰기 낱글자("품/셈/산/정")나 미복원 글자가 붙는 일이 있어
+                    #   startswith로는 [주] 시작을 놓친다(127차 실측: 구동축 ①을 통째로
+                    #   흘려 [2,3]으로 보였다). 앞머리 몇 글자 안에서 찾는다.
+                    if "[주]" in text[:6] or any(ch in text.replace("[주]", "")[:4] for ch in _MARU):
+                        in_note = True
+                    if in_note and _UNIT_TAIL.search(text):
+                        in_note = False     # 다음 품목 이름 줄에서 [주]가 끝난다
+                        continue
+                    if in_note and re.match(r"^-\s*\d{2,3}\s*-$", text):
+                        in_note = False     # 쪽 꼬리말
+                        continue
+                    if in_note and cur is not None and len(text) > 2:
+                        cur.append(text)    # 세로쓰기 낱글자("품/셈/산/정")는 버린다
+            for n, notes in enumerate(per_item, 1):
+                out.append((cat, n, notes))
+    return out
+
+
+# [주]에서 판정할 규칙 — 복원되는 조각만 쓴다(미복원 글자를 피한다).
+NOTE_RULES = {
+    "공구손료3%": "3%",          # "공구손료 및 경장비 … 기계경비는 인력품의 3%로 계상한다"
+    "장비8시간": "8시간",         # "현장투입된 장비는 하루 8시간 작업 기준 …"
+    "재료량설계수량": "설계수",     # "재료량은 설계수량을 적용한다"
+}
+# "별도 계상"은 "별"이 복원되지 않아 문자열로 못 잡는다 —
+#   `계상한다`가 있고 `3%`가 없는 줄로 판정한다(공구손료 규정과 구분).
+_MARU = "①②③④⑤⑥⑦⑧⑨"
+
+
+def note_numbers(notes):
+    """[주] 항목의 번호 시퀀스. 원문 번호 누락·중복을 드러낸다."""
+    out = []
+    for text in notes:
+        # 줄 앞머리에 세로쓰기 낱글자("품/셈/산/정")나 미복원 글자가 붙는 일이 있어
+        #   `startswith`로는 놓친다(127차 실측: 구동축 ①을 놓쳐 [2,3]으로 보였다).
+        head = text.replace("[주]", "")[:4]
+        for k, ch in enumerate(_MARU, 1):
+            if ch in head:
+                out.append(k)
+                break
+    return out
+
+
+def classify_notes(rows=None):
+    """{규칙: [(공종, 순번)]} — 어느 품목에 어떤 적용 조건이 붙었는가."""
+    rows = rows if rows is not None else extract_notes()
+    hit = {k: [] for k in NOTE_RULES}
+    hit["별도계상"] = []
+    for cat, no, notes in rows:
+        blob = " ".join(notes)
+        for key, needle in NOTE_RULES.items():
+            if needle in blob:
+                hit[key].append((cat, no))
+        if any("계상한다" in t and "3%" not in t for t in notes):
+            hit["별도계상"].append((cat, no))
+    return hit
+
+
 def extract_all():
     """(공종, 순번, 계수 시퀀스) 전량. 원문 차례 순서로 돌려준다."""
     import pdfplumber

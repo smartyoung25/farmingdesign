@@ -4010,6 +4010,82 @@ def test_126cha_spec_tables_reextracted_from_pdf():
     assert 4608 + 4032 + 1152 == 9792
     assert 9792 + 314 == 10106
 
+def test_127cha_pumsem_notes_conditions_and_defects():
+    """127차 — 품셈 **[주] 항목**의 적용 조건과 원문 결함을 고정한다.
+
+    125차 파서는 [주]를 버렸다(수량이 아니므로). 그런데 [주]에는 계수의 **적용
+    조건**이 있다 — 특히 `공구손료 및 경장비의 기계경비는 인력품의 3%로 계상한다`.
+
+    🔴 그 3%가 **64품목 전부가 아니라 26품목(41%)에만** 붙는다. 119차가 후보로
+    올린 *"★공구손료 3% 등재 여부"*는 **일괄 적용이 아니라 품목별 플래그**여야
+    한다는 뜻이다 — 이 수치가 사라지면 그 전제를 다시 세우게 된다.
+
+    🔴 그리고 천창유리 [주]는 번호가 **①②④**(③ 누락)이고 **②와 ④가 같은 말**이다.
+    64품목 중 번호 이상은 **이 1건뿐**이다.
+
+    ⚠️ 의존성·시스템 폰트가 없으면 skip한다(125·126차와 같다).
+    """
+    import pytest
+    pytest.importorskip("pdfplumber")
+    pytest.importorskip("fontTools")
+    pytest.importorskip("pypdf")
+    import pumsem_extract as px
+
+    try:
+        rows = px.extract_notes()
+    except px.FontsUnavailable as exc:
+        pytest.skip("시스템 Batang/Gulim 없음: %s" % exc)
+
+    assert len(rows) == 64
+    assert all(notes for _, _, notes in rows), "[주]가 없는 품목이 있다"
+
+    hit = px.classify_notes(rows)
+
+    # 🔴 공구손료 3% — 전 품목 일괄이 아니다
+    assert len(hit["공구손료3%"]) == 26, len(hit["공구손료3%"])
+    by_cat = {}
+    for cat, _ in hit["공구손료3%"]:
+        by_cat[cat] = by_cat.get(cat, 0) + 1
+    assert by_cat.get("행잉거터공사", 0) == 0, "행잉거터공사에는 3%가 붙지 않는다"
+    assert by_cat.get("철골공사(비닐·파이프자재)") == 5, "비닐 철골 5품목은 전부 붙는다"
+
+    # 나머지 적용 조건의 분포
+    assert len(hit["장비8시간"]) == 38
+    assert len(hit["별도계상"]) == 26
+    assert len(hit["재료량설계수량"]) == 10
+    mat = {cat for cat, _ in hit["재료량설계수량"]}
+    assert mat == {"철골공사", "알루미늄공사"}, mat
+
+    # 🔴 원문 결함 — 번호 이상은 천창유리 1건뿐이다
+    odd = []
+    for cat, no, notes in rows:
+        seq = px.note_numbers(notes)
+        if seq and seq != list(range(1, len(seq) + 1)):
+            odd.append((cat, no, seq))
+    assert odd == [("온실피복공사", 1, [1, 2, 4])], odd
+
+    # 그 품목이 엔진에서 천창유리인가(공종 1번)
+    cover = [x for x in e.PUMSEM_ITEMS if x.category == "온실피복공사"]
+    assert cover[0].name == "천창유리", cover[0].name
+
+    # 적용 조건은 **엔진 상수가 아니다**(공구손료 3% 등재는 ★사용자 결정)
+    import smartfarm_engine as _e
+    for attr in ("PUMSEM_TOOL_LOSS_RATE", "PUMSEM_NOTE_FLAGS"):
+        assert not hasattr(_e, attr), (
+            f"{attr}: [주]의 적용 조건이 엔진 상수로 올라왔다 — 26품목에만 붙는 "
+            f"규정이고 등재는 ★사용자 결정이다")
+
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    for probe, why in (
+        ("26품목", "3%가 전 품목 일괄이 아니라는 기록"),
+        ("①②④", "천창유리 [주] 번호 누락"),
+        ("유리닦기", "p.129와 p.144가 서로 다른 말을 한다는 기록"),
+    ):
+        assert probe in reg, (
+            f"127차 [주] 기록에서 `{probe}`가 사라졌다 — {why}")
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
