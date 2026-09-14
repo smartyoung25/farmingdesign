@@ -393,6 +393,55 @@ def test_101cha_shares_not_wired_into_outputs():
             assert name not in src, f"{fname}가 {name}을 참조한다 — 케이스 값이 움직인다"
 
 
+# ─────────────────────────────────────────────────────────────
+# 23회차 레드팀 C2 — 가드의 스캔 범위를 **열거에서 전수로** 바꾼다.
+#   107·109·110차 가드는 `smartfarm_engine.py`·`엔진데이터_레지스트리.json` 2개만
+#   돌았고, 정정 없는 잔존이 실제로 있던 `통합작업체계_…md`를 **통과시켰다**.
+#   107차가 스스로 적은 "열거는 빠뜨리고 불변식은 안 빠뜨린다"의 3회차 재발이다.
+# ─────────────────────────────────────────────────────────────
+def _repo_text_files():
+    """리포의 텍스트 산출물 전수(.py/.json/.md/.html). 검색 계층·스코프 제외는 뺀다."""
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    skip = {".git", "__pycache__", ".pytest_cache", "노지견적", "노지시방서",
+            "대산온실", ".claude", "node_modules"}
+    out = []
+    for root, dirs, files in _o.walk(repo):
+        dirs[:] = [d for d in dirs if d not in skip]
+        for f in files:
+            if not f.endswith((".py", ".json", ".md", ".html")):
+                continue
+            if f.startswith("문서청킹_인덱스"):   # 검색 계층(대용량) — 계산 출처 아님
+                continue
+            if f == _o.path.basename(__file__):  # 가드 정의는 "잔존"이 아니다
+                continue
+            out.append(_o.path.join(root, f))
+    return out
+
+
+def _uncorrected_hits(needle, *, before=240, after=90,
+                      markers=("정정", "오기", "철회", "반증", "틀렸", "오류")):
+    """`needle`이 **정정 표시 없이** 살아 있는 자리만 돌려준다.
+
+    이 리포의 관례(31차)는 원문 서술을 지우지 않고 옆에 현재 상태를 병기하는 것이다.
+    그래서 금지 대상은 문자열 자체가 아니라 **정정 표시가 없는 잔존**이다.
+    """
+    import re as _re
+    bad = []
+    for path in _repo_text_files():
+        try:
+            src = open(path, encoding="utf-8").read()
+        except (UnicodeDecodeError, OSError):
+            continue
+        for m in _re.finditer(_re.escape(needle), src):
+            # 이 리포의 정정 관례는 `…776`은 **오기**다처럼 **인용 바로 뒤**에
+            # 라벨을 붙인다. 창을 넓게 잡으면 같은 줄의 다른 정정문이 변이를
+            # 흡수해 버린다(23회차 재설계에서 실측). 비대칭·좁게 본다.
+            near = src[max(0, m.start() - before):m.start() + len(needle) + after]
+            if not any(k in near for k in markers):
+                bad.append((path, m.start()))
+    return bad
+
 def test_102cha_page_labels_are_unambiguous():
     """102차 — 쪽번호 표기에서 `printed p.`를 전부 걷어냈다(95차 발견의 마무리).
 
@@ -2905,16 +2954,41 @@ def test_108cha_pumsem_summary_section_numbers_are_verified_against_the_page():
     assert "108차" in reg, "108차 육안 대조 기록이 사라졌다"
 
     # ② 정부지원 기준단가는 **엔진 상수가 아니다**(시세성 — 주입만 받는다)
+    #   ⚠️23회차 레드팀 C3 — 초판은 `dir()` 모듈 레벨 **스칼라만** 봐서, 가장 자연스러운
+    #     승격 경로인 dict(`TOTAL_PYEONG_PRICE` 등) 안을 전혀 보지 못했다. 동시에 단위와
+    #     무관한 아무 상수나 3000이면 잘못된 메시지로 실패시키는 과잉이기도 했다.
+    #     이제 **백만원/ha 단가를 담는 컨테이너까지 재귀로** 보되, 판정은 값이 아니라
+    #     **그 값이 정책 기준단가로 등재됐는가**로 한다.
     import smartfarm_engine as _e
+
+    def _walk(v, path, depth=0):
+        if depth > 4:
+            return
+        if isinstance(v, dict):
+            for k, sub in v.items():
+                yield from _walk(sub, f"{path}[{k!r}]", depth + 1)
+        elif isinstance(v, (list, tuple)):
+            for i, sub in enumerate(v):
+                yield from _walk(sub, f"{path}[{i}]", depth + 1)
+        elif isinstance(v, (int, float)) and not isinstance(v, bool):
+            yield path, v
+
+    #   ⚠️원 단위 3,000,000,000·1,500,000,000은 뺀다 — `SUPERVISION_FEE_RATE_TABLE`의
+    #     **공사비 구간 경계**(30억·15억)와 숫자가 같을 뿐 전혀 다른 양이다.
+    #     23회차 레드팀 재검증에서 이 가드가 낸 유일한 거짓 양성이었다.
+    SUSPECT = (3000, 1500)   # 백만원/ha 단위로 등재되는 경우만 본다
+    hits = []
     for attr in dir(_e):
-        if attr.startswith("_"):
-            continue
-        val = getattr(_e, attr, None)
-        if isinstance(val, (int, float)) and not isinstance(val, bool):
-            assert val not in (3000.0, 1500.0) or "PYEONG" in attr.upper(), (
-                f"{attr}={val}: 정부지원 기준단가(3,000/1,500 백만원/ha)로 보이는 값이 "
-                f"엔진 상수로 올라왔다 — 정책 기준단가는 시세성이라 인자 주입만 "
-                f"허용된다(1절). 승격은 ★사용자 결정 사안이다")
+        if attr.startswith("_") or attr.upper() != attr:
+            continue                      # 상수 명명 규약(대문자)만 본다
+        for path, val in _walk(getattr(_e, attr, None), attr):
+            if val in SUSPECT:
+                hits.append((path, val))
+    assert not hits, (
+        f"정부지원 기준단가(유리 3,000 / 비닐 1,500 백만원/ha)로 보이는 값이 엔진 상수에 "
+        f"들어왔다: {hits}. 정책 기준단가는 1절이 정한 **시세성**이라 인자 주입만 허용되고, "
+        f"2021-12 기준이라 현행 여부도 확인할 수 없다 — 승격은 ★사용자 결정 사안이다. "
+        f"(오탐이라면 이 가드가 아니라 SUSPECT 목록을 좁힐 것)")
 
 def test_109cha_pumsem_cost_sheet_reproduces_and_transcription_is_fixed():
     """109차 — `<그림 7-18>` 공사원가계산서가 **스스로 재현되는지**로 전사를 검증한다.
@@ -2951,13 +3025,13 @@ def test_109cha_pumsem_cost_sheet_reproduces_and_transcription_is_fixed():
         src = open(_o.path.join(repo, fname), encoding="utf-8").read()
         assert "3,487,006,773" in src, (
             f"{fname}에서 정정된 유리 총공사비가 사라졌다")
-        # 이력 보존 관례상 정정문 안의 인용은 허용 — 금지는 정정 표시 없는 잔존
-        import re as _re
-        for m in _re.finditer("3,487,006,776", src):
-            near = src[max(0, m.start() - 200):m.start()]
-            assert "109차" in near or "오기" in near, (
-                f"{fname}에 전사 오기 `3,487,006,776`이 정정 표시 없이 남아 있다 "
-                f"— 원문은 `…773`이다(109차 계층 검산으로 확정)")
+
+    # 🔴23회차 레드팀 C2 — 2개 파일만 돌던 스캔을 **리포 전수**로 바꾼다.
+    #   초판은 `통합작업체계_…md`에 정정 없이 남은 오기를 통과시켰다.
+    bad = _uncorrected_hits("3,487,006,776")
+    assert not bad, (
+        f"전사 오기 `3,487,006,776`이 정정 표시 없이 남아 있다: {bad} "
+        f"— 원문은 `…773`이다(109차 계층 검산·23회차 원문 재확인)")
 
 
 def test_109cha_source_mapping_is_recorded():
@@ -3002,6 +3076,23 @@ def test_110cha_pumsem_chapter_range_and_missing_vinyl_cost_sheet():
             f"{fname}에서 비닐 공사원가계산서 **부재** 기록이 사라졌다 — "
             f"없다는 사실을 적어 두지 않으면 같은 탐색을 반복한다")
 
+    # 🔴23회차 C2 — 장 범위 오기도 리포 전수로 본다(초판은 2파일만 돌았다)
+    bad = _uncorrected_hits("제7장(원문 printed p.138~162)")
+    bad += _uncorrected_hits("제7장(원문 인쇄 p.138~162)")
+    assert not bad, (
+        f"`제7장(p.138~162)`을 **장 범위로** 쓰는 표기가 정정 없이 남아 있다: {bad} "
+        f"— 제7장은 인쇄 p.109~167이고 138~162는 제2·3절이다")
+
+    # 🔴23회차 C4/R6 — 부재 단정의 **검색 범위 병기**가 함께 살아 있어야 한다.
+    #   초판은 "인쇄되지 않았다"만 요구해서, 부재 단정의 유일한 방어선인
+    #   "제6장·부록 92쪽" 한계 문장을 지워도 green이었다(루브릭 R6 취지와 정반대).
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    for probe in ("제6장(인쇄 p.91~108)", "92쪽", "미열람"):
+        assert probe in reg, (
+            f"부재 단정의 검색 범위 병기에서 `{probe}`가 사라졌다 — 루브릭 R6는 "
+            f"\"병기 없는 부재 단정은 그 자체로 발견\"이라고 정한다. 110차는 이 92쪽을 "
+            f"열지 않고 부재를 단정했고 23회차가 사후에 열어 채웠다")
+
 
 def test_110cha_vinyl_chart_reconciles_with_table_7_11():
     """110차 — 인쇄되지 않은 원가계산서가 **존재했음**을 계산으로 뒷받침한다.
@@ -3010,23 +3101,34 @@ def test_110cha_vinyl_chart_reconciles_with_table_7_11():
     레벨이 다른데도 총액이 맞아떨어진다 — 즉 차트는 실재한 원가계산서에서 왔고
     인쇄만 누락된 것이다. 이 정합이 깨지면 둘 중 하나를 잘못 읽은 것이다.
     """
-    # <그림 7-21> 차트 라벨(백만원/ha)
-    chart = (1691, 473, 288, 147, 136, 274)   # 재료·노무·경비·일반관리·이윤·부가세
-    assert sum(chart) == 3009
+    # 🔴23회차 레드팀 C1 — 초판은 **파일을 하나도 읽지 않고** 테스트 내부 리터럴만
+    #   계산했다(`assert 843-477 == 366`은 상수 접힘이라 항상 참). 레지스트리의 차트
+    #   값을 훼손해도 PASS함을 변이 주입으로 확인했다. 이제 **기록에서 읽어** 검산한다 —
+    #   "테스트를 늘렸다"가 "보호를 늘렸다"는 뜻이 아니라는 것이 이 회차의 교훈이다.
+    import os as _o
+    import re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
 
-    # [표 7-11] 2021 온실품셈 열
-    jaeryo, jik_no, jik_gyeong, jaebiyul = 1691, 439, 43, 837
-    assert abs((jaeryo + jik_no + jik_gyeong + jaebiyul) - 3009) <= 1
+    # 기록에 남은 차트 합산식에서 숫자를 그대로 뽑아 온다
+    m = _re.search(r"1,691\+(\d+)\+(\d+)\+(\d+)\+(\d+)\+(\d+) = \*\*([\d,]+)\*\*", reg)
+    assert m, "레지스트리에서 비닐 차트 합산식을 찾지 못했다(기록이 지워졌거나 형식이 바뀌었다)"
+    parts = [1691] + [int(x) for x in m.groups()[:5]]
+    total = int(m.group(6).replace(",", ""))
+    assert sum(parts) == total, (parts, total)      # 기록된 합이 실제로 맞는가
+    assert total == 3009, total
 
-    # 차트에서 재비율을 역산하면 표와 ±1 안에서 만난다
-    back = (chart[1] - jik_no) + (chart[2] - jik_gyeong) + chart[3] + chart[4] + chart[5]
-    assert abs(back - jaebiyul) <= 1, (back, jaebiyul)
+    # [표 7-11] 재비율 역산이 기록된 값과 ±1 안에서 만나는가
+    m2 = _re.search(r"\((\d+)−(\d+)\)\+\((\d+)−(\d+)\)\+(\d+)\+(\d+)\+(\d+) = "
+                    r"\*\*(\d+)\*\*", reg)
+    assert m2, "레지스트리에서 재비율 역산식을 찾지 못했다"
+    g = [int(x) for x in m2.groups()]
+    assert (g[0] - g[1]) + (g[2] - g[3]) + g[4] + g[5] + g[6] == g[7], g
+    assert abs(g[7] - 837) <= 1, g[7]
 
-    # 원문 서술과의 대조 — 유리는 맞고 비닐 노무비만 어긋난다(110차 관찰)
-    assert 843 - 477 == 366          # 유리 노무비 감소, 원문 366
-    assert 492 - 330 == 162          # 유리 경비 감소, 원문 162
-    assert 377 - 288 == 89           # 비닐 경비 감소, 원문 89
-    assert 702 - 473 == 229          # 🔴 원문은 228이라 적었다 — [확인요망] 유지
+    # 🔴비닐 노무비만 어긋난다는 관찰이 기록에 살아 있는가([확인요망]의 근거)
+    assert "702−473" in reg and "228" in reg, (
+        "비닐 노무비 229 vs 원문 228 불일치 기록이 사라졌다 — 이것이 [확인요망]의 근거다")
 
 if __name__ == "__main__":
     import sys, traceback
