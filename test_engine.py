@@ -3220,6 +3220,45 @@ def test_114cha_pumsem_scope_limits_are_recorded():
         "(인쇄 p.72·109·171)에서 확인됐지만 **정책 기준단가는 시세성**이고 "
         "2021-12 기준이라 현행 여부를 확인할 수 없다. 등재는 ★사용자 결정 사안이다")
 
+def test_115cha_pumsem_standard_design_is_recorded():
+    """115차 — 품셈 표준설계의 **면적·형식 구성**을 기록에 고정한다.
+
+    114차는 p.109의 총괄 서술만 읽고 64계수 전부의 전제를 `벤로타입 1헥타르`라
+    적었다. p.112를 열어 보니 비닐은 **연동형**이고, `1헥타르`도 유리 9,792㎡
+    (0.98ha)·비닐 10,106㎡다. 요약만 읽고 전제를 단정한 자리라 사실을 못 박는다.
+
+    특히 두 값은 이 리포가 오래 다툰 문제에 직접 걸린다 —
+      · 관리동 1,152㎡(11.8%)가 **포함**돼 있다(TOTAL_PYEONG_PRICE 괴리 원인 후보)
+      · 방풍실 314㎡는 **비닐에만** 있고 유리↔비닐 면적차 전부다(ACTUALS 방풍 논쟁)
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+
+    for probe, why in (
+        ("연동형", "비닐온실의 설계모델(벤로타입이 아니다)"),
+        ("9,792", "유리온실 연면적 — 1ha가 아니라 0.98ha"),
+        ("10,106", "비닐온실 연면적"),
+        ("방풍실", "비닐에만 있는 314㎡ — ACTUALS 방풍 논쟁과 직결"),
+        ("1,152", "관리동 면적 — 표준설계에 포함돼 있다"),
+    ):
+        assert probe in reg, (
+            f"품셈 표준설계 제원에서 `{probe}`가 사라졌다 — {why}. "
+            f"요약(p.109)만 읽으면 `벤로타입 1헥타르`로 단정하게 된다(114차가 그랬다)")
+
+    # 면적 구성이 실제로 맞아떨어지는가 — 기록이 자기정합인지 계산으로 확인
+    유리 = 4608 + 4032 + 1152
+    assert 유리 == 9792, 유리
+    assert 유리 + 314 == 10106, 유리 + 314      # 차이 전부가 방풍실
+    assert round(1152 / 9792 * 100, 1) == 11.8   # 관리동 비중
+
+    # 표준설계 면적은 **엔진 상수가 아니다**(케이스 데이터가 아니라 원문 제원)
+    import smartfarm_engine as _e
+    for attr in ("PUMSEM_STANDARD_AREA_M2", "PUMSEM_STANDARD_DESIGN"):
+        assert not hasattr(_e, attr), (
+            f"{attr}: 품셈 표준설계 제원이 엔진 상수로 올라왔다 — 이것은 원문의 "
+            f"설계모델이지 이 리포의 케이스 데이터가 아니다. 등재는 ★사용자 결정이다")
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
