@@ -20,6 +20,22 @@ from chunking_lib_v2 import (
 )
 
 
+# ─────────────────────────────────────────────────────────────
+# 112차 — 픽스처의 드라이브 문자를 `E:` → `C:`로 옮긴다(2026-09-14).
+#   종전엔 `r"E:\FarmingDesign\가상.pdf"`였는데, 작업 폴더가
+#   `C:\FarmingDesign`으로 옮겨지자 `ChunkWriter`/`GroupEmitter` 안의
+#   `os.path.relpath(path, ROOT)`가
+#   `ValueError: path is on mount 'E:', start on mount 'C:'`로 터졌다(7건 실패).
+#
+#   📌**사용자 결정(2026-09-14): 리터럴 `C:\FarmingDesign`으로 고정한다.**
+#     초안은 `ROOT` 기준 헬퍼였으나 사용자가 경로 표기를 명시적으로 지정했다.
+#   ⚠️**알려진 트레이드오프**: 작업 폴더가 다른 드라이브로 옮겨지면 **이 4곳을
+#     다시 고쳐야 한다**(같은 `ValueError`가 재발한다). 그때는 이 주석을 보고
+#     81·189·362·381행의 드라이브 문자를 바꾸면 된다 — 네 경로 모두
+#     **실재하지 않는 가짜 파일명**이라 리포 위치와 무관하게 의미가 보존된다.
+# ─────────────────────────────────────────────────────────────
+
+
 def test_dependencies_all_present_in_current_env():
     # 현재 환경에 필수 파서 6종이 전부 있어야 한다 — 하나라도 없으면
     # 다음 청킹 실행이 조용히 열화되므로, 이 테스트 실패 = 즉시 pip install 신호.
@@ -78,7 +94,7 @@ def test_count_guard_env_var_override(tmp_path, monkeypatch):
 def _emit(rows):
     """rows: [(row_id, text, is_header)] → (전체 청크, 그룹들, 행들)"""
     w = ChunkWriter()
-    ge = GroupEmitter(w, "테스트", "공사비내역서", r"E:\FarmingDesign\가상.pdf")
+    ge = GroupEmitter(w, "테스트", "공사비내역서", r"C:\FarmingDesign\가상.pdf")
     for rid, text, is_hdr in rows:
         if is_hdr:
             ge.header_row(rid, text)
@@ -186,7 +202,7 @@ def test_xls_lenient_loader_reads_damaged_file_and_restores_xlrd():
 
 def test_xls_lenient_loader_none_for_nonexistent():
     from chunking_lib_v2 import _xls_sheets_lenient
-    assert _xls_sheets_lenient(r"E:\FarmingDesign\없는파일_zzz.xls") is None
+    assert _xls_sheets_lenient(r"C:\FarmingDesign\없는파일_zzz.xls") is None
 
 
 # ── P2-14 매니페스트(4상태 diff) · 오버레이 (2026-08-17) ──────────────────
@@ -359,7 +375,7 @@ def test_domain_b_engine_expect_after_expansion():
 def test_chunkwriter_adds_domain_tags_and_preserves_tag_text():
     from chunking_lib_v2 import ChunkWriter
     w = ChunkWriter()
-    rec = w.add("t", "시방서", None, r"E:\FarmingDesign\x.pdf", "p1",
+    rec = w.add("t", "시방서", None, r"C:\FarmingDesign\x.pdf", "p1",
                 "분전반 배선 및 보온커튼 개폐모터 설치", section_context="3. 전기공사")
     assert "전기" in rec["domain_tags_B"] and "구동" in rec["domain_tags_B"]
     assert rec["_tag_text"].startswith("3. 전기공사")  # 재태깅용 원문(섹션 포함) 보존
@@ -378,7 +394,7 @@ def test_group_rows_suppress_both_tag_layers():
 def test_write_outputs_strips_tag_text_from_index(tmp_path):
     from chunking_lib_v2 import ChunkWriter, write_outputs
     w = ChunkWriter()
-    w.add("t", "시방서", None, r"E:\FarmingDesign\x.pdf", "p1", "골조 기초 공사")
+    w.add("t", "시방서", None, r"C:\FarmingDesign\x.pdf", "p1", "골조 기초 공사")
     jsonl = tmp_path / "idx.jsonl"
     write_outputs(w, str(jsonl), str(tmp_path / "sum.txt"))
     rec = json.loads(jsonl.read_text(encoding="utf-8").splitlines()[0])

@@ -28,7 +28,7 @@
 ## 환경 특성 (반복 확인됨)
 - pip 패키지가 세션 간 유실된다(xlrd 2회, pdfplumber 등). 파서·웹앱 작업 전 test_chunking_v2/test_webapp가
   의존성 가드 역할 — importorskip으로 조용히 skip되므로 skip 수를 확인할 것
-- git dubious ownership 시: git config --global --add safe.directory E:/FarmingDesign
+- git dubious ownership 시: git config --global --add safe.directory C:/FarmingDesign
 
 ## 작업 관례
 - 과제 1건 = 차수 1개 = 커밋 1개. 작업지시서 "갱신 이력" 맨 위에 항목 추가(검증한 것/안 한 것 명시) + 헤더 최종 갱신 한 줄 교체
