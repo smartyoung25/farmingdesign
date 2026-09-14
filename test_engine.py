@@ -2977,6 +2977,57 @@ def test_109cha_source_mapping_is_recorded():
     ):
         assert probe in reg, f"109차 출처 매핑에서 `{probe}`가 사라졌다 — {why}"
 
+def test_110cha_pumsem_chapter_range_and_missing_vinyl_cost_sheet():
+    """110차 — 인용의 **이름**과 **부재 사실**을 함께 고정한다.
+
+    ①범위: 이 리포는 오래 `제7장(원문 인쇄 p.138~162)`이라 적어 왔는데 목차를 보면
+      **제7장은 인쇄 p.109~167**이고 138~162는 제2·3절(품셈 산정)의 범위다.
+      전사한 64개 품목이 온 자리는 맞았으나 **이름이 틀렸다** — 다음 사람이 장 전체를
+      본 줄 알면 안 된다.
+
+    ②부재: 비닐 `공사원가계산서`는 **보고서에 인쇄되지 않았다**(인쇄 p.164는 상·하단
+      둘 다 「공종별집계표」, 제7장은 p.167에서 끝, 부록 p.273은 표지뿐).
+      **이 사실이 기록에서 사라지면 108차 [확인요망]을 또 찾아 나서게 된다.**
+
+    근거: 근거_비닐원가계산서_부재확정_20260914.md
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    for fname in ("smartfarm_engine.py", "엔진데이터_레지스트리.json"):
+        src = open(_o.path.join(repo, fname), encoding="utf-8").read()
+        assert "p.109~167" in src, (
+            f"{fname}에서 제7장의 **실제 범위**(인쇄 p.109~167)가 사라졌다 — "
+            f"`p.138~162`는 제2·3절이지 장 전체가 아니다(110차 목차 확인)")
+        assert "인쇄되지 않았다" in src, (
+            f"{fname}에서 비닐 공사원가계산서 **부재** 기록이 사라졌다 — "
+            f"없다는 사실을 적어 두지 않으면 같은 탐색을 반복한다")
+
+
+def test_110cha_vinyl_chart_reconciles_with_table_7_11():
+    """110차 — 인쇄되지 않은 원가계산서가 **존재했음**을 계산으로 뒷받침한다.
+
+    비닐 차트(원가계산서 기준 6항목)와 [표 7-11](직접비 3항목 + 재비율)은 집계
+    레벨이 다른데도 총액이 맞아떨어진다 — 즉 차트는 실재한 원가계산서에서 왔고
+    인쇄만 누락된 것이다. 이 정합이 깨지면 둘 중 하나를 잘못 읽은 것이다.
+    """
+    # <그림 7-21> 차트 라벨(백만원/ha)
+    chart = (1691, 473, 288, 147, 136, 274)   # 재료·노무·경비·일반관리·이윤·부가세
+    assert sum(chart) == 3009
+
+    # [표 7-11] 2021 온실품셈 열
+    jaeryo, jik_no, jik_gyeong, jaebiyul = 1691, 439, 43, 837
+    assert abs((jaeryo + jik_no + jik_gyeong + jaebiyul) - 3009) <= 1
+
+    # 차트에서 재비율을 역산하면 표와 ±1 안에서 만난다
+    back = (chart[1] - jik_no) + (chart[2] - jik_gyeong) + chart[3] + chart[4] + chart[5]
+    assert abs(back - jaebiyul) <= 1, (back, jaebiyul)
+
+    # 원문 서술과의 대조 — 유리는 맞고 비닐 노무비만 어긋난다(110차 관찰)
+    assert 843 - 477 == 366          # 유리 노무비 감소, 원문 366
+    assert 492 - 330 == 162          # 유리 경비 감소, 원문 162
+    assert 377 - 288 == 89           # 비닐 경비 감소, 원문 89
+    assert 702 - 473 == 229          # 🔴 원문은 228이라 적었다 — [확인요망] 유지
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
