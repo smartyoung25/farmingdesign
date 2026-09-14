@@ -3897,6 +3897,56 @@ def test_124cha_daily_trade_mix_and_ratios():
         assert probe in reg, (
             f"124차 직종 구성 기록에서 `{probe}`가 사라졌다 — {why}")
 
+def test_125cha_pumsem_64_reextracted_from_pdf_textlayer():
+    """125차 — 64계수를 **원문 PDF 텍스트층에서 기계 재추출**해 엔진과 대조한다.
+
+    113차는 25쪽을 렌더링해 **육안**으로 64종을 전수 대조했다. 그 대조는 사람이
+    한 번 한 것이라 **되돌려 확인할 수 없었다** — 24회차 레드팀이 이 구간에
+    Type0 텍스트층이 살아 있음을 찾아내면서 길이 열렸고, 125차가 그것을
+    `pumsem_extract.py`로 상시화했다.
+
+    이 테스트가 green인 한 **엔진의 64계수는 원문과 같다**. 누가 값을 고치면
+    (원문을 함께 고치지 않는 한) 여기서 잡힌다.
+
+    ⚠️ 의존성(pdfplumber·fontTools·pypdf)이나 시스템 Batang/Gulim이 없으면 skip한다 —
+    이 환경은 pip 패키지가 세션 간 유실되므로(CLAUDE.md) skip 수를 꼭 확인할 것.
+    """
+    import pytest
+    pytest.importorskip("pdfplumber")
+    pytest.importorskip("fontTools")
+    pytest.importorskip("pypdf")
+    import pumsem_extract as px
+
+    try:
+        rows = px.extract_all()
+    except px.FontsUnavailable as exc:
+        pytest.skip("시스템 Batang/Gulim 없음: %s" % exc)
+
+    assert len(rows) == 64, "원문에서 뽑은 품목 수가 64가 아니다: %d" % len(rows)
+
+    # 엔진을 **원문 차례**로 정렬한다(선언 순서는 다르다 — 120차 ⑦)
+    expected = []
+    for cat, _, _ in px.SECTION_PAGES:
+        items = [x for x in e.PUMSEM_ITEMS if x.category == cat]
+        for n, x in enumerate(items, 1):
+            expected.append((cat, n, x.name,
+                             list(x.labor_per_unit.values())
+                             + list(x.equipment_hours_per_unit.values())))
+    assert len(expected) == 64
+
+    bad = []
+    for (cat1, no1, name, want), (cat2, no2, got) in zip(expected, rows):
+        if (cat1, no1) != (cat2, no2) or want != got:
+            bad.append("%s %d %s: 엔진=%s 원문=%s" % (cat1, no1, name, want, got))
+    assert not bad, "원문과 어긋난다(%d건)\n" % len(bad) + "\n".join(bad)
+
+    # 원문에서 뽑은 값의 범위가 엔진과 같은가(파서가 엉뚱한 숫자를 주웠는지 본다)
+    flat = sorted(v for _, _, vals in rows for v in vals)
+    eng_flat = sorted(v for x in e.PUMSEM_ITEMS
+                      for v in list(x.labor_per_unit.values())
+                      + list(x.equipment_hours_per_unit.values()))
+    assert flat == eng_flat, (len(flat), len(eng_flat), flat[:3], flat[-3:])
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
