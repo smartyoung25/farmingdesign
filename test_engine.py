@@ -3130,6 +3130,63 @@ def test_110cha_vinyl_chart_reconciles_with_table_7_11():
     assert "702−473" in reg and "228" in reg, (
         "비닐 노무비 229 vs 원문 228 불일치 기록이 사라졌다 — 이것이 [확인요망]의 근거다")
 
+def test_113cha_pumsem_items_were_verified_against_the_source():
+    """113차 — 64종 **전수** 원문 대조 결과를 고정한다.
+
+    23회차 레드팀이 「확인 불가」에 남긴 최대 미확인이었다(61종 미대조).
+    인쇄 p.138~162 25쪽을 렌더링해 육안 대조했고 불일치 0건이었다.
+
+    여기서 막는 것은 **구조의 침식**이다 — 전수 대조가 성립하려면 64종·9공종이
+    유지돼야 하고, 값이 바뀌면 대조 기록이 거짓이 된다.
+    """
+    import os as _o
+    import collections as _c
+    items = e.PUMSEM_ITEMS
+    assert len(items) == 64, f"64종 전수 대조 기록과 어긋난다: {len(items)}종"
+
+    cnt = _c.Counter(x.category for x in items)
+    assert cnt == {
+        "철골공사": 9, "온실피복공사": 4, "천창개폐장치공사": 13,
+        "알루미늄공사": 6, "수평스크린공사": 13, "측벽스크린공사": 6,
+        "행잉거터공사": 6, "철골공사(비닐·파이프자재)": 5, "온실피복공사(비닐)": 2,
+    }, cnt
+
+    # 🔴원문이 `철근공`인 4건 — 91차는 3건으로 적었고 113차가 삼각대를 찾았다.
+    #   "오기로 보이니 고치자"가 반복될 자리라 원문 사실로 못 박는다.
+    steel_bar = sorted(x.name for x in items
+                       if "철근공" in x.labor_per_unit)
+    assert steel_bar == sorted([
+        "예인로라·가이드로라", "스크린바가스켓", "스크린체인웨이트", "삼각대",
+    ]), (f"원문이 `철근공`으로 적은 품목이 바뀌었다: {steel_bar}. "
+         f"원문 인쇄 p.152·153·154·158에서 직접 확인했다 — 임의로 `철골공`으로 "
+         f"고치지 말 것(91차·113차)")
+
+    # 품목명 재사용 4쌍은 공종마다 값이 **다르다** — (공종,품목명) 키 설계의 근거
+    by = {(x.category, x.name): x for x in items}
+    for a, b, label in (
+        (("천창개폐장치공사", "모터설치대"), ("수평스크린공사", "모터설치대"), "모터설치대"),
+        (("철골공사", "턴버클"), ("행잉거터공사", "턴버클"), "턴버클"),
+        (("수평스크린공사", "스크린개폐모터"), ("측벽스크린공사", "스크린개폐모터"),
+         "스크린개폐모터"),
+    ):
+        assert a in by and b in by, (a, b)
+        assert by[a].labor_per_unit != by[b].labor_per_unit, (
+            f"{label}: 두 공종의 값이 같아졌다 — 원문은 서로 다르게 적는다. "
+            f"품목명 단독 키로 되돌리면 한쪽이 덮인다(91차·113차)")
+
+    # 대조 기록이 레지스트리에 살아 있는가
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    for probe in ("64종 원문 전수 대조", "불일치 0건", "삼각대"):
+        assert probe in reg, f"113차 전수 대조 기록에서 `{probe}`가 사라졌다"
+
+    # 🔴엔진에 없는 원문 계수 3종 — 이 값들이 조용히 상수로 들어오지 않았는지
+    #   (비용 산정은 이 엔진의 스코프 밖이다 — 등재는 ★사용자 결정)
+    assert not hasattr(e, "PUMSEM_TOOL_LOSS_RATE"), (
+        "공구손료율(인력품의 2~3%)이 상수로 등재됐다 — 원문은 **품목 단위로 다르고** "
+        "일부 품목엔 아예 없다. 단일 상수로 뭉치면 원문이 말하지 않은 것을 말하게 된다"
+        "(113차). 등재는 ★사용자 결정 사안이다")
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
