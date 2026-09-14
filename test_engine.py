@@ -3259,6 +3259,44 @@ def test_115cha_pumsem_standard_design_is_recorded():
             f"{attr}: 품셈 표준설계 제원이 엔진 상수로 올라왔다 — 이것은 원문의 "
             f"설계모델이지 이 리포의 케이스 데이터가 아니다. 등재는 ★사용자 결정이다")
 
+def test_116cha_pumsem_observation_source_is_recorded():
+    """116차 — 64계수가 **어디서 관측됐는지**를 기록에 고정한다.
+
+    품셈은 단일 현장(부여군 가월리)의 일일 실측에서 나왔다 — 원문이 `매공마다
+    조사인력을 파견하여 투입인원 장비등을 조사`라 적는다. 총 2,033 인·일이
+    전부이고, 그 사실이 계수의 **정밀도 한계**를 규정한다.
+
+    그리고 공사일보에는 `철근공`이 별도 직종으로 48 인·일 관측돼 있다 —
+    품셈의 `철근공` 4건을 `오기로 보이니 철골공으로 고치자`고 할 근거가
+    이것으로 더 약해진다(91차 의심 → 113차 원문 확인 → 116차 관측 확인).
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+
+    for probe, why in (
+        ("부여군 가월리", "관측 현장 — 단일 현장이다"),
+        ("2,033", "총 투입 인·일(계수의 표본 크기)"),
+        ("온실공", "품셈 `철골공`의 실체"),
+        ("철근공 48", "`철근공`이 관측된 별개 직종이라는 근거"),
+        ("수량 열이 없다", "계수 유도를 재현할 수 없는 이유(분모 부재)"),
+    ):
+        assert probe in reg, (
+            f"공사일보 관측 기록에서 `{probe}`가 사라졌다 — {why}. "
+            f"이것이 없으면 64계수가 어디서 왔는지 다시 300쪽을 뒤지게 된다")
+
+    # 원문에서 읽은 누계가 자기정합인가 — 직종 14종 합 = 계
+    labor = [517, 2, 12, 132, 48, 23, 77, 11, 42, 166, 243, 276, 353, 131]
+    assert sum(labor) == 2033, sum(labor)
+    assert sum([90, 25, 1, 181, 343]) == 640
+
+    # 관측 총량은 **엔진 상수가 아니다**(품셈의 근거이지 케이스 데이터가 아니다)
+    import smartfarm_engine as _e
+    for attr in ("PUMSEM_OBSERVED_LABOR_DAYS", "PUMSEM_SURVEY_SITE"):
+        assert not hasattr(_e, attr), (
+            f"{attr}: 공사일보 관측 총량이 엔진 상수로 올라왔다 — 이것은 품셈이 "
+            f"만들어진 근거이지 이 리포가 계산에 쓰는 값이 아니다(★사용자 결정)")
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
