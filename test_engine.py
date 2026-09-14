@@ -3598,15 +3598,34 @@ def test_121cha_phase_labor_split_and_rebar_absence():
     assert "특별인부" not in trades["천창개폐장치공사"]
     assert delta(7, 3) == 0, "천장개폐 구간의 특별인부는 0이다"
 
-    # ✅ 118차 역산의 독립 검증 — 유리공으로 구한 물량이 조력공 관측을 설명한다
+    # ⚖️ 조력공 직종비 검산 — 🔴24회차 레드팀 F1: **물량과는 무관하다**
+    #   종전 이 자리는 "118차 역산의 독립 검증"이라 적었는데 틀렸다. 예측에 쓰는
+    #   물량 6,800·3,000 자체가 관측 유리공÷계수라 식에서 **물량이 소거된다** —
+    #   검증되는 것은 품셈 표 내부의 **직종비**뿐이고 역산 물량의 타당성이 아니다.
     coef = {(x.category, x.name): x.labor_per_unit for x in e.PUMSEM_ITEMS}
-    roof_m2, side_m2 = 6800, 3000            # 118차 역산(유리공 136·30 ÷ 계수)
-    pred = (coef[("온실피복공사", "천창유리")]["조력공"] * roof_m2
-            + coef[("온실피복공사", "측면강화유리")]["조력공"] * side_m2)
-    assert pred == 80
+    roof_g, side_g = 136, 30                 # 관측 유리공(118차 분해)
+    c_roof = coef[("온실피복공사", "천창유리")]
+    c_side = coef[("온실피복공사", "측면강화유리")]
+
+    def predict(scale):
+        """역산 물량에 임의 배율을 걸어도 예측이 같은가 — 물량 소거의 증명."""
+        roof_m2 = roof_g / c_roof["유리공"] * scale
+        side_m2 = side_g / c_side["유리공"] * scale
+        # 유리공도 같은 배율로 관측됐다고 두어야 같은 역산이다
+        return (c_roof["조력공"] * roof_m2 + c_side["조력공"] * side_m2) / scale
+
+    assert predict(1) == 80
+    for scale in (0.5, 2, 10):
+        assert predict(scale) == predict(1), scale   # 🔴 물량이 소거된다
+
+    # 남는 것은 직종비뿐이다 — 136×(0.01/0.02) + 30×(0.004/0.01)
+    ratio_only = (roof_g * (c_roof["조력공"] / c_roof["유리공"])
+                  + side_g * (c_side["조력공"] / c_side["유리공"]))
+    assert ratio_only == 80, ratio_only
+
     observed = delta(5, 2)                   # 피복 구간 조력공
     assert observed == 78
-    assert abs(pred - observed) / pred < 0.03, (pred, observed)
+    assert abs(ratio_only - observed) / ratio_only < 0.03, (ratio_only, observed)
 
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
@@ -3656,9 +3675,16 @@ def test_122cha_daily_headcount_and_missing_logs():
     }
     MISSING = 20            # 2021-05-18·19·20 — 일보가 없는 구간의 인·일
 
+    # 🔴24회차 F4: "13공종 전부 일치"는 부정확하다 — 12공종은 그대로 일치하고
+    #   행잉거터만 누락 3일분 20을 보정해야 맞는다.
+    exact, corrected = [], []
     for name, days in DAILY.items():
-        got = sum(days) + (MISSING if name == "행잉거터" else 0)
-        assert got == FROM_121[name], (name, got, FROM_121[name])
+        if sum(days) == FROM_121[name]:
+            exact.append(name)
+        else:
+            corrected.append(name)
+            assert sum(days) + MISSING == FROM_121[name], (name, sum(days))
+    assert len(exact) == 12 and corrected == ["행잉거터"], (len(exact), corrected)
 
     # 총계가 118차 정정값 2,040과 맞는다
     assert sum(sum(v) for v in DAILY.values()) + MISSING == 2040
@@ -3672,12 +3698,17 @@ def test_122cha_daily_headcount_and_missing_logs():
     for name in ("철골", "알루미늄②", "측벽스크린"):
         assert len(set(DAILY[name])) == 1, (name, sorted(set(DAILY[name])))
 
-    # 🎯 품셈 7공종의 실측 평균이 원문 "10~15명" 구간에 들어간다
+    # 🎯 품셈 7공종의 실측 평균이 원문 "10~15명" 구간에 들어간다 — **기록분 기준**
+    #   🔴24회차 F5: 행잉거터는 누락 3일(20 인·일)이 그 구간 안이라, 보정하면
+    #   9.4(3일 다 작업)까지 내려가 **구간을 벗어난다**. 조건부 진술임을 고정한다.
     PUMSEM_PHASES = ("철골", "알루미늄①", "알루미늄②", "피복",
                      "천창개폐", "수평스크린", "측벽스크린", "행잉거터")
     for name in PUMSEM_PHASES:
         avg = sum(DAILY[name]) / len(DAILY[name])
         assert 10 <= avg <= 15, (name, round(avg, 1))
+    hang = FROM_121["행잉거터"]                       # 141 = 기록 121 + 누락 20
+    assert round(hang / (len(DAILY["행잉거터"]) + 3), 1) == 9.4    # 3일 다 작업 → 이탈
+    assert round(hang / (len(DAILY["행잉거터"]) + 1), 1) == 10.8   # 1일만 작업 → 구간 안
     man_days = sum(sum(DAILY[n]) for n in PUMSEM_PHASES)
     work_days = sum(len(DAILY[n]) for n in PUMSEM_PHASES)
     assert man_days == 1235 and work_days == 104
@@ -3705,6 +3736,61 @@ def test_122cha_daily_headcount_and_missing_logs():
     ):
         assert probe in reg, (
             f"122차 일별 판독 기록에서 `{probe}`가 사라졌다 — {why}")
+
+def test_123cha_redteam24_corrections_are_recorded():
+    r"""123차 — 레드팀 24회차(112~122차 누적)의 정정이 기록에 고정돼 있는가.
+
+    발견 14건 중 **12건 타당 · 2건 거짓 양성**이었다. 가장 중요한 것은 [상] 2건:
+
+    · **F1** — 121차가 *"118차 역산의 독립 검증"*이라 적은 조력공 검산은 **물량이
+      식에서 소거**되므로 역산 물량의 검증이 아니다(위 121차 가드에서 배율 불변으로
+      증명한다). 문서·엔진 주석·레지스트리·작업지시서 **4곳에 전파**돼 있었다.
+    · **F2** — 작업지시서 2절 스냅샷이 *"112차가 ROOT 기준으로 바꿔 … 재발하지
+      않는다"*고 적었으나 **폐기된 초안**이다. 실제로는 사용자가 리터럴로 확정했고
+      `test_chunking_v2.py`는 리터럴 `C:\FarmingDesign`을 쓴다 — **드라이브 이동 시
+      재발한다**. 2절은 44차 F1이 유지 절차를 못 박은 **살아 있는 스냅샷**이라
+      틀린 채로 두면 다음 이동 때 게이트가 다시 빨개진다.
+
+    거짓 양성 2건(F6 스트립 범위 표기 · F13 함평 명칭)은 둘 다 에이전트가 **텍스트층이
+    없는 구간을 읽지 못해** 생겼다 — 루브릭 개정 근거로 남긴다.
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+
+    # F2 — 픽스처는 리터럴이고, 2절은 그 사실을 말해야 한다
+    chunk = open(_o.path.join(repo, "test_chunking_v2.py"), encoding="utf-8").read()
+    assert chunk.count(r"C:\FarmingDesign") >= 4, "픽스처 4곳이 리터럴이 아니다"
+    assert "사용자 결정(2026-09-14): 리터럴" in chunk, (
+        "픽스처 상단의 사용자 결정 주석이 사라졌다 — 112차 ③")
+
+    order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
+    assert "다음 이동에도 재발하지 않는다" not in order, (
+        "2절 스냅샷에 폐기된 초안(ROOT 기준)이 되살아났다 — 24회차 F2")
+    assert "드라이브를 또 옮기면 이 4곳이 다시 깨진다" in order, (
+        "2절에서 드라이브 이동 시 재발 경고가 사라졌다 — 24회차 F2")
+
+    # F1 — 4곳 전파분이 전부 정정된 상태인가
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    engine = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    doc = open(_o.path.join(repo, "근거_공사일보_공종별배분_20260914.md"),
+               encoding="utf-8").read()
+    for text, where in ((reg, "레지스트리"), (engine, "엔진 주석"),
+                        (doc, "121차 문서"), (order, "작업지시서")):
+        assert "역산 물량의 자기정합성이 한 단계 올라간다" not in text, (
+            f"{where}에 24회차 F1이 반증한 주장이 되살아났다")
+        assert "소거" in text, (
+            f"{where}에서 '물량이 소거된다'는 F1의 핵심이 사라졌다")
+
+    # F4·F5 — 조건부 진술의 단서
+    for probe, why in (
+        ("12공종", "F4 — 13공종 전부 일치가 아니다"),
+        ("9.4", "F5 — 행잉거터 누락 보정 시 구간 이탈"),
+    ):
+        assert probe in reg, f"24회차 기록에서 `{probe}`가 사라졌다 — {why}"
+
+    # 거짓 양성 2건이 루브릭 개정 근거로 남아 있는가
+    for probe in ("거짓 양성", "F6", "F13"):
+        assert probe in reg, f"24회차 거짓 양성 기록에서 `{probe}`가 사라졌다"
 
 if __name__ == "__main__":
     import sys, traceback
