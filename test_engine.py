@@ -4086,6 +4086,52 @@ def test_127cha_pumsem_notes_conditions_and_defects():
         assert probe in reg, (
             f"127차 [주] 기록에서 `{probe}`가 사라졌다 — {why}")
 
+def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
+    """128차 — 원문 대조 가드 3종이 **조용히 통과하지 않고 skip**되는가.
+
+    125~127차 가드는 "엔진 64계수·제원 표·[주] 적용 조건이 원문과 같다"를 보증한다.
+    그런데 이 환경은 **pip 패키지가 세션 간 유실**되고(CLAUDE.md), 시스템 Batang/Gulim이
+    없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
+
+    🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **288 passed가 아니라
+    285 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
+
+    이 테스트는 두 가지를 고정한다:
+      · 세 가드가 폰트 부재 시 **예외가 아니라 skip**으로 끝난다(조용한 통과도 아니다)
+      · 2절 스냅샷에 **skip 시 기대치**가 적혀 있다
+    """
+    import pytest
+    pytest.importorskip("pdfplumber")
+    pytest.importorskip("fontTools")
+    pytest.importorskip("pypdf")
+    import pumsem_extract as px
+
+    def boom(*a, **k):
+        raise px.FontsUnavailable("128차 테스트 — 시스템 폰트가 없는 상황을 흉내낸다")
+
+    monkeypatch.setattr(px, "_system_index", boom)
+
+    guards = (
+        test_125cha_pumsem_64_reextracted_from_pdf_textlayer,
+        test_126cha_spec_tables_reextracted_from_pdf,
+        test_127cha_pumsem_notes_conditions_and_defects,
+    )
+    for fn in guards:
+        with pytest.raises(BaseException) as caught:
+            fn()
+        assert caught.type.__name__ == "Skipped", (
+            f"{fn.__name__}: 폰트가 없을 때 skip이 아니라 {caught.type.__name__}으로 "
+            f"끝났다 — 조용히 통과하거나 게이트를 깨뜨린다")
+
+    # 2절 스냅샷이 skip 시 기대치를 적고 있는가
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
+    assert "285 passed + 3 skipped" in order, (
+        "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
+        "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
