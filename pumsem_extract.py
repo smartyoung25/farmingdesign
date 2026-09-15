@@ -53,6 +53,10 @@ class FontsUnavailable(RuntimeError):
     """시스템 Batang/Gulim이 없어 cid→유니코드 복원을 할 수 없다."""
 
 
+class AmbiguousGlyph(RuntimeError):
+    """한 글리프 아웃라인이 여러 유니코드에 대응한다 — 조용히 고르지 않는다(25회차 F11)."""
+
+
 def _outline_sig(glyphset, gname):
     from fontTools.pens.recordingPen import RecordingPen
 
@@ -100,8 +104,14 @@ def _map_for_fontfile(data: bytes):
         if sig is None:
             continue
         hit = sysidx.get(sig)
-        if hit:
-            mp[gid] = sorted(hit)[0]              # 모호 0건이 실측(24회차·125차)
+        if not hit:
+            continue
+        if len(hit) > 1:
+            # 🔴25회차 F11: 모호하면 **조용히 하나를 고르지 않는다**. 시스템 인덱스
+            #   자체에는 모호 항목이 130개 있고(`\` vs `₩` 등), 폰트 버전이 다른
+            #   기계에서 이 경로가 열린다. 현 환경 실측은 **모호 0건**이므로 동작 불변.
+            raise AmbiguousGlyph("gid=%d 후보=%s" % (gid, sorted(hit)))
+        mp[gid] = next(iter(hit))
     return mp
 
 
@@ -244,6 +254,65 @@ def extract_tables():
     return out
 
 
+# 인력 줄의 직종 토큰은 한글이 일부만 복원되지만 **서로 구분된다**(129차 실측):
+#   `??공`=철골공(54) · `조력공`(42) · `특?인부`(15) · `보통인부`(5) ·
+#   `?근공`(4) · `유리공`(2) · `내장공`(2). 세로쓰기 낱글자가 앞에 붙는 경우가 있다.
+# → 91차부터 [확인요망]으로 끌어온 "원문이 정말 철근공이라 적는가"를 **기계로 답할 수 있다**
+#   ('근'이 복원되고, 품셈에 '근'이 들어가는 다른 직종이 없다).
+_TRADE_RULES = (
+    ("철근공", lambda s: "근공" in s),
+    ("조력공", lambda s: "조력공" in s),
+    ("유리공", lambda s: "유리공" in s),
+    ("내장공", lambda s: "내장공" in s),
+    ("보통인부", lambda s: "보통인부" in s),
+    ("특별인부", lambda s: "인부" in s),
+    ("철골공", lambda s: s.endswith("공")),
+)
+_LABOR_LINE = re.compile(r"^(.{2,8}?)-인[\d.]+$")
+
+
+def trade_of(token):
+    """복원된 직종 토큰 → 엔진 직종명. 판별 못 하면 None."""
+    for name, test in _TRADE_RULES:
+        if test(token):
+            return name
+    return None
+
+
+def extract_labor_trades():
+    """(공종, 순번, [직종명]) — 인력 줄의 직종을 원문 순서대로.
+
+    125차는 계수 **값**만 대조해서, 값이 같고 직종만 다른 품목을 구분하지 못했다
+    (25회차 F7: 수평스크린 `예인로라·가이드로라`(철근공)와 `구동2축`(철골공)은
+    값이 같아 서로 바꿔도 통과한다). 이 함수가 그 구멍을 메운다.
+    """
+    import pdfplumber
+    from pypdf import PdfReader
+
+    _system_index()
+    out = []
+    reader = PdfReader(PDF_PATH)
+    with pdfplumber.open(PDF_PATH) as pdf:
+        for cat, lo, hi in SECTION_PAGES:
+            per_item, cur = [], None
+            for pp in range(lo, hi + 1):
+                for text in page_lines(pdf, reader, pp):
+                    if "분" in text and "위" in text and text.count("수") >= 1:
+                        cur = []
+                        per_item.append(cur)
+                        continue
+                    if cur is None or text.startswith("[주]"):
+                        continue
+                    m = _LABOR_LINE.match(text)
+                    if m:
+                        name = trade_of(m.group(1))
+                        if name:
+                            cur.append(name)
+            for n, trades in enumerate(per_item, 1):
+                out.append((cat, n, trades))
+    return out
+
+
 def extract_notes():
     """64품목의 **[주] 항목**을 공종·순번별로 뽑는다.
 
@@ -296,6 +365,23 @@ NOTE_RULES = {
     "장비8시간": "8시간",         # "현장투입된 장비는 하루 8시간 작업 기준 …"
     "재료량설계수량": "설계수",     # "재료량은 설계수량을 적용한다"
 }
+_RATE = re.compile(r"(\d+)%")
+
+
+def rate_rules(rows=None):
+    """{요율: [(공종, 순번)]} — 원문의 요율 규정은 **3종**이다(129차/25회차 F2).
+
+    127차는 3%만 보고 *"3%가 26품목에만 붙는다"*고 적었는데, 원문에는
+    **공구손료 2%(4품목)·잡재료 5%(2품목)**도 있다. 따라서 ★등재 후보는
+    "있음/없음 플래그"가 아니라 **품목별 요율값**이어야 한다.
+    """
+    rows = rows if rows is not None else extract_notes()
+    out = {}
+    for cat, no, notes in rows:
+        for text in notes:
+            for r in _RATE.findall(text):
+                out.setdefault(r, set()).add((cat, no))
+    return {k: sorted(v) for k, v in out.items()}
 # "별도 계상"은 "별"이 복원되지 않아 문자열로 못 잡는다 —
 #   `계상한다`가 있고 `3%`가 없는 줄로 판정한다(공구손료 규정과 구분).
 _MARU = "①②③④⑤⑥⑦⑧⑨"
@@ -325,7 +411,9 @@ def classify_notes(rows=None):
         for key, needle in NOTE_RULES.items():
             if needle in blob:
                 hit[key].append((cat, no))
-        if any("계상한다" in t and "3%" not in t for t in notes):
+        # 🔴25회차 F1: `3%`만 배제하면 **2%·5% 규정 줄**이 "별도 계상"으로 잡힌다
+        #   (127차가 26으로 셌으나 실제는 22다). 요율 줄을 **전부** 배제한다.
+        if any("계상한다" in t and not _RATE.search(t) for t in notes):
             hit["별도계상"].append((cat, no))
     return hit
 

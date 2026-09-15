@@ -3876,7 +3876,9 @@ def test_124cha_daily_trade_mix_and_ratios():
 
     # 📌 품셈에 없는 직종이 상주한다 — 121차 "부대 작업" 추정의 관측 근거
     with_bo = [d for _, d, _, m in MIX if "보통인부" in m]
-    assert len(with_bo) == 17                            # 전 시점에 1~2명
+    assert len(with_bo) == 17            # 🔴25회차 F4: 17시점 **전부에 상주**하되
+    one_or_two = [d for _, d, _, m in MIX if m.get("보통인부") in (1, 2)]
+    assert len(one_or_two) == 16         #   **1~2명인 것은 16시점**이다(05-21은 단독 7명)
     assert "보통인부" not in {j for x in e.PUMSEM_ITEMS
                               if x.category in ("철골공사", "알루미늄공사",
                                                 "수평스크린공사", "측벽스크린공사")
@@ -3940,6 +3942,26 @@ def test_125cha_pumsem_64_reextracted_from_pdf_textlayer():
             bad.append("%s %d %s: 엔진=%s 원문=%s" % (cat1, no1, name, want, got))
     assert not bad, "원문과 어긋난다(%d건)\n" % len(bad) + "\n".join(bad)
 
+    # 🔴25회차 F7 — 값만 보면 **직종이 뒤바뀌어도 통과**한다(수평스크린
+    #   `예인로라·가이드로라`(철근공)와 `구동2축`(철골공)은 계수가 같다).
+    #   직종명도 원문에서 뽑아 대조한다 — 🎯그 부산물로 91차부터 [확인요망]으로
+    #   끌어온 "원문이 정말 철근공이라 적는가"가 **기계로 확인**된다(25회차 F8).
+    trades = px.extract_labor_trades()
+    assert len(trades) == 64
+    bad_t = []
+    for (cat1, no1, name, _), (cat2, no2, got) in zip(expected, trades):
+        want = [k for k in
+                [x for x in e.PUMSEM_ITEMS
+                 if x.category == cat1][no1 - 1].labor_per_unit]
+        if (cat1, no1) != (cat2, no2) or want != got:
+            bad_t.append("%s %d %s: 엔진=%s 원문=%s" % (cat1, no1, name, want, got))
+    assert not bad_t, "직종명이 원문과 어긋난다(%d건)\n" % len(bad_t) + "\n".join(bad_t)
+
+    # 🎯 철근공 4품목이 원문 그대로다 — 91·113·116·121차가 다룬 그 항목이다
+    rebar = [(c, n) for c, n, ts in trades if "철근공" in ts]
+    assert len(rebar) == 4, rebar
+    assert {c for c, _ in rebar} == {"수평스크린공사", "행잉거터공사"}, rebar
+
     # 원문에서 뽑은 값의 범위가 엔진과 같은가(파서가 엉뚱한 숫자를 주웠는지 본다)
     flat = sorted(v for _, _, vals in rows for v in vals)
     eng_flat = sorted(v for x in e.PUMSEM_ITEMS
@@ -3996,10 +4018,14 @@ def test_126cha_spec_tables_reextracted_from_pdf():
     assert "9,792.00" in nums(120)           # 구역별 합계
     assert "18,707.03" != "9,792.00"         # 같은 쪽에서 서로 다르다
 
-    # [표 7-9] 함평 — 24회차 F13: 사업명에 "나비"가 없다
+    # [표 7-9] 함평 — 24회차 F13
+    #   🔴25회차 F6: 종전 `"나비" not in 쪽 전체`는 **못 읽어서 통과**했다.
+    #   같은 쪽 소제목 「나) 함평 나비엑스포내 전시온실」은 글리프가 전량 미복원이라
+    #   이 경로로 판정할 수 없다 — 단정 범위를 **[표 7-9] 사업명 행**으로 좁힌다.
     assert "1,600" in nums(122)
-    joined = " ".join(tables[122])
-    assert "함평" in joined and "나비" not in joined
+    biz = [x for x in tables[122] if "전시온실" in x and "건립사업" in x]
+    assert len(biz) == 1, biz
+    assert "나비" not in biz[0], biz[0]      # 사업명 행에는 없다(소제목은 판정 불가)
 
     # ✅ 115차 E1 — "재배 1구역"이 세 표 전부에서 2회
     for pp in (110, 112, 120):
@@ -4049,9 +4075,19 @@ def test_127cha_pumsem_notes_conditions_and_defects():
     assert by_cat.get("행잉거터공사", 0) == 0, "행잉거터공사에는 3%가 붙지 않는다"
     assert by_cat.get("철골공사(비닐·파이프자재)") == 5, "비닐 철골 5품목은 전부 붙는다"
 
+    # 🔴25회차 F2 — 원문의 요율 규정은 **3종**이다. 127차는 3%만 보고
+    #   나머지 38품목이 "규정 없음"으로 읽히게 했다.
+    rates = px.rate_rules(rows)
+    assert {k: len(v) for k, v in rates.items()} == {"2": 4, "3": 26, "5": 2}, rates
+    assert {c for c, _ in rates["2"]} == {"알루미늄공사"}          # 공구손료 2%
+    assert {c for c, _ in rates["5"]} == {"온실피복공사"}          # 잡재료 5%
+    # 🔴25회차 F3 — 알루미늄 6(선홈통)은 **한 [주]에서 2%와 3%를 둘 다** 말한다
+    assert ("알루미늄공사", 6) in rates["2"] and ("알루미늄공사", 6) in rates["3"]
+
     # 나머지 적용 조건의 분포
     assert len(hit["장비8시간"]) == 38
-    assert len(hit["별도계상"]) == 26
+    # 🔴25회차 F1 — 127차가 26으로 셌으나 2%·5% 줄을 오분류한 것이었다
+    assert len(hit["별도계상"]) == 22
     assert len(hit["재료량설계수량"]) == 10
     mat = {cat for cat, _ in hit["재료량설계수량"]}
     assert mat == {"철골공사", "알루미늄공사"}, mat
@@ -4093,8 +4129,8 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     그런데 이 환경은 **pip 패키지가 세션 간 유실**되고(CLAUDE.md), 시스템 Batang/Gulim이
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
-    🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **288 passed가 아니라
-    285 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **289 passed가 아니라
+    286 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4128,9 +4164,64 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "285 passed + 3 skipped" in order, (
+    assert "286 passed + 3 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
+
+def test_129cha_redteam25_corrections_are_recorded():
+    """129차 — 레드팀 25회차의 정정이 기록에 고정돼 있는가.
+
+    발견 11건 중 [상] 3건이 **모두 127차 [주] 분류기**에 몰려 있었다:
+      · **F1** 원문 요율이 3%만이 아니라 **2%·5%도 있어** "별도 계상 26"이 실제 **22**였다.
+        틀린 수를 **테스트가 하드 게이트로 고정**하고 있었다.
+      · **F2** 공구손료 **2% 4품목**·잡재료 **5% 2품목**이 산출물 어디에도 없었다 →
+        119차 ★등재 후보는 "있음/없음 플래그"가 아니라 **품목별 요율값**이어야 한다.
+      · **F3** 알루미늄 6(선홈통)이 **한 [주]에서 2%와 3%를 동시에** 말한다 —
+        번호는 연속이라 127차의 기계 검사에 걸리지 않았고 *"원문 결함 2건"*이 틀렸다.
+
+    그리고 **F8이 기회**였다 — 텍스트층이 `?근공`/`??공`을 구분할 만큼 복원되므로
+    **직종명까지 기계 대조**할 수 있고, 그 부산물로 91차부터 이어온 철근공
+    [확인요망]의 "원문 표기" 부분이 닫힌다(위 125차 가드에 넣었다).
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    engine = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
+
+    # F1 — 틀린 수(26)가 되살아나지 않았는가
+    for text, where in ((reg, "레지스트리"), (engine, "엔진 주석")):
+        assert "별도 계상 26" not in text and "별도계상 26" not in text, (
+            f"{where}에 25회차 F1이 반증한 '별도 계상 26품목'이 남아 있다")
+
+    # F2 — 요율 3종이 기록됐는가
+    for probe, why in (
+        ("2%", "공구손료 2% 4품목 — 127차가 누락했다"),
+        ("5%", "잡재료 5% 2품목 — 127차가 누락했다"),
+        ("요율값", "★등재 후보가 플래그가 아니라 요율값이라는 정정"),
+    ):
+        assert probe in reg, f"25회차 F2 기록에서 `{probe}`가 사라졌다 — {why}"
+
+    # F3 — 🔴재검증에서 **113차가 이미 기록**했음이 드러났다. 가드는 "127차가 113차를
+    #   확인하지 않았다"는 사실 쪽을 지킨다(`원문 결함 2건`은 113·109차의 정당한
+    #   서술에도 쓰여 금지 문자열로 쓸 수 없다 — 과도한 가드였다).
+    assert "113차가 이미 기록한 것" in reg, (
+        "25회차 F3 재검증: 113차가 선홈통 2%/3%·천창유리 ③ 누락을 이미 기록했다는 "
+        "연결이 사라졌다 — 그것이 없으면 또 '새 발견'으로 다시 세게 된다")
+    assert "113차보다 후퇴" in reg, (
+        "127차가 113차 기록을 확인하지 않아 후퇴했다는 메타 발견이 사라졌다")
+
+    # F8 — 철근공 원문 표기가 기계 확인됐다는 기록
+    assert "기계로 확인" in reg or "기계 확인" in reg, (
+        "25회차 F8: 철근공 원문 표기의 기계 확인 기록이 사라졌다")
+
+    # F9 — "독립 경로" 과신이 완화됐는가
+    assert "같은 실수를 반복할 경로가 없다" not in reg, (
+        "25회차 F9가 반증한 독립성 단정이 되살아났다")
+
+    # F11 — 모호 매핑 가드가 살아 있는가
+    import pumsem_extract as px
+    assert hasattr(px, "AmbiguousGlyph"), "25회차 F11 가드(모호 매핑 예외)가 사라졌다"
 
 if __name__ == "__main__":
     import sys, traceback
