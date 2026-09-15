@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    287 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    288 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "287 passed + 3 skipped" in order, (
+    assert "288 passed + 3 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -4266,6 +4266,102 @@ def test_130cha_confirm_pending_ledger_exists():
 
     # 대장 사용법(1→2→3)이 남아 있는가 — 이것이 재발 방지 장치다
     assert "먼저 이 표" in text, "대장 사용법이 사라졌다"
+
+def test_131cha_ledger_counts_items_not_strings():
+    """131차 — `[확인요망]` **문자열 수는 항목 수가 아니다**.
+
+    130차는 *"레지스트리 전체 50건 / `PUMSEM_ITEMS` 15건"*이라 적었다. 131차에 같은
+    방식으로 다시 세니 **53건 / 18건**이다 — 🔴**늘어난 3건은 130차가 대장을 만들며
+    레지스트리에 쓴 로그 문장 자체**다(*"`[확인요망]` 대장을 만들었다"* 등). 즉
+    **대장을 만드는 행위가 대장의 집계를 늘린다.**
+
+    35건을 전수로 열어 읽으니 **9건은 이미 닫혔고**(`WARRANTY_STATUTORY`는 4건 전부)
+    **1건은 중복**(`TOTAL_PYEONG_PRICE`의 비닐 노무비 = A)이며, 살아 있는 25 문자열은
+    **항목으로는 20개**다 — 한 항목이 **여러 상수에 걸치기 때문**이다.
+
+    이 테스트가 막는 것: ①닫힌 항목이 다시 열린 것처럼 세어지는 것 ②`grep` 집계를
+    항목 수로 쓰는 것 ③한 항목이 상수별로 흩어져 다시 후퇴하는 것.
+    """
+    import os as _o, json as _j, re as _re, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    text = open(_o.path.join(repo, "근거_확인요망대장_20260915.md"), encoding="utf-8").read()
+
+    # ① 닫힌 4건이 "닫힘"으로 표시돼 있는가 — 닫은 차수까지
+    for const, closer, why in (
+        ("WARRANTY_STATUTORY", "2026-08-18", "전기·통신 2건을 법제처 원문 열람으로 해소"),
+        ("FR_TABLE", "68차", "직렬 열저항으로 3행 전부 재현 — 1장 54%는 철회됐다"),
+        ("ACTUALS_COUNT", "93차", "관리동·방풍 포함 여부를 도면으로 확정"),
+        ("GROUND_LOSS_COEF", "85차", "식 형태 H_S = F·L_s·(ΔT − Θ) 확정"),
+    ):
+        assert const in text and closer in text, (
+            f"대장에서 `{const}`의 닫힘 표시(`{closer}`)가 사라졌다 — {why}")
+
+    # ② 🔴 닫힌 것이 레지스트리에서 실제로 닫혔는지 원본으로 확인한다(대장 주장의 뒷받침)
+    reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    consts = reg["constants"]
+    war = consts["WARRANTY_STATUTORY"]
+    assert "해소" in war["status_note"] and "1차 출처 확보 완료" in war["status_note"], (
+        "WARRANTY_STATUTORY의 해소 선언이 사라졌다 — 대장의 닫힘 판정 근거다")
+    assert "철회" in consts["FR_TABLE"]["source"], (
+        "FR_TABLE 68차 F1의 철회 기록이 사라졌다 — 1장 54%가 다시 열린 것처럼 보인다")
+
+    # ③ 🔴 문자열 집계가 항목 수보다 크다는 사실 자체를 실측으로 못 박는다
+    strings = sum(len(_re.findall(r"\[확인요망\]", _j.dumps(v, ensure_ascii=False)))
+                  for v in consts.values())
+    LIVE_ITEMS = 25   # PUMSEM 5(130차) + 그 밖 20(131차)
+    assert strings > LIVE_ITEMS, (
+        f"레지스트리 [확인요망] 문자열 {strings}건이 살아 있는 항목 {LIVE_ITEMS}개보다 "
+        "많지 않다 — 131차 실측(53 > 25)과 어긋난다. 항목을 다시 세어라")
+    assert "**53건 / `PUMSEM_ITEMS` 18건**" in text, (
+        "131차 실측(53 / 18)이 대장에서 사라졌다 — 130차의 50 / 15와 다르다는 것이 발견이다")
+    assert strings >= 53, (
+        f"레지스트리 [확인요망]이 {strings}건으로 131차 실측 53건보다 줄었다 — "
+        "서술이 지워졌다는 뜻이다. 어느 항목이 사라졌는지 확인하라")
+    assert "자기증식" in text, (
+        "🔴 문자열 집계가 자기증식한다는 131차 발견이 대장에서 사라졌다")
+    assert "세지 않는다" in text, (
+        "`grep`으로 세지 말라는 규칙이 사라졌다 — 130차가 그렇게 세어 틀렸다")
+
+    # ④ 살아 있는 20항목의 식별자가 남아 있는가
+    for tag, why in (
+        ("U1", "유리 5.3 kcal — 경쟁 가설 2개가 같은 숫자에 도달"),
+        ("U2", "u_design 5.7 vs u_period 2.66 이원화 — ★77차 B2가 선행"),
+        ("FR2", "농사로 표는 유리온실 U=7 기준 — 타 피복은 근사"),
+        ("FR3", '"피복"이 클래딩인지 스크린인지 원문 정의 없음'),
+        ("FL1", "efficiency 0.85의 발열량 기준(HHV/LHV) 미상"),
+        ("GL1", "대규모·소규모 면적 경계 미정의"),
+        ("CV1", "핫박스 실측의 풍속 조건 미명시"),
+        ("IN1", "권고표이지 개별 온실 실측이 아니다"),
+        ("AC2", "최선동 +1,000의 정체"),
+        ("AC3", "우민재 2,323 — 필름 밴드 상한 240,000의 유도원"),
+        ("AC4", "이두희 방풍 폭 환산 불가"),
+        ("CM1", "최선동 안개분무 18,500,000 — 3.7%p"),
+        ("CM2", "콘트롤박스 — 한수진·최선동 둘 다"),
+        ("CM3", "08 예인형 개폐장치 집계표 미반영"),
+        ("CM4", "부가세환급 5% 사유 미기재"),
+        ("CM5", "임미라 4,258.86 vs 4,068"),
+        ("TP1", "협회 원표·고시 원문 미확보"),
+        ("SB1", "스마트팜 시설현대화사업 독립 사업명 미확인"),
+        ("OP1", "광열동력비 ↔ 수도광열비 중복 여부"),
+        ("WD1", "마산 ↔ 창원 별칭 — ★사용자 결정"),
+    ):
+        assert tag in text, f"대장에서 항목 `{tag}`가 사라졌다 — {why}"
+
+    # ⑤ 🔴 항목이 상수 경계를 넘는다는 것 — 이것이 흩어짐의 원인이다
+    for item, spans in (
+        ("U2", ("U_VALUE", "U_DESIGN", "PERIOD_LOAD_ADJUST_K")),
+        ("CM1", ("CAPEX_MAJOR_CASE_CHUNKS", "CAPEX_MAJOR_UNCLASSIFIED",
+                 "CAPEX_MAJOR_EVIDENCE_STATUS")),
+    ):
+        for c in spans:
+            assert c in text, (
+                f"`{item}`이 걸친 상수 `{c}`가 대장에서 사라졌다 — "
+                "한 항목이 상수별로 흩어지는 것이 129·130차 후퇴의 원인이다")
+
+    # ⑥ 회귀 기준에 닿는 두 항목은 ★사용자 결정임이 남아 있어야 한다
+    assert "BENCHMARK_BANDS" in text and "원채원 ROI 14.2%" in text, (
+        "AC3(밴드)·U2(기간부하)가 회귀 기준에 닿는다는 경고가 사라졌다")
+
 
 if __name__ == "__main__":
     import sys, traceback
