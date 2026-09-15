@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    288 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    291 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "288 passed + 3 skipped" in order, (
+    assert "291 passed + 3 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -4361,6 +4361,156 @@ def test_131cha_ledger_counts_items_not_strings():
     # ⑥ 회귀 기준에 닿는 두 항목은 ★사용자 결정임이 남아 있어야 한다
     assert "BENCHMARK_BANDS" in text and "원채원 ROI 14.2%" in text, (
         "AC3(밴드)·U2(기간부하)가 회귀 기준에 닿는다는 경고가 사라졌다")
+
+
+def test_132cha_registry_prose_cited_files_are_not_empty():
+    """132차 — 🔴 레지스트리가 *"보존"*을 주장하는 파일이 **비어 있었다**.
+
+    `OPEX_ITEM_CATEGORIES`의 `desc`는 *"원본은 `소득분석DB/농촌진흥청_…csv`
+    (CP949, 1,213행)에 보존"*이라 적는다. 그 파일은 **0바이트**이고, `git`상
+    **승격 커밋(b652848)부터 줄곧** 비어 있었다 — 원본은 리포에 들어온 적이 없다.
+
+    `source_refs`가 `null`인 상수가 **16개**라 `audit_traceability.py`는 이 주장을
+    **검사하지 않는다**(그래서 게이트는 PASS였다). 이 테스트가 그 사각을 메운다:
+    레지스트리 서술이 **전체 경로로 지목한** 리포 파일은 실재하고 비어 있지 않아야
+    한다. 알려진 1건만 예외로 두되, **문서에 기록된 채로만** 통과시킨다.
+    """
+    import os as _o, json as _j, re as _re, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+
+    # 대장이 이 구멍을 기록하고 있어야 예외가 성립한다
+    led = open(_o.path.join(repo, "근거_확인요망대장_20260915.md"), encoding="utf-8").read()
+    assert "0바이트" in led and "b652848" in led, (
+        "OP1의 원문 부재(0바이트·승격 커밋)가 대장에서 사라졌다 — "
+        "그 기록이 없으면 아래 예외를 둘 근거도 없다")
+    # 보존 실패(132차 발견) — 서술이 "보존"을 주장하는데 비어 있다
+    KNOWN_EMPTY = {"소득분석DB/농촌진흥청_농산물소득분석 조사입력항목코드_20201015.csv"}
+    # 설계된 tombstone(CLAUDE.md "손대지 말 것") — 성격이 다르므로 따로 둔다
+    TOMBSTONES = {"cases/gyeongbuk_ddalgi.json"}
+    assert "tombstone" in led, (
+        "tombstone과 보존 실패를 구분한 132차 기록이 대장에서 사라졌다 — "
+        "둘을 뭉뚱그리면 다음에 0바이트를 보고 또 헷갈린다")
+
+    pat = _re.compile(r"`([^`]*/[^`]+\.(?:csv|xlsx|xls|pdf|json|md|jsonl))`")
+    cited = {}
+    for name, v in reg["constants"].items():
+        prose = " ".join(str(v.get(f) or "") for f in ("desc", "source", "status_note"))
+        for m in pat.finditer(prose):
+            cited.setdefault(m.group(1).strip(), set()).add(name)
+    assert len(cited) >= 7, f"전체 경로 인용이 {len(cited)}종뿐이다 — 132차 실측은 7종이다"
+
+    bad = []
+    for path, owners in sorted(cited.items()):
+        full = _o.path.join(repo, path)
+        if not _o.path.exists(full):
+            bad.append(f"{path} 없음 ({','.join(sorted(owners))})")
+        elif _o.path.getsize(full) == 0 and path not in (KNOWN_EMPTY | TOMBSTONES):
+            bad.append(f"{path} 0바이트 ({','.join(sorted(owners))})")
+    assert not bad, (
+        "레지스트리가 지목한 원문이 사라졌거나 비었다: " + " / ".join(bad) +
+        " — 값을 '실측'이라 부를 근거가 리포에 없다는 뜻이다")
+
+    # 🔴 알려진 1건이 복구되면 예외를 지우라고 알린다(조용히 남겨 두지 않는다)
+    for path in KNOWN_EMPTY:
+        full = _o.path.join(repo, path)
+        if _o.path.exists(full) and _o.path.getsize(full) > 0:
+            raise AssertionError(
+                f"{path}가 복구됐다 — KNOWN_EMPTY에서 빼고 OP1(광열동력비↔수도광열비 "
+                "중복 여부)을 원문으로 확인하라. 132차가 기다리던 자료다")
+
+
+def test_132cha_ijunhee_08_breakage_is_a_single_cell():
+    """132차 — CM3: `08 예인형`의 누락 원인이 **단일 셀**임을 원본에서 고정한다.
+
+    `공종별내역서!E276`(개폐모터 3대 단가)이 `'단가대비표 (2)'!#REF!`로 끊겨
+    `F276 → F298(SUM)`까지 전파된다. **노무 열은 멀쩡**하고(8,603,500),
+    파손 셀 하나를 뺀 나머지 21줄은 전부 산출값을 갖는다(재료 12,578,871).
+
+    54차 F6이 *"08만 주석 없이 #REF!"*라 관찰한 것을 **원인 셀 단위로** 못 박는다.
+    """
+    import os as _o
+    import pytest as _pt
+    openpyxl = _pt.importorskip("openpyxl")
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    src = _o.path.join(repo, "스마트팜스펙", "견적참조",
+                       "충남 서산(이준희) 온실 시공 견적서_부가세 환급.xlsx")
+    if not _o.path.exists(src):
+        _pt.skip("이준희 견적 원본이 없다 — 리포 밖 자료 환경")
+
+    wf = openpyxl.load_workbook(src, data_only=False)
+    wv = openpyxl.load_workbook(src, data_only=True)
+    det_f, det_v = wf["공종별내역서"], wv["공종별내역서"]
+
+    assert det_f["E276"].value == "='단가대비표 (2)'!#REF!", (
+        "E276의 파손 수식이 바뀌었다 — CM3의 원인 셀이다")
+
+    # 금액을 끊는 #REF!는 워크북 전체에서 이 계열뿐이다
+    money_broken = set()
+    for ws in wv.worksheets:
+        for row in ws.iter_rows():
+            for c in row:
+                if isinstance(c.value, str) and "#REF!" in c.value and c.column_letter in "EFKL":
+                    if ws.title == "공종별내역서":
+                        money_broken.add(c.coordinate)
+    assert money_broken == {"E276", "F276", "K276", "L276", "F298", "L298"}, (
+        f"내역서 금액 열의 #REF! 집합이 바뀌었다: {sorted(money_broken)} — "
+        "132차 실측은 E276에서 F298까지의 전파 6칸이다")
+
+    # 노무 열은 파손되지 않았다
+    assert det_v["H298"].value == 8_603_500, "08 블록 노무비 합계가 바뀌었다"
+
+    # 파손 셀을 뺀 복원 가능 부분
+    mat = sum(v for v in (det_v[f"F{r}"].value for r in range(277, 298))
+              if isinstance(v, (int, float)))
+    assert mat == 12_578_871, f"복원 가능 재료비가 {mat:,}로 바뀌었다 (132차 실측 12,578,871)"
+
+    # 🔴 미채택 4공종과의 차이 — 08만 '본 공사제외' 주석이 없다
+    agg = wv["공종별집계표"]
+    notes = {r: agg[f"L{r}"].value for r in (15, 17, 18, 19, 20, 27)}
+    assert notes[15] is None, "08 행에 '본 공사제외' 주석이 생겼다 — 미채택 판정 근거가 바뀐다"
+    assert all(notes[r] == "본 공사제외" for r in (17, 18, 19, 20, 27)), (
+        "미채택 4공종의 주석이 바뀌었다 — 08과의 대조군이다")
+
+
+def test_132cha_parkgyuhyeon_refund_base_is_material_only():
+    """132차 — CM4: 5%가 **비목 구성으로 설명되지 않음**을 산술로 고정한다.
+
+    환급 기준액 313,542,997은 **재료비만**이다(노무 164,580,818 전액 비환급).
+    10%면 31,354,300이고 계상액 15,677,150은 **정확히 절반**이다 →
+    *"노무비가 섞여서 5%"* 가설은 배제된다.
+
+    대조군: 백가은·조윤정은 기준액이 **재+노+경**인데 요율이 10%다 —
+    두 표본은 **기준액 정의도 요율도 다르다**. (레지스트리 등재 수치 간 산술)
+    """
+    # 박규현 — 3분류가 재료비 총액으로 닫힌다(노무는 전액 비환급)
+    refund, nonrefund, zero_rated = 313_542_997, 206_856_006, 14_497_250
+    material, labor = 370_315_435, 164_580_818
+    assert refund + nonrefund + zero_rated == material + labor
+    assert nonrefund - labor + refund + zero_rated == material, (
+        "환급 기준액이 재료비만이라는 관계가 깨졌다 — CM4의 배제 논거다")
+    assert round(refund * 0.05) == 15_677_150, (
+        "5% 계상액이 재현되지 않는다 (313,542,997×5% = 15,677,149.85 → 반올림)")
+    assert round(refund * 0.10) == 31_354_300 and 15_677_150 * 2 == 31_354_300, (
+        "계상액이 전액 VAT의 정확히 절반이라는 사실이 깨졌다")
+
+    # 백가은·조윤정 — 기준액이 재+노+경이고 요율은 10%
+    bg_mat, bg_lab, bg_exp = 286_680_383, 100_648_000, 11_300_000
+    bg_refund, bg_nonrefund = 203_179_883, 195_448_500
+    assert bg_refund + bg_nonrefund == bg_mat + bg_lab + bg_exp, (
+        "백가은·조윤정의 환급 기준액이 재+노+경이라는 대조군이 깨졌다")
+    assert bg_refund // 10 == 20_317_988
+
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    doc = open(_o.path.join(repo, "근거_대장3항목_리포내확인_20260915.md"),
+               encoding="utf-8").read()
+    assert '"노무비가 섞여서 5%"는 성립하지 않는다' in doc, (
+        "CM4의 배제 결론(경쟁 가설 하나를 제거한 문장)이 근거문서에서 사라졌다")
+    assert "정확히 그 절반" in doc, (
+        "5%가 전액 VAT의 절반이라는 산술 결과가 근거문서에서 사라졌다")
+    assert "판단성" in doc, (
+        "제도 해석을 하지 않았다는 표기가 사라졌다 — 판정 자동화 금지 선이다")
 
 
 if __name__ == "__main__":
