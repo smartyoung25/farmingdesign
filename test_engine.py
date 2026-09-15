@@ -4129,8 +4129,8 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     그런데 이 환경은 **pip 패키지가 세션 간 유실**되고(CLAUDE.md), 시스템 Batang/Gulim이
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
-    🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **289 passed가 아니라
-    286 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
+    287 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "286 passed + 3 skipped" in order, (
+    assert "287 passed + 3 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -4222,6 +4222,50 @@ def test_129cha_redteam25_corrections_are_recorded():
     # F11 — 모호 매핑 가드가 살아 있는가
     import pumsem_extract as px
     assert hasattr(px, "AmbiguousGlyph"), "25회차 F11 가드(모호 매핑 예외)가 사라졌다"
+
+def test_130cha_confirm_pending_ledger_exists():
+    """130차 — `[확인요망]` **대장**이 있고 5항목이 살아 있는가.
+
+    129차 F3는 *"127차가 113차 기록을 확인하지 않아 후퇴했다"*였다. 130차에 같은
+    점검을 넓히니 **한 단계 더** 있었다 — B(선홈통)는 113차 제기 후 **114차가 이미
+    구조를 설명**(방법 ② "표준품셈 참조는 최근 기준 우선" + `[주]⑤`의 표준품셈 참조)
+    했는데 127·129차 둘 다 몰랐다. **같은 원문을 세 번 읽으며 두 번 후퇴**했다.
+
+    원인은 `[확인요망]`이 레지스트리 서술 속에 흩어져 **"지금 살아 있는 항목이
+    무엇이고 어디까지 갔는가"를 한눈에 볼 수 없다**는 것이다. 이 테스트는 그
+    대장이 사라지지 않게 한다.
+    """
+    import os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    led = _o.path.join(repo, "근거_확인요망대장_20260915.md")
+    assert _o.path.exists(led), "[확인요망] 대장이 사라졌다 — 130차 산출물이다"
+    text = open(led, encoding="utf-8").read()
+
+    # 5항목이 살아 있는가
+    for tag, why in (
+        ("비닐 노무비", "A — 108차 제기, 130차에 원천 표 2개 확정"),
+        ("선홈통", "B — 113차 제기, **114차가 구조 설명**(두 번 재발견됐다)"),
+        ("이중층", "C — 115차: 비닐 피복 계수의 전제"),
+        ("철근공", "D — 91차부터, 129차에 원문 표기 기계 확인"),
+        ("파이프 5종", "E — 118차: 비닐 고유 부재의 조사 출처"),
+    ):
+        assert tag in text, f"대장에서 항목 `{tag}`가 사라졌다 — {why}"
+
+    # 130차가 찾은 원천 표(A) — 이 수치가 없으면 또 제6장을 뒤지게 된다
+    for num, why in (
+        ("702", "제6장 p.103 비닐 2021 노무비"),
+        ("650", "제7장 p.166 표준품셈 열 노무비 — 702와 다르다"),
+        ("439", "p.166 온실품셈 열 노무비 — 차트의 473과 다르다"),
+        ("3,509", "두 표를 같은 계열로 잇는 총공사비"),
+    ):
+        assert num in text, f"대장에서 `{num}`이 사라졌다 — {why}"
+
+    # 🔴 114차 해석으로 거슬러 올라간 사실이 기록돼 있는가
+    assert "114차가" in text and "최근 기준" in text, (
+        "B 항목에서 114차 해석 연결이 사라졌다 — 그것이 없으면 또 113차까지만 간다")
+
+    # 대장 사용법(1→2→3)이 남아 있는가 — 이것이 재발 방지 장치다
+    assert "먼저 이 표" in text, "대장 사용법이 사라졌다"
 
 if __name__ == "__main__":
     import sys, traceback
