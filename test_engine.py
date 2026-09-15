@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    295 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    295 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "295 passed + 3 skipped" in order, (
+    assert "295 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -4861,6 +4861,92 @@ def test_135cha_redteam26_corrections_are_pinned():
     assert "### 26회차" in rt and "거짓 양성 0건" in rt, "26회차 기록이 사라졌다"
     assert "가드 자체의 결함" in rt, (
         "🔴 이번 회차의 성격(가드가 지킨다고 적힌 것을 실제로는 안 지켰다)이 사라졌다")
+
+
+def test_136cha_pdf_is_opened_once_and_output_is_identical(monkeypatch):
+    """136차 — 89.8MB PDF를 **프로세스당 한 번만** 열고, **추출 결과는 그대로**인가.
+
+    종전에는 `extract_all`·`extract_tables`·`extract_notes`·`extract_labor_trades`가
+    각각 `PdfReader(PDF_PATH)` + `pdfplumber.open(PDF_PATH)`를 따로 불러
+    **한 pytest 프로세스 안에서 같은 PDF를 4회 파싱**했다.
+
+    ⚠️ 이 변경을 **세그폴트(133·135차 1회씩)의 해결이라고 말하지 않는다** —
+    재현 조건을 잡지 못했고 인과를 확인하지 않았다. 확실한 것은 **파싱 4회 → 1회**와
+    **출력 불변**뿐이다(교차 3회 실측 19.53s → 15.02s).
+
+    🔴 이 테스트의 본체는 **출력 불변**이다. 성능을 얻자고 추출값이 한 글자라도
+    달라지면 125·129차가 세운 64계수 대조가 통째로 흔들린다.
+    """
+    import pytest as _pt
+    _pt.importorskip("pdfplumber")
+    _pt.importorskip("fontTools")
+    _pt.importorskip("pypdf")
+    import hashlib as _h
+    import pdfplumber as _pp
+    import pypdf as _py
+    import pumsem_extract as px
+
+    try:
+        px._system_index()
+    except px.FontsUnavailable:
+        _pt.skip("시스템 폰트(batang/gulim)가 없다 — 128차 skip 규율과 같다")
+
+    # ① PDF를 몇 번 여는가 — 공유 핸들을 비우고 네 함수를 연달아 부른다
+    px.close_doc()
+    opens = {"pdfplumber": 0, "pypdf": 0}
+    _open, _reader = _pp.open, _py.PdfReader
+
+    def _counted_open(*a, **k):
+        opens["pdfplumber"] += 1
+        return _open(*a, **k)
+
+    class _CountedReader(_reader):
+        def __init__(self, *a, **k):
+            opens["pypdf"] += 1
+            super().__init__(*a, **k)
+
+    monkeypatch.setattr(_pp, "open", _counted_open)
+    monkeypatch.setattr(_py, "PdfReader", _CountedReader)
+
+    got = {
+        "extract_all": repr(px.extract_all()),
+        "extract_tables": repr(px.extract_tables()),
+        "extract_notes": repr(px.extract_notes()),
+        "extract_labor_trades": repr(px.extract_labor_trades()),
+    }
+    assert opens == {"pdfplumber": 1, "pypdf": 1}, (
+        f"네 함수가 PDF를 {opens}회 열었다 — 136차 이전은 각 4회였고 목표는 각 1회다")
+
+    # 파생 함수도 같은 핸들을 타는가(추가 open이 없어야 한다)
+    noterows = px.extract_notes()
+    got["rate_rules"] = repr(px.rate_rules(noterows))
+    got["classify_notes"] = repr(px.classify_notes(noterows))
+    got["note_numbers"] = repr([px.note_numbers(n) for _, _, n in noterows])
+    assert opens == {"pdfplumber": 1, "pypdf": 1}, (
+        f"파생 함수가 PDF를 다시 열었다: {opens}")
+
+    # ② 🔴 출력 불변 — 136차 변경 직전(HEAD=d53ed41)에 뜬 다이제스트와 같아야 한다
+    EXPECTED = {
+        "extract_all": "1e9d0884cdf2d994",
+        "extract_tables": "4dcdb9b7e623a008",
+        "extract_notes": "9f1f2b933ddd8298",
+        "extract_labor_trades": "08b677b28efc396c",
+        "rate_rules": "282cd312da7ed1ec",
+        "classify_notes": "902cc0756975b258",
+        "note_numbers": "9e4cc9c1b519dbce",
+    }
+    digest = {k: _h.sha256(v.encode()).hexdigest()[:16] for k, v in got.items()}
+    assert digest == EXPECTED, (
+        "추출 결과가 136차 리팩터 전과 달라졌다:\n" +
+        "\n".join(f"  {k}: {EXPECTED[k]} -> {digest[k]}"
+                  for k in EXPECTED if EXPECTED[k] != digest[k]) +
+        "\n→ 성능을 얻자고 값이 바뀌면 125·129차의 64계수 대조가 흔들린다")
+
+    # ③ close_doc()이 핸들을 실제로 놓는가(테스트 격리·명시 해제 경로)
+    assert px._DOC is not None
+    px.close_doc()
+    assert px._DOC is None, "close_doc() 후에도 공유 핸들이 남아 있다"
+    px.close_doc()          # 두 번 불러도 안전해야 한다
 
 
 if __name__ == "__main__":

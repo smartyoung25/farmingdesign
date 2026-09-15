@@ -218,6 +218,42 @@ TABLE_PAGES = {
 }
 
 
+# ─────────────────────────────────────────────────────────────
+# 136차 — 89.8MB PDF를 **프로세스당 한 번만** 연다
+#   종전에는 extract_all·extract_tables·extract_notes·extract_labor_trades가
+#   각각 `PdfReader(PDF_PATH)` + `pdfplumber.open(PDF_PATH)`를 따로 호출해
+#   **한 pytest 프로세스 안에서 같은 대용량 PDF를 4회 파싱**했다.
+#   ⚠️ 세그폴트(133·135차 5파일 게이트에서 1회씩, 재실행은 정상)의 **원인으로
+#     단정하지 않는다** — 재현 조건을 잡지 못했다. 이 변경의 확실한 효과는
+#     **파싱 횟수 4회 → 1회**이고, 추출 결과는 **비트 단위로 동일해야 한다**.
+#   핸들은 읽기 전용이라 공유해도 결과가 달라지지 않는다(136차 다이제스트 대조).
+_DOC = None
+
+
+def _doc():
+    """열린 `(pdfplumber.PDF, pypdf.PdfReader)` 쌍을 돌려준다(프로세스 공유).
+
+    호출자는 닫지 않는다 — 프로세스가 끝날 때까지 재사용한다.
+    명시적으로 놓아야 할 때만 `close_doc()`를 부른다(테스트 격리 등).
+    """
+    global _DOC
+    if _DOC is None:
+        import pdfplumber
+        from pypdf import PdfReader
+        _DOC = (pdfplumber.open(PDF_PATH), PdfReader(PDF_PATH))
+    return _DOC
+
+
+def close_doc():
+    """공유 핸들을 닫는다. 열려 있지 않으면 아무 일도 하지 않는다."""
+    global _DOC
+    if _DOC is not None:
+        try:
+            _DOC[0].close()
+        finally:
+            _DOC = None
+
+
 def page_lines(pdf, reader, print_page):
     """한 쪽의 복원 텍스트를 줄 단위로 돌려준다(미복원 글자는 U+FFFD)."""
     i = print_page + PRINT_TO_PDF - 1
@@ -242,15 +278,11 @@ def page_lines(pdf, reader, print_page):
 
 def extract_tables():
     """{인쇄 쪽: [복원된 줄]} — 제원 표 쪽의 텍스트."""
-    import pdfplumber
-    from pypdf import PdfReader
-
     _system_index()
     out = {}
-    reader = PdfReader(PDF_PATH)
-    with pdfplumber.open(PDF_PATH) as pdf:
-        for pp in sorted(TABLE_PAGES):
-            out[pp] = page_lines(pdf, reader, pp)
+    pdf, reader = _doc()
+    for pp in sorted(TABLE_PAGES):
+        out[pp] = page_lines(pdf, reader, pp)
     return out
 
 
@@ -286,30 +318,26 @@ def extract_labor_trades():
     (25회차 F7: 수평스크린 `예인로라·가이드로라`(철근공)와 `구동2축`(철골공)은
     값이 같아 서로 바꿔도 통과한다). 이 함수가 그 구멍을 메운다.
     """
-    import pdfplumber
-    from pypdf import PdfReader
-
     _system_index()
     out = []
-    reader = PdfReader(PDF_PATH)
-    with pdfplumber.open(PDF_PATH) as pdf:
-        for cat, lo, hi in SECTION_PAGES:
-            per_item, cur = [], None
-            for pp in range(lo, hi + 1):
-                for text in page_lines(pdf, reader, pp):
-                    if "분" in text and "위" in text and text.count("수") >= 1:
-                        cur = []
-                        per_item.append(cur)
-                        continue
-                    if cur is None or text.startswith("[주]"):
-                        continue
-                    m = _LABOR_LINE.match(text)
-                    if m:
-                        name = trade_of(m.group(1))
-                        if name:
-                            cur.append(name)
-            for n, trades in enumerate(per_item, 1):
-                out.append((cat, n, trades))
+    pdf, reader = _doc()
+    for cat, lo, hi in SECTION_PAGES:
+        per_item, cur = [], None
+        for pp in range(lo, hi + 1):
+            for text in page_lines(pdf, reader, pp):
+                if "분" in text and "위" in text and text.count("수") >= 1:
+                    cur = []
+                    per_item.append(cur)
+                    continue
+                if cur is None or text.startswith("[주]"):
+                    continue
+                m = _LABOR_LINE.match(text)
+                if m:
+                    name = trade_of(m.group(1))
+                    if name:
+                        cur.append(name)
+        for n, trades in enumerate(per_item, 1):
+            out.append((cat, n, trades))
     return out
 
 
@@ -323,39 +351,35 @@ def extract_notes():
     ⚠️ 한글 일부는 복원되지 않아 `�`가 섞인다. 그래서 **문자열 그대로 쓰지 말고
     아래 `NOTE_RULES`처럼 복원되는 부분만으로 판정**해야 한다.
     """
-    import pdfplumber
-    from pypdf import PdfReader
-
     _system_index()
     out = []
-    reader = PdfReader(PDF_PATH)
-    with pdfplumber.open(PDF_PATH) as pdf:
-        for cat, lo, hi in SECTION_PAGES:
-            per_item = []
-            for pp in range(lo, hi + 1):
-                lines = page_lines(pdf, reader, pp)
-                cur, in_note = None, False
-                for text in lines:
-                    if "분" in text and "위" in text and text.count("수") >= 1:
-                        cur = []
-                        per_item.append(cur)
-                        in_note = False
-                        continue
-                    # 줄 앞에 세로쓰기 낱글자("품/셈/산/정")나 미복원 글자가 붙는 일이 있어
-                    #   startswith로는 [주] 시작을 놓친다(127차 실측: 구동축 ①을 통째로
-                    #   흘려 [2,3]으로 보였다). 앞머리 몇 글자 안에서 찾는다.
-                    if "[주]" in text[:6] or any(ch in text.replace("[주]", "")[:4] for ch in _MARU):
-                        in_note = True
-                    if in_note and _UNIT_TAIL.search(text):
-                        in_note = False     # 다음 품목 이름 줄에서 [주]가 끝난다
-                        continue
-                    if in_note and re.match(r"^-\s*\d{2,3}\s*-$", text):
-                        in_note = False     # 쪽 꼬리말
-                        continue
-                    if in_note and cur is not None and len(text) > 2:
-                        cur.append(text)    # 세로쓰기 낱글자("품/셈/산/정")는 버린다
-            for n, notes in enumerate(per_item, 1):
-                out.append((cat, n, notes))
+    pdf, reader = _doc()
+    for cat, lo, hi in SECTION_PAGES:
+        per_item = []
+        for pp in range(lo, hi + 1):
+            lines = page_lines(pdf, reader, pp)
+            cur, in_note = None, False
+            for text in lines:
+                if "분" in text and "위" in text and text.count("수") >= 1:
+                    cur = []
+                    per_item.append(cur)
+                    in_note = False
+                    continue
+                # 줄 앞에 세로쓰기 낱글자("품/셈/산/정")나 미복원 글자가 붙는 일이 있어
+                #   startswith로는 [주] 시작을 놓친다(127차 실측: 구동축 ①을 통째로
+                #   흘려 [2,3]으로 보였다). 앞머리 몇 글자 안에서 찾는다.
+                if "[주]" in text[:6] or any(ch in text.replace("[주]", "")[:4] for ch in _MARU):
+                    in_note = True
+                if in_note and _UNIT_TAIL.search(text):
+                    in_note = False     # 다음 품목 이름 줄에서 [주]가 끝난다
+                    continue
+                if in_note and re.match(r"^-\s*\d{2,3}\s*-$", text):
+                    in_note = False     # 쪽 꼬리말
+                    continue
+                if in_note and cur is not None and len(text) > 2:
+                    cur.append(text)    # 세로쓰기 낱글자("품/셈/산/정")는 버린다
+        for n, notes in enumerate(per_item, 1):
+            out.append((cat, n, notes))
     return out
 
 
@@ -420,19 +444,15 @@ def classify_notes(rows=None):
 
 def extract_all():
     """(공종, 순번, 계수 시퀀스) 전량. 원문 차례 순서로 돌려준다."""
-    import pdfplumber
-    from pypdf import PdfReader
-
     _system_index()                                   # 폰트 없으면 여기서 올린다
     rows = []
-    reader = PdfReader(PDF_PATH)
-    with pdfplumber.open(PDF_PATH) as pdf:
-        for cat, lo, hi in SECTION_PAGES:
-            got = []
-            for p in range(lo, hi + 1):
-                got.extend(v for _, v in extract_page(pdf, reader, p))
-            for n, vals in enumerate(got, 1):         # 쪽이 넘어가도 순번은 이어진다
-                rows.append((cat, n, vals))
+    pdf, reader = _doc()
+    for cat, lo, hi in SECTION_PAGES:
+        got = []
+        for p in range(lo, hi + 1):
+            got.extend(v for _, v in extract_page(pdf, reader, p))
+        for n, vals in enumerate(got, 1):         # 쪽이 넘어가도 순번은 이어진다
+            rows.append((cat, n, vals))
     return rows
 
 
