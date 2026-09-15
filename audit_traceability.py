@@ -136,8 +136,14 @@ def audit_registry() -> dict:
             if r.get("match", "exact") not in ("exact", "near", "partial"):
                 hard.append((key, f"match 값 위반 {r.get('match')!r}"))
     n_refs = sum(len(ent.get("source_refs", [])) for ent in reg["constants"].values())
+    # 133차 — 🔴 ref가 0건이면 위 루프가 한 번도 돌지 않는다: 그 상수의 출처는
+    # 이 게이트가 **한 번도 검사한 적이 없다**. '실측'을 표방하는 상수가 그 상태면
+    # 특히 위험하므로(전사 오류가 가장 일어나기 쉬운 계열이다) 드러내 둔다.
+    # FAIL은 아니다 — 파생·결정 상수처럼 원문 ref 개념이 없는 것도 섞여 있다.
+    blind = [(key, ent["status"]) for key, ent in reg["constants"].items()
+             if ent["status"] in ("실측", "부분실측") and not ent.get("source_refs")]
     return {"hard": hard, "attention": attention, "n_constants": len(reg["constants"]),
-            "n_refs": n_refs}
+            "n_refs": n_refs, "refless_measured": blind}
 
 
 def audit() -> dict:
@@ -145,6 +151,7 @@ def audit() -> dict:
     hard = ca["hard"] + qu["hard"] + rg["hard"]
     return {"ok": not hard, "hard_failures": hard, "case_coverage_gaps": ca["gaps"],
             "registry_attention": rg["attention"],
+            "refless_measured": rg["refless_measured"],
             "counts": {"cases": len(C.load_cases()), "quote_vendors": qu["n_vendors"],
                        "registry_constants": rg["n_constants"], "source_refs": rg["n_refs"]}}
 
@@ -166,6 +173,10 @@ def render_report(a: dict) -> str:
         lines.append("- 없음")
     lines += ["", "## 명시 표기 상수 (④범주 — 정직 표기 확인, FAIL 아님)"]
     lines += [f"- {k}: {s}" for k, s in a["registry_attention"]] or ["- 없음"]
+    lines += ["", "## 추적성 사각 — '실측' 계열인데 source_refs 0건 (133차 신설, FAIL 아님)",
+              "> ref가 0건이면 원문 실재 검사가 **한 번도 돌지 않는다**. 아래 상수의 출처는",
+              "> 이 게이트가 검사한 적이 없다 — 서술만 읽고 믿는 상태다."]
+    lines += [f"- {k}: {s}" for k, s in a["refless_measured"]] or ["- 없음"]
     lines += ["", "> 이 게이트는 '대조 가능한 상태인가'까지만 답한다 — 값의 옳음(원문 동일성·출처",
               "> 적절성·근거 약함→단정문)은 레드팀·컨설턴트 몫(판단성). 절차: 검증절차_레드팀.md"]
     return "\n".join(lines)

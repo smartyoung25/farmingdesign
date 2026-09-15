@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    291 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    293 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "291 passed + 3 skipped" in order, (
+    assert "293 passed + 3 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -4511,6 +4511,102 @@ def test_132cha_parkgyuhyeon_refund_base_is_material_only():
         "5%가 전액 VAT의 절반이라는 산술 결과가 근거문서에서 사라졌다")
     assert "판단성" in doc, (
         "제도 해석을 하지 않았다는 표기가 사라졌다 — 판정 자동화 금지 선이다")
+
+
+def test_133cha_refless_measured_constants_are_pinned():
+    """133차 — 🔴 `source_refs`가 0건이면 **원문 실재 검사가 한 번도 돌지 않는다**.
+
+    `audit_traceability.py`의 레지스트리 검사는 `for r in ent.get("source_refs", [])`라
+    **빈 리스트를 0회 순회**한다. 검사되는 것은 `status`가 enum 안에 있는지뿐이고
+    `"실측"`은 enum 안에 있다 → **적어두기만 하면 통과한다.**
+
+    전수 결과: 54개 중 **16개가 refs 0건**이고, 그중 **12개가 '실측' 계열**이다.
+    🔴 패턴이 거꾸로다 — **법령·고시에서 온 21개(공공기준·법정기준)는 전부 ref가
+    있는데**, 전사 오류가 가장 일어나기 쉬운 '실측' 16개 중 **11개(69%)가 0건**이다.
+
+    이 테스트는 **그 12개를 고정**한다. 새 상수가 ref 없이 '실측'으로 들어오면
+    실패하고, 12개 중 하나에 ref가 붙으면 **목록을 줄이라고** 실패한다.
+    """
+    import os as _o, json as _j, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    consts = reg["constants"]
+
+    REFLESS_MEASURED = {
+        # (A) 원문이 리포에 실재한다 — 붙일 수 있는데 안 붙었다(134차 과제)
+        "PUMSEM_ITEMS",                  # 시설평가/202201_… 품셈.pdf 89.8MB + 근거문서 9종
+        "CAPEX_CASE_CHUNKS",             # 형제 CAPEX_MAJOR_KNOWN_TOTALS는 refs 15건
+        "CAPEX_MAJOR_EVIDENCE_STATUS",   # 같은 견적 원문
+        "CAPEX_MAJOR_UNCLASSIFIED",      # 같은 견적 원문
+        "EQUIPMENT_DB_META",             # 기자재DB/ CSV 8종(런타임에 실제로 읽는다)
+        # (B) 원문이 리포 밖이다
+        "SPEC_TABLE",                    # 농사로 마스터 xlsx(2025-108호, 249종)
+        "SPEC_COUNT",
+        "REGION_DESIGN_LOAD",            # 농식품부 보도자료 첨부 참고2·참고3(172지역)
+        "OPEX_ITEM_CATEGORIES",          # 🔴 132차 — 인용 CSV가 0바이트
+        "OVERHEAD_RATES",                # 원가계산서 6건 중 일부가 Google Drive
+        # (C) 파생·결정이라 원문 ref 개념이 없다
+        "CAPEX_MAJOR_CATEGORIES",        # 사용자 제안 분류표(2026-07-16 대화)
+        "RFQ_REQUIRED_CATEGORIES_DEFAULT",  # CAPEX_MAJOR_EVIDENCE_STATUS에서 도출
+    }
+    got = {k for k, v in consts.items()
+           if v.get("status") in ("실측", "부분실측") and not v.get("source_refs")}
+    assert got == REFLESS_MEASURED, (
+        f"'실측' 계열 refs 0건 집합이 바뀌었다.\n  새로 들어옴: {sorted(got - REFLESS_MEASURED)}"
+        f"\n  빠짐(ref가 붙었다면 목록에서 지워라): {sorted(REFLESS_MEASURED - got)}\n"
+        "ref 없이 '실측'을 표방하면 추적성 감사가 그 출처를 한 번도 보지 않는다")
+
+    # 🔴 거꾸로 된 패턴 — 법령·고시 계열은 전부 ref가 있다(이것이 깨지면 더 나빠진 것이다)
+    statutory = {k: v for k, v in consts.items() if v.get("status") in ("공공기준", "법정기준")}
+    assert statutory and all(v.get("source_refs") for v in statutory.values()), (
+        "공공기준·법정기준 상수 중 refs가 사라진 것이 있다 — "
+        "지금까지 이 계열은 21개 전부 ref를 갖고 있었다")
+
+    # 산출물에 닿는 셋은 특히 표시해 둔다(사각의 무게)
+    for k, why in (("REGION_DESIGN_LOAD", "webapp이 조회 결과에 status='실측'을 찍어 내보낸다"),
+                   ("SPEC_TABLE", "select_specs()가 render_report·run_report에서 쓰인다"),
+                   ("PUMSEM_ITEMS", "pumsem_labor_days()의 원자료 64계수")):
+        assert k in REFLESS_MEASURED, f"{k}가 목록에서 빠졌다 — {why}"
+
+
+def test_133cha_audit_report_surfaces_the_blind_spot():
+    """133차 — 감사 리포트가 **그 사각을 매번 드러내는지**.
+
+    종전 리포트에는 이 목록이 **어디에도 없었다**. 133차에 `추적성 사각` 절을
+    신설했다 — **FAIL은 아니다**((C)처럼 정당한 0건이 섞여 있다). 판정 의미는
+    바꾸지 않았고, **보이게** 만든 것이다.
+    """
+    import os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import audit_traceability as at
+
+    a = at.audit()
+    assert "refless_measured" in a, "감사 결과에 추적성 사각 집계가 사라졌다"
+    assert len(a["refless_measured"]) == 12, (
+        f"추적성 사각이 {len(a['refless_measured'])}건이다 — 133차 실측은 12건")
+
+    # 사각은 FAIL 사유가 아니다 — 판정 의미를 바꾸지 않았음을 고정한다
+    assert a["ok"] and not a["hard_failures"], (
+        "133차는 판정 의미를 바꾸지 않았다 — 사각을 hard_failure로 올리면 "
+        "파생·결정 상수까지 FAIL이 된다")
+
+    report = at.render_report(a)
+    assert "추적성 사각" in report and "한 번도" in report, (
+        "리포트에서 추적성 사각 절이 사라졌다 — 보이지 않으면 종전과 같다")
+    for k in ("SPEC_TABLE", "REGION_DESIGN_LOAD", "PUMSEM_ITEMS", "OPEX_ITEM_CATEGORIES"):
+        assert k in report, f"리포트 사각 목록에서 {k}가 빠졌다"
+
+    # 저장된 리포트 파일도 같은 절을 담고 있어야 한다(게이트 실행 산출물)
+    saved = open(_o.path.join(repo, "검증게이트_감사리포트.md"), encoding="utf-8").read()
+    assert "추적성 사각" in saved, (
+        "저장된 감사 리포트에 사각 절이 없다 — audit_traceability.py를 다시 실행하라")
+
+    doc = open(_o.path.join(repo, "근거_추적성사각_refs0건_20260915.md"), encoding="utf-8").read()
+    assert "빈 리스트는 0회 순회한다" in doc, "133차 기제 설명이 근거문서에서 사라졌다"
+    assert "붙일 수 있는데 안 붙었다" in doc, (
+        "(A)계열 — 원문이 리포에 실재하는데 ref가 없다는 구분이 사라졌다")
 
 
 if __name__ == "__main__":
