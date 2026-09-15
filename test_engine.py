@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    296 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    297 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "296 passed + 4 skipped" in order, (
+    assert "297 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -5038,6 +5038,66 @@ def test_137cha_every_ref_records_its_match_grade():
     assert ledger.count("[근접]") == 8 and ledger.count("[부분]") == 50, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
         "137차 확정(8·50)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라")
+
+
+def test_138cha_known_totals_are_recomputable_from_the_documents():
+    """138차 — `exact`라 적은 값이 **원문에서 재현되는가**.
+
+    137차가 `exact` 45건을 확정했으나 *"정말 원단위로 일치하는지 재계산하지 않았다"*를
+    한계로 남겼다. 138차가 견적 원문 **39건**을 대조한 결과 **불일치 0건**이고,
+    그중 **3건은 총액이 문서에 인쇄돼 있지 않은 재집계값**이었다.
+
+    🔴 두 표본에서 같은 구조가 나왔다 — `known_total`은 **문서의 총계가 아니라
+    "문서가 총계에서 뺀 행까지 포함한 재집계"**다:
+      우민재 문서 합계행 453,478,913 + '합계제외' 3행 2,679,227 = 456,158,140
+      이두희 문서 `계`   423,454,980 + 영세율 적용 10,151,480 = 433,606,460
+    **인쇄값만으로 정확히 재현되므로 exact는 유지**하되 그 사실을 note에 적었다.
+    """
+    import os as _o, json as _j, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    C = reg["constants"]
+
+    # ① 재집계 산술 — 문서 총계 + 뺀 행 = 등재 known_total
+    assert 453_478_913 + 2_679_227 == 456_158_140, "우민재 재집계 산술이 깨졌다"
+    assert 423_454_980 + 10_151_480 == 433_606_460, "이두희 재집계 산술이 깨졌다"
+    assert 360_447_860 + 72_269_120 + 7_025_247 == 439_742_227, "맹주연 3성분 합이 깨졌다"
+
+    # ② 🔴 우민재의 차이가 곧 미분류다 — 이 정합이 138차의 발견이다
+    kt = C["CAPEX_MAJOR_KNOWN_TOTALS"]["value"]
+    unc = C["CAPEX_MAJOR_UNCLASSIFIED"]["value"]
+    assert kt["우민재"] == 456_158_140 and unc["우민재"] == 2_679_227
+    assert kt["우민재"] - unc["우민재"] == 453_478_913, (
+        "우민재 known_total − 미분류가 문서 합계행(453,478,913)이 아니다 — "
+        "엔진의 미분류가 문서의 '합계제외' 집합과 같다는 138차 정합이 깨졌다")
+    assert kt["이두희"] == 433_606_460 and kt["맹주연"] == 439_742_227
+
+    # ③ 재검산 사실이 note에 남아 있는가(인쇄값이 아니라는 것)
+    for const, needle, mark in (
+        ("CAPEX_MAJOR_KNOWN_TOTALS", "1. 공사내역서", "453,478,913"),
+        ("CAPEX_MAJOR_KNOWN_TOTALS", "이두희 천안", "10,151,480"),
+        ("CAPEX_MAJOR_KNOWN_TOTALS", "맹주연", "기계경비"),
+        ("CAPEX_MAJOR_CASE_CHUNKS", "1. 공사내역서", "합계제외"),
+        ("CAPEX_MAJOR_CASE_CHUNKS", "이두희 천안", "423,454,980"),
+        ("CAPEX_MAJOR_CASE_CHUNKS", "맹주연", "360,447,860"),
+    ):
+        hit = [r for r in C[const]["source_refs"] if needle in r["file"]]
+        assert len(hit) == 1, (const, needle)
+        note = hit[0].get("note") or ""
+        assert "138차 재검산" in note and mark in note, (
+            f"{const}/{needle}의 138차 재검산 기록({mark})이 사라졌다 — "
+            "이 값이 문서에 인쇄된 것이 아니라는 표시다")
+        assert hit[0]["match"] == "exact", (
+            f"{const}/{needle}의 등급이 바뀌었다 — 인쇄값만으로 정확히 재현되므로 exact다")
+
+    doc = open(_o.path.join(repo, "근거_exact39_원단위재검산_20260915.md"), encoding="utf-8").read()
+    assert "불일치 0건" in doc and "확인 불가 | **0**" in doc, (
+        "138차 대조 결과(불일치 0·확인 불가 0)가 근거문서에서 사라졌다")
+    assert "과교정" in doc, (
+        "🔴 파서를 두 번 고친 기록(P1 과소·P2 과교정)이 사라졌다 — "
+        "125차 P1~P3·133·134차에 이은 같은 계열이다")
+    assert "회계 판단" in doc, (
+        "재집계 규칙의 타당성을 판정하지 않았다는 표기가 사라졌다")
 
 
 if __name__ == "__main__":
