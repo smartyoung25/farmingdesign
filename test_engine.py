@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    300 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    301 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "300 passed + 4 skipped" in order, (
+    assert "301 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -5336,14 +5336,27 @@ def test_141cha_declared_counts_match_the_case_data():
         assert got == kt[k], (
             f"{k}: 분류합+미분류 {got:,} ≠ known_total {kt[k]:,}")
 
-    # ③ 🔴 서술 비대칭 — 6개는 제외 사유를 적고 2개는 적지 않는다
-    def _has_exclusion(t):
-        return any(w in t for w in ("0)", "없어 0", "전무", "전 표본"))
-    with_reason = {c for c in EXPECT if _has_exclusion(str(status[c]))}
-    without = set(EXPECT) - with_reason
-    assert without == {"auxiliary_facility", "thermal_storage_insulation"}, (
-        f"제외 사유를 적지 않는 카테고리 집합이 바뀌었다: {sorted(without)} — "
-        "141차 실측은 auxiliary_facility·thermal_storage_insulation 둘이다")
+    # ③ 🔴 8종 전부가 "나머지가 왜 0인지"를 적는가
+    #    141차는 `("0)", "없어 0", "전무", "전 표본")` 휴리스틱으로 쟀는데, 142차가
+    #    채운 문구("0인 것은"·"0 사유")를 그 패턴이 못 잡았다 — **또 프로즈 휴리스틱이
+    #    틀렸다**(140·141차와 같은 계열). → 휴리스틱을 버리고 **카테고리별 표지를 명시**한다.
+    REASON_MARK = {
+        "greenhouse_structure": "오기수는 설비 전용 부분 범위 견적",
+        "auto_opening_system": "전 표본",
+        "hvac": "견적 범위에 난방설비 자체가 없어 0",
+        "irrigation_fertigation": "강정구는 부분 범위 견적",
+        "ict_control": "독립 환경제어시스템 라인 없음(0)",
+        "electrical": "별도 전기공사 공종 없음(0)",
+        # 🔴 142차가 채운 둘
+        "auxiliary_facility": "관리실 648",
+        "thermal_storage_insulation": "축열탱크가 실재하는지는 확인되지 않았다",
+    }
+    assert set(REASON_MARK) == set(EXPECT)
+    missing = [c for c, mark in REASON_MARK.items() if mark not in str(status[c])]
+    assert not missing, (
+        f"'나머지가 왜 0인지'를 적지 않는 카테고리: {missing} — "
+        "141차에 auxiliary_facility·thermal_storage_insulation 둘이 비어 있었고 "
+        "142차가 채웠다(R6 — 부재에 근거 병기)")
 
     # ④ 카테고리 키 커버리지 — 청크에만 있는 키가 생기면 상태표가 뒤진 것이다
     used = {c for v in chunks.values() for c in v}
@@ -5357,6 +5370,74 @@ def test_141cha_declared_counts_match_the_case_data():
     assert "쌍 견적 통합 1건" in doc, "세는 단위(케이스·쌍 견적 1건) 규칙이 사라졌다"
     assert "auxiliary_facility" in doc and "thermal_storage_insulation" in doc, (
         "제외 사유를 적지 않는 2건의 기록이 사라졌다")
+
+
+def test_142cha_zero_reasons_are_recorded_facts_not_judgements():
+    """142차 — 비대칭 2건의 0 사유는 **리포가 이미 기록한 사실**이다(판정 아님).
+
+    141차가 남긴 것: `auxiliary_facility`(미언급 14건)·`thermal_storage_insulation`
+    (13건)만 *"나머지가 왜 0인지"*를 적지 않았다.
+
+    🔴 `CAPEX_MAJOR_CASE_CHUNKS`의 서술을 뒤지니 **사유가 이미 기록돼 있었다**:
+      이준희 — 재배실 4,756.32 + **관리실 648㎡**가 실재하나 '0402 재배실벽체 및
+               관리동지붕공사'가 온실구조에 **혼입**돼 0(52차)
+      강정구 — 부속자재에 **관리동 판넬 및 출입문 부속 약 5,597,384원** 포함,
+               **독립 공종이 아니라** 분리 안 함(56차)
+      오기수 — **관리동커텐 2,817,269원**이 자동개폐로 귀속(57차)
+    → **"부대시설이 없다"가 아니다.** 나머지 11건은 **확인되지 않았다**(판정하지 않는다).
+
+    ⚠️ 이것은 **112차 이후 첫 엔진 상수 값 변경**이다 — 다만 `build_site`가
+    **접두만**(`startswith`) 읽으므로 표시 분류는 불변이고, 계산에는 쓰이지 않는다.
+    """
+    import os as _o, sys as _s, json as _j, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    C = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                         encoding="utf-8"))["constants"]
+    status = C["CAPEX_MAJOR_EVIDENCE_STATUS"]["value"]
+
+    # ① 엔진과 레지스트리가 같은가(값을 바꿨으니 둘 다 움직여야 한다)
+    assert e.CAPEX_MAJOR_EVIDENCE_STATUS == status, (
+        "엔진 상수와 레지스트리 값이 어긋났다 — 142차는 **둘 다** 바꿨다")
+
+    # ② 🔴 표시 분류 불변 — build_site는 접두만 읽는다
+    for cat, want in (("auxiliary_facility", "실측"),
+                      ("thermal_storage_insulation", "부분")):
+        assert status[cat].startswith(want), (
+            f"{cat}의 접두가 바뀌었다 — build_site의 태그 분류가 달라진다")
+
+    # ③ 기록된 사실 3건이 살아 있는가(사유의 실체다)
+    aux = status["auxiliary_facility"]
+    for who, mark in (("이준희", "관리실 648"), ("이준희", "혼입"),
+                      ("강정구", "5,597,384"), ("오기수", "2,817,269")):
+        assert mark in aux, f"{who}의 0 사유({mark})가 사라졌다 — 리포가 기록한 사실이다"
+    assert "'부대시설이 없다'는 뜻이 아니다" in aux, (
+        "🔴 '실측 1건'이 '부대시설이 1건뿐'이라는 뜻이 아니라는 142차 정정이 사라졌다")
+
+    # ④ 판정하지 않았다는 표기 — 나머지는 미확인이다
+    for cat in ("auxiliary_facility", "thermal_storage_insulation"):
+        assert "판정하지 않는다" in status[cat], (
+            f"{cat}에서 미판정 표기가 사라졌다 — 0 사유는 판단성이다")
+    assert "나머지 11건의 0 사유는 확인되지 않았다" in aux
+    assert "13건에 축열탱크가 실재하는지는 확인되지 않았다" in status["thermal_storage_insulation"]
+
+    # ⑤ 🔴 "언급 ≠ 근거"가 실증됐다 — 이름을 적자 언급 카테고리가 늘었다
+    refs = C["CAPEX_MAJOR_EVIDENCE_STATUS"]["source_refs"]
+    grew = [r for r in refs if "142차" in (r.get("note") or "")
+            and "언급 ≠ 근거" in (r.get("note") or "")]
+    assert len(grew) == 3, (
+        f"언급 카테고리가 늘어난 표본 note가 {len(grew)}건이다 — "
+        "142차 실측은 이준희·강정구·오기수 3건이다")
+    for r in grew:
+        assert r["note"].startswith(("이준희", "강정구", "오기수")), r["note"][:20]
+
+    doc = open(_o.path.join(repo, "근거_0사유보강_20260915.md"), encoding="utf-8").read()
+    assert "첫 엔진 상수 값 변경" in doc, (
+        "112차 이후 첫 엔진 값 변경이라는 사실이 근거문서에서 사라졌다")
+    assert "접두만" in doc, "표시 분류가 불변인 이유(접두만 읽는다)가 사라졌다"
 
 
 if __name__ == "__main__":
