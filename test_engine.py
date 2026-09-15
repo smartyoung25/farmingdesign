@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    295 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    296 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "295 passed + 4 skipped" in order, (
+    assert "296 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -4947,6 +4947,97 @@ def test_136cha_pdf_is_opened_once_and_output_is_identical(monkeypatch):
     px.close_doc()
     assert px._DOC is None, "close_doc() 후에도 공유 핸들이 남아 있다"
     px.close_doc()          # 두 번 불러도 안전해야 한다
+
+
+def test_137cha_every_ref_records_its_match_grade():
+    """137차 — `source_refs` **148건 전부**가 등급을 데이터에 기록하는가.
+
+    🔴 26회차 F5가 지적한 것: `audit_traceability.py`는 `r.get("match", "exact")`로
+    **기본값을 exact**로 잡는다. 즉 등급을 안 적으면 **데이터에 없는 채 exact**가 되고,
+    `build_site`의 배지 맵(`near`→[근접] · `partial`→[부분])에서도 **무배지**가 된다.
+    134차가 자기 부착분 30건을 명시했고, 137차가 **나머지 56건**을 확정했다.
+
+    이 테스트가 막는 것: ①새 ref가 등급 없이 들어와 **조용히 exact가 되는 것**
+    ②확정한 등급이 되돌아가는 것.
+    """
+    import os as _o, json as _j, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    C = reg["constants"]
+
+    missing = [(k, r.get("file")) for k, v in C.items()
+               for r in (v.get("source_refs") or []) if "match" not in r]
+    assert not missing, (
+        f"등급이 없는 ref가 {len(missing)}건 있다: {missing[:3]} … — "
+        "감사기가 기본값 exact로 잡으므로 등급이 데이터에 없는 채 exact가 된다")
+
+    dist = {}
+    for k, v in C.items():
+        for r in (v.get("source_refs") or []):
+            dist[r["match"]] = dist.get(r["match"], 0) + 1
+    assert dist == {"exact": 90, "partial": 50, "near": 8}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 137차 확정은 exact 90 / partial 50 / near 8이다. "
+        "ref를 늘렸다면 새 ref의 등급을 정하고 이 수를 갱신하라")
+
+    # ── 🔴 near 4건 — 값이 원문과 **같지 않다**는 것이 핵심이다 ──────────
+    def _ref(const, needle):
+        hit = [r for r in C[const]["source_refs"] if needle in r["file"]]
+        assert len(hit) == 1, (const, needle, len(hit))
+        return hit[0]
+
+    for const, needle, gap, why in (
+        ("STRUCTURE_ONLY_PYEONG", "1. 공사내역서", "163,470",
+         "등재 163,400 — 값이 이 문서에서 나온 게 아니라 A-8 엔진값을 근사 확인한 것이다"),
+        ("BENCHMARK_BANDS", "1. 공사내역서", "239,842",
+         "등재 상한 240,000 — 올려 잡은 경계이고 하한 115,000은 다른 계열이다"),
+        ("ACTUALS_COUNT", "3. 공사설명서(우민재)", "2,321.87",
+         "등재 2,323 — 26회차 F4가 올린 AC5가 이 차이다"),
+        ("ACTUALS_COUNT", "0. 도면(우민재)", "2,321.87",
+         "등재 2,323 — AC5"),
+    ):
+        r = _ref(const, needle)
+        assert r["match"] == "near", f"{const}/{needle}의 등급이 near가 아니다 — {why}"
+        assert gap in (r.get("note") or ""), (
+            f"{const}/{needle}의 note에서 원문 값 {gap}이 사라졌다 — "
+            "near는 '얼마나 다른가'가 적혀 있어야 뜻이 있다")
+
+    # ── partial 7건 — 문서가 값의 일부·해석 근거일 뿐이다 ────────────────
+    drawings = [r for r in C["ACTUALS_COUNT"]["source_refs"]
+                if r["file"].endswith(("평면도.pdf", "측면골조도.pdf", "주단면도.pdf"))]
+    assert len(drawings) == 6 and all(r["match"] == "partial" for r in drawings), (
+        "한수진·최선동 도면 6건은 면적 기준의 **해석 근거**이지 등재 면적값의 출처가 아니다")
+    assert C["SUBSIDY_PROGRAM_TYPES_REFERENCE"]["source_refs"][0]["match"] == "partial", (
+        "시행계획 원문은 사업 명칭 4건 확인·2건 미확인이라 등재값 전체를 뒷받침하지 않는다")
+
+    # ── 법령·고시 원문은 exact다(그 별표에서 값이 직접 나온다) ───────────
+    # ⚠️ 상수 전체가 아니라 **137차가 등급을 매긴 그 별표 ref**만 본다
+    #    (FUEL_HHV에는 137차 대상이 아닌 기존 partial ref가 하나 더 있다)
+    for const, needle in (("FUEL_LHV", "에너지열량환산기준"),
+                          ("FUEL_HHV", "에너지열량환산기준"),
+                          ("STRUCTURE_SERVICE_LIFE_STATUTORY", "별표5_건축물기준내용연수"),
+                          ("STRUCTURE_SERVICE_LIFE_STATUTORY", "별표6_업종별기준내용연수"),
+                          ("SUPERVISION_FEE_RATE_TABLE", "공사감리대가요율"),
+                          ("EQUIPMENT_SERVICE_LIFE_REFERENCE", "조달청고시_내용연수표")):
+        assert _ref(const, needle)["match"] == "exact", (
+            f"{const}의 별표 원문({needle}) ref가 exact가 아니다 — 값이 그 별표에서 직접 나온다")
+
+    # ── 등급은 산출물에 보인다: build_site 배지 맵이 살아 있는가 ─────────
+    bs = open(_o.path.join(repo, "build_site.py"), encoding="utf-8").read()
+    assert '"near": " <b>[근접]</b>"' in bs and '"partial": " <b>[부분]</b>"' in bs, (
+        "build_site의 match 배지 맵이 사라졌다 — 등급을 적어도 독자가 볼 수 없게 된다")
+    # 🔴 137차 실측 — 레지스트리 서술에 배지 문자열을 쓰면 그 서술이 렌더돼 **배지 수가
+    #    늘어난다**(9·50으로 부풀었다). 131차 `[확인요망]` 자기증식·134차 ref note에 이은
+    #    **세 번째**다: **세는 문자열을 서술에 쓰지 않는다**.
+    prose_badge = [k for k, v in C.items()
+                   if "[근접]" in (v.get("source") or "") or "[부분]" in (v.get("source") or "")]
+    assert not prose_badge, (
+        f"레지스트리 서술이 배지 문자열을 쓴다: {prose_badge} — "
+        "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
+
+    ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
+    assert ledger.count("[근접]") == 8 and ledger.count("[부분]") == 50, (
+        f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
+        "137차 확정(8·50)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라")
 
 
 if __name__ == "__main__":
