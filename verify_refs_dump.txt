@@ -1,0 +1,83 @@
+# source_refs 재검산 결과 (verify_refs.py)
+
+대상: CAPEX_MAJOR_CASE_CHUNKS · CAPEX_MAJOR_KNOWN_TOTALS · ACTUALS_COUNT · CAPEX_CATEGORY_OBSERVED_RANGE의 exact ref 39건
+결과: OK 32 · RECOMPUTED 7
+
+RECOMPUTED  CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/우민재/1. 공사내역서 스마트팜 확대보급 시범사업.xlsx
+            인쇄 없음 ['2,679,227', '456,158,140'] — note가 재집계를 선언한다
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/최혁진님 온실 내역서/혁진 스마트팜 온실 신축공사_공사비 내역서.pdf
+            pdfplumber 텍스트 + 단어 x결합(41766자)
+RECOMPUTED  CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/이두희/이두희 천안 20251028.pdf
+            인쇄 없음 ['433,606,460'] — note가 재집계를 선언한다
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/221206 윤성호 청년스마트팜 내역서.pdf
+            pdfplumber 텍스트 + 단어 x결합(35124자)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/한일그린텍/설계예산서(한일그린텍).pdf
+            pdfplumber 텍스트 + 단어 x결합(33470자)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/충남 서산(이준희) 온실 시공 견적서_부가세 환급.xlsx
+            openpyxl 전 시트(수식본·캐시값본)
+RECOMPUTED  CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/천안 맹주연님 견적서_251014(최종견적서).pdf
+            인쇄 없음 ['439,742,227'] — note가 재집계를 선언한다
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/1. 군산 강정구 농가_8.4×44×10연동_와이드_딸기.pdf
+            pdfplumber 텍스트 + 단어 x결합(7946자)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/견적서_군산 오기수 농가_0803.pdf
+            pdfplumber 텍스트 + 단어 x결합(8885자)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/논산딸기백가은님75각 시공 견적서(최종).pdf
+            pdfplumber 텍스트 + 단어 x결합(20676자)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/논산딸기조윤정님75각 외몽골셀액분리(최종).pdf
+            pdfplumber 텍스트 + 단어 x결합(20670자)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/박규현 견적서.pdf
+            pdfplumber 텍스트 + 단어 x결합(17173자)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/시공견적서.pdf
+            pdfplumber 텍스트 + 단어 x결합(32879자)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/한수진스마트팜딸기하우스견적서.xls
+            관대 파싱(_xls_sheets_lenient)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/스마트팜하우스(렉창)5연동견적서_최선동.xls
+            관대 파싱(_xls_sheets_lenient)
+OK          CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/견적참조/수현건설임미라님견적서.xls
+            관대 파싱(_xls_sheets_lenient)
+RECOMPUTED  CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/우민재/1. 공사내역서 스마트팜 확대보급 시범사업.xlsx
+            인쇄 없음 ['2,679,227', '456,158,140'] — note가 재집계를 선언한다
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/최혁진님 온실 내역서/혁진 스마트팜 온실 신축공사_공사비 내역서.pdf
+            pdfplumber 텍스트 + 단어 x결합(41766자)
+RECOMPUTED  CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/이두희/이두희 천안 20251028.pdf
+            인쇄 없음 ['433,606,460'] — note가 재집계를 선언한다
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/221206 윤성호 청년스마트팜 내역서.pdf
+            pdfplumber 텍스트 + 단어 x결합(35124자)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/한일그린텍/설계예산서(한일그린텍).pdf
+            pdfplumber 텍스트 + 단어 x결합(33470자)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/충남 서산(이준희) 온실 시공 견적서_부가세 환급.xlsx
+            openpyxl 전 시트(수식본·캐시값본)
+RECOMPUTED  CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/천안 맹주연님 견적서_251014(최종견적서).pdf
+            인쇄 없음 ['439,742,227'] — note가 재집계를 선언한다
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/1. 군산 강정구 농가_8.4×44×10연동_와이드_딸기.pdf
+            pdfplumber 텍스트 + 단어 x결합(7946자)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/견적서_군산 오기수 농가_0803.pdf
+            pdfplumber 텍스트 + 단어 x결합(8885자)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/논산딸기백가은님75각 시공 견적서(최종).pdf
+            pdfplumber 텍스트 + 단어 x결합(20676자)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/박규현 견적서.pdf
+            pdfplumber 텍스트 + 단어 x결합(17173자)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/시공견적서.pdf
+            pdfplumber 텍스트 + 단어 x결합(32879자)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/한수진스마트팜딸기하우스견적서.xls
+            관대 파싱(_xls_sheets_lenient)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/스마트팜하우스(렉창)5연동견적서_최선동.xls
+            관대 파싱(_xls_sheets_lenient)
+OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/수현건설임미라님견적서.xls
+            관대 파싱(_xls_sheets_lenient)
+OK          ACTUALS_COUNT                    스마트팜스펙/이두희/이두희 천안 20251028.pdf
+            pdfplumber 텍스트 + 단어 x결합(58274자)
+OK          ACTUALS_COUNT                    스마트팜스펙/최혁진님 온실 내역서/혁진 스마트팜 온실 신축공사_공사비 내역서.pdf
+            pdfplumber 텍스트 + 단어 x결합(41766자)
+OK          ACTUALS_COUNT                    스마트팜스펙/우민재/1. 공사내역서 스마트팜 확대보급 시범사업.xlsx
+            openpyxl 전 시트(수식본·캐시값본)
+OK          ACTUALS_COUNT                    스마트팜스펙/한일그린텍/설계예산서(한일그린텍).pdf
+            pdfplumber 텍스트 + 단어 x결합(33470자)
+OK          ACTUALS_COUNT                    스마트팜스펙/견적참조/한수진스마트팜딸기하우스견적서.xls
+            관대 파싱(_xls_sheets_lenient)
+OK          ACTUALS_COUNT                    스마트팜스펙/견적참조/스마트팜하우스(렉창)5연동견적서_최선동.xls
+            관대 파싱(_xls_sheets_lenient)
+RECOMPUTED  CAPEX_CATEGORY_OBSERVED_RANGE    스마트팜스펙/우민재/1. 공사내역서 스마트팜 확대보급 시범사업.xlsx
+            인쇄 없음 ['2,679,227', '456,158,140'] — note가 재집계를 선언한다
+OK          CAPEX_CATEGORY_OBSERVED_RANGE    스마트팜스펙/최혁진님 온실 내역서/혁진 스마트팜 온실 신축공사_공사비 내역서.pdf
+            pdfplumber 텍스트 + 단어 x결합(41766자)

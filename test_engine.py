@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    297 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    298 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "297 passed + 4 skipped" in order, (
+    assert "298 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -5098,6 +5098,105 @@ def test_138cha_known_totals_are_recomputable_from_the_documents():
         "125차 P1~P3·133·134차에 이은 같은 계열이다")
     assert "회계 판단" in doc, (
         "재집계 규칙의 타당성을 판정하지 않았다는 표기가 사라졌다")
+
+
+def test_139cha_every_exact_ref_carries_a_checkable_anchor():
+    """139차 — `exact` ref가 **검산 가능한 대조 기준**을 갖는가.
+
+    138차는 39건 중 **9건에 note가 아무 금액도 적지 않아 대조하지 못했다**.
+    기준이 없으면 그 ref는 **앞으로도 영원히 검산되지 않는다** — `_ref_ok()`는
+    파일 실재만 보므로 게이트도 그것을 모른다.
+
+    139차가 9건에 앵커를 적고, 재검산기를 **리포 도구(`verify_refs.py`)로 남겼다**.
+    이 테스트는 그 도구의 **정적 검사**를 매 게이트마다 돌린다(원문 16종을 여는
+    전수 재검산은 `python verify_refs.py --full`로 돌리고 스냅샷을 비교한다).
+    """
+    import os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import verify_refs as vr
+
+    consts = vr.load_registry()
+    rows = vr.exact_refs(consts)
+    assert len(rows) == 39, f"대상 exact ref가 {len(rows)}건이다 — 138·139차 실측은 39건"
+
+    # ① 🔴 앵커 없는 ref가 0건인가 — 139차의 본체다
+    # 🔴 도구를 신뢰만 하면 안 된다 — 139차 변이 M5(static_check 무력화)가 통과했다.
+    #    가드가 **직접** 센다.
+    empty = [(k, _o.path.basename(f)) for k, f, anchors, _ in rows if not anchors]
+    assert not empty, (
+        f"대조 기준이 없는 exact ref: {empty} — 기준이 없으면 영원히 검산되지 않는다")
+    problems = vr.static_check(consts)
+    assert len(problems) == len(empty), (
+        "verify_refs.static_check가 앵커 없는 ref를 놓친다 — 도구가 무력화됐다")
+
+    # 🔴 red 자기검증 — 앵커 없는 ref가 0건이면 **도구가 무력화돼도 결과로는 구별되지
+    #    않는다**(139차 변이 M5). 합성 입력으로 도구가 실제로 잡는지 시험한다
+    #    (`test_cases.py`의 `at._ref_ok({...}) is False`와 같은 선례).
+    fake = {k: {"source_refs": []} for k in vr.TARGET}
+    fake[vr.TARGET[0]]["source_refs"] = [
+        {"file": "없는폴더/없는파일.pdf", "match": "exact", "note": "금액이 없는 note"}]
+    assert len(vr.static_check(fake)) == 1, (
+        "verify_refs.static_check가 앵커 없는 ref를 잡지 못한다 — 도구가 무력화됐다")
+    assert not problems, (
+        "대조 기준(앵커 금액)이 없는 exact ref: "
+        + " / ".join(f"{k} {_o.path.basename(f)}" for k, f, _ in problems)
+        + " — 기준이 없으면 그 ref는 영원히 검산되지 않는다")
+
+    # ② 139차가 새로 적은 9건의 앵커가 살아 있는가
+    by_file = {}
+    for k, f, anchors, note in rows:
+        by_file.setdefault((k, _o.path.basename(f)), (anchors, note))
+    for (const, base), want in (
+        (("ACTUALS_COUNT", "이두희 천안 20251028.pdf"), 582_455_045),
+        (("ACTUALS_COUNT", "혁진 스마트팜 온실 신축공사_공사비 내역서.pdf"), 930_000_000),
+        (("ACTUALS_COUNT", "설계예산서(한일그린텍).pdf"), 480_636_000),
+        (("ACTUALS_COUNT", "한수진스마트팜딸기하우스견적서.xls"), 618_001_000),
+        (("ACTUALS_COUNT", "스마트팜하우스(렉창)5연동견적서_최선동.xls"), 613_782_000),
+        (("CAPEX_MAJOR_CASE_CHUNKS", "221206 윤성호 청년스마트팜 내역서.pdf"), 1_162_078_090),
+        (("CAPEX_MAJOR_CASE_CHUNKS", "논산딸기조윤정님75각 외몽골셀액분리(최종).pdf"), 398_628_383),
+        (("CAPEX_CATEGORY_OBSERVED_RANGE", "1. 공사내역서 스마트팜 확대보급 시범사업.xlsx"), 456_158_140),
+        (("CAPEX_CATEGORY_OBSERVED_RANGE", "혁진 스마트팜 온실 신축공사_공사비 내역서.pdf"), 694_575_784),
+    ):
+        anchors, _ = by_file[(const, base)]
+        assert want in anchors, (
+            f"{const}/{base}의 139차 앵커 {want:,}가 사라졌다 — "
+            "138차에 '대조할 금액이 없다'로 남았던 9건이다")
+
+    # ③ ACTUALS 앵커는 엔진 값과 같아야 한다(서술만 고치고 값이 흘러가는 것을 막는다)
+    import smartfarm_engine as e
+    actual = {row[0]: row[2] for row in e.ACTUALS}
+    for base, name in (("이두희 천안 20251028.pdf", "이두희"),
+                       ("혁진 스마트팜 온실 신축공사_공사비 내역서.pdf", "최혁진"),
+                       ("설계예산서(한일그린텍).pdf", "한일그린텍"),
+                       ("한수진스마트팜딸기하우스견적서.xls", "한수진"),
+                       ("스마트팜하우스(렉창)5연동견적서_최선동.xls", "최선동")):
+        anchors, _ = by_file[("ACTUALS_COUNT", base)]
+        assert actual[name] in anchors, (
+            f"{name}의 ACTUALS 총공사비 {actual[name]:,}가 ref 앵커와 어긋난다")
+
+    # ④ 전수 재검산 스냅샷이 있고 139차 실측과 맞는가
+    dump = open(_o.path.join(repo, "verify_refs_dump.txt"), encoding="utf-8").read()
+    assert "OK 32 · RECOMPUTED 7" in dump, (
+        "verify_refs_dump.txt가 139차 실측(OK 32 · RECOMPUTED 7)과 다르다 — "
+        "앵커를 바꿨다면 `python verify_refs.py --full`로 스냅샷을 다시 뜨라")
+    # ⚠️ 부분 문자열로 보면 안 된다 — `CAPEX_MAJOR_CASE_CHUNKS`에 "UNK"가 들어 있다
+    #    (139차에 이 가드가 자기 오탐으로 한 번 발화했다). 상태는 **줄 머리**에 있다.
+    bad_lines = [ln for ln in dump.splitlines()
+                 if ln.startswith("MISS") or ln.startswith("UNK")]
+    assert not bad_lines, (
+        "재검산 스냅샷에 MISS/UNK 줄이 생겼다: %s — 앵커가 원문에서 확인되지 않거나 "
+        "재집계 선언이 없는 ref가 있다" % bad_lines[:2])
+
+    # ⑤ 인쇄돼 있지 않은 앵커는 note가 재집계를 선언해야 한다(도구의 규율)
+    # 🔴 변이 M3(빈 문자열 추가)이 통과했다 — 빈 표지는 **모든 note에 들어 있다**
+    assert all(w.strip() for w in vr.RECOMPUTED), (
+        f"재집계 선언 표지에 빈 값이 섞였다: {vr.RECOMPUTED} — "
+        "빈 문자열은 모든 note에 매칭돼 인쇄되지 않은 값이 전부 통과한다")
+    assert vr.RECOMPUTED and "재집계" in vr.RECOMPUTED, (
+        "verify_refs의 재집계 선언 규율이 사라졌다 — 그것이 없으면 "
+        "인쇄되지 않은 값이 조용히 통과한다")
 
 
 if __name__ == "__main__":
