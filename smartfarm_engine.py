@@ -4841,6 +4841,19 @@ def production_kg(area_m2: float, base_yield_kg_m2: float, fitness_pct: float) -
 #     ✅ 133차는 감사 리포트에 `추적성 사각` 절을 신설해 12개가 매번 보이게 했다
 #       (판정 의미는 바꾸지 않았다 — 파생·결정 상수처럼 정당한 0건이 섞여 있다).
 #   근거: `근거_추적성사각_refs0건_20260915.md`
+#   ✅ 2026-09-15 134차 — (A)계열에 `source_refs`를 붙였다(값 변경 0)
+#     133차가 "원문이 리포에 실재하는데 ref가 없다"고 분류한 6개 상수에 부착했다:
+#     `PUMSEM_ITEMS` +11 · `CAPEX_MAJOR_EVIDENCE_STATUS` +17 ·
+#     `CAPEX_MAJOR_UNCLASSIFIED` +16 · `EQUIPMENT_DB_META` +9 ·
+#     `CAPEX_CASE_CHUNKS` +2 · `ELECTRICAL_PUMSEM_LUMP_WON_PER_HA` +1
+#     → refs **92 → 148**, 추적성 사각 **12 → 7**(상수 54 불변, 값 전부 불변).
+#     🔴 `_ref_ok()`는 **파일이 있는지만** 본다 — 엉뚱한 파일을 붙여도 green이라
+#       **잘못 붙은 ref는 없느니만 못하다**. 그래서 붙이기 전에 검산했고
+#       그 검산을 게이트에 넣었다: 기자재DB CSV **행수 8/8 원단위 일치** ·
+#       CAPEX 9공종 합 = 서술 총액 · **표본명↔파일 짝을 형제 상수와 대조**.
+#     ⚠️ 이 OPEX 상수는 (B)계열이라 **여전히 사각에 남아 있다** — 원문이 0바이트다.
+#       남은 7개는 (B)원문이 리포 밖 · (C)파생·결정이라 ref 개념이 없는 것들이다.
+#   근거: `근거_추적성refs부착_20260915.md`
 # ─────────────────────────────────────────────────────────────
 @dataclass
 class OpexItemCode:

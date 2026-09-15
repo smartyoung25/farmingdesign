@@ -719,7 +719,17 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 105차: 53→54 · refs 92(불변) — 🔴`HEATING_VERIFY_REF_KCAL_H_M2` **감사 사각 편입**.
     #       231·180이 함수 안 하드코딩이라 감사기가 볼 수 없었다(72·74차와 같은 패턴).
     #       원문서 A-12가 리포에 없어 status는 **확인요망**이고 ref는 붙일 수 없다.
-    assert a["counts"]["registry_constants"] == 54 and a["counts"]["source_refs"] == 92
+    # 134차: 54(불변) · refs 92→148 — 🔴133차가 드러낸 **추적성 사각**의 (A)계열,
+    #       즉 **원문이 리포에 실재하는데 ref가 안 붙어 있던** 6개 상수에 부착했다.
+    #       PUMSEM_ITEMS +11(품셈 PDF 89.8MB·전수대조·기계추출 스냅샷 + 맥락 8종 partial) ·
+    #       CAPEX_MAJOR_EVIDENCE_STATUS +17(표본 16 partial + 이동혁 커튼 단독견적) ·
+    #       CAPEX_MAJOR_UNCLASSIFIED +16(15키를 표본 16파일이 뒷받침) ·
+    #       EQUIPMENT_DB_META +9(기자재DB CSV 8종 — **행수 8/8 원단위 재검산** + 책자 partial) ·
+    #       CAPEX_CASE_CHUNKS +2(9공종 합 = 서술 총액 재검산) ·
+    #       ELECTRICAL_PUMSEM_LUMP_WON_PER_HA +1(같은 품셈 PDF 1ha 집계표).
+    #       **값은 하나도 바꾸지 않았다** — 출처 포인터만 붙였다.
+    #       남은 사각 7개는 (B)원문이 리포 밖 · (C)파생·결정이라 ref 개념이 없는 것들이다.
+    assert a["counts"]["registry_constants"] == 54 and a["counts"]["source_refs"] == 148
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    293 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    294 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "293 passed + 3 skipped" in order, (
+    assert "294 passed + 3 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -4532,20 +4532,16 @@ def test_133cha_refless_measured_constants_are_pinned():
     reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
     consts = reg["constants"]
 
+    # 🔴 134차에 (A)계열 5개(+참고기준 1개)를 부착해 12 → 7로 줄었다.
+    #    남은 7개는 **붙일 원문이 없거나 ref 개념이 없는 것들**이다.
     REFLESS_MEASURED = {
-        # (A) 원문이 리포에 실재한다 — 붙일 수 있는데 안 붙었다(134차 과제)
-        "PUMSEM_ITEMS",                  # 시설평가/202201_… 품셈.pdf 89.8MB + 근거문서 9종
-        "CAPEX_CASE_CHUNKS",             # 형제 CAPEX_MAJOR_KNOWN_TOTALS는 refs 15건
-        "CAPEX_MAJOR_EVIDENCE_STATUS",   # 같은 견적 원문
-        "CAPEX_MAJOR_UNCLASSIFIED",      # 같은 견적 원문
-        "EQUIPMENT_DB_META",             # 기자재DB/ CSV 8종(런타임에 실제로 읽는다)
-        # (B) 원문이 리포 밖이다
+        # (B) 원문이 리포 밖이다 — ★사용자가 넣어야 붙일 수 있다
         "SPEC_TABLE",                    # 농사로 마스터 xlsx(2025-108호, 249종)
-        "SPEC_COUNT",
+        "SPEC_COUNT",                    # 그 표의 종수(파생이기도 하다)
         "REGION_DESIGN_LOAD",            # 농식품부 보도자료 첨부 참고2·참고3(172지역)
         "OPEX_ITEM_CATEGORIES",          # 🔴 132차 — 인용 CSV가 0바이트
         "OVERHEAD_RATES",                # 원가계산서 6건 중 일부가 Google Drive
-        # (C) 파생·결정이라 원문 ref 개념이 없다
+        # (C) 파생·결정이라 원문 ref 개념이 없다 — 결함이 아니다
         "CAPEX_MAJOR_CATEGORIES",        # 사용자 제안 분류표(2026-07-16 대화)
         "RFQ_REQUIRED_CATEGORIES_DEFAULT",  # CAPEX_MAJOR_EVIDENCE_STATUS에서 도출
     }
@@ -4562,10 +4558,9 @@ def test_133cha_refless_measured_constants_are_pinned():
         "공공기준·법정기준 상수 중 refs가 사라진 것이 있다 — "
         "지금까지 이 계열은 21개 전부 ref를 갖고 있었다")
 
-    # 산출물에 닿는 셋은 특히 표시해 둔다(사각의 무게)
+    # 산출물에 닿는데 아직 사각인 둘은 특히 표시해 둔다(★사용자가 원문을 넣어야 한다)
     for k, why in (("REGION_DESIGN_LOAD", "webapp이 조회 결과에 status='실측'을 찍어 내보낸다"),
-                   ("SPEC_TABLE", "select_specs()가 render_report·run_report에서 쓰인다"),
-                   ("PUMSEM_ITEMS", "pumsem_labor_days()의 원자료 64계수")):
+                   ("SPEC_TABLE", "select_specs()가 render_report·run_report에서 쓰인다")):
         assert k in REFLESS_MEASURED, f"{k}가 목록에서 빠졌다 — {why}"
 
 
@@ -4584,8 +4579,9 @@ def test_133cha_audit_report_surfaces_the_blind_spot():
 
     a = at.audit()
     assert "refless_measured" in a, "감사 결과에 추적성 사각 집계가 사라졌다"
-    assert len(a["refless_measured"]) == 12, (
-        f"추적성 사각이 {len(a['refless_measured'])}건이다 — 133차 실측은 12건")
+    assert len(a["refless_measured"]) == 7, (
+        f"추적성 사각이 {len(a['refless_measured'])}건이다 — "
+        "133차 12건에서 134차에 (A)계열을 부착해 7건이 됐다")
 
     # 사각은 FAIL 사유가 아니다 — 판정 의미를 바꾸지 않았음을 고정한다
     assert a["ok"] and not a["hard_failures"], (
@@ -4595,7 +4591,7 @@ def test_133cha_audit_report_surfaces_the_blind_spot():
     report = at.render_report(a)
     assert "추적성 사각" in report and "한 번도" in report, (
         "리포트에서 추적성 사각 절이 사라졌다 — 보이지 않으면 종전과 같다")
-    for k in ("SPEC_TABLE", "REGION_DESIGN_LOAD", "PUMSEM_ITEMS", "OPEX_ITEM_CATEGORIES"):
+    for k in ("SPEC_TABLE", "REGION_DESIGN_LOAD", "OPEX_ITEM_CATEGORIES"):
         assert k in report, f"리포트 사각 목록에서 {k}가 빠졌다"
 
     # 저장된 리포트 파일도 같은 절을 담고 있어야 한다(게이트 실행 산출물)
@@ -4607,6 +4603,124 @@ def test_133cha_audit_report_surfaces_the_blind_spot():
     assert "빈 리스트는 0회 순회한다" in doc, "133차 기제 설명이 근거문서에서 사라졌다"
     assert "붙일 수 있는데 안 붙었다" in doc, (
         "(A)계열 — 원문이 리포에 실재하는데 ref가 없다는 구분이 사라졌다")
+
+
+def test_134cha_attached_refs_actually_back_their_values():
+    """134차 — 붙인 `source_refs`가 **정말 그 값의 출처인지** 검산으로 고정한다.
+
+    `_ref_ok()`는 **파일이 있는지만** 본다. 파일만 존재하면 통과하므로,
+    엉뚱한 파일을 붙여도 게이트는 green이다 — **없느니만 못한 ref**가 될 수 있다.
+    그래서 134차가 붙인 6개 상수는 **값과 원문의 연결을 다시 계산해** 고정한다:
+
+    - `EQUIPMENT_DB_META` — `csv_row_counts`가 **실제 CSV 행수와 8/8 일치**하는가
+    - `CAPEX_CASE_CHUNKS` — 9공종 합이 서술의 **직접공사비 총액과 원단위 일치**하는가
+    - `CAPEX_MAJOR_UNCLASSIFIED` — 15키가 전부 **표본 파일로 덮이는가**
+    - `PUMSEM_ITEMS` — 1차 출처가 **품셈 PDF**이고 기계 추출 스냅샷이 붙어 있는가
+    """
+    import os as _o, json as _j, io as _io, csv as _csv
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    C = reg["constants"]
+
+    ATTACHED = {
+        "PUMSEM_ITEMS": 11, "ELECTRICAL_PUMSEM_LUMP_WON_PER_HA": 1,
+        "CAPEX_CASE_CHUNKS": 2, "CAPEX_MAJOR_UNCLASSIFIED": 16,
+        "CAPEX_MAJOR_EVIDENCE_STATUS": 17, "EQUIPMENT_DB_META": 9,
+    }
+    for k, n in ATTACHED.items():
+        refs = C[k].get("source_refs") or []
+        assert len(refs) == n, f"{k}의 refs가 {len(refs)}건이다 — 134차 부착은 {n}건"
+        paths = [r["file"] for r in refs]
+        assert len(set(paths)) == len(paths), f"{k}에 같은 파일이 두 번 붙었다"
+        for r in refs:
+            full = _o.path.join(repo, r["file"])
+            assert _o.path.isfile(full), f"{k}: {r['file']} 이 사라졌다"
+            assert _o.path.getsize(full) > 0, (
+                f"{k}: {r['file']} 이 0바이트다 — 132차 OPEX와 같은 상황이 된다")
+            assert r.get("note"), f"{k}: {r['file']} 에 note가 없다(왜 이 파일인지 적어야 한다)"
+
+    # ① 🎯 EQUIPMENT_DB_META — CSV 행수를 다시 세어 등재값과 대조한다
+    counts = C["EQUIPMENT_DB_META"]["value"]["csv_row_counts"]
+    assert len(counts) == 8
+    for name, n in counts.items():
+        p = _o.path.join(repo, "기자재DB", name)
+        assert _o.path.isfile(p), f"기자재DB/{name} 이 사라졌다 — 런타임이 읽는 파일이다"
+        rows = None
+        for enc in ("utf-8-sig", "cp949"):
+            try:
+                rows = list(_csv.reader(_io.open(p, encoding=enc, newline="")))
+                break
+            except (UnicodeDecodeError, LookupError):
+                continue
+        assert rows is not None, f"기자재DB/{name} 인코딩을 읽지 못했다"
+        body = len([r for r in rows[1:] if any(c.strip() for c in r)])
+        assert body == n, (
+            f"기자재DB/{name} 행수가 {body}인데 등재값은 {n}이다 — "
+            "ref가 가리키는 파일이 등재값의 출처라는 주장이 깨진다")
+    csv_refs = {r["file"] for r in C["EQUIPMENT_DB_META"]["source_refs"]
+                if r["file"].startswith("기자재DB/")}
+    assert csv_refs == {"기자재DB/%s" % n for n in counts}, (
+        "csv_row_counts의 8종과 붙인 CSV refs가 어긋난다")
+
+    # ② 🎯 CAPEX_CASE_CHUNKS — 9공종 합이 서술 총액과 원단위로 맞는가
+    cc = C["CAPEX_CASE_CHUNKS"]["value"]
+    for name, total in (("우민재", 456_158_140), ("최혁진", 694_575_784)):
+        got = sum(cc[name].values())
+        assert got == total, f"{name} 9공종 합 {got:,} ≠ 서술 총액 {total:,}"
+
+    # 🔴 note만 보면 **파일을 바꿔치기해도 통과한다**(_ref_ok는 실재만 본다).
+    #    그래서 표본명↔파일 짝이 형제 상수의 매핑과 같은지 대조한다.
+    #    변이 M1(실재하는 엉뚱한 파일로 교체)이 이 검사가 없을 때 통과했다.
+    sib_note = {r["file"]: (r.get("note") or "")
+                for r in C["CAPEX_MAJOR_CASE_CHUNKS"]["source_refs"]}
+    for cname in ("CAPEX_CASE_CHUNKS", "CAPEX_MAJOR_UNCLASSIFIED",
+                  "CAPEX_MAJOR_EVIDENCE_STATUS"):
+        for r in C[cname]["source_refs"]:
+            if r["file"] not in sib_note:
+                continue          # 이동혁 커튼 견적처럼 형제에 없는 보조 자료
+            mine = (r.get("note") or "").split("—")[0].split("표본")[0]
+            names = [n for n in mine.replace("·", " ").split() if n]
+            assert names, f"{cname}: {r['file']} note에서 표본명을 못 읽었다"
+            assert any(n in sib_note[r["file"]] for n in names), (
+                f"{cname}: {r['file']} 의 note가 '{mine.strip()}'인데 "
+                f"형제 상수는 이 파일을 '{sib_note[r['file']][:20]}'로 적는다 — "
+                "표본명과 파일이 어긋났다(잘못 붙은 ref는 없느니만 못하다)")
+
+    # ③ CAPEX_MAJOR_UNCLASSIFIED — 15키가 전부 표본 refs로 덮이는가
+    unc = C["CAPEX_MAJOR_UNCLASSIFIED"]["value"]
+    notes = " | ".join(r.get("note") or "" for r in C["CAPEX_MAJOR_UNCLASSIFIED"]["source_refs"])
+    for key in unc:
+        for nm in key.split("·"):          # '백가은·조윤정'은 쌍 견적 통합 키다
+            assert nm in notes, f"미분류 키 '{key}'의 표본 {nm}을 가리키는 ref가 없다"
+    # 형제 상수와 같은 원문 집합을 쓰는가(133차가 지적한 바로 그 점)
+    sib = {r["file"] for r in C["CAPEX_MAJOR_CASE_CHUNKS"]["source_refs"]}
+    assert {r["file"] for r in C["CAPEX_MAJOR_UNCLASSIFIED"]["source_refs"]} == sib, (
+        "미분류가 형제 CAPEX_MAJOR_CASE_CHUNKS와 다른 원문 집합을 가리킨다")
+
+    # ④ PUMSEM_ITEMS — 1차 출처가 품셈 PDF이고 기계 추출 스냅샷이 함께 붙었는가
+    pum = C["PUMSEM_ITEMS"]["source_refs"]
+    assert pum[0]["file"] == "시설평가/202201_스마트팜 표준화_품셈.pdf", (
+        "PUMSEM_ITEMS의 첫 ref가 1차 출처(품셈 PDF)가 아니다")
+    assert pum[0].get("match", "exact") == "exact"
+    files = {r["file"] for r in pum}
+    assert "pumsem_extract_dump.txt" in files and \
+           "근거_PUMSEM64종_원문전수대조_20260914.md" in files, (
+        "64계수의 대조 기록(113차 육안·125차 기계)이 refs에서 빠졌다")
+
+    # ⑤ 등급 — 맥락 자료를 exact로 올리지 않았는가(20회차 F3의 교훈)
+    for k in ("PUMSEM_ITEMS", "CAPEX_MAJOR_EVIDENCE_STATUS", "EQUIPMENT_DB_META"):
+        assert any(r.get("match") == "partial" for r in C[k]["source_refs"]), (
+            f"{k}에 partial 등급이 하나도 없다 — 맥락 자료까지 exact로 올렸다는 뜻이다")
+    ev = C["CAPEX_MAJOR_EVIDENCE_STATUS"]["source_refs"]
+    assert all(r.get("match") == "partial" for r in ev), (
+        "EVIDENCE_STATUS의 상태 문자열은 표본 전체에서 유도된다 — "
+        "개별 표본을 exact로 올리면 과대 표기다")
+
+    doc = open(_o.path.join(repo, "근거_추적성refs부착_20260915.md"), encoding="utf-8").read()
+    assert "파일만 존재하면 통과한다" in doc, (
+        "_ref_ok의 한계(실재만 보고 내용은 안 본다)가 근거문서에서 사라졌다")
+    assert "하나도 바꾸지 않았다" in doc and "92 → 148" in doc, (
+        "값 불변 + refs만 92→148이라는 표기가 사라졌다")
 
 
 if __name__ == "__main__":
