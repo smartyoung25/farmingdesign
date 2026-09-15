@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    299 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    300 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "299 passed + 4 skipped" in order, (
+    assert "300 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -5284,6 +5284,79 @@ def test_140cha_partial_and_near_refs_carry_criteria():
     assert "4건으로 오독" in sample_notes, (
         "🔴 `—` 분할이 깨진다는 140차 실측(hvac 10 → 4)이 사라졌다 — "
         "그 기록이 없으면 다음 차수가 같은 자동 분류를 다시 시도한다")
+
+
+def test_141cha_declared_counts_match_the_case_data():
+    """141차 — 상태 문자열의 **선언 건수**가 실데이터와 맞는가.
+
+    🔴 140차는 *"자동으로 셀 수 없다"*고 결론냈다 — 상태 문자열을 `—`로 쪼개려다
+    **주석 안의 `—` 때문에 `hvac` 10건이 4건으로 오독**됐기 때문이다.
+    **그것은 방법의 문제였다**: 문자열을 파싱할 게 아니라 **상수 자신의 데이터**
+    (`CAPEX_MAJOR_CASE_CHUNKS` = 케이스 15 × 카테고리 금액)를 세면 된다.
+
+    141차 실측: **선언 건수 8종이 전부 "금액>0 케이스 수"와 일치**하고,
+    잔차(분류합 + 미분류 = `known_total`)도 **15케이스 전부 0건 불일치**다.
+
+    📌 세는 단위는 **파일이 아니라 케이스**다 — `백가은·조윤정`은 **쌍 견적 통합 1건**.
+    140차가 이름을 세어 15 vs 14로 어긋난 이유가 이것이다.
+    """
+    import os as _o, json as _j, io as _io, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    C = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                         encoding="utf-8"))["constants"]
+    chunks = C["CAPEX_MAJOR_CASE_CHUNKS"]["value"]
+    status = C["CAPEX_MAJOR_EVIDENCE_STATUS"]["value"]
+    unc = C["CAPEX_MAJOR_UNCLASSIFIED"]["value"]
+    kt = C["CAPEX_MAJOR_KNOWN_TOTALS"]["value"]
+
+    assert len(chunks) == 15 and "백가은·조윤정" in chunks, (
+        "케이스 키가 15개(쌍 견적 통합 1건 포함)가 아니다 — 세는 단위가 바뀌었다")
+
+    # ① 🎯 선언 건수 vs 금액>0 케이스 수
+    HEAD = _re.compile(r"^(실측|부분실측)\((?:축열탱크만\s*)?(\d+)건")
+    EXPECT = {"greenhouse_structure": 14, "auto_opening_system": 15, "hvac": 10,
+              "irrigation_fertigation": 14, "ict_control": 6, "electrical": 4,
+              "auxiliary_facility": 1, "thermal_storage_insulation": 2}
+    declared = {}
+    for cat, txt in status.items():
+        m = HEAD.match(str(txt))
+        if m:
+            declared[cat] = int(m.group(2))
+    assert declared == EXPECT, (
+        f"선언 건수가 바뀌었다: {declared} — 141차 실측은 {EXPECT}")
+    for cat, n in EXPECT.items():
+        present = [k for k, v in chunks.items() if v.get(cat, 0)]
+        assert len(present) == n, (
+            f"{cat}: 선언 {n}건인데 금액>0 케이스는 {len(present)}건이다 "
+            f"({sorted(present)}) — 서술과 데이터가 어긋났다")
+
+    # ② 잔차 — 분류합 + 미분류 = known_total (15케이스 전부)
+    for k, v in chunks.items():
+        got = sum(v.values()) + unc.get(k, 0)
+        assert got == kt[k], (
+            f"{k}: 분류합+미분류 {got:,} ≠ known_total {kt[k]:,}")
+
+    # ③ 🔴 서술 비대칭 — 6개는 제외 사유를 적고 2개는 적지 않는다
+    def _has_exclusion(t):
+        return any(w in t for w in ("0)", "없어 0", "전무", "전 표본"))
+    with_reason = {c for c in EXPECT if _has_exclusion(str(status[c]))}
+    without = set(EXPECT) - with_reason
+    assert without == {"auxiliary_facility", "thermal_storage_insulation"}, (
+        f"제외 사유를 적지 않는 카테고리 집합이 바뀌었다: {sorted(without)} — "
+        "141차 실측은 auxiliary_facility·thermal_storage_insulation 둘이다")
+
+    # ④ 카테고리 키 커버리지 — 청크에만 있는 키가 생기면 상태표가 뒤진 것이다
+    used = {c for v in chunks.values() for c in v}
+    assert not (used - set(status)), (
+        f"CASE_CHUNKS에만 있는 카테고리: {sorted(used - set(status))} — "
+        "상태표가 데이터를 따라오지 못했다")
+
+    doc = open(_o.path.join(repo, "근거_선언건수_검수_20260915.md"), encoding="utf-8").read()
+    assert "방법의 문제였다" in doc, (
+        "🔴 140차의 '셀 수 없다'가 방법의 문제였다는 141차 정정이 사라졌다")
+    assert "쌍 견적 통합 1건" in doc, "세는 단위(케이스·쌍 견적 1건) 규칙이 사라졌다"
+    assert "auxiliary_facility" in doc and "thermal_storage_insulation" in doc, (
+        "제외 사유를 적지 않는 2건의 기록이 사라졌다")
 
 
 if __name__ == "__main__":
