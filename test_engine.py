@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    301 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    302 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "301 passed + 4 skipped" in order, (
+    assert "302 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -5438,6 +5438,76 @@ def test_142cha_zero_reasons_are_recorded_facts_not_judgements():
     assert "첫 엔진 상수 값 변경" in doc, (
         "112차 이후 첫 엔진 값 변경이라는 사실이 근거문서에서 사라졌다")
     assert "접두만" in doc, "표시 분류가 불변인 이유(접두만 읽는다)가 사라졌다"
+
+
+def test_143cha_auxiliary_facility_exists_in_13_of_14_zero_cases():
+    """143차 — `auxiliary_facility`가 0인 14건에 **관리동이 정말 없는가**.
+
+    142차는 3건만 리포 기록으로 채우고 **11건을 미확인**으로 남겼다. 143차가 견적 원문
+    **12파일을 직접 열어** 찾으니 **13건에 실재**한다(임미라만 미확인).
+
+    🔴 **그래도 0이 틀린 것은 아니다** — 찾은 항목은 거의 전부 **골조·기초·커튼·피복
+    공종 안의 라인**이고 **독립 부대시설 공종은 윤성호 `0116` 하나뿐**이라, 분류 규칙
+    (독립 공종만 편입)상 **0이 맞다**. **문제는 값이 아니라 읽힘이다.**
+
+    📌 방법적 교훈: **검색 대상을 내역서 1종으로 잡으면 놓친다** — 우민재는 내역서
+    키워드 0건이었는데 **공사설명서에 작업장이 있었다**.
+    """
+    import os as _o, sys as _s, json as _j, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    C = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                         encoding="utf-8"))["constants"]
+    aux = C["CAPEX_MAJOR_EVIDENCE_STATUS"]["value"]["auxiliary_facility"]
+
+    assert e.CAPEX_MAJOR_EVIDENCE_STATUS["auxiliary_facility"] == aux, (
+        "엔진과 레지스트리가 어긋났다 — 143차도 둘 다 바꿨다")
+    assert aux.startswith("실측"), "접두가 바뀌었다 — build_site 태그가 달라진다"
+
+    # ① 원문에서 찾은 증거가 남아 있는가(표본별 금액·품명)
+    for who, mark in (("최혁진", "1,020,144"), ("이두희", "11,887,296"),
+                      ("한일그린텍", "1,406,856"), ("맹주연", "12,125,520"),
+                      ("백가은·조윤정", "6,370,000"), ("박규현", "AL고정스크린"),
+                      ("구창회", "1,985,596"), ("한수진", "1,150,000"),
+                      ("최선동", "240,500"), ("우민재", "샌드위치패널")):
+        assert mark in aux, f"{who}에서 찾은 증거({mark})가 사라졌다 — 143차 원문 판독이다"
+    assert "13건에 관리동·작업동 계열이 실재" in aux, (
+        "🔴 14건 중 13건에 실재한다는 143차 결론이 사라졌다")
+
+    # ② 🔴 "0이 틀린 것은 아니다" — 분류 규칙을 뒤집지 않았음을 고정한다
+    assert "0이 틀린 것은 아니다" in aux and "독립 공종" in aux, (
+        "분류 규칙(독립 공종만 편입)상 0이 맞다는 유보가 사라졌다 — "
+        "이것이 없으면 '값이 틀렸다'로 읽힌다")
+    assert "★사용자 결정" in aux, (
+        "금액 이관은 ★사용자 결정이라는 표기가 사라졌다")
+
+    # ③ 임미라는 미확인이다 — R6 병기(검색 대상·미열람 구간)
+    assert "임미라만 확인되지 않았다" in aux and "견적서 1종뿐" in aux, (
+        "임미라 미확인과 그 사유(도면·설명서 부재)가 사라졌다 — "
+        "'없다'로 읽으면 R6 위반이다")
+
+    # ④ 값은 여전히 0이다(서술만 늘었다)
+    chunks = C["CAPEX_MAJOR_CASE_CHUNKS"]["value"]
+    nonzero = [k for k, v in chunks.items() if v.get("auxiliary_facility", 0)]
+    assert nonzero == ["윤성호"], (
+        f"auxiliary_facility 금액>0 케이스가 {nonzero}로 바뀌었다 — "
+        "143차는 서술만 보강했고 값은 옮기지 않았다(★사용자 결정)")
+
+    # ⑤ 🔴 일괄 생성한 문구가 임미라에만 틀렸다 — 그 정정이 남아 있는가
+    im = [r for r in C["CAPEX_MAJOR_EVIDENCE_STATUS"]["source_refs"]
+          if (r.get("note") or "").startswith("임미라")]
+    assert len(im) == 1 and "실재 증거가 아니다" in im[0]["note"], (
+        "임미라 note의 143차 정정이 사라졌다 — 임미라는 '확인되지 않았다'로 언급된 것이지 "
+        "관리동 실재 증거가 아니다(일괄 생성 문구가 이 표본에만 틀렸다)")
+
+    doc = open(_o.path.join(repo, "근거_관리동_실재점검_20260915.md"), encoding="utf-8").read()
+    assert "내역서 1종으로 잡으면 놓친다" in doc, (
+        "🔴 검색 대상을 좁게 잡으면 놓친다는 143차 방법 교훈이 사라졌다 — "
+        "우민재가 그 사례다")
+    assert "미열람 구간" in doc, "임미라 미확인의 R6 병기가 근거문서에서 사라졌다"
 
 
 if __name__ == "__main__":
