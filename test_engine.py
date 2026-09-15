@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    302 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    303 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "302 passed + 4 skipped" in order, (
+    assert "303 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -5508,6 +5508,83 @@ def test_143cha_auxiliary_facility_exists_in_13_of_14_zero_cases():
         "🔴 검색 대상을 좁게 잡으면 놓친다는 143차 방법 교훈이 사라졌다 — "
         "우민재가 그 사례다")
     assert "미열람 구간" in doc, "임미라 미확인의 R6 병기가 근거문서에서 사라졌다"
+
+
+def test_144cha_decision_ledger_covers_every_star():
+    """144차 — ★결정 **대기 전량**이 한 곳에 있는가.
+
+    🔴 106차는 14절 E절을 만들며 *"★가 붙은 나머지는 전부 E절로 동결됐다"*고 적었는데
+    **E절 표는 8건**이고 **`B7`('동절기' 개월 정의)이 빠져 있었다** — 그 진술은 당시에도
+    정확하지 않았다. 그 뒤 **4건이 더 생겼고 어느 목록에도 들어가지 않았다**.
+
+    144차가 **대기 전량 13건 + 자료 4건**을 대장으로 모았다. 이 테스트가 막는 것:
+    ①새 ★가 대장 밖에 생기는 것 ②E절(동결 8)을 대기 전량으로 착각하는 것.
+    """
+    import os as _o, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    led = open(_o.path.join(repo, "근거_결정대기대장_20260915.md"), encoding="utf-8").read()
+    wi = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
+
+    # ① 13개 결정 식별자가 전부 있는가
+    for tag, why in (
+        ("D-1", "3성분 8% 보정 — 최대난방부하 +8.8%"),
+        ("D-2", "99차 재검토 5.7→8.9 — 대장 U2의 선행"),
+        ("D-3", "일조 조정계수 — 🔴원채원 회귀를 깬다"),
+        ("D-4", "COVER_ASSEMBLIES 이관 — 적용 지점을 바꾼다"),
+        ("D-5", "t_min 처리"),
+        ("D-6", "마산↔창원 별칭 — 대장 WD1과 같은 항목"),
+        ("D-7", "우민재 2,321.87 — 대장 AC5와 같은 항목"),
+        ("D-8", "무인방제 편입 — 대장 CM1과 얽힌다"),
+        ("D-9", "🔴'동절기' 개월 정의 — 106차가 E절에 넣지 않았다"),
+        ("D-10", "공구손료 품목별 요율값(129차 F2)"),
+        ("D-11", "크루 구성 공기 산정"),
+        ("D-12", "공종 선언 순서 재정렬"),
+        ("D-13", "부대시설 금액 이관(143차) — 분류 규칙 변경"),
+    ):
+        assert ("**%s**" % tag) in led, (
+            f"대장에서 {tag}가 사라졌다 — {why} "
+            "(부분 문자열이 아니라 **굵은 표기**로 찾는다 — D-9가 D-99에 "
+            "먹히는 것을 144차 변이가 잡았다)")
+    for tag in ("S-1", "S-2", "S-3", "S-4"):
+        assert ("**%s**" % tag) in led, f"대장에서 자료 항목 {tag}가 사라졌다"
+
+    # ② 🔴 E절이 '대기 전량'이 아니라는 사실 — 이것이 144차의 발견이다
+    i = wi.index("### E. ★ 동결")
+    j = wi.index("### D. 다음 후보", i)
+    # ⚠️ 절 전체를 보면 안 된다 — 144차가 이 절에 **정정 배너**를 달며 그 이름들을
+    #    적었고, 그러자 "E절에 없다"가 깨졌다(131차 자기증식과 같은 계열).
+    #    동결 여부는 **표 행**이 말한다.
+    E_rows = [ln for ln in wi[i:j].split(chr(10))
+              if ln.startswith("|") and not ln.startswith("| ★ |")
+              and set(ln) - set("|- ")]
+    E_table = chr(10).join(E_rows)
+    assert "동절기" not in E_table, (
+        "E절 표에 동절기가 들어왔다면 대장의 D-9 서술(106차가 빠뜨렸다)을 갱신하라")
+    for kw in ("공구손료", "크루", "부대시설"):
+        assert kw not in E_table, f"E절 표에 {kw}가 들어왔다 — 대장의 ⓒ분류를 갱신하라"
+    assert len(E_rows) >= 5, f"E절 표 행이 {len(E_rows)}개다 — 동결 목록이 사라졌는지 확인하라"
+    assert "E절 표는 8건" in led and "B7" in led, (
+        "🔴 'E절 8건 vs 대기 13건'이라는 144차 발견이 대장에서 사라졌다")
+
+    # ③ B7이 작업지시서에 ★로 살아 있는가(닫혔다면 대장도 닫아야 한다)
+    m = _re.search(r"\| B7 \|[^\n]*", wi)
+    assert m and "★" in m.group(0), (
+        "14절 B7이 사라졌거나 ★가 빠졌다 — 대장 D-9의 근거다")
+
+    # ④ 회귀 기준에 닿는 2건이 표시돼 있는가
+    assert "원채원 ROI 14.2%가 직접 깨진다" in led, "D-3의 회귀 경고가 사라졌다"
+    assert "159원 → 42원" in led, "D-7의 밴드 여유 감응이 사라졌다"
+
+    # ⑤ 🔴 세면 부풀려진다 — 항목과 문자열을 구분했는가(131차 교훈)
+    assert "366" in led and "항목으로 세면 13건" in led, (
+        "★ 문자열 366회 vs 항목 13건이라는 구분이 사라졌다 — "
+        "세면 부풀려진다는 131차 교훈이 여기에도 적용된다")
+
+    # ⑥ 결정을 내리지 않았다는 표기(이 차수는 정리다)
+    assert "결정은 **하나도 내리지 않았다**" in led, (
+        "144차가 결정을 내리지 않았다는 표기가 사라졌다 — 판정 자동화 금지선이다")
+    assert "감응을 모른다" in led, (
+        "D-10~D-12의 감응이 측정된 적 없다는 한계가 사라졌다")
 
 
 if __name__ == "__main__":
