@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    294 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    295 passed + 3 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "294 passed + 3 skipped" in order, (
+    assert "295 passed + 3 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -4308,7 +4308,7 @@ def test_131cha_ledger_counts_items_not_strings():
     # ③ 🔴 문자열 집계가 항목 수보다 크다는 사실 자체를 실측으로 못 박는다
     strings = sum(len(_re.findall(r"\[확인요망\]", _j.dumps(v, ensure_ascii=False)))
                   for v in consts.values())
-    LIVE_ITEMS = 25   # PUMSEM 5(130차) + 그 밖 20(131차)
+    LIVE_ITEMS = 24   # PUMSEM 5(130차) + 그 밖 19(131차, 🔴26회차 F4로 20→19)
     assert strings > LIVE_ITEMS, (
         f"레지스트리 [확인요망] 문자열 {strings}건이 살아 있는 항목 {LIVE_ITEMS}개보다 "
         "많지 않다 — 131차 실측(53 > 25)과 어긋난다. 항목을 다시 세어라")
@@ -4322,7 +4322,7 @@ def test_131cha_ledger_counts_items_not_strings():
     assert "세지 않는다" in text, (
         "`grep`으로 세지 말라는 규칙이 사라졌다 — 130차가 그렇게 세어 틀렸다")
 
-    # ④ 살아 있는 20항목의 식별자가 남아 있는가
+    # ④ 항목 식별자가 남아 있는가(AC3는 닫힘 표기로, AC5는 신규로)
     for tag, why in (
         ("U1", "유리 5.3 kcal — 경쟁 가설 2개가 같은 숫자에 도달"),
         ("U2", "u_design 5.7 vs u_period 2.66 이원화 — ★77차 B2가 선행"),
@@ -4333,7 +4333,8 @@ def test_131cha_ledger_counts_items_not_strings():
         ("CV1", "핫박스 실측의 풍속 조건 미명시"),
         ("IN1", "권고표이지 개별 온실 실측이 아니다"),
         ("AC2", "최선동 +1,000의 정체"),
-        ("AC3", "우민재 2,323 — 필름 밴드 상한 240,000의 유도원"),
+        ("AC3", "🔴26회차 F4 — 94차가 이미 닫았다(대장에 닫힘으로 남긴다)"),
+        ("AC5", "94차가 새로 연 것 — 2,323 vs 원문 2,321.87, 밴드 여유 159원→42원"),
         ("AC4", "이두희 방풍 폭 환산 불가"),
         ("CM1", "최선동 안개분무 18,500,000 — 3.7%p"),
         ("CM2", "콘트롤박스 — 한수진·최선동 둘 다"),
@@ -4445,17 +4446,43 @@ def test_132cha_ijunhee_08_breakage_is_a_single_cell():
     assert det_f["E276"].value == "='단가대비표 (2)'!#REF!", (
         "E276의 파손 수식이 바뀌었다 — CM3의 원인 셀이다")
 
-    # 금액을 끊는 #REF!는 워크북 전체에서 이 계열뿐이다
-    money_broken = set()
-    for ws in wv.worksheets:
+    # 🔴 26회차 F3 — 종전 가드는 `if ws.title == "공종별내역서"`로 **다른 시트를
+    #    수집 자체에서 버렸다**. 주석은 "워크북 전체"라 적었으나 타 시트가 새로
+    #    깨져도 절대 실패하지 않았다 — 132차 유일성 주장이 게이트된 적이 없었다.
+    #    (그 사각에서 26회차 F2의 오기가 났다: `단가대비표 (2)!O432`는 라벨이 아니라
+    #     `조사가격1` 가격 열이다.)
+    broken = {}
+    for ws in wf.worksheets:            # 수식본을 본다 — 원인 셀을 잡아야 한다
         for row in ws.iter_rows():
             for c in row:
-                if isinstance(c.value, str) and "#REF!" in c.value and c.column_letter in "EFKL":
-                    if ws.title == "공종별내역서":
-                        money_broken.add(c.coordinate)
-    assert money_broken == {"E276", "F276", "K276", "L276", "F298", "L298"}, (
-        f"내역서 금액 열의 #REF! 집합이 바뀌었다: {sorted(money_broken)} — "
-        "132차 실측은 E276에서 F298까지의 전파 6칸이다")
+                v = c.value
+                if isinstance(v, str) and v.startswith("=") and "#REF!" in v:
+                    broken.setdefault(ws.title, set()).add(c.coordinate)
+    assert broken == {
+        "공종별내역서": {"E276"},
+        "단가대비표 (2)": {"B331", "C331", "D331", "B332", "C332", "D332",
+                        "B333", "C333", "D333", "B334", "C334", "D334", "O432"},
+        "양액물량공량": {"A371", "B371"},
+    }, f"워크북의 #REF! 원인 셀 집합이 바뀌었다: { {k: sorted(v) for k, v in broken.items()} }"
+
+    # 내역서 금액 열로 전파된 칸(E276 → F298 계열)
+    money = {c.coordinate for row in wv["공종별내역서"].iter_rows() for c in row
+             if isinstance(c.value, str) and "#REF!" in c.value and c.column_letter in "EFKL"}
+    assert money == {"E276", "F276", "K276", "L276", "F298", "L298"}, (
+        f"내역서 금액 열의 #REF! 전파가 바뀌었다: {sorted(money)}")
+
+    # 🔴 유일성의 진짜 근거는 "라벨 칸뿐"이 아니라 **하류 참조가 없다**는 것이다
+    downstream = [
+        (ws.title, c.coordinate) for ws in wf.worksheets
+        for row in ws.iter_rows() for c in row
+        if isinstance(c.value, str) and c.value.startswith("=")
+        and "단가대비표 (2)" in c.value
+        and any(("%s%s" % (col, n)) in c.value
+                for col in "ABCDEFGHIJKLMNOPQR" for n in ("331", "332", "333", "334", "432"))
+    ]
+    assert not downstream, (
+        f"파손 행을 참조하는 수식이 생겼다: {downstream} — "
+        "집계표 총계가 더 이상 무사하다고 말할 수 없다")
 
     # 노무 열은 파손되지 않았다
     assert det_v["H298"].value == 8_603_500, "08 블록 노무비 합계가 바뀌었다"
@@ -4466,11 +4493,34 @@ def test_132cha_ijunhee_08_breakage_is_a_single_cell():
     assert mat == 12_578_871, f"복원 가능 재료비가 {mat:,}로 바뀌었다 (132차 실측 12,578,871)"
 
     # 🔴 미채택 4공종과의 차이 — 08만 '본 공사제외' 주석이 없다
-    agg = wv["공종별집계표"]
-    notes = {r: agg[f"L{r}"].value for r in (15, 17, 18, 19, 20, 27)}
+    agg_v, agg_f = wv["공종별집계표"], wf["공종별집계표"]
+    notes = {r: agg_v[f"L{r}"].value for r in (15, 17, 18, 19, 20, 27)}
     assert notes[15] is None, "08 행에 '본 공사제외' 주석이 생겼다 — 미채택 판정 근거가 바뀐다"
     assert all(notes[r] == "본 공사제외" for r in (17, 18, 19, 20, 27)), (
-        "미채택 4공종의 주석이 바뀌었다 — 08과의 대조군이다")
+        "'본 공사제외' 주석 5개 행(10·11·1101·1102·1206)이 바뀌었다 — 08과의 대조군이다")
+
+    # 🔴 26회차 F1 — 대조군이 전수가 아니었다. 문서는 "4공종"이라 적었는데 주석 행은 5개이고,
+    #    무엇보다 **주석 없이 금액이 0인 행이 08만이 아니다**. R10(0401 PO)은 내역서에
+    #    114,241,498원 블록이 실재하는데 **수량 공란**으로 총계에서 빠진다 — 주석도 #REF!도 없다.
+    silent_zero = {r for r in range(5, 32)
+                   if agg_v[f"A{r}"].value and not agg_v[f"K{r}"].value
+                   and agg_f[f"L{r}"].value is None}
+    assert silent_zero == {8, 10, 15, 21, 29}, (
+        f"주석 없이 금액 0인 행이 {sorted(silent_zero)}로 바뀌었다 — "
+        "26회차 실측은 8·10·15·21·29 다섯이다(08만이 아니다)")
+    assert agg_v["D10"].value == 92_115_438 and agg_f["C10"].value is None, (
+        "R10(0401 PO)의 '수량 공란으로 제외' 패턴이 바뀌었다 — F1 대조군의 핵심이다")
+
+    # 08에 고유하게 남는 것: 주석도 없고 금액 열 수식도 없는 유일한 행
+    def _has_formula(r):
+        return any(isinstance(agg_f[f"{c}{r}"].value, str)
+                   and str(agg_f[f"{c}{r}"].value).startswith("=") for c in "DEFGHIJK")
+    no_note_no_formula = {r for r in range(5, 32)
+                          if agg_v[f"A{r}"].value and agg_f[f"L{r}"].value is None
+                          and not _has_formula(r)}
+    assert no_note_no_formula == {15}, (
+        f"'주석도 없고 금액 수식도 없는' 행이 {sorted(no_note_no_formula)}다 — "
+        "08(R15)의 고유성이 이것뿐이라는 26회차 정정이 깨졌다")
 
 
 def test_132cha_parkgyuhyeon_refund_base_is_material_only():
@@ -4487,8 +4537,16 @@ def test_132cha_parkgyuhyeon_refund_base_is_material_only():
     refund, nonrefund, zero_rated = 313_542_997, 206_856_006, 14_497_250
     material, labor = 370_315_435, 164_580_818
     assert refund + nonrefund + zero_rated == material + labor
-    assert nonrefund - labor + refund + zero_rated == material, (
-        "환급 기준액이 재료비만이라는 관계가 깨졌다 — CM4의 배제 논거다")
+    # 🔴 26회차 F8 — 종전의 두 번째 단언 `nonrefund - labor + refund + zero == material`은
+    #    첫 단언의 양변에서 labor를 뺀 **항등식**이라 정보가 0이었다(노무가 어떤 비율로
+    #    섞여 있어도 통과한다). 실제로 고정해야 하는 것은 **환급·영세에 노무가 0**이고
+    #    **비환급이 노무를 전부 머금는다**는 분해다.
+    nonrefund_material = 42_275_188          # 26회차 재집계(온실 23,486,906 + 양액 18,788,282)
+    assert nonrefund_material + labor == nonrefund, (
+        "비환급이 노무비 전액을 머금는다는 분해가 깨졌다")
+    assert refund + zero_rated + nonrefund_material == material, (
+        "환급·영세·비환급재료의 합이 재료비 총액과 맞지 않는다 — "
+        "환급 기준액이 재료비만이라는 CM4의 배제 논거다")
     assert round(refund * 0.05) == 15_677_150, (
         "5% 계상액이 재현되지 않는다 (313,542,997×5% = 15,677,149.85 → 반올림)")
     assert round(refund * 0.10) == 31_354_300 and 15_677_150 * 2 == 31_354_300, (
@@ -4721,6 +4779,88 @@ def test_134cha_attached_refs_actually_back_their_values():
         "_ref_ok의 한계(실재만 보고 내용은 안 본다)가 근거문서에서 사라졌다")
     assert "하나도 바꾸지 않았다" in doc and "92 → 148" in doc, (
         "값 불변 + refs만 92→148이라는 표기가 사라졌다")
+
+
+def test_135cha_redteam26_corrections_are_pinned():
+    """135차(레드팀 26회차) — 정정 10건이 되돌아가지 않게 고정한다.
+
+    🔴 이번 회차는 성격이 달랐다: 25회차까지 발견이 **서술·집계**에 몰렸는데
+    이번엔 **가드 자체의 결함 2건**이 나왔다(F3 — 유일성 가드가 한 시트만 봤다 ·
+    F8 — CM4 가드의 단언이 항등식이라 정보가 0이었다). 그 둘은 132차 가드에서
+    직접 고쳤고, 이 테스트는 **나머지 서술·데이터 정정**을 고정한다.
+
+    📌 처음 변이를 돌렸을 때 **5종이 전부 통과**했다 — 정정을 고정하는 가드가
+    없었기 때문이다. 그것이 이 테스트가 생긴 이유다.
+    """
+    import os as _o, json as _j, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    led = open(_o.path.join(repo, "근거_확인요망대장_20260915.md"), encoding="utf-8").read()
+    d132 = open(_o.path.join(repo, "근거_대장3항목_리포내확인_20260915.md"), encoding="utf-8").read()
+    d134 = open(_o.path.join(repo, "근거_추적성refs부착_20260915.md"), encoding="utf-8").read()
+    rt = open(_o.path.join(repo, "검증절차_레드팀.md"), encoding="utf-8").read()
+    reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    C = reg["constants"]
+
+    # ── F4 [상] 대장이 이미 닫힌 것을 살아 있다고 적었다 ──────────────────
+    assert "94차" in led and "2,321.87" in led, (
+        "AC3를 닫은 94차 근거(공사설명서 면적표 2,321.87)가 대장에서 사라졌다")
+    assert "5 + 19 = 24개" in led, (
+        "대장의 항목 수가 26회차 정정(19 / 24)에서 벗어났다 — 131차는 20 / 25로 적었다")
+    assert "| ✅ **이미 닫혔다** | **10** |" in led, "닫힘 수 10이 되돌아갔다"
+    assert "## 6. 살아 있는 항목 19개" in led, "6절 제목의 항목 수가 되돌아갔다"
+    assert led.count("AC5") >= 1 and "159원 → 42원" in led, (
+        "AC5(94차가 새로 연 2,323 vs 2,321.87 — 밴드 여유 159원→42원)가 대장에서 사라졌다")
+    assert "구조적으로 누락된다" in led, (
+        "🔴 대장이 `[확인요망]` 문자열을 모집단으로 삼아 **태그 없는 미해결을 놓친다**는 "
+        "26회차 F4의 구조적 교훈이 사라졌다")
+    # 레지스트리 쪽 기록도 함께(문서만 고치고 레지스트리를 두면 또 어긋난다)
+    assert "94차 ①이 이미 확정" in C["ACTUALS_COUNT"]["source"], (
+        "ACTUALS_COUNT에 26회차 F4 기록이 사라졌다")
+
+    # ── F1 [상] CM3 대조군이 전수가 아니었다 ─────────────────────────────
+    assert "대조군이 전수가 아니었다" in d132, "F1 정정이 사라졌다"
+    assert "1101" in d132 and "114,241,498" in d132, (
+        "주석 행이 5개(1101 포함)라는 것과 R10(PO)의 실재 금액이 사라졌다")
+    assert "C10" in d132 and "공란" in d132 and "주석도 없고" in d132, (
+        "'주석 없이 수량 공란으로 제외'라는 제3의 패턴(R10 PO)이 사라졌다 — F1의 핵심이다")
+
+    # ── F2 [중] "전부 라벨 칸"이 틀렸다 ──────────────────────────────────
+    assert "조사가격1" in d132, (
+        "O432가 라벨이 아니라 가격 열이라는 F2 정정이 사라졌다")
+    assert "하류 수식이" in d132, (
+        "유일성의 옳은 근거(하류 참조 0건)가 사라졌다")
+
+    # ── F5 [중] 134차 부착분의 match가 데이터에 기록돼 있는가 ────────────
+    ADDED = ("PUMSEM_ITEMS", "ELECTRICAL_PUMSEM_LUMP_WON_PER_HA", "CAPEX_CASE_CHUNKS",
+             "CAPEX_MAJOR_UNCLASSIFIED", "CAPEX_MAJOR_EVIDENCE_STATUS", "EQUIPMENT_DB_META")
+    missing = [(k, r["file"]) for k in ADDED for r in C[k]["source_refs"] if "match" not in r]
+    assert not missing, (
+        f"134차 부착 refs 중 match 미기재가 남았다: {missing[:3]} … — "
+        "감사기가 기본값 exact로 잡으므로 등급이 데이터에 없는 채 exact가 된다")
+    assert "정책이 데이터에 없었다" in d134 or "데이터에 적지 않았다" in d134, (
+        "F5 정정(정책을 선언했지만 데이터에 적지 않았다)이 134차 문서에서 사라졌다")
+
+    # ── F6 [중] 유일한 미검산 ref가 명시돼 있는가 ────────────────────────
+    assert "글리프 구간" in d134 and "확인 불가" in d134, (
+        "ELECTRICAL_PUMSEM_LUMP의 값을 기계 확인할 수 없다는 F6 병기가 사라졌다")
+    assert "원문에 없다는 뜻이 아니다" in d134, (
+        "R6 규율(못 읽은 것을 부재로 읽지 않는다) 표기가 사라졌다")
+
+    # ── F7 [하] 철회된 문구를 되살린 ref note ────────────────────────────
+    ev_notes = " | ".join(r.get("note") or "" for r in C["CAPEX_MAJOR_EVIDENCE_STATUS"]["source_refs"])
+    assert "자동개폐 계열 참고단가로 재분류" in ev_notes, (
+        "F7 정정이 사라졌다 — 이동혁 ref note가 2026-08-17에 제거된 "
+        "'판단성 보류' 문구를 다시 진술하고 있다")
+
+    # ── F9·F10 [하] ──────────────────────────────────────────────────────
+    assert "부분 경로" in d132, "F9(전수 확인의 검색 범위 병기)가 사라졌다"
+    assert "3,010" in led, (
+        "F10(p.166 온실품셈 열 성분 합 3,010 vs 표기 3,009)이 대장에서 사라졌다")
+
+    # ── 회차 기록 ────────────────────────────────────────────────────────
+    assert "### 26회차" in rt and "거짓 양성 0건" in rt, "26회차 기록이 사라졌다"
+    assert "가드 자체의 결함" in rt, (
+        "🔴 이번 회차의 성격(가드가 지킨다고 적힌 것을 실제로는 안 지켰다)이 사라졌다")
 
 
 if __name__ == "__main__":
