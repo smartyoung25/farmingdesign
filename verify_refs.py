@@ -59,6 +59,48 @@ def exact_refs(consts=None):
     return out
 
 
+# 140차 — `partial`/`near`의 대조 기준은 **금액 앵커가 아닐 수 있다**.
+#   그 문서가 값의 *일부·해석 근거*일 뿐이므로, 기준은 "그 문서에서 **무엇을 보면
+#   되는지**"다: ①숫자 ②위치(쪽·표·시트·절·행) ③인용 문구 중 하나 이상.
+_NUMA = re.compile(r"\d[\d,]*\.?\d*")
+_LOC = re.compile(r"(p\.?\s?\d+|인쇄\s?p|쪽|페이지|\[표[^\]]*\]|<표[^>]*>|<그림[^>]*>|별표"
+                  r"|시트|[A-Z]{1,2}\d{1,4}|제\s?\d+\s?[절장조항호]|슬라이드|r\d{2,}"
+                  r"|행|열|목차|부록|§\d|머리말)")
+_QUOTE = re.compile("[「『\"“”']{1}[^」』\"“”']{6,}"
+                    "[」』\"“”']{1}")
+
+
+def soft_criteria(note):
+    """partial/near가 가진 대조 기준의 종류. 빈 집합이면 기준이 없다."""
+    kinds = set()
+    for m in _NUMA.finditer(note or ""):
+        t = m.group()
+        if len(t.replace(",", "").replace(".", "")) >= 2:
+            kinds.add("숫자")
+            break
+    if _LOC.search(note or ""):
+        kinds.add("위치")
+    if _QUOTE.search(note or ""):
+        kinds.add("인용")
+    return kinds
+
+
+def soft_refs(consts=None):
+    """[(상수, 파일, 등급, note)] — 대상 4상수 밖을 포함한 partial·near 전량."""
+    consts = consts or load_registry()
+    out = []
+    for k, v in consts.items():
+        for r in v.get("source_refs") or []:
+            if r.get("match") in ("partial", "near"):
+                out.append((k, r["file"], r["match"], r.get("note") or ""))
+    return out
+
+
+def soft_check(consts=None):
+    """대조 기준이 없는 partial·near ref. 140차 실측은 0건이다."""
+    return [(k, f, g) for k, f, g, note in soft_refs(consts) if not soft_criteria(note)]
+
+
 def static_check(consts=None):
     """원문을 열지 않고 볼 수 있는 것: 앵커가 있는가 · 선언이 있는가."""
     problems = []
@@ -188,7 +230,12 @@ def main():
         for k, f, why in problems:
             print("STATIC %s %s — %s" % (k, f, why))
         return 1
-    print("정적 검사 통과: exact ref 전부가 대조 기준(앵커)을 갖는다")
+    soft = soft_check(consts)
+    if soft:
+        for k, f, g in soft:
+            print("SOFT %s %s [%s] — 대조 기준(숫자·위치·인용)이 note에 없다" % (k, f, g))
+        return 1
+    print("정적 검사 통과: exact ref 전부가 앵커를, partial·near 전부가 대조 기준을 갖는다")
     if "--full" in sys.argv:
         rows = full_check(consts)
         text = render(rows)

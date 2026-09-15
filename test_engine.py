@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    298 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    299 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "298 passed + 4 skipped" in order, (
+    assert "299 passed + 4 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -5197,6 +5197,93 @@ def test_139cha_every_exact_ref_carries_a_checkable_anchor():
     assert vr.RECOMPUTED and "재집계" in vr.RECOMPUTED, (
         "verify_refs의 재집계 선언 규율이 사라졌다 — 그것이 없으면 "
         "인쇄되지 않은 값이 조용히 통과한다")
+
+
+def test_140cha_partial_and_near_refs_carry_criteria():
+    """140차 — `partial`·`near` **58건**도 대조 기준을 갖는가.
+
+    139차가 `exact` 39건을 닫았지만 **나머지 58건은 여전히 "무엇을 보면 되는지"가
+    없었다**. `partial`은 그 문서가 값의 *일부·해석 근거*일 뿐이라 **금액 앵커가
+    성립하지 않는 경우가 많다** — 그래서 기준을 넓혔다:
+    **①숫자 ②위치(쪽·표·시트·절·행) ③인용 문구** 중 하나 이상.
+
+    🔴 이번에도 자동 유도를 한 번 접었다: `CAPEX_MAJOR_EVIDENCE_STATUS`의 상태
+    문자열에서 포함/제외를 `—`로 갈라 세려 했는데 **주석 안에도 `—`가 있어**
+    `hvac` 10건이 **4건으로 오독**됐다. → 자동 분류를 포기하고 **"이름이 몇 개
+    카테고리에 나타나는가 + 포함·제외가 섞여 있다"**를 기준으로 적었다.
+    """
+    import os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import verify_refs as vr
+
+    consts = vr.load_registry()
+    rows = vr.soft_refs(consts)
+    assert len(rows) == 58, f"partial·near가 {len(rows)}건이다 — 140차 실측은 58건"
+
+    # ① 🔴 기준 없는 ref가 0건인가 — 가드가 **직접** 센다(139차 M5 교훈)
+    empty = [(k, _o.path.basename(f), g) for k, f, g, note in rows
+             if not vr.soft_criteria(note)]
+    assert not empty, (
+        f"대조 기준(숫자·위치·인용)이 없는 partial·near ref: {empty[:3]} — "
+        "기준이 없으면 그 문서에서 무엇을 봐야 하는지 알 수 없다")
+    assert len(vr.soft_check(consts)) == len(empty), (
+        "verify_refs.soft_check가 기준 없는 ref를 놓친다 — 도구가 무력화됐다")
+
+    # ② red 자기검증 — 기준 없는 ref가 0건이면 도구 무력화가 결과로 구별되지 않는다
+    fake = {"X": {"source_refs": [
+        {"file": "a.pdf", "match": "partial", "note": "설명만 있고 기준이 없다"}]}}
+    assert len(vr.soft_check(fake)) == 1, (
+        "verify_refs.soft_check가 기준 없는 ref를 잡지 못한다 — 도구가 무력화됐다")
+
+    # ③ 140차가 채운 24건 중 대표 앵커가 살아 있는가
+    by = {(k, _o.path.basename(f)): note for k, f, _, note in rows}
+    for const, base, mark, why in (
+        ("U_DESIGN", "근거_난방계수_이견_20260913.md", "8.9",
+         "76차 이견 문서의 §0 결론(현행값 유지)"),
+        ("FR_TABLE", "근거_농사로_스크린보온력표_20260819.md", "15℃",
+         "유리온실 무보온 U=7·온도차 15℃ 기준"),
+        ("FINANCE_DEFAULTS", "법령_법인세법시행규칙_별표5_건축물기준내용연수_시행20260701.pdf",
+         "15~25", "useful_life=15의 범위 정합"),
+        ("PUMSEM_ITEMS", "근거_품셈표준설계_면적구성_20260914.md", "그림 7-3",
+         "벤로타입은 유리온실에만 — 114차 정정"),
+        ("PUMSEM_ITEMS", "근거_요약본6.2_본문출처추적_20260914.md", "4,196/3,509",
+         "23회차 F4 정정 배너"),
+        ("HEATING_EFFICIENCY_DEFAULT", "근거_열효율기준_총발열량_20260820.md", "제2020-10호",
+         "§3-A 철회 사유 — 순발열량 조합 유지"),
+        ("CLUSTER_SCALE_SAVING_RATE", "근거_단지경제성_기본값_20260820.md", "0.15",
+         "머리말 대상 줄"),
+        ("CLUSTER_SUBSIDY_RATE_SHARED", "근거_단지경제성_기본값_20260820.md", "0.7",
+         "머리말 대상 줄"),
+    ):
+        note = by[(const, base)]
+        assert mark in note, f"{const}/{base}의 140차 대조 기준({mark})이 사라졌다 — {why}"
+
+    # ④ 🔴 EVIDENCE_STATUS 16건 — 카테고리 수가 상수 자신의 값과 맞는가
+    val = consts["CAPEX_MAJOR_EVIDENCE_STATUS"]["value"]
+    SAMPLES = ("우민재", "최혁진", "이두희", "윤성호", "한일그린텍", "이준희", "맹주연",
+               "강정구", "오기수", "백가은", "조윤정", "박규현", "구창회", "한수진",
+               "최선동", "임미라")
+    notes = {f: note for k, f, _, note in rows if k == "CAPEX_MAJOR_EVIDENCE_STATUS"}
+    graded = 0
+    for name in SAMPLES:
+        cnt = sum(1 for t in val.values() if name in str(t))
+        hit = [n for n in notes.values() if n.startswith(name) and "140차 대조 기준" in n]
+        assert len(hit) == 1, f"{name} 표본의 EVIDENCE_STATUS ref가 {len(hit)}건이다"
+        assert ("중 **%d개**" % cnt) in hit[0], (
+            f"{name}의 카테고리 수가 상수 값과 어긋난다 — 값은 {cnt}개에 이름이 나타난다")
+        graded += 1
+    assert graded == 16
+
+    # ⑤ 포함·제외가 섞여 있다는 경고가 남아 있는가(이것이 없으면 수를 오독한다)
+    sample_notes = " ".join(notes.values())
+    assert "포함과 제외가 섞여 있다" in sample_notes, (
+        "나타남에 제외 사유가 섞인다는 140차 경고가 사라졌다 — "
+        "오기수는 greenhouse_structure에 '골조·피복 품목 전무(0)'로 등장한다")
+    assert "4건으로 오독" in sample_notes, (
+        "🔴 `—` 분할이 깨진다는 140차 실측(hvac 10 → 4)이 사라졌다 — "
+        "그 기록이 없으면 다음 차수가 같은 자동 분류를 다시 시도한다")
 
 
 if __name__ == "__main__":
