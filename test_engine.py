@@ -4130,7 +4130,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     없는 기계도 있다. 그때 세 가드는 **skip**된다 — 보증이 사라지는데 게이트는 green이다.
 
     🔴 실측: 시스템 폰트를 못 찾게 하면 3파일 게이트가 **290 passed가 아니라
-    303 passed + 4 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
+    303 passed + 5 skipped**가 된다. 작업지시서 2절이 skip 경고는 달았으나
     **그때의 기대치를 적지 않아** 다른 기계에서 숫자가 어긋난다.
 
     이 테스트는 두 가지를 고정한다:
@@ -4164,7 +4164,7 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
-    assert "303 passed + 4 skipped" in order, (
+    assert "303 passed + 5 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
 
@@ -5583,8 +5583,123 @@ def test_144cha_decision_ledger_covers_every_star():
     # ⑥ 결정을 내리지 않았다는 표기(이 차수는 정리다)
     assert "결정은 **하나도 내리지 않았다**" in led, (
         "144차가 결정을 내리지 않았다는 표기가 사라졌다 — 판정 자동화 금지선이다")
-    assert "감응을 모른다" in led, (
-        "D-10~D-12의 감응이 측정된 적 없다는 한계가 사라졌다")
+    # 🔴 145차가 이 한계를 **해소**했다 — 가드가 설계대로 발화해 갱신됐다
+    assert "145차에 측정됐다" in led, (
+        "D-10~D-12의 감응 측정(145차) 연결이 대장에서 사라졌다")
+    assert "나머지 10건의 감응은" in led, (
+        "나머지 10건은 여전히 인용값이라는 한계가 사라졌다 — "
+        "13건 전부가 측정된 것처럼 읽히면 안 된다")
+
+
+def test_145cha_decision_sensitivities_are_measured():
+    """145차 — D-10~D-12의 감응을 **측정**했다(결정은 내리지 않았다).
+
+    🔴 **D-10의 후보 설계가 부정확했다**: 129차 F2는 *"품목별 요율값(0/2%/3%/5%)"*이라
+    적었으나 원문 `[주]`를 분모까지 읽으면 **두 계열**이다 —
+      공구손료·경장비 = **인력품(노무)의 %** (2%·3%, 29품목)
+      잡재료·소모재료 = **주재료비의 %** (5%, 2품목)
+    온실피복 #4는 ③ 공구손료 3% + ④ 잡재료 5%를 **동시에** 갖지만 **모순이 아니다**
+    (분모가 다르다). 진짜 모순은 **선홈통**(같은 분모에 2%와 3%)뿐이고,
+    그 감응은 **0.0059%p**라 **집계 수준에서 결정을 막지 않는다**.
+
+    D-11은 **단순 반비례**(크루 1.0~16.4 → 공기 16.4배), D-12는 **산출물 감응 0**이다.
+    """
+    import os as _o, sys as _s, re as _re, collections as _c
+    import pytest as _pt
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    # ── D-11 · D-12는 원문 없이도 잴 수 있다 ────────────────────────────
+    qty = {(it.category, it.name): 1.0 for it in e.PUMSEM_ITEMS}
+    summ = e.pumsem_project_labor_summary(qty)
+    assert round(summ["total_labor_days"], 3) == 11.920, (
+        f"전 품목 물량 1.0의 총 인·일이 {summ['total_labor_days']}로 바뀌었다 — "
+        "145차 실측은 11.920이다(D-11 감응의 분자)")
+    assert len(summ["totals_by_trade"]) == 7
+    for crew, days in ((8.0, 1.49), (16.4, 0.73)):
+        assert abs(summ["total_labor_days"] / crew - days) < 0.01, (
+            f"크루 {crew}명의 공기가 {summ['total_labor_days'] / crew:.2f}일로 바뀌었다")
+
+    # 🔴 D-12 — 산출물 감응 0: 생성기 어디에서도 pumsem을 부르지 않는다
+    for f in ("build_site.py", "webapp.py", "render_report.py", "run_report.py", "cases.py"):
+        p = _o.path.join(repo, f)
+        if not _o.path.exists(p):
+            continue
+        assert "pumsem" not in open(p, encoding="utf-8").read(), (
+            f"{f}가 pumsem을 부르기 시작했다 — D-12(공종 선언 순서)의 감응이 "
+            "0이 아니게 된다. 145차 측정을 다시 하라")
+
+    doc = open(_o.path.join(repo, "근거_감응측정_D10_D12_20260915.md"), encoding="utf-8").read()
+    assert "산출물 감응이 **0**" in doc, "D-12의 감응 0 결론이 사라졌다"
+    assert "16.4배" in doc, "D-11의 크루 범위 감응이 사라졌다"
+    assert "결정도 내리지 않았다" in doc, (
+        "145차가 결정을 내리지 않았다는 표기가 사라졌다 — 판정 자동화 금지선이다")
+
+    # ── D-10은 원문을 열어야 한다 — 폰트 없으면 skip(128차 규율) ────────
+    _pt.importorskip("pdfplumber")
+    _pt.importorskip("fontTools")
+    _pt.importorskip("pypdf")
+    import pumsem_extract as px
+    try:
+        px._system_index()
+    except px.FontsUnavailable:
+        _pt.skip("시스템 폰트가 없다 — 128차 skip 규율과 같다")
+
+    RATE = _re.compile(r"(\d+)%")
+    by_cat = _c.defaultdict(list)
+    for it in e.PUMSEM_ITEMS:
+        by_cat[it.category].append(it)
+    seq2item = {(c, n): it for c, its in by_cat.items() for n, it in enumerate(its, 1)}
+    coef = {(it.category, it.name): sum(it.labor_per_unit.values()) for it in e.PUMSEM_ITEMS}
+    total = sum(coef.values())
+
+    tool, misc = _c.defaultdict(set), _c.defaultdict(set)
+    for cat, no, notes in px.extract_notes():
+        joined = []
+        for t in notes:
+            if joined and RATE.search(t) and "공구" not in t and "재료" not in t:
+                joined[-1] = joined[-1] + " " + t
+            else:
+                joined.append(t)
+        for t in joined:
+            m = RATE.search(t)
+            if not m:
+                continue
+            (tool if "공구" in t else misc if "재료" in t else tool)[int(m.group(1))].add((cat, no))
+
+    # 🔴 분모가 다른 두 계열 — 하나의 필드로 담을 수 없다
+    assert sorted(tool) == [2, 3], f"공구손료 요율이 {sorted(tool)}로 바뀌었다 — 실측은 2%·3%"
+    assert sorted(misc) == [5], f"잡재료 요율이 {sorted(misc)}로 바뀌었다 — 실측은 5%"
+    assert len(tool[2]) == 4 and len(tool[3]) == 26 and len(misc[5]) == 2, (
+        f"품목 수가 바뀌었다: 공구 2% {len(tool[2])} · 3% {len(tool[3])} · 잡재료 5% {len(misc[5])}")
+
+    both = tool[2] & tool[3]
+    assert len(both) == 1 and seq2item[next(iter(both))].name == "선홈통공사", (
+        f"같은 분모에 두 요율이 붙은 품목이 {sorted(both)}로 바뀌었다 — "
+        "실측은 알루미늄공사 #6 선홈통공사 하나다(113차 E1)")
+    misc_names = {seq2item[p].name for p in misc[5]}
+    assert misc_names == {"천장우레탄판넬", "샌드위치판넬"}, (
+        f"잡재료 5% 품목이 {misc_names}로 바뀌었다")
+
+    tool_items = tool[2] | tool[3]
+    assert len(tool_items) == 29
+    share = sum(coef[(seq2item[p].category, seq2item[p].name)] for p in tool_items) / total
+    assert abs(share - 0.665) < 0.005, (
+        f"공구손료 규정 품목의 인·일 비중이 {share:.3f}로 바뀌었다 — 145차 실측 66.5%")
+
+    lo = sum((2 if p in tool[2] else 3) / 100 * coef[(seq2item[p].category, seq2item[p].name)]
+             for p in tool_items) / total
+    hi = sum((3 if p in tool[3] else 2) / 100 * coef[(seq2item[p].category, seq2item[p].name)]
+             for p in tool_items) / total
+    assert abs(lo - 0.019802) < 1e-4 and abs(hi - 0.019861) < 1e-4, (
+        f"가중 평균 공구손료율이 {lo:.6f}~{hi:.6f}로 바뀌었다 — 실측 1.9802~1.9861%")
+    assert (hi - lo) * 100 < 0.01, (
+        "선홈통 모순의 감응이 0.01%p를 넘었다 — '집계 수준에서 결정을 막지 않는다'가 깨진다")
+
+    assert "분모가 다르다" in doc and "두 필드가 필요하다" in doc, (
+        "🔴 D-10의 후보 설계 정정(한 필드 → 두 필드)이 근거문서에서 사라졌다")
 
 
 if __name__ == "__main__":
