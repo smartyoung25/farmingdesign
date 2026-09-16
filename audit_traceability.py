@@ -121,9 +121,14 @@ def audit_quotes() -> dict:
     return {"hard": hard, "n_vendors": n_vendors}
 
 
-def audit_registry() -> dict:
+def audit_registry(reg=None) -> dict:
+    """152차: `reg`를 주입할 수 있다 — `ref_basis` 불변식을 **합성 레지스트리로
+    실제로 시험**하기 위해서다(139차 red self-test와 같은 이유: 위반이 0건이면
+    검사가 도는지 결과로 구별되지 않는다). 기본은 디스크 원본이다."""
     hard = []
-    reg = json.load(open(os.path.join(ROOT, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    if reg is None:
+        reg = json.load(open(os.path.join(ROOT, "엔진데이터_레지스트리.json"),
+                             encoding="utf-8"))
     attention = []  # ④범주 명시 표기 목록(FAIL 아님 — 정직 표기의 확인)
     for key, ent in reg["constants"].items():
         if ent["status"] not in STATUS_ENUM:
@@ -142,14 +147,40 @@ def audit_registry() -> dict:
     # FAIL은 아니다 — 파생·결정 상수처럼 원문 ref 개념이 없는 것도 섞여 있다.
     blind = [(key, ent["status"]) for key, ent in reg["constants"].items()
              if ent["status"] in ("실측", "부분실측") and not ent.get("source_refs")]
+
+    # 🔴 152차 — 사각 6건은 **한 덩어리가 아니다**(151차 발견). 자료가 들어오면
+    #   풀리는 것과, 파일 ref라는 개념 자체가 성립하지 않는 것은 성격이 다르다.
+    #   후자를 사각으로 세면 **영원히 0으로 남는 수를 백로그처럼 끌고 다니게 된다**.
+    #   분류 근거는 **레지스트리의 `ref_basis` 선언**에서 읽는다 — 감사기에
+    #   상수명을 하드코딩하면 지식이 두 곳으로 갈라지고, 서술을 파싱하면
+    #   141차 교훈("파서를 쓰지 말았어야 했다")을 반복한다.
+    legend = reg.get("ref_basis_legend") or {}
+    structural, blocked = [], []
+    for key, status in blind:
+        basis = reg["constants"][key].get("ref_basis")
+        (structural if basis else blocked).append((key, status, basis))
+
+    # 불변식 — 선언이 있으면 값은 범례 안이어야 하고, refs와 공존할 수 없다
+    for key, ent in reg["constants"].items():
+        basis = ent.get("ref_basis")
+        if basis is None:
+            continue
+        if basis not in legend:
+            hard.append((key, "ref_basis '%s'가 ref_basis_legend에 없다" % basis))
+        if ent.get("source_refs"):
+            hard.append((key, "ref_basis 선언과 source_refs가 함께 있다 — "
+                              "파일 ref를 붙였다면 그 선언이 틀렸다"))
     return {"hard": hard, "attention": attention, "n_constants": len(reg["constants"]),
-            "n_refs": n_refs, "refless_measured": blind}
+            "n_refs": n_refs, "refless_measured": blind,
+            "refless_blocked": blocked, "refless_structural": structural}
 
 
 def audit() -> dict:
     ca, qu, rg = audit_cases(), audit_quotes(), audit_registry()
     hard = ca["hard"] + qu["hard"] + rg["hard"]
     return {"ok": not hard, "hard_failures": hard, "case_coverage_gaps": ca["gaps"],
+            "refless_blocked": rg["refless_blocked"],
+            "refless_structural": rg["refless_structural"],
             "registry_attention": rg["attention"],
             "refless_measured": rg["refless_measured"],
             "counts": {"cases": len(C.load_cases()), "quote_vendors": qu["n_vendors"],
@@ -173,10 +204,21 @@ def render_report(a: dict) -> str:
         lines.append("- 없음")
     lines += ["", "## 명시 표기 상수 (④범주 — 정직 표기 확인, FAIL 아님)"]
     lines += [f"- {k}: {s}" for k, s in a["registry_attention"]] or ["- 없음"]
-    lines += ["", "## 추적성 사각 — '실측' 계열인데 source_refs 0건 (133차 신설, FAIL 아님)",
+    nb, ns = len(a["refless_blocked"]), len(a["refless_structural"])
+    lines += ["", "## 추적성 사각 — '실측' 계열인데 source_refs 0건 "
+                  "(133차 신설 · **152차 분류**, FAIL 아님)",
               "> ref가 0건이면 원문 실재 검사가 **한 번도 돌지 않는다**. 아래 상수의 출처는",
-              "> 이 게이트가 검사한 적이 없다 — 서술만 읽고 믿는 상태다."]
-    lines += [f"- {k}: {s}" for k, s in a["refless_measured"]] or ["- 없음"]
+              "> 이 게이트가 검사한 적이 없다 — 서술만 읽고 믿는 상태다.",
+              "> 🔴 151차 실증: `OVERHEAD_RATES`를 붙여 보니 등재 서술의 단정이 **반증**됐다.",
+              "",
+              f"### (가) 원문이 리포에 없어 못 붙인다 — 자료가 들어오면 풀린다 ({nb}건)"]
+    lines += [f"- {k}: {s}" for k, s, _ in a["refless_blocked"]] or ["- 없음"]
+    lines += ["",
+              f"### (나) 파일 ref 개념이 성립하지 않는다 — **사각이 아니다** ({ns}건)",
+              "> 레지스트리 `ref_basis` 선언으로 분리한 것이다(`ref_basis_legend` 참고).",
+              "> 이쪽은 자료가 들어와도 0으로 남는다 — 백로그로 세지 말 것."]
+    lines += [f"- {k}: {s} — `{b}`" for k, s, b in a["refless_structural"]] or ["- 없음"]
+    lines += ["", f"> **실제 백로그는 (가) {nb}건**이다(총 {nb + ns}건 중)."]
     lines += ["", "> 이 게이트는 '대조 가능한 상태인가'까지만 답한다 — 값의 옳음(원문 동일성·출처",
               "> 적절성·근거 약함→단정문)은 레드팀·컨설턴트 몫(판단성). 절차: 검증절차_레드팀.md"]
     return "\n".join(lines)

@@ -1,6 +1,11 @@
 {
   "as_of": "2026-07-11",
   "note": "엔진 상수의 근거·기준시점·상태 대장(P0). value 필드는 test_registry.py 가 엔진 실제 상수와 대조해 드리프트를 막는다. 2026-07 라운드1(스마트팜스펙/·Google Drive 전남)로 ACTUALS/BENCHMARK_BANDS/OVERHEAD_RATES 실측 승격, 라운드2(농림축산식품부 고시 제2014-78호 원문·우민재 철골단가)로 SPEC_TABLE/STRUCTURE_ONLY_PYEONG 실측 승격. 라운드3(공공 학술자료·스마트팜스펙/ 재조사)에서 U_VALUE·FR_TABLE의 원출처는 못 찾았으나 정황 근거(학술 corroboration·의심 신호)를 source에 기록. FUEL_LHV/TOTAL_PYEONG_PRICE/ENV_WEIGHTS/FINANCE_DEFAULTS는 근거문서를 찾지 못해 여전히 '미검증'. | 45차(2026-08-18, 사용자 승인): status를 8종 enum으로 정규화, 기존 자유 서술은 status_note로 무손실 이동(기계 게이팅 전제).",
+  "ref_basis_legend": {
+    "결정": "값의 출처가 사용자 결정·대화라 파일이 아니다 — source_refs가 성립하지 않는다",
+    "파생": "다른 엔진 상수에서 도출된 값이다 — 원문이 아니라 상수가 출처다"
+  },
+  "note_ref_basis": "152차 신설. 이 필드가 있으면 `audit_traceability`의 '추적성 사각'에서 **분리**된다 — 자료가 들어오면 풀리는 것과 구조상 영원히 0인 것은 성격이 다르고, 후자를 사각으로 세면 영원히 0인 수를 백로그처럼 끌고 다니게 된다(151차 발견). ⚠️`ref_basis`와 `source_refs`는 **함께 있을 수 없다** — 파일 ref를 붙였다면 이 선언이 틀린 것이므로 감사기가 hard 결함으로 잡는다.",
   "status_legend": {
     "실측": "출처 확인된 실측·공인값(원문 대조 또는 공식 고시 등록)",
     "부분실측": "일부 범위·표본만 실측(커버리지 한계를 status_note에 명시)",
@@ -3732,6 +3737,7 @@
       ]
     },
     "CAPEX_MAJOR_CATEGORIES": {
+      "ref_basis": "결정",
       "engine_attr": "CAPEX_MAJOR_CATEGORIES",
       "axis": "시공-CAPEX분해(총사업비)",
       "check": "list3",
@@ -5179,6 +5185,7 @@
       "status_note": "실측(농림축산식품부 고시 제2025-108호, 2025.10.31 시행 — 2026-07-21 갱신)"
     },
     "RFQ_REQUIRED_CATEGORIES_DEFAULT": {
+      "ref_basis": "파생",
       "engine_attr": "RFQ_REQUIRED_CATEGORIES_DEFAULT",
       "axis": "설계→시공(RFQ 정합)",
       "check": "list",

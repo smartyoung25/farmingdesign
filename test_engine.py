@@ -5040,9 +5040,13 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 8 and ledger.count("[부분]") == 50, (
+    assert ledger.count("[근접]") == 8 and ledger.count("[부분]") == 53, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
-        "137차 확정(8·50)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라")
+        "151차 실측(8·53)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
+        "(137차 확정은 8·50이었고 151차에 `OVERHEAD_RATES` partial 3건이 더해졌다)")
+    # 🔴 152차 — 이 가드는 **커밋된 HTML**을 읽는다. 게이트를 돌릴 때 `build_site.py`를
+    #   pytest **뒤에** 실행하면 낡은 산출물로 통과해 버린다(151차에 실제로 그랬다).
+    #   순서는 **build_site → pytest**다.
 
 
 def test_138cha_known_totals_are_recomputable_from_the_documents():
@@ -6493,6 +6497,100 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
     assert "부분 부재를 전체 부재로" in doc, (
         "133차 분류 오류의 성격(부분 부재 → 전체 부재)이 근거문서에서 사라졌다")
     assert "결정은 하나도 내리지 않았다" in doc
+
+
+def test_152cha_blind_spot_classes_are_declared_not_guessed():
+    """152차 — 추적성 사각 6건을 감사기가 **분류**한다: 자료로 풀리는 4 / 구조상 0인 2.
+
+    🔴 분류 근거를 **어디에 두느냐**가 이 차수의 설계다.
+      ①감사기에 상수명 하드코딩 → 지식이 두 곳으로 갈라진다
+      ②`source` 서술 파싱 → 141차 교훈(*"파서를 쓰지 말았어야 했다"*)의 반복
+      ③**레지스트리에 `ref_basis` 명시 선언** ← 채택
+    선언에는 불변식이 따라붙는다 — 범례 안의 값이어야 하고 `source_refs`와
+    **공존할 수 없다**(파일 ref를 붙였다면 그 선언이 틀린 것이다).
+    """
+    import os as _o, sys as _s, json as _j, copy as _c
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import audit_traceability as at
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+
+    # ── ① 선언이 레지스트리에 있고 범례가 있다 ────────────────────────
+    legend = reg.get("ref_basis_legend")
+    assert legend and set(legend) == {"결정", "파생"}, (
+        f"ref_basis_legend가 {sorted(legend or [])}로 바뀌었다 — 152차는 결정·파생 둘이다")
+    declared = {k: v["ref_basis"] for k, v in reg["constants"].items() if "ref_basis" in v}
+    assert declared == {"CAPEX_MAJOR_CATEGORIES": "결정",
+                        "RFQ_REQUIRED_CATEGORIES_DEFAULT": "파생"}, (
+        f"ref_basis 선언이 {declared}로 바뀌었다 — 152차 실측은 2건이다. "
+        "새 상수에 붙였다면 근거문서와 이 수를 함께 갱신하라")
+
+    # ── ② 🔴 분류가 **선언에서** 오는가 — 하드코딩이 아닌가 ───────────
+    src = rd("audit_traceability.py")
+    # 분류 **블록** 안만 본다 — `CAPEX_MAJOR_CATEGORIES`는 :116에서 견적 키 검증용
+    #   엔진 속성으로 정당하게 쓰인다(전체 파일 검사는 그 정당한 사용까지 잡는다)
+    i = src.index('legend = reg.get("ref_basis_legend")')
+    j = src.index('"refless_structural": structural}')
+    block = src[i:j]
+    for name in declared:
+        assert name not in block, (
+            f"🔴 분류 블록이 상수명 「{name}」을 직접 들고 있다 — 분류 근거는 "
+            "레지스트리 `ref_basis` 선언 한 곳에만 있어야 한다(두 곳에 두면 갈라진다)")
+    assert 'ent.get("ref_basis")' in block and 'get("ref_basis")' in src, (
+        "감사기가 선언을 읽지 않는다")
+
+    # ── ③ 분류 결과 ───────────────────────────────────────────────────
+    a = at.audit()
+    blocked = {k for k, _s0, _b in a["refless_blocked"]}
+    structural = {k for k, _s0, _b in a["refless_structural"]}
+    assert structural == set(declared), (
+        f"구조상 0인 집합이 {sorted(structural)}로 바뀌었다 — 선언과 같아야 한다")
+    assert blocked == {"SPEC_TABLE", "SPEC_COUNT", "REGION_DESIGN_LOAD",
+                       "OPEX_ITEM_CATEGORIES"}, (
+        f"자료로 풀리는 집합이 {sorted(blocked)}로 바뀌었다 — 152차 실측은 4건"
+        "(S-4 3 + S-3 1)이다")
+    total = {k for k, _s0 in a["refless_measured"]}
+    assert total == blocked | structural and len(total) == 6, (
+        "분류 합이 사각 전체와 다르다 — 빠지거나 겹친 항목이 있다")
+
+    # ── ④ 🔴 불변식이 **실제로 도는가**(139차 red self-test와 같은 이유) ──
+    #    위반이 0건이면 검사가 도는지 결과로 구별되지 않는다
+    base = at.audit_registry(reg)
+    assert not [h for h in base["hard"] if "ref_basis" in h[1]], (
+        "현재 레지스트리에 ref_basis 불변식 위반이 있다")
+    r1 = _c.deepcopy(reg)
+    r1["constants"]["SPEC_COUNT"]["ref_basis"] = "추측"
+    assert [h for h in at.audit_registry(r1)["hard"] if "ref_basis_legend에 없다" in h[1]], (
+        "🔴 범례 밖 ref_basis 값을 감사기가 잡지 못한다 — 선언이 무의미해진다")
+    r2 = _c.deepcopy(reg)
+    r2["constants"]["ACTUALS_COUNT"]["ref_basis"] = "파생"
+    assert [h for h in at.audit_registry(r2)["hard"] if "함께 있다" in h[1]], (
+        "🔴 `ref_basis`와 `source_refs`의 공존을 감사기가 잡지 못한다 — "
+        "파일 ref를 붙이고도 '구조상 0'이라 우기는 상태가 통과한다")
+
+    # ── ⑤ 리포트가 두 절로 갈렸는가 ───────────────────────────────────
+    rep = at.render_report(a)
+    assert "### (가) 원문이 리포에 없어 못 붙인다" in rep
+    assert "### (나) 파일 ref 개념이 성립하지 않는다" in rep
+    assert "**실제 백로그는 (가) 4건**이다(총 6건 중)" in rep, (
+        "🔴 실제 백로그가 4건이라는 결론이 리포트에서 사라졌다 — "
+        "151차 발견은 '영원히 0인 수를 백로그처럼 끌고 다니지 말라'였다")
+    assert "`결정`" in rep and "`파생`" in rep, "분류 사유가 리포트에 인쇄되지 않는다"
+
+    # ── ⑥ 🔴 게이트 순서 교훈 — 낡은 산출물로 통과하지 않게 ───────────
+    doc = rd("근거_사각분류_코드화_20260916.md")
+    assert "build_site → pytest" in doc, (
+        "🔴 게이트 순서(build_site를 pytest **앞에**)가 근거문서에서 사라졌다 — "
+        "151차에 실제로 낡은 HTML로 배지 가드가 통과했다")
+    ledger = rd("SmartFarm_근거대장.html")
+    assert ledger.count("[부분]") == 53, (
+        f"근거대장 [부분] 배지가 {ledger.count('[부분]')}다 — build_site를 먼저 돌렸는지 보라")
+
+    # ── ⑦ 이 차수가 하지 않은 것 ──────────────────────────────────────
+    assert "값 변경 0" in doc and "결정은 하나도 내리지 않았다" in doc
 
 
 if __name__ == "__main__":
