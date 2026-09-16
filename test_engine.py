@@ -4986,7 +4986,7 @@ def test_137cha_every_ref_records_its_match_grade():
         return hit[0]
 
     for const, needle, gap, why in (
-        ("STRUCTURE_ONLY_PYEONG", "1. 공사내역서", "163,470",
+        ("STRUCTURE_ONLY_PYEONG", "1. 공사내역서", "163,468",
          "등재 163,400 — 값이 이 문서에서 나온 게 아니라 A-8 엔진값을 근사 확인한 것이다"),
         ("BENCHMARK_BANDS", "1. 공사내역서", "239,842",
          "등재 상한 240,000 — 올려 잡은 경계이고 하한 115,000은 다른 계열이다"),
@@ -5206,6 +5206,11 @@ def test_140cha_partial_and_near_refs_carry_criteria():
     없었다**. `partial`은 그 문서가 값의 *일부·해석 근거*일 뿐이라 **금액 앵커가
     성립하지 않는 경우가 많다** — 그래서 기준을 넓혔다:
     **①숫자 ②위치(쪽·표·시트·절·행) ③인용 문구** 중 하나 이상.
+
+    🔴 **146차 한정(레드팀 27회차 [6])**: 아래 "기준 없는 ref 0건"은 **`93차`·`110차`의
+    숫자를 기준으로 세어 나온 0**이었다. 차수 번호는 경위 표시이지 대조 기준이 아니다 —
+    `verify_refs.weak_check()`가 그 7건을 드러낸다(`test_146cha_*`가 고정). 이 가드의
+    0건 주장은 **"기준이 아예 없는 ref"에 한정**해서만 유효하다.
 
     🔴 이번에도 자동 유도를 한 번 접었다: `CAPEX_MAJOR_EVIDENCE_STATUS`의 상태
     문자열에서 포함/제외를 `—`로 갈라 세려 했는데 **주석 안에도 `—`가 있어**
@@ -5602,7 +5607,13 @@ def test_145cha_decision_sensitivities_are_measured():
     (분모가 다르다). 진짜 모순은 **선홈통**(같은 분모에 2%와 3%)뿐이고,
     그 감응은 **0.0059%p**라 **집계 수준에서 결정을 막지 않는다**.
 
-    D-11은 **단순 반비례**(크루 1.0~16.4 → 공기 16.4배), D-12는 **산출물 감응 0**이다.
+    D-11은 **단순 반비례**(크루 1.0~16.4 → 공기 16.4배)다.
+
+    🔴 **146차 정정(레드팀 27회차 [2])**: 여기 있던 *"D-12는 산출물 감응 0"*은 **틀렸다**.
+    145차는 생성기의 `pumsem` **호출 경로**만 보고 **데이터 경로**(레지스트리 →
+    `SmartFarm_근거대장.html`)를 보지 않았다. 아래 호출 경로 검사는 그대로 유효하지만
+    **결론은 `test_146cha_*`가 뒤집는다** — 순서는 `test_registry`의 리스트 동일성으로
+    고정돼 있고 근거대장 HTML에 선언 순서대로 인쇄된다.
     """
     import os as _o, sys as _s, re as _re, collections as _c
     import pytest as _pt
@@ -5622,7 +5633,8 @@ def test_145cha_decision_sensitivities_are_measured():
         assert abs(summ["total_labor_days"] / crew - days) < 0.01, (
             f"크루 {crew}명의 공기가 {summ['total_labor_days'] / crew:.2f}일로 바뀌었다")
 
-    # 🔴 D-12 — 산출물 감응 0: 생성기 어디에서도 pumsem을 부르지 않는다
+    # D-12 — **호출 경로** 감응 0: 생성기 어디에서도 pumsem을 부르지 않는다
+    #   ⚠️146차: 이것만으로 "산출물 감응 0"이라 결론한 것이 잘못이었다(위 docstring)
     for f in ("build_site.py", "webapp.py", "render_report.py", "run_report.py", "cases.py"):
         p = _o.path.join(repo, f)
         if not _o.path.exists(p):
@@ -5632,7 +5644,8 @@ def test_145cha_decision_sensitivities_are_measured():
             "0이 아니게 된다. 145차 측정을 다시 하라")
 
     doc = open(_o.path.join(repo, "근거_감응측정_D10_D12_20260915.md"), encoding="utf-8").read()
-    assert "산출물 감응이 **0**" in doc, "D-12의 감응 0 결론이 사라졌다"
+    assert "감응이 **0이 아니다**" in doc, (
+        "🔴 D-12 감응의 146차 정정이 사라졌다 — 145차의 '산출물 감응 0'으로 되돌리지 마라")
     assert "16.4배" in doc, "D-11의 크루 범위 감응이 사라졌다"
     assert "결정도 내리지 않았다" in doc, (
         "145차가 결정을 내리지 않았다는 표기가 사라졌다 — 판정 자동화 금지선이다")
@@ -5700,6 +5713,142 @@ def test_145cha_decision_sensitivities_are_measured():
 
     assert "분모가 다르다" in doc and "두 필드가 필요하다" in doc, (
         "🔴 D-10의 후보 설계 정정(한 필드 → 두 필드)이 근거문서에서 사라졌다")
+
+
+def test_146cha_redteam27_corrections_hold():
+    """146차 — 레드팀 27회차 발견 13건을 **원문으로 재검증**한 뒤의 정정이 살아 있는가.
+
+    🔴 타당 8건 중 **5건이 내가 쓴 137·140·142·143·145차의 결함**이었다. 공통 원인은
+    **절대표현**(유일한·전량·0건)과 **문자열 탐색으로 감응을 재는 습관**이다.
+    거짓 양성 5건은 조치하지 않았다([4]·[5]·[8]·[11]·[13] — 근거문서 §8).
+
+    이 가드가 막는 것: 정정이 조용히 원복되는 것.
+    """
+    import os as _o, sys as _s, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import verify_refs as vr
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    reg = rd("엔진데이터_레지스트리.json")
+    doc = rd("근거_레드팀27_재검증_20260915.md")
+
+    # ── [1] 🔴 두 면적 계열을 섞은 식이 되살아나지 않는가 ──────────────
+    F, PY = 114870017, 3.3057851239669422
+    assert abs(F / (2323.0 / PY) - 163467.75) < 0.5, "2,323㎡ 기준 단가 재검산이 깨졌다"
+    assert abs(F / (2321.87 / PY) - 163547.31) < 0.5, "2,321.87㎡ 기준 단가 재검산이 깨졌다"
+    assert abs(F / 702.36 - 163548.63) < 0.5
+    assert e.STRUCTURE_ONLY_PYEONG == 163400, (
+        "등재값이 바뀌었다 — 146차는 **서술만** 고쳤다(값 불변)")
+    DQ = chr(34)
+    assert "÷702.36평=163,470" not in reg.replace("'÷702.36평=163,470'", ""), (
+        "🔴 레지스트리에 '702.36평=163,470'이 인용부호 없이 되살아났다 — "
+        "702.36평은 2,321.87㎡ 계열이고 163,470은 2,323㎡ 계열이라 **한 식에 못 쓴다**")
+    assert "702.7075" in reg and "163,468" in reg, (
+        "표지 2,323㎡ 기준 통일값(702.7075평·163,468원/평)이 사라졌다")
+    for const, needle in (("STRUCTURE_ONLY_PYEONG", "163,468"),):
+        assert needle in reg, f"{const}의 정정값 {needle}이 사라졌다"
+
+    # D-7의 추가 감응(144차가 빠뜨린 줄)
+    led = rd("근거_결정대기대장_20260915.md")
+    assert "0.0415% → 0.0902%" in led, (
+        "D-7이 채택되면 near 오차가 2.2배가 된다는 146차 감응이 대장에서 사라졌다")
+
+    # ── [2] 🔴 D-12는 '산출물 감응 0'이 아니다 — 반례 2건이 실재하는가 ──
+    treg = rd("test_registry.py")
+    assert 'eng == C["PUMSEM_ITEMS"]["value"]' in treg, (
+        "🔴 test_registry의 리스트 동일성 비교가 사라졌다 — 그것이 D-12의 반례①"
+        "(선언 순서가 테스트로 고정돼 있다)이다")
+    ledger_html = _o.path.join(repo, "SmartFarm_근거대장.html")
+    if _o.path.exists(ledger_html):
+        html = open(ledger_html, encoding="utf-8").read()
+        first = e.PUMSEM_ITEMS[0]
+        assert first.name in html and first.unit in html, (
+            f"🔴 근거대장 HTML에서 PUMSEM 첫 품목({first.name})이 사라졌다 — "
+            "레지스트리 value가 선언 순서대로 인쇄된다는 것이 D-12의 반례②다")
+    sens = rd("근거_감응측정_D10_D12_20260915.md")
+    assert "감응이 **0이 아니다**" in sens, (
+        "🔴 D-12 감응 정정이 사라졌다 — 145차의 '산출물 감응 0'은 호출 경로만 본 결론이다")
+    assert "데이터 변경 차수" in led, "대장의 D-12가 '데이터 변경 차수'로 정정된 표기가 사라졌다"
+
+    # ── [3] 🔴 build_site는 상태 문자열을 **전문**으로 렌더한다 ─────────
+    bs = rd("build_site.py")
+    assert "{esc(ev)}" in bs, (
+        "🔴 build_site가 상태 문자열 전문을 렌더하지 않게 바뀌었다면 "
+        "`근거_0사유보강`의 146차 정정(유일한 사용처가 아니다)을 갱신하라")
+    zero = rd("근거_0사유보강_20260915.md")
+    assert ("*" + DQ + "유일한 사용처" + DQ + "*는 틀렸다") in zero, (
+        "142차의 '유일한 사용처' 절대표현에 대한 146차 정정이 사라졌다")
+    assert "리터럴로" in zero, "마크다운이 HTML에 리터럴로 나간다는 실측이 사라졌다"
+
+    # ── [6] 🔴 기준이 차수 번호뿐인 ref 7건 ────────────────────────────
+    assert vr.soft_criteria("근거(93차 — 외곽 치수)", strict=True) == set(), (
+        "🔴 strict 모드가 차수 번호를 여전히 '숫자 기준'으로 센다 — "
+        "그 숫자로는 원문을 다시 찾아갈 수 없다")
+    assert "숫자" in vr.soft_criteria("근거(93차 — 외곽 치수)"), (
+        "기본 모드까지 바뀌었다 — 140차 판정을 소급해 흔들지 않기로 했다")
+    weak = vr.weak_check()
+    assert len(weak) == 7, (
+        f"기준이 차수 번호뿐인 partial·near가 {len(weak)}건이다 — 146차 실측은 7건. "
+        "채웠다면 이 수와 근거문서 §4를 함께 낮춰라")
+    assert {k for k, f, g in weak} == {"ACTUALS_COUNT", "PUMSEM_ITEMS"}, (
+        f"7건이 걸린 상수가 {sorted({k for k, f, g in weak})}로 바뀌었다")
+    assert len(vr.soft_check()) == 0, (
+        "기준이 **아예** 없는 ref가 생겼다 — weak(차수뿐)과 다른 등급이다")
+
+    # ── [7] 🔴 오기수 관리동커텐은 **독립 공종**이었다 ─────────────────
+    ev = e.CAPEX_MAJOR_EVIDENCE_STATUS["auxiliary_facility"]
+    assert "하나뿐**이라 분류 규칙" not in ev, (
+        "🔴 '독립 부대시설 공종은 윤성호 0116 하나뿐이라 …0이 맞다'는 **단정문**이 "
+        "되살아났다 — 오기수 집계표 p2의 '3. 관리동커텐공사 2,817,269'가 반례다(원문 확인). "
+        "146차는 그 문구를 인용부호 안에 넣고 '틀렸다'로 뒤집었다")
+    assert "한 규칙으로 설명되지 않는다" in ev, (
+        "14건의 0이 한 규칙으로 설명되지 않는다는 146차 정정이 사라졌다")
+    assert "보온커튼 관례(57차)로 자동개폐에 귀속" in ev, (
+        "오기수의 진짜 0 사유(공종 성격)가 사라졌다")
+    # 재집계 값은 '약'이 아니라 정확한 합이다([8] — 거짓 양성이 드러낸 구멍)
+    assert "부속 5,597,384원" in ev and "약 5,597,384" not in ev, (
+        "강정구 재집계 값의 '약'이 되살아났다 — 판넬·출입문 7줄 합으로 **정확히** 맞는다")
+    assert "211,384" in zero and "2,500,000" in zero, (
+        "🔴 강정구 5,597,384의 재집계 식이 사라졌다 — 식이 없어서 레드팀이 재현에 실패했다")
+
+    # ── [9] D-10 감응의 가정이 적혀 있는가 ─────────────────────────────
+    assert "직종 노임이 균일할 때" in sens, (
+        "🔴 1.98%가 '직종 노임 균일' 가정 위의 수치라는 표기가 사라졌다 — "
+        "공구손료의 분모는 인력품(금액)이지 인·일이 아니다")
+    assert "56.8%" in sens and "96.2%" in sens, (
+        "규정 품목의 직종 쏠림(철골공 56.8% + 조력공 39.4% = 96.2%) 실측이 사라졌다")
+
+    # ── [10] 🔴 대장이 '대기 전량'을 다시 선언하지 않는가 ──────────────
+    # 🔴 표 **행**으로 좁힌다 — 본문 산문에도 "D-14"가 나와 부분문자열 검사는
+    #   내 설명문에 걸려 통과해 버린다(146차 뮤테이션 M5가 그렇게 빠져나갔다.
+    #   131차 자기부풀림·144차 B7과 같은 함정이다).
+    rows = [ln for ln in led.splitlines() if ln.lstrip().startswith("|")]
+    for tag in ("D-14", "D-15"):
+        assert any(ln.lstrip().startswith("| **%s** |" % tag) for ln in rows), (
+            f"146차가 올린 {tag}가 대장 **표에서** 사라졌다 — 산문 언급은 등재가 아니다")
+    assert "이 대장은 **대기 전량**이다 — 둘은 다르다" not in led, (
+        "🔴 '대기 전량'이라는 절대표현이 되살아났다 — 106차의 '전부 동결됐다'와 같은 실수다")
+    assert "탐색 범위는" in led, "R6(유일성·전량 주장은 탐색 범위를 병기) 표기가 사라졌다"
+    eng_src = open(_o.path.join(repo, "smartfarm_engine.py"),
+                   encoding="utf-8", newline="").read().replace(chr(13) + chr(10), "\n")
+    stars = [i for i, ln in enumerate(eng_src.split("\n"), 1) if "★" in ln]
+    assert len(stars) == 22, (
+        f"엔진의 ★ 줄이 {len(stars)}개다 — 146차 전수는 22개다. "
+        "새 ★가 생겼다면 **대장에 먼저 올려라**(대장 §5-3)")
+
+    # ── [12] 스냅샷의 skip 수가 앞뒤로 맞는가 ──────────────────────────
+    wi = rd("작업지시서.md")
+    assert "skip 3건인지" not in wi, (
+        "🔴 '303 passed + 5 skipped' 바로 뒤에 'skip 3건인지'가 되살아났다")
+    assert "skip 5건인지" in wi, "정정된 skip 수가 사라졌다"
+
+    # ── 이 차수가 무엇을 안 했는지 ─────────────────────────────────────
+    assert "결정은 하나도 내리지 않았다" in doc, (
+        "146차가 결정을 내리지 않았다는 표기가 사라졌다 — 판정 자동화 금지선이다")
+    assert "거짓 양성 5" in doc, "거짓 양성 5건 분류가 사라졌다 — 레드팀 발견도 검증 대상이다"
 
 
 if __name__ == "__main__":

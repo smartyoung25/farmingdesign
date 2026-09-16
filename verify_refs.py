@@ -70,8 +70,19 @@ _QUOTE = re.compile("[「『\"“”']{1}[^」』\"“”']{6,}"
                     "[」』\"“”']{1}")
 
 
-def soft_criteria(note):
-    """partial/near가 가진 대조 기준의 종류. 빈 집합이면 기준이 없다."""
+# 146차(레드팀 27회차 [6]) — `93차`·`110차`의 숫자가 `_NUMA`에 걸려 "숫자 기준이 있다"로
+#   통과하고 있었다. 차수 번호는 **경위 표시**이지 대조 기준이 아니다 — 그 숫자로는 원문을
+#   다시 찾아갈 수 없다. `strict=True`에서만 제외한다(기존 판정은 그대로 두고 `weak_check`로
+#   드러낸다 — 7건의 note를 채우는 일은 원문 재독이 필요해 별도 차수다).
+_ROUND = re.compile(r"\b\d{1,3}\s*차(?=[\s)\]—·.,]|$)")
+
+
+def soft_criteria(note, strict=False):
+    """partial/near가 가진 대조 기준의 종류. 빈 집합이면 기준이 없다.
+
+    `strict=True`면 `N차`(차수 번호)를 **숫자에서 제외**한다(146차).
+    """
+    note = _ROUND.sub("", note or "") if strict else (note or "")
     kinds = set()
     for m in _NUMA.finditer(note or ""):
         t = m.group()
@@ -97,8 +108,22 @@ def soft_refs(consts=None):
 
 
 def soft_check(consts=None):
-    """대조 기준이 없는 partial·near ref. 140차 실측은 0건이다."""
+    """대조 기준이 **아예** 없는 partial·near ref. 140차 실측은 0건이다."""
     return [(k, f, g) for k, f, g, note in soft_refs(consts) if not soft_criteria(note)]
+
+
+def weak_check(consts=None):
+    """🔴 기준이 **차수 번호뿐인** partial·near ref. 146차 실측은 **7건**이다.
+
+    `soft_check`가 0건인 것은 `93차`의 숫자를 기준으로 셌기 때문이었다 —
+    140차의 *"partial·near 전부가 대조 기준을 갖는다"*는 그만큼 과장이었다.
+    FAIL로 올리지 않는다(값 결함이 아니라 **미완의 기록**이다) — 경고로 드러낸다.
+    """
+    out = []
+    for k, f, g, note in soft_refs(consts):
+        if soft_criteria(note) and not soft_criteria(note, strict=True):
+            out.append((k, f, g))
+    return out
 
 
 def static_check(consts=None):
@@ -235,7 +260,12 @@ def main():
         for k, f, g in soft:
             print("SOFT %s %s [%s] — 대조 기준(숫자·위치·인용)이 note에 없다" % (k, f, g))
         return 1
-    print("정적 검사 통과: exact ref 전부가 앵커를, partial·near 전부가 대조 기준을 갖는다")
+    weak = weak_check(consts)
+    for k, f, g in weak:
+        print("WEAK   %s %s [%s] - 기준이 차수 번호뿐이다(146차, FAIL 아님)"
+              % (k, os.path.basename(f), g))
+    print("정적 검사 통과: exact ref 전부가 앵커를, partial·near 전부가 대조 기준을 갖는다"
+          + ("  (단 %d건은 기준이 차수 번호뿐이다 - 146차)" % len(weak) if weak else ""))
     if "--full" in sys.argv:
         rows = full_check(consts)
         text = render(rows)
