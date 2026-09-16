@@ -5790,11 +5790,11 @@ def test_146cha_redteam27_corrections_hold():
     assert "숫자" in vr.soft_criteria("근거(93차 — 외곽 치수)"), (
         "기본 모드까지 바뀌었다 — 140차 판정을 소급해 흔들지 않기로 했다")
     weak = vr.weak_check()
-    assert len(weak) == 7, (
-        f"기준이 차수 번호뿐인 partial·near가 {len(weak)}건이다 — 146차 실측은 7건. "
-        "채웠다면 이 수와 근거문서 §4를 함께 낮춰라")
-    assert {k for k, f, g in weak} == {"ACTUALS_COUNT", "PUMSEM_ITEMS"}, (
-        f"7건이 걸린 상수가 {sorted({k for k, f, g in weak})}로 바뀌었다")
+    assert len(weak) == 0, (
+        f"기준이 차수 번호뿐인 partial·near가 {len(weak)}건 생겼다: {weak[:3]} — "
+        "146차에 7건이었고 **147차가 원문으로 전부 닫았다**"
+        "(`근거_도면대조기준_20260916.md`). 새로 생겼다면 그 note에 "
+        "숫자·위치·인용을 채워라 — 차수 번호는 기준이 아니다")
     assert len(vr.soft_check()) == 0, (
         "기준이 **아예** 없는 ref가 생겼다 — weak(차수뿐)과 다른 등급이다")
 
@@ -5849,6 +5849,121 @@ def test_146cha_redteam27_corrections_hold():
     assert "결정은 하나도 내리지 않았다" in doc, (
         "146차가 결정을 내리지 않았다는 표기가 사라졌다 — 판정 자동화 금지선이다")
     assert "거짓 양성 5" in doc, "거짓 양성 5건 분류가 사라졌다 — 레드팀 발견도 검증 대상이다"
+
+
+def test_147cha_drawing_refs_carry_criteria():
+    """147차 — 146차 [6]이 연 weak 7건을 **원문으로** 닫았는가.
+
+    🔴 부수 소득이 더 크다: 평면도 2장의 치수가 등재 면적을 **정확히 재현**한다
+    (93×44=4,092 · 85×37=3,145). 등재 기준은 **전장 × 외곽폭**이지 연동폭이 아니다.
+    93차가 *"외곽 치수"*라 적었지만 **어느 치수인지**는 없었다.
+
+    ⚠️ 그래도 **등급은 올리지 않았다** — 도면에 면적은 인쇄돼 있지 않고 곱셈 결과이며
+    값의 출처는 견적서 사업량 표기다(140차 RECOMPUTED 규율).
+    """
+    import os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import verify_refs as vr
+    import pumsem_extract as px
+
+    doc = open(_o.path.join(repo, "근거_도면대조기준_20260916.md"), encoding="utf-8").read()
+
+    # ── ① 재집계가 등재 면적과 일치하는가 ──────────────────────────────
+    area = {r[0]: r[1] for r in e.ACTUALS if isinstance(r, (list, tuple)) and len(r) >= 2}
+    for who, L, W in (("한수진", 93, 44), ("최선동", 85, 37)):
+        assert area.get(who) == L * W, (
+            f"{who} 등재 면적 {area.get(who)}가 도면 재집계 {L}×{W}={L * W}와 어긋난다 — "
+            "147차 실측은 정확히 일치였다. 면적을 바꿨다면 도면 note도 함께 고쳐라")
+    assert 93 * 44 == 4092 and 85 * 37 == 3145
+
+    # 연동폭이 아니라 **외곽폭**이라는 것이 147차의 요지다
+    assert 7 * 6 + 1 * 2 == 44 and 7 * 5 + 1 * 2 == 37
+    for mark in ("전장 × 외곽폭", "4,092", "3,145", "7,000 × 6 = 42,000"):
+        assert mark in doc, f"근거문서에서 {mark}가 사라졌다"
+
+    # ── ② 🔴 세로쓰기 뒤집힘 교훈이 남아 있는가 ────────────────────────
+    assert "upright" in doc and "000,44" in doc, (
+        "🔴 세로쓰기 치수가 뒤집혀 추출된다는 실측(upright로 확인)이 사라졌다 — "
+        "138차 자릿수 교훈의 도면판이다")
+    assert "부분문자열은 항목이 아니다" in doc, (
+        "'3,000'을 세면 '93,000' 안의 것까지 세진다는 경고가 사라졌다(131차 계열)")
+
+    # ── ③ weak 7건이 실제로 닫혔는가 — note를 직접 본다 ────────────────
+    rows = vr.soft_refs()
+    DRAW = ("한수진 - 평면도", "한수진 - 측면골조도", "한수진 - 주단면도",
+            "최선동 - 평면도", "최선동 - 측면골조도", "최선동 - 주단면도")
+    seen = 0
+    for k, f, g, note in rows:
+        base = _o.path.basename(f)
+        if not any(d in base for d in DRAW):
+            continue
+        seen += 1
+        assert vr.soft_criteria(note, strict=True) == {"숫자", "위치", "인용"}, (
+            f"{base}의 대조 기준이 {sorted(vr.soft_criteria(note, strict=True))}로 줄었다 — "
+            "147차는 숫자·위치·인용 셋을 전부 채웠다(차수 번호를 뺀 뒤에도)")
+        assert "**" not in note, (
+            f"🔴 {base} note에 마크다운 별표가 들어왔다 — note는 `SmartFarm_근거대장.html`에 "
+            "그대로 렌더되고 build_site는 마크다운을 해석하지 않는다(146차 [3]). "
+            "강조는 「」로 하라")
+        assert "147차 대조 기준" in note, f"{base}의 147차 대조 기준이 사라졌다"
+    assert seen == 6, f"도면 ref가 {seen}건이다 — 147차 실측은 6건"
+
+    # 평면도 2건만 재집계 식을 갖는다(골조도·단면도는 면적을 주지 않는다)
+    plan = {_o.path.basename(f): note for k, f, g, note in rows if "평면도" in _o.path.basename(f)}
+    assert len(plan) == 2, f"평면도 ref가 {len(plan)}건이다"
+    for base, note in plan.items():
+        who = "한수진" if "한수진" in base else "최선동"
+        L, W, A, BAYS = ((93, 44, "4,092", 6) if who == "한수진"
+                         else (85, 37, "3,145", 5))
+        # 외곽폭의 분해식 — 연동폭만 틀려도 잡아야 한다(뮤테이션 N7)
+        assert f"외곽폭 {W},000 = 7,000×{BAYS}연동 + 양측 1,000" in note, (
+            f"{base} note에서 외곽폭 분해식이 사라졌거나 틀렸다 — "
+            f"{who}는 7,000×{BAYS}연동 + 양측 1,000 = {W},000이다")
+        assert f"「{7 * BAYS},000」" in note, (
+            f"{base} note에서 연동폭 {7 * BAYS},000이 사라졌다")
+        for tok in (f"{L},000", f"{W},000", A):
+            assert tok in note, f"{base} note에서 {tok}가 사라졌다"
+        # 🔴 재집계 **식** 자체를 고정한다 — 값만 세면 note 다른 자리의 같은 숫자에
+        #   걸려 통과한다(147차 뮤테이션 N6이 그렇게 빠져나갔다)
+        assert f"{L} × {W} = {A}" in note, (
+            f"{base} note에서 재집계 식 '{L} × {W} = {A}'가 사라졌다 — "
+            "도면에 면적은 인쇄돼 있지 않으므로 식이 곧 대조 기준이다")
+        assert "재집계" in note, f"{base} note가 재집계임을 밝히지 않는다 — 도면에 면적은 없다"
+
+    # ── ④ PUMSEM_ITEMS ref의 쪽번호가 SECTION_PAGES와 1:1인가 ─────────
+    pum = [note for k, f, g, note in rows
+           if k == "PUMSEM_ITEMS" and "비닐원가계산서_부재확정" in f]
+    assert len(pum) == 1, f"비닐 원가계산서 ref가 {len(pum)}건이다"
+    note = pum[0]
+    starts = [lo for name, lo, hi in px.SECTION_PAGES]
+    assert starts == [138, 141, 144, 146, 151, 156, 158, 160, 162], (
+        f"SECTION_PAGES 시작 쪽이 {starts}로 바뀌었다 — note의 목차표와 1:1이 깨진다")
+    for p in starts:
+        assert str(p) in note, (
+            f"note에서 공종 시작 쪽 {p}가 사라졌다 — 이 1:1 대응이 이 ref의 대조 기준이다")
+    assert "109~167" in note and "목차" in note, "제7장 범위 정정의 앵커가 사라졌다"
+    assert vr.soft_criteria(note, strict=True) == {"숫자", "위치", "인용"}
+
+    # ── ⑤ 등급은 올리지 않았다 ────────────────────────────────────────
+    C = vr.load_registry()
+    dist = {}
+    for k, v in C.items():
+        for r in (v.get("source_refs") or []):
+            dist[r["match"]] = dist.get(r["match"], 0) + 1
+    assert dist == {"exact": 90, "partial": 50, "near": 8}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다. "
+        "도면이 면적을 정확히 재현해도 값의 출처는 견적서 사업량 표기다")
+    assert "등급은 `partial` 그대로 둔다" in doc, "등급을 올리지 않았다는 표기가 사라졌다"
+
+    # ── ⑥ 이 차수가 하지 않은 것 ──────────────────────────────────────
+    assert "3,745" in doc and "3,757" in doc, (
+        "🔴 근거대장 HTML의 리터럴 별표 실측(146차 3,757 → 147차 3,745)이 사라졌다 — "
+        "146차는 CAPEX분해 80개만 보고 규모를 과소평가했다")
+    assert "결정은 하나도 내리지 않았다" in doc, (
+        "147차가 결정을 내리지 않았다는 표기가 사라졌다 — 판정 자동화 금지선이다")
 
 
 if __name__ == "__main__":
