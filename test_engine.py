@@ -6104,6 +6104,147 @@ def test_148cha_markdown_render_and_area_anchor():
     assert "결정은 하나도 내리지 않았다" in doc
 
 
+def test_149cha_entangled_four_are_measured():
+    """149차 — ⓐ 얽힘 블록(D-1~D-4)의 감응을 **측정**했다(결정은 내리지 않았다).
+
+    🔴 **대장 한 행과 표제가 틀렸다**:
+      ① D-3 *"OPEX 20~33% 움직여 원채원 ROI 14.2%가 깨진다"* → **깨지지 않는다.**
+         `sunshine_k`는 **연료소비량만** 움직이고 그 값은 `compute()` 반환 dict에도
+         생성기 5개에도 없다. "20~33%"는 **연료 감소율을 그대로 옮겨 적은 것**이다.
+      ② *"순서와 조합이 곧 결과다"* → **D-2와 D-4는 배타**다(엔진이 거부).
+      ③ D-2는 **필름 계열만** — `U_DESIGN`에 유리 키가 없다.
+
+    ⚠️ 146차 [2]의 교훈대로 **호출 경로와 데이터 경로를 둘 다** 봤다.
+    """
+    import os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import render_report as rr
+    from cases import load_cases, case_to_input
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_얽힘4건_감응측정_20260916.md")
+    led = rd("근거_결정대기대장_20260915.md")
+
+    cs = {c.get("case_id"): c for c in load_cases()}
+    um = case_to_input(cs["uminjae"])       # 필름 — D-2 적용 대상
+    wc = case_to_input(cs["wonchaewon"])    # 유리 — 회귀 기준 케이스
+
+    def hl(inp, **kw):
+        fr = kw.pop("fr", inp.fr)
+        return e.heating_load(inp.surface_area_m2, inp.cover.value,
+                              inp.t_target, inp.t_min, fr,
+                              floor_area_m2=inp.area_m2, **kw)
+
+    # ── ① 🔴 경제성은 난방과 연결돼 있지 않다 ─────────────────────────
+    r = rr.compute(wc)
+    ec = r["economics"]
+    assert abs(ec["roi"] - 0.1416150) < 1e-5, f"원채원 ROI가 {ec['roi']}로 바뀌었다"
+    assert abs(ec["payback"] - 7.0613973) < 1e-4
+    assert abs(ec["real_roi"] - 0.2832301) < 1e-5
+    assert "fuel_consumption" not in r["heating"], (
+        "🔴 compute()의 heating 블록에 fuel_consumption이 들어왔다 — "
+        "들어오면 D-3의 산출물 감응이 0이 아니게 된다. 149차 측정을 다시 하라")
+    # 데이터 경로: opex는 케이스 입력이지 연료에서 유도되지 않는다
+    assert ec["opex"] == wc.opex, (
+        "🔴 compute()의 opex가 입력과 달라졌다 — 유도가 생겼다면 D-3이 회귀에 닿는다")
+    for f in ("build_site.py", "webapp.py", "render_report.py",
+              "run_report.py", "cases.py"):
+        p = _o.path.join(repo, f)
+        if _o.path.exists(p):
+            assert "fuel" not in open(p, encoding="utf-8").read(), (
+                f"{f}가 fuel을 쓰기 시작했다 — D-3 감응 측정을 다시 하라")
+
+    # ── ② D-3은 연료만 움직인다 · 최대부하 불변 ───────────────────────
+    base = hl(wc)
+    assert set(e.PERIOD_LOAD_ADJUST_K.values()) == {3020.0, 2820.0, 2620.0, 2420.0, 2220.0}
+    lo, hi = None, None
+    for k in sorted(e.PERIOD_LOAD_ADJUST_K.values()):
+        h = hl(wc, sunshine_k=k)
+        assert abs(h.max_load_kcal_h - base.max_load_kcal_h) < 1e-6, (
+            "🔴 sunshine_k가 최대부하를 움직이기 시작했다 — 149차 실측은 불변이다")
+        ratio = h.fuel_consumption / base.fuel_consumption - 1
+        lo = ratio if lo is None else min(lo, ratio)
+        hi = ratio if hi is None else max(hi, ratio)
+    assert abs(lo - (-0.383333)) < 1e-4 and abs(hi - (-0.161111)) < 1e-4, (
+        f"연료 감응이 {lo:.4f}~{hi:.4f}로 바뀌었다 — 149차 실측은 −38.3%~−16.1%")
+    # 🔴 대장이 적던 −21.7/−32.8은 k=2820·2420의 **연료** 변동률이다
+    assert abs(hl(wc, sunshine_k=2820.0).fuel_consumption / base.fuel_consumption
+               - 0.783333) < 1e-5
+    assert abs(hl(wc, sunshine_k=2420.0).fuel_consumption / base.fuel_consumption
+               - 0.672222) < 1e-5
+
+    # ── ③ 🔴 D-2와 D-4는 배타 — 엔진이 거부한다 ───────────────────────
+    KEY = ("po-0.10", "5겹다겹")
+    assert e.cover_assembly_lookup(KEY) is not None, "D-4 측정에 쓴 조합키가 사라졌다"
+    try:
+        hl(um, u_design=8.9, fr=None, assembly=KEY)
+        raise AssertionError(
+            "🔴 엔진이 assembly와 u_design의 동시 지정을 허용하기 시작했다 — "
+            "D-2/D-4가 '배타'라는 149차 결론이 깨진다. 대장 ⓐ 표제를 다시 고쳐라")
+    except ValueError:
+        pass
+
+    # ── ④ D-2는 필름 계열만 ───────────────────────────────────────────
+    assert set(e.U_DESIGN) == {"필름", "불소필름", "단동"}, (
+        f"U_DESIGN 키가 {sorted(e.U_DESIGN)}로 바뀌었다 — 유리가 들어오면 "
+        "D-2의 적용 범위(필름 계열만)가 달라진다")
+    assert "유리" in e.U_VALUE and "유리" not in e.U_DESIGN
+
+    # ── ⑤ 네 항목의 감응 크기 ─────────────────────────────────────────
+    ub = hl(um)
+    assert round(ub.max_load_kcal_h) == 238776, f"uminjae 기준 최대부하 {ub.max_load_kcal_h}"
+    d2 = hl(um, u_design=8.9).max_load_kcal_h
+    assert abs(d2 / ub.max_load_kcal_h - 1.561) < 0.002, (
+        f"D-2 감응이 {d2 / ub.max_load_kcal_h:.3f}배로 바뀌었다 — 149차 실측 +56.1%")
+    assert abs(1.0881 - 1.0881) < 1e-9 and round(ub.max_load_kcal_h * 1.0881) == 259812
+
+    opts = e.cover_assembly_options()
+    loads = [hl(um, fr=None, assembly=k).max_load_kcal_h for k in opts]
+    span = max(loads) / min(loads)
+    assert abs(span - 4.07) < 0.02, (
+        f"D-4의 조합 간 최대부하 폭이 {span:.2f}배로 바뀌었다 — 149차 실측 4.07배")
+    assert len(opts) == 49, f"조합이 {len(opts)}종이다 — 149차 실측 49종"
+
+    # ── ⑥ 실측 이중검증은 이 변동을 잡지 못한다(기록) ─────────────────
+    for load in (base.load_per_m2, base.load_per_m2 * 1.0881,
+                 base.load_per_m2 * 1.68):
+        v = e.verify_heating_vs_actual(load, wc.cover.value)
+        assert v["status"] == "정상", (
+            "verify_heating_vs_actual의 띠가 좁아졌다 — 149차는 +68%에서도 '정상'이라 "
+            "기록했다. 띠를 좁히는 것은 판정 기준 변경이라 ★사용자 결정이다")
+
+    # ── ⑦ 대장이 정정을 담고 있는가 ───────────────────────────────────
+    assert "149차 정정" in led and "얽힘이 아니라 배타" in led, (
+        "🔴 대장의 149차 정정 배너가 사라졌다 — D-3 행과 ⓐ 표제가 틀렸다는 발견이다")
+    assert "OPEX가 20~33% 움직여 원채원 ROI 14.2%가 직접 깨진다" not in led.replace(
+        "「OPEX가 20~33% 움직여 원채원 ROI 14.2%가 직접 깨진다」", ""), (
+        "🔴 철회한 D-3 단정이 인용부호 밖에서 되살아났다")
+    assert "여전히 미측정: D-5~D-9 · D-13~D-15" in led, (
+        "아직 재지 않은 결정이 무엇인지가 대장에서 사라졌다")
+    # 🔴 표 **행**에서 직접 본다 — 배너만 보면 행이 되살아나도 통과한다
+    #   (149차 뮤테이션 Q6이 그렇게 빠져나갔다)
+    d3 = [ln for ln in led.splitlines()
+          if ln.lstrip().startswith("| **D-3** |")]
+    assert len(d3) == 1, f"대장에 D-3 행이 {len(d3)}개다"
+    assert "149차 정정: 깨지지 않는다" in d3[0], (
+        "🔴 D-3 행에서 149차 정정이 사라졌다 — `sunshine_k`는 연료소비량만 움직이고 "
+        "그 값은 산출물에 도달하지 않는다")
+    assert "−16.1~−38.3%" in d3[0], "D-3 행의 149차 전 표 실측 범위가 사라졌다"
+    d4 = [ln for ln in led.splitlines() if ln.lstrip().startswith("| **D-4** |")]
+    assert len(d4) == 1 and "4.07배" in d4[0] and "배타" in d4[0], (
+        "D-4 행에서 149차 실측(4.07배)이나 D-2와의 배타 표기가 사라졌다")
+
+    # ── ⑧ 이 차수가 하지 않은 것 ──────────────────────────────────────
+    assert "결정은 하나도 내리지 않았다" in doc
+    assert doc.count("시세성") >= 2 and doc.count("연료 **ℓ**까지가 한계다") == 2, (
+        "🔴 OPEX 효과를 낼 수 없는 이유(유가=시세성, 연료 ℓ까지가 한계)가 "
+        "근거문서에서 줄었다 — §2와 §7 두 곳에 있어야 한다")
+    assert "주입만 받는다" in doc, "시세성은 주입만 받는다는 1절 표기가 사라졌다"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
