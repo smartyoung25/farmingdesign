@@ -6245,6 +6245,145 @@ def test_149cha_entangled_four_are_measured():
     assert "주입만 받는다" in doc, "시세성은 주입만 받는다는 1절 표기가 사라졌다"
 
 
+def test_150cha_remaining_eight_are_measured():
+    """150차 — 나머지 8건(D-5~D-9·D-13~D-15)의 감응을 **측정**했다.
+
+    🔴 **D-5와 D-6은 별개가 아니다**: 케이스 `region`이 기상표 키와 **0/25** 매칭이다
+    (표는 관측지점명, 케이스는 행정구역 표기). C3의 *"전부 계산 미연결"*의 실제 원인이
+    이것이고, D-6은 그 계열의 **유일한 잔여 불일치**(마산↔창원)다.
+
+    이로써 **D-1~D-15 전부 감응이 붙었다**(145·149·150차). 결정은 여전히 0건이다.
+    """
+    import os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    from cases import load_cases, case_to_input
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_잔여결정8건_감응측정_20260916.md")
+    led = rd("근거_결정대기대장_20260915.md")
+
+    # ── D-5 🔴 케이스 지역명이 표에 닿지 않는다 ───────────────────────
+    TBL = (e.DESIGN_OUTDOOR_TEMP_TAC, e.HEATING_DEGREE_HOURS_1000,
+           e.MONTHLY_SUNSHINE_HOURS, e.MONTHLY_MEAN_WIND_MS, e.REGION_DESIGN_LOAD)
+    regs = []
+    for c in load_cases():
+        try:
+            regs.append(case_to_input(c).region)
+        except Exception:
+            regs.append(None)
+    hit = sum(1 for r in regs for d in TBL if r is not None and r in d)
+    assert hit == 0, (
+        f"케이스 region이 기상표에 {hit}건 매칭된다 — 150차 실측은 0건이다. "
+        "정규화가 생겼다면 D-5·D-6의 감응 측정을 다시 하라(잘못 이으면 다른 지점의 "
+        "기상값이 조용히 들어온다)")
+    # 부분 매칭은 춘천·천안만 이어지고 원채원은 이어지지 않는다
+    tac = set(e.DESIGN_OUTDOOR_TEMP_TAC)
+    sub = {r: sorted(k for k in tac if k in r) for r in regs if r}
+    assert any(v == ["춘천"] for v in sub.values()), "춘천 부분 매칭이 사라졌다"
+    assert any(v == ["천안"] for v in sub.values()), "천안 부분 매칭이 사라졌다"
+    assert any(r == "충남" and not sub[r] for r in sub), (
+        "🔴 원채원의 region이 '충남'(지점 없음)이라는 사실이 바뀌었다 — "
+        "S-1(원문 미보유)과 같은 매듭이다")
+
+    # ── D-6 🔴 4개 기상표의 유일한 불일치 ─────────────────────────────
+    S = [set(e.DESIGN_OUTDOOR_TEMP_TAC), set(e.HEATING_DEGREE_HOURS_1000),
+         set(e.MONTHLY_SUNSHINE_HOURS), set(e.MONTHLY_MEAN_WIND_MS)]
+    assert all(len(x) == 69 for x in S), f"기상표 키 수가 {[len(x) for x in S]}로 바뀌었다"
+    assert S[0] == S[1] == S[2], "TAC·난방도일·일조의 키가 어긋났다"
+    assert S[0] - S[3] == {"창원"} and S[3] - S[0] == {"마산"}, (
+        f"🔴 마산↔창원이 4개 기상표의 **유일한** 불일치라는 150차 실측이 깨졌다: "
+        f"TAC−풍속={sorted(S[0] - S[3])} 풍속−TAC={sorted(S[3] - S[0])}")
+
+    # ── D-7 재검산 — 대장의 159원은 158원이다 ─────────────────────────
+    A = {r[0]: r for r in e.ACTUALS}
+    um = A["우민재"]
+    assert um[1] == 2323 and um[2] == 557152000
+    hi = e.BENCHMARK_BANDS[e.Cover.FILM][1]
+    assert hi == 240000
+    gap_now = hi - um[2] / 2323
+    gap_alt = hi - um[2] / 2321.87
+    assert 158.0 <= gap_now < 159.0, f"현행 밴드 여유가 {gap_now:.2f}원이다 — 150차 실측 158.4원"
+    assert 41.0 <= gap_alt < 43.0, f"교체 시 여유가 {gap_alt:.2f}원이다 — 실측 약 42원"
+    assert "158원 → 42원" in led, (
+        "🔴 대장의 D-7 여유가 158원으로 정정된 표기가 사라졌다(종전 159원은 반올림)")
+
+    # ── D-8 · D-13 — 분류 이관의 몫 ───────────────────────────────────
+    tot = sum(e.CAPEX_MAJOR_KNOWN_TOTALS.values())
+    assert tot == 7918192671, f"known_total 합이 {tot}로 바뀌었다"
+    d8 = 18500000 + 25107700
+    assert abs(100 * d8 / tot - 0.551) < 0.005, "D-8의 몫(0.551%)이 바뀌었다"
+    U = e.CAPEX_MAJOR_UNCLASSIFIED
+    assert U["최선동"] == 68035800 and U["임미라"] == 126032300, (
+        "D-8 두 건이 담긴 미분류 금액이 바뀌었다 — 이관 감응을 다시 재라")
+    assert e.CAPEX_MAJOR_EVIDENCE_STATUS["equipment_procurement"].startswith("미검증"), (
+        "🔴 `equipment_procurement`이 더는 미검증이 아니다 — "
+        "D-8이 '그 카테고리의 첫 실측'이라는 전제가 깨진다")
+    for mark in ("37,226,888", "77,320,088", "1.93배"):
+        assert mark in doc, f"D-13 실측에서 {mark}가 사라졌다"
+
+    # ── D-9 — 갈리는 수는 정의의 넓이에 달려 있다 ─────────────────────
+    W, TH = e.MONTHLY_MEAN_WIND_MS, e.WIND_STRONG_THRESHOLD_MS
+    assert TH == 3.0 and len(next(iter(W.values()))) == 13
+    def strong(ms):
+        return {r for r, v in W.items()
+                if (v[12] if ms is None else sum(v[m - 1] for m in ms) / len(ms)) >= TH}
+    multi = [(12, 1, 2), (12, 1, 2, 3), (11, 12, 1, 2), (11, 12, 1, 2, 3),
+             (1, 2), (10, 11, 12, 1, 2, 3, 4), None]
+    single = [(m,) for m in range(1, 13)]
+    def flips(sets):
+        ss = [strong(x) for x in sets]
+        return set(W) - set.intersection(*ss) - (set(W) - set.union(*ss))
+    assert len(flips(multi)) == 5, f"다월 후보의 갈림이 {len(flips(multi))}곳이다 — 실측 5곳"
+    f_all = flips(multi + single)
+    assert len(f_all) == 11, f"전 후보의 갈림이 {len(f_all)}곳이다 — 실측 11곳"
+    assert f_all == {"강릉", "대관령", "대구", "서귀포", "성산", "속초",
+                     "영주", "완도", "인천", "추풍령", "포항"}, (
+        f"갈리는 지역 명단이 {sorted(f_all)}로 바뀌었다 — 95·96차 대장 명단과 같아야 한다")
+    assert e.wind_correction_factor(2.9, False) == 1.0
+    assert e.wind_correction_factor(3.0, False) == 1.1
+    assert e.wind_correction_factor(3.0, True) == 1.05
+    # 🔴 근거문서의 명단도 계산과 함께 고정한다 — 산문만 고치면 안 잡힌다
+    #   (150차 뮤테이션 R9가 그렇게 빠져나갔다)
+    listed = " · ".join(sorted(f_all))
+    assert listed in doc, (
+        f"근거문서의 갈림 명단이 계산과 다르다 — 계산은 「{listed}」다. "
+        "이름 하나만 바꿔도 잡히도록 **명단 전체 문자열**을 고정한다"
+        "(150차 뮤테이션 R9가 개별 이름 검사를 빠져나갔다)")
+
+    # ── D-14 · D-15 — 품셈 쪽 ─────────────────────────────────────────
+    tot_c = sum(sum(i.labor_per_unit.values()) for i in e.PUMSEM_ITEMS)
+    vin = sum(sum(i.labor_per_unit.values()) for i in e.PUMSEM_ITEMS if "비닐" in i.category)
+    assert abs(100 * vin / tot_c - 1.15) < 0.02, (
+        f"비닐 7종의 몫이 {100 * vin / tot_c:.2f}%다 — 150차 실측 1.15%")
+    assert len([i for i in e.PUMSEM_ITEMS if "비닐" in i.category]) == 7
+    gl = [i for i in e.PUMSEM_ITEMS if i.category == "온실피복공사"]
+    assert len(gl) == 4, f"온실피복공사(유리)가 {len(gl)}품목이다 — D-15 이견이 걸리는 자리다"
+    assert abs(100 * sum(sum(i.labor_per_unit.values()) for i in gl) / tot_c - 0.87) < 0.02
+    # 요약표(§0)와 본문(§5) 두 곳에 있어야 한다 — 한 곳만 지워도 잡는다(R8)
+    assert doc.count("64품목 전부가") >= 2, (
+        f"D-15의 [주] 전수(64/64) 실측이 {doc.count('64품목 전부가')}곳으로 줄었다 — "
+        "요약표와 본문 두 곳에 있어야 한다")
+    for n in ("천창개폐장치공사 · 수평스크린공사", "각 13"):
+        assert n in doc, f"[주] 공종별 집계에서 {n}가 사라졌다"
+
+    # ── 대장이 정정을 담고 있는가 ─────────────────────────────────────
+    assert "D-1~D-15 전부 감응이 붙었다" in led, (
+        "145·149·150차로 전 항목의 감응이 채워졌다는 표기가 대장에서 사라졌다")
+    # 🔴 두 표현을 **둘 다** 본다 — 한쪽만 지우면 부분문자열 검사는 통과한다(R7)
+    for phrase in ("D-6과 같은 뿌리", "한 뿌리를 공유", "지역명 정규화", "S-1"):
+        assert phrase in led, (
+            f"🔴 대장에서 「{phrase}」가 사라졌다 — D-5·D-6이 한 뿌리이고 "
+            "원채원은 S-1이 있어야 닿는다는 150차 발견이다")
+
+    # ── 이 차수가 하지 않은 것 ────────────────────────────────────────
+    assert "결정은 하나도 내리지 않았다" in doc
+    assert "정규화 규칙을 만들지 않았다" in doc, (
+        "지역명 정규화가 판단성이라 손대지 않았다는 표기가 사라졌다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
