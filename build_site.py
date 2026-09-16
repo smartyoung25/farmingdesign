@@ -13,6 +13,52 @@ import render_report as rr
 from cases import load_cases, case_to_input
 
 esc = html.escape
+
+# ── 148차: 서술 문자열의 인라인 마크다운을 렌더한다 ─────────────────────
+#   🔴 146차 [3]·147차 §5가 남긴 것. 레지스트리 note·source와
+#   `CAPEX_MAJOR_EVIDENCE_STATUS`는 **마크다운으로 쓰여 있는데** 생성기가 그것을
+#   `html.escape`만 걸어 내보내서 `SmartFarm_근거대장.html`에 리터럴 별표가
+#   **3,745개** 찍혀 있었다(CAPEX분해 80개).
+#
+#   원칙 — **이스케이프가 먼저다.** 아래는 escape된 문자열 위에서만 돌고
+#   우리가 넣는 태그 외에 `<`를 만들지 않는다(원문의 `<`는 이미 `&lt;`다).
+#
+#   ⚠️ 지원하는 것은 셋뿐이다. 일반 `*이탤릭*`은 **지원하지 않는다** —
+#   레지스트리에 `ㅁ60*60*2.3T`·`4000*4000` 같은 **치수 표기가 21곳** 있어서
+#   단일 별표를 이탤릭으로 읽으면 규격이 깨진다. 실측 근거:
+#     `**굵게**` 1,887스팬(내부에 단일 별표가 낀 것 1건 · 줄바꿈 0 · 최장 85자)
+#     `` `코드` `` 443스팬 · `*"인용"*` 130스팬(그중 23은 안에 굵게를 품는다)
+#   교대(alternation) 하나로 **왼쪽에서 오른쪽으로 한 번만** 훑으므로 코드 스팬
+#   안에서 굵게가 시작되는 겹침이 생기지 않는다. 품은 것은 한 겹 재귀로 처리한다.
+_MD = re.compile(
+    r"`([^`]{1,200})`"                               # `코드`
+    r"|\*\*(.{1,200}?)\*\*"                      # **굵게**
+    r"|\*(&quot;.{1,200}?&quot;)\*"                 # *"인용"*
+)
+
+
+def _md_sub(m):
+    if m.group(1) is not None:
+        return "<code>%s</code>" % m.group(1)
+    if m.group(2) is not None:
+        return "<b>%s</b>" % _MD.sub(_md_sub, m.group(2))
+    return "<i>%s</i>" % _MD.sub(_md_sub, m.group(3))
+
+
+def md(s):
+    """escape한 뒤 **굵게**·`코드`·*"인용"*만 태그로 바꾼다. 나머지는 그대로 둔다."""
+    return _MD.sub(_md_sub, esc("" if s is None else str(s)))
+
+
+def md_cut(s, n):
+    """자른 뒤 렌더한다. **자르다 짝이 깨진 `**`는 버린다** — 그대로 두면
+    리터럴 별표가 화면에 남는다(148차 실측: `U_DESIGN` status_note 1건)."""
+    t = _trunc("" if s is None else str(s), n)
+    if t.count("**") % 2:
+        i = t.rfind("**")
+        t = t[:i] + t[i + 2:]
+    return md(t)
+
 _CSS = """
   :root{--bg:#f4f6f8;--card:#fff;--ink:#1a2330;--muted:#6b7787;--line:#e3e8ee;
     --brand:#1f7a4d;--brand-soft:#e8f3ec;--ok:#1f7a4d;--warn:#b8860b;--bad:#c0392b;}
@@ -140,7 +186,7 @@ def capex_breakdown_page() -> str:
             per_case.append(f"{esc(case_name)} {mb.shares_pct[key]:.1f}%")
         major_rows.append(
             f"<tr><td>{esc(kor)}</td><td>{esc(desc)}</td>"
-            f"<td><span class='tag {tag}'>{esc(ev)}</span></td><td>{' · '.join(per_case)}</td></tr>")
+            f"<td><span class='tag {tag}'>{md(ev)}</span></td><td>{' · '.join(per_case)}</td></tr>")
     unclassified_rows = []
     for case_name, total in major_totals.items():
         mb = e.capex_major_breakdown(e.CAPEX_MAJOR_CASE_CHUNKS[case_name], known_total=total)
@@ -354,7 +400,7 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     <div class="row"><span class="lbl">예상 생산량</span><span class="val">{ec['production_kg']:,.0f} kg</span></div>
     <table><thead><tr><th>OPEX 항목</th><th class='num'>금액(원)</th></tr></thead>
       <tbody>{ob_rows}</tbody></table>
-    <p class="note">{esc(ob.get('note', 'OPEX 항목분해 자료 없음'))}</p>
+    <p class="note">{md(ob.get('note', 'OPEX 항목분해 자료 없음'))}</p>
     <h2 style="margin-top:16px">사업 착수 전 행정절차 (보조율 수치 미포함 — 공모 회차마다 상이)</h2>
     <table><thead><tr><th>#</th><th>절차</th><th>내용</th></tr></thead>
       <tbody>{subsidy_rows}</tbody></table>
@@ -383,7 +429,7 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     <h2 style="margin-top:16px">CAPEX 항목분해(실측 청킹, {esc(cb.get('as_of','—'))})</h2>
     <table><thead><tr><th>카테고리</th><th class='num'>금액(원)</th></tr></thead>
       <tbody>{cb_rows}</tbody></table>
-    <p class="note">{esc(_trunc(cb_cats.get('note', ''), 300))}</p>"""
+    <p class="note">{md_cut(cb_cats.get('note', ''), 300)}</p>"""
     else:
         capex_detail = "<p class='note'>이 케이스엔 CAPEX 항목분해 실측 데이터가 없어 총사업비만 표시(CAPEX_CASE_CHUNKS 확보된 케이스는 자동으로 이 표가 채워짐).</p>"
     # 시나리오 가정값(2026-08-18): scenarios 블록이 있는 케이스만 다단 표 렌더
@@ -406,14 +452,14 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
                     f"<td class='num'>{ec['roi']*100:.1f}%</td><td class='num'>{pb}</td>"
                     f"<td class='num'>{ec['npv']/1e8:,.2f}억</td><td class='num'>{irr}</td></tr>")
         sc_tr = "".join(_sc_tr(r) for r in sc_rows_data)
-        sc_notes = "".join(f"<li>{esc(r['name'])}: {esc(r['note'])}</li>" for r in sc_rows_data[1:])
+        sc_notes = "".join(f"<li>{esc(r['name'])}: {md(r['note'])}</li>" for r in sc_rows_data[1:])
         scenario_detail = f"""
     <h2 style="margin-top:16px">시나리오 표 (가정 주입 — {len(sc_rows_data)}단)</h2>
     <table><thead><tr><th>시나리오</th><th>가정(변경 필드만)</th><th class='num'>ROI</th>
       <th class='num'>Payback</th><th class='num'>NPV</th><th class='num'>IRR</th></tr></thead>
       <tbody>{sc_tr}</tbody></table>
     <ul class="prov">{sc_notes}</ul>
-    <p class="note">{esc(_trunc(case['scenarios'].get('note', ''), 240))} — 가정값은 컨설턴트 기입(판단성),
+    <p class="note">{md_cut(case['scenarios'].get('note', ''), 240)} — 가정값은 컨설턴트 기입(판단성),
       계산은 전 지표 엔진 재호출. 어느 시나리오의 실현을 판정하지 않으며 확률·기대값은 모델링하지 않는다.</p>"""
     else:
         scenario_detail = ("<p class='note'>시나리오 가정값 미제공 — 케이스에 scenarios 블록(가정 세트+근거)을 "
@@ -436,7 +482,7 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
       <tbody>{fin_rows}</tbody></table>
     <div class="row"><span class="lbl">총이자 / 총납입액</span>
       <span class="val">{am['총이자']:,.0f}원 / {am['총납입액']:,.0f}원</span></div>
-    <p class="note">{esc(_trunc(fin.get('note', '대출조건 출처 미기재'), 240))}</p>"""
+    <p class="note">{md_cut(fin.get('note', '대출조건 출처 미기재'), 240)}</p>"""
     else:
         financing_detail = ("<p class='note'>대출조건 미제공 — 케이스에 financing 블록(대출금액·금리·"
                             "전체/거치기간·상환방식)을 넣으면 연차별 상환표가 자동 생성된다"
@@ -507,10 +553,10 @@ def partial_construction_page(case: dict) -> str:
     <div class="sub">시공축 부분 케이스 · {esc(inp['crop'])} · {area:,.1f}㎡ ({e.m2_to_py(area):,.0f}평) · {esc(inp['cover'])}</div></header>
   <section class="card"><span class="axis">부분 케이스 안내</span>
     <h2>이 리포트의 범위</h2>
-    <p style="font-size:13.5px">{esc(case['partial_note'])}</p></section>
+    <p style="font-size:13.5px">{md(case['partial_note'])}</p></section>
   <section class="card"><span class="axis">시공 — 규격</span>
     <h2>실측 규격</h2>
-    <p style="font-size:13.5px">{esc(con['spec_note'])}</p></section>
+    <p style="font-size:13.5px">{md(con['spec_note'])}</p></section>
   <section class="card"><span class="axis">시공 — 공사비</span>
     <h2>공사원가 요약 (원문 전사)</h2>
     {summary_rows}
@@ -519,7 +565,7 @@ def partial_construction_page(case: dict) -> str:
     <h2 style="margin-top:16px">공종·항목 발췌 (원문 전사 — 대사 범위는 노트 참고)</h2>
     <table><thead><tr><th>공종·항목(원문)</th><th class="num">금액(원)</th></tr></thead>
       <tbody>{trade_rows}</tbody></table>
-    <p class="note">{esc(con['trades_note'])}</p></section>
+    <p class="note">{md(con['trades_note'])}</p></section>
   <section class="card"><span class="axis">근거</span>
     <h2>출처·검증</h2>
     {_partial_provenance_html(case)}</section>
@@ -540,13 +586,13 @@ def _partial_provenance_html(case: dict) -> str:
                            for r in v.get("source_refs", []))
             rows.append(f"<tr><td><code>{esc(field)}</code></td>"
                         f"<td><span class='tag {esc(v['status'])}'>{esc(v['status'])}</span></td>"
-                        f"<td style='font-size:12.5px'>{esc(v['source'])}{refs}</td></tr>")
+                        f"<td style='font-size:12.5px'>{md(v['source'])}{refs}</td></tr>")
         parts.append(f"<table><thead><tr><th>항목</th><th>상태</th><th>근거·원문</th></tr></thead>"
                      f"<tbody>{''.join(rows)}</tbody></table>")
     elif isinstance(prov, str):
-        parts.append(f"<p style='font-size:13px;color:var(--muted)'>{esc(prov)}</p>")
+        parts.append(f"<p style='font-size:13px;color:var(--muted)'>{md(prov)}</p>")
     if note:
-        parts.append(f"<p class='note'>{esc(note)}</p>")
+        parts.append(f"<p class='note'>{md(note)}</p>")
     return "\n    ".join(parts)
 
 
@@ -612,14 +658,14 @@ def registry_page() -> str:
         refs_html = "".join(
             f"<div style='font-size:11.5px'><code>{esc(r['file'])}</code>"
             f"{_match_badge.get(r.get('match'), '')}"
-            f"{(' — ' + esc(r['note'])) if r.get('note') else ''}</div>" for r in refs) or "—"
+            f"{(' — ' + md(r['note'])) if r.get('note') else ''}</div>" for r in refs) or "—"
         rows.append(
             f"<tr><td><code>{esc(key)}</code></td><td>{esc(c['axis'])}</td>"
-            f"<td>{esc(c['desc'])}</td><td>{esc(vtxt)}</td>"
-            f"<td>{esc(c['source'])}</td>"
+            f"<td>{esc(c['desc'])}</td><td>{md(vtxt)}</td>"
+            f"<td>{md(c['source'])}</td>"
             f"<td>{refs_html}</td>"
             f"<td><span class='tag {c['status']}'>{esc(c['status'])}</span>"
-            f"{('<div style=' + chr(39) + 'font-size:11px;color:var(--muted);max-width:220px' + chr(39) + '>' + esc(_trunc(c.get('status_note', ''), 160)) + '</div>') if c.get('status_note') else ''}</td></tr>")
+            f"{('<div style=' + chr(39) + 'font-size:11px;color:var(--muted);max-width:220px' + chr(39) + '>' + md_cut(c.get('status_note', ''), 160) + '</div>') if c.get('status_note') else ''}</td></tr>")
     n_unver = sum(1 for c in reg["constants"].values() if c["status"] == "미검증")
     body = f"""
   <header class="top"><h1>엔진 상수 근거대장 (P0)</h1>
@@ -742,7 +788,7 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
   <section class="card"><span class="axis">업체 상세</span>
     <h2>{esc(v['vendor_name'])} — {esc(v['area_note'])}</h2>
     <div class="row"><span class="lbl">출처</span><span class="val"><code>{esc(v['source_file'])}</code> · {esc(v['source_sheet'])}</span></div>
-    <div class="row"><span class="lbl">금액 기준</span><span class="val">{esc(v['total_note'])}</span></div>
+    <div class="row"><span class="lbl">금액 기준</span><span class="val">{md(v['total_note'])}</span></div>
     <table><tr><th>정합 검증</th><th>판정</th><th>상세</th></tr>{checks}</table>
     <p class="note" style="border-top:0">"필수 공종 완전성"은 카테고리 금액의 존재 여부 판정이다(세부 구성의 충분성
       판정 아님 — 47차 명시) · 밴드 판정은 부가세 포함 풀스펙 실측 기준이라 축소 구성 견적은 대조군 범위가 다를 수 있다.</p>
@@ -759,7 +805,7 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
     <div class="row"><span class="lbl">채택 규격</span><span class="val">{esc(rfq.spec_name)} (설계 적설 {rfq.snow_cm}·풍속 {rfq.wind_ms})</span></div>
     <div class="row"><span class="lbl">규모·피복</span><span class="val">{ri['area_m2']:,}㎡ · {esc(ri['cover'])} · {esc(ri['form'])} · 작물 {esc(ri['crop'])}</span></div>
     <div class="row"><span class="lbl">난방부하</span><span class="val">{rfq.heating.max_load_kcal_h:,.0f} kcal/h (커튼 {esc(ri['curtain'])} · t_target {ri['t_target']}℃/t_min {ri['t_min']}℃ 기준 — 입력 근거·한계는 하단 note)</span></div>
-    <p class="note" style="border-top:0;margin-top:8px">{esc(ri['note'])}</p></section>
+    <p class="note" style="border-top:0;margin-top:8px">{md(ri['note'])}</p></section>
   <section class="card"><span class="axis">{len(data['vendor_quotes'])}건 비교</span>
     <h2>비교표 (입력 순서 그대로 — 정렬·순위·추천 없음)</h2>
     <table><tr><th>업체</th><th>종합</th><th class="num">사양 부합도(종합)</th><th class="num">총액(원)</th><th class="num">직접공사비(원)</th><th class="num">원/㎡(총액 기준)</th><th>금액 기준(요약)</th></tr>{comp_rows}</table>
@@ -768,8 +814,8 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
   {''.join(detail_cards)}
   <section class="card"><span class="axis">전사·매핑 원칙</span>
     <h2>데이터 출처와 한계</h2>
-    <p style="font-size:13.5px">{esc(data['provenance'])}</p>
-    <p style="font-size:13.5px;color:var(--muted)">{esc(data['decision_note'])}</p></section>"""
+    <p style="font-size:13.5px">{md(data['provenance'])}</p>
+    <p style="font-size:13.5px;color:var(--muted)">{md(data['decision_note'])}</p></section>"""
     return _page(data["title"], body)
 
 

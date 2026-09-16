@@ -33,8 +33,21 @@ DUMP = os.path.join(ROOT, "verify_refs_dump.txt")
 TARGET = ("CAPEX_MAJOR_CASE_CHUNKS", "CAPEX_MAJOR_KNOWN_TOTALS",
           "ACTUALS_COUNT", "CAPEX_CATEGORY_OBSERVED_RANGE")
 
-NUM = re.compile(r"\b\d{1,3}(?:,\d{3}){2,}\b")
+# 🔴 148차 — 경계를 `\b`로 잡으면 **한글 접미사 앞에서 실패**한다: 한글은 `\w`라
+#   `40,093,200원`·`4,092평`의 끝 `\b`가 성립하지 않아 **통째로 안 잡혔다**.
+#   숫자·콤마만 배제하는 look-around로 바꾼다(`456,158,140` 안의 `456,158`도 계속 배제).
+NUM = re.compile(r"(?<![\d,.])\d{1,3}(?:,\d{3}){2,}(?![\d,])")
 TOK = re.compile(r"^[\d,]+$")
+
+# 148차 — 면적 앵커(146차 [5]). NUM은 7자리 이상만 잡아서 `2,736㎡` 같은 면적이
+#   앵커에서 빠져 있었다(exact ref 5건: 이두희·최혁진·한일그린텍·한수진·최선동).
+#   🔴 폭을 **일반적으로** 넓히지 않는다 — 그러면 연도·수량이 앵커로 들어와 거짓
+#   불일치가 는다(138차 P2 과잉교정과 같은 함정). **단위가 바로 뒤에 붙은 것만** 잡는다.
+AREA = re.compile(r"(?<![\d,.])\d{1,3}(?:,\d{3})(?![\d,])(?=\s*(?:㎡|m2|m²|평))")
+
+# 문서 쪽은 넓혀도 안전하다 — 찾은 숫자 집합이 커지면 MISS가 OK로 바뀔 뿐
+#   새로운 요구를 만들지 않는다(요구는 note의 앵커가 만든다).
+NUM_DOC = re.compile(r"(?<![\d,.])\d{1,3}(?:,\d{3})+(?![\d,])")
 # note가 "이 앵커는 인쇄돼 있지 않다"를 선언하는 말들
 RECOMPUTED = ("재집계", "인쇄돼 있지 않", "합계제외", "재현한다", "3성분 합")
 
@@ -44,7 +57,10 @@ def load_registry():
 
 
 def anchors_of(note):
-    return sorted({int(m.group().replace(",", "")) for m in NUM.finditer(note or "")})
+    """note가 요구하는 대조 앵커. 7자리 이상 금액 + **단위가 붙은 면적**(148차)."""
+    t = note or ""
+    return sorted({int(m.group().replace(",", "")) for m in NUM.finditer(t)}
+                  | {int(m.group().replace(",", "")) for m in AREA.finditer(t)})
 
 
 def exact_refs(consts=None):
@@ -181,7 +197,7 @@ def document_numbers(path):
                 for pg in pdf.pages:
                     t = pg.extract_text() or ""
                     chars += len(t)
-                    for m in NUM.finditer(t):
+                    for m in NUM_DOC.finditer(t):
                         nums.add(int(m.group().replace(",", "")))
                     rows = collections.defaultdict(list)
                     for w in pg.extract_words():

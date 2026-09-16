@@ -5178,9 +5178,15 @@ def test_139cha_every_exact_ref_carries_a_checkable_anchor():
 
     # ④ 전수 재검산 스냅샷이 있고 139차 실측과 맞는가
     dump = open(_o.path.join(repo, "verify_refs_dump.txt"), encoding="utf-8").read()
-    assert "OK 32 · RECOMPUTED 7" in dump, (
-        "verify_refs_dump.txt가 139차 실측(OK 32 · RECOMPUTED 7)과 다르다 — "
+    assert "OK 31 · RECOMPUTED 8" in dump, (
+        "verify_refs_dump.txt가 148차 실측(OK 31 · RECOMPUTED 8)과 다르다 — "
         "앵커를 바꿨다면 `python verify_refs.py --full`로 스냅샷을 다시 뜨라")
+    # 🔴 148차: 139차 실측은 OK 32 · RECOMPUTED 7이었다. 148차가 앵커에
+    #   **단위가 붙은 면적**(`2,736㎡`)을 추가하고 ``가 한글 접미사 앞에서
+    #   실패하던 것을 고치자 **이두희 ref 하나가 OK → RECOMPUTED로 이동**했다:
+    #   `2,736`은 문서에 인쇄돼 있지 않고 규격 8m×6연동×57m의 **역산**이다
+    #   (8×6×57=2,736). 139차 note가 금액과 면적을 한 괄호로 묶어
+    #   *「문서에서 확인」*이라 적은 것이 부정확했다 — 합은 39로 같다.
     # ⚠️ 부분 문자열로 보면 안 된다 — `CAPEX_MAJOR_CASE_CHUNKS`에 "UNK"가 들어 있다
     #    (139차에 이 가드가 자기 오탐으로 한 번 발화했다). 상태는 **줄 머리**에 있다.
     bad_lines = [ln for ln in dump.splitlines()
@@ -5775,9 +5781,11 @@ def test_146cha_redteam27_corrections_hold():
 
     # ── [3] 🔴 build_site는 상태 문자열을 **전문**으로 렌더한다 ─────────
     bs = rd("build_site.py")
-    assert "{esc(ev)}" in bs, (
-        "🔴 build_site가 상태 문자열 전문을 렌더하지 않게 바뀌었다면 "
-        "`근거_0사유보강`의 146차 정정(유일한 사용처가 아니다)을 갱신하라")
+    assert "{md(ev)}" in bs, (
+        "🔴 build_site가 상태 문자열 **전문**을 렌더하지 않게 바뀌었다면 "
+        "`근거_0사유보강`의 146차 정정(유일한 사용처가 아니다)을 갱신하라. "
+        "148차부터 그 자리는 `esc(ev)`가 아니라 `md(ev)`다 — 여전히 전문이고, "
+        "이제 마크다운을 **태그로** 렌더한다(리터럴 별표가 아니라)")
     zero = rd("근거_0사유보강_20260915.md")
     assert ("*" + DQ + "유일한 사용처" + DQ + "*는 틀렸다") in zero, (
         "142차의 '유일한 사용처' 절대표현에 대한 146차 정정이 사라졌다")
@@ -5964,6 +5972,136 @@ def test_147cha_drawing_refs_carry_criteria():
         "146차는 CAPEX분해 80개만 보고 규모를 과소평가했다")
     assert "결정은 하나도 내리지 않았다" in doc, (
         "147차가 결정을 내리지 않았다는 표기가 사라졌다 — 판정 자동화 금지선이다")
+
+
+def test_148cha_markdown_render_and_area_anchor():
+    """148차 — 146차가 *"후보"*·*"기록만"*으로 남긴 [3]·[5]를 닫았는가.
+
+    [3] 생성기가 마크다운을 렌더하지 않아 산출물에 리터럴 별표가 **3,833개** 있었다.
+        고칠 자리는 데이터가 아니라 **생성기**다 — `md()`를 넣었다.
+    [5] 앵커가 7자리 이상만 잡아 **면적이 검산 대상 밖**이었고, 게다가 `\\b`가
+        **한글 접미사 앞에서 실패**해 `40,093,200원`이 통째로 안 잡혔다.
+
+    🔴 [5]를 열자 결함이 하나 나왔다 — 이두희 2,736은 문서에 **인쇄돼 있지 않은
+    역산값**(8×6×57)인데 139차 note가 금액과 묶어 "문서에서 확인"이라 적었다.
+    """
+    import os as _o, re as _re, sys as _s, json as _j, glob as _g
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import verify_refs as vr
+    import build_site as bsmod
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_마크다운렌더_면적앵커_20260916.md")
+
+    # ── ① md()가 설계대로 도는가 ───────────────────────────────────────
+    md = bsmod.md
+    DQ = chr(34)
+    cases = [
+        ("**굵게** 보통", "<b>굵게</b> 보통"),
+        ("`CODE_X`", "<code>CODE_X</code>"),
+        ("*" + DQ + "인용 안에 **굵게**" + DQ + "*",
+         "<i>&quot;인용 안에 <b>굵게</b>&quot;</i>"),
+        # 🔴 치수는 절대 건드리면 안 된다 — 레지스트리에 21곳 있다
+        ("ㅁ60*60*2.3T 와 4000*4000", "ㅁ60*60*2.3T 와 4000*4000"),
+        # 이스케이프가 먼저다
+        ("<script>x</script>", "&lt;script&gt;x&lt;/script&gt;"),
+        # 짝이 안 맞으면 깨진 HTML을 만들지 않고 그대로 둔다
+        ("짝 없는 ** 하나", "짝 없는 ** 하나"),
+    ]
+    for src, want in cases:
+        got = md(src)
+        assert got == want, f"md({src!r}) = {got!r} — 기대 {want!r}"
+    # 태그를 우리가 넣은 것 외에는 만들지 않는다
+    assert "<" not in md("a < b & c > d").replace("&lt;", "").replace("&gt;", "")
+
+    # md_cut: 자르다 짝이 깨진 `**`는 버린다
+    cut = bsmod.md_cut("가" * 150 + " **잘릴 강조입니다", 160)
+    assert "**" not in cut, f"자른 뒤 리터럴 별표가 남았다: …{cut[-40:]}"
+
+    # ── ② 산출물에 리터럴 별표가 남지 않는가 ──────────────────────────
+    left = {}
+    for f in sorted(_g.glob(_o.path.join(repo, "SmartFarm_*.html"))) + \
+            [_o.path.join(repo, "index.html")]:
+        if not _o.path.exists(f):
+            continue
+        n = open(f, encoding="utf-8").read().count("**")
+        if n:
+            left[_o.path.basename(f)] = n
+    total = sum(left.values())
+    assert total <= 2, (
+        f"산출물의 리터럴 마크다운 별표가 {total}개다({left}) — 148차 실측은 2개이고 "
+        "그 2개는 **코드 스팬 안**이라 리터럴이 맞다. 늘었다면 `esc(...)`로 내보내는 "
+        "서술 필드가 새로 생긴 것이다 — `md(...)`로 바꿔라")
+    for mark in ("3,833", "1,887", "치수 표기가 21곳"):
+        assert mark in doc, f"근거문서에서 {mark}가 사라졌다"
+
+    # 🔴 생성된 HTML만 보면 **소스 회귀를 놓친다**(148차 뮤테이션 P1이 그렇게
+    #   빠져나갔다 — HTML은 커밋된 것을 읽으므로 다시 빌드하기 전엔 안 바뀐다).
+    #   서술 필드의 **호출 지점**을 직접 고정한다.
+    bs = rd("build_site.py")
+    Q = chr(39)
+    for call in ("{md(ev)}",
+                 "{md(v[" + Q + "source" + Q + "])}",
+                 "{md(r[" + Q + "note" + Q + "])}",
+                 "{md(c[" + Q + "source" + Q + "])}",
+                 "{md(vtxt)}",
+                 "{md(case[" + Q + "partial_note" + Q + "])}",
+                 "{md(data[" + Q + "provenance" + Q + "])}",
+                 "md_cut(c.get(" + Q + "status_note" + Q + ", ''), 160)"):
+        assert call in bs, (
+            f"build_site에서 `{call}` 호출이 사라졌다 — 서술 필드를 `esc(...)`로 "
+            "되돌리면 리터럴 마크다운이 다시 산출물로 나간다(146차 [3])")
+    assert bs.count("md(") >= 17, (
+        f"md( 호출이 {bs.count('md(')}회다 — 148차 실측은 17회 이상이다")
+
+    # ── ③ 🔴 레지스트리에 생따옴표를 넣지 않는다(JSON이 깨진다) ───────
+    reg_raw = rd("엔진데이터_레지스트리.json")
+    _j.loads(reg_raw)          # 146·148차에 두 번 깨뜨렸다 — 로드 자체가 가드다
+    assert "「" in reg_raw, (
+        "레지스트리의 인용 표기 「」가 사라졌다 — 생따옴표는 JSON 문자열을 깨뜨린다")
+    assert "「」를 쓴다" in doc, "148차가 굳힌 인용 관례가 근거문서에서 사라졌다"
+
+    # ── ④ 면적 앵커 — 단위가 붙은 것만 ────────────────────────────────
+    A = vr.anchors_of
+    assert A("연면적 2,736㎡ 확인") == [2736], "단위 붙은 면적이 앵커로 안 잡힌다"
+    assert A("2021년 12월 · 수량 1,200개") == [], (
+        "🔴 단위 없는 4자리가 앵커로 들어왔다 — 연도·수량이 앵커가 되면 거짓 불일치가 "
+        "는다(138차 P2 과잉교정)")
+    assert A("금액 40,093,200원") == [40093200], (
+        "🔴 `\\b`가 한글 접미사 앞에서 실패하던 버그가 되살아났다 — 한글은 `\\w`다")
+    assert A("4,092평 규모") == [4092]
+    assert A("456,158,140 직접공사비") == [456158140], "부분문자열 456,158이 끼면 안 된다"
+    assert A("2,323㎡ vs 2,321.87㎡") == [2323], "소수 꼬리가 앵커로 끼면 안 된다"
+
+    n_anchor = sum(len(vr.anchors_of(r[-1])) for r in vr.exact_refs())
+    assert n_anchor == 57, (
+        f"exact ref 앵커 총수가 {n_anchor}다 — 148차 실측은 57(종전 51). "
+        "note를 고쳤다면 `python verify_refs.py --full`로 스냅샷을 다시 뜨라")
+
+    # ── ⑤ 🔴 이두희 2,736은 역산이다 ──────────────────────────────────
+    assert 8 * 6 * 57 == 2736
+    note = [r[-1] for r in vr.exact_refs()
+            if r[0] == "ACTUALS_COUNT" and "이두희 천안 20251028.pdf" in r[1]]
+    assert len(note) == 1, f"이두희 ACTUALS_COUNT ref가 {len(note)}건이다"
+    note = note[0]
+    assert "인쇄돼 있지 않" in note, (
+        "🔴 이두희 면적 2,736이 원문에 인쇄돼 있지 않다는 선언이 사라졌다 — "
+        "53쪽 전수에서 0건이고 8m×6연동×57m의 역산값이다. 선언이 없으면 "
+        "`full_check`가 MISS로 떨어진다")
+    assert "역산" in note and "582,455,045" in note, (
+        "이두희 note에서 금액(문서 확인)과 면적(역산)의 구분이 사라졌다")
+    dump = rd("verify_refs_dump.txt")
+    assert "OK 31 · RECOMPUTED 8" in dump
+    assert not [ln for ln in dump.splitlines()
+                if ln.startswith("MISS") or ln.startswith("UNK")], (
+        "재검산 스냅샷에 MISS/UNK가 생겼다")
+
+    # ── ⑥ 이 차수가 하지 않은 것 ──────────────────────────────────────
+    assert "면적 기준 통일" in doc and "★사용자 결정" in doc, (
+        "이두희 방풍 미포함 기준이 ★대기임을 밝힌 표기가 사라졌다 — 148차는 표기만 고쳤다")
+    assert "결정은 하나도 내리지 않았다" in doc
 
 
 if __name__ == "__main__":

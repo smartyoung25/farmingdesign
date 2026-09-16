@@ -1,7 +1,7 @@
 # source_refs 재검산 결과 (verify_refs.py)
 
 대상: CAPEX_MAJOR_CASE_CHUNKS · CAPEX_MAJOR_KNOWN_TOTALS · ACTUALS_COUNT · CAPEX_CATEGORY_OBSERVED_RANGE의 exact ref 39건
-결과: OK 32 · RECOMPUTED 7
+결과: OK 31 · RECOMPUTED 8
 
 RECOMPUTED  CAPEX_MAJOR_CASE_CHUNKS          스마트팜스펙/우민재/1. 공사내역서 스마트팜 확대보급 시범사업.xlsx
             인쇄 없음 ['2,679,227', '456,158,140'] — note가 재집계를 선언한다
@@ -65,8 +65,8 @@ OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/스
             관대 파싱(_xls_sheets_lenient)
 OK          CAPEX_MAJOR_KNOWN_TOTALS         스마트팜스펙/견적참조/수현건설임미라님견적서.xls
             관대 파싱(_xls_sheets_lenient)
-OK          ACTUALS_COUNT                    스마트팜스펙/이두희/이두희 천안 20251028.pdf
-            pdfplumber 텍스트 + 단어 x결합(58274자)
+RECOMPUTED  ACTUALS_COUNT                    스마트팜스펙/이두희/이두희 천안 20251028.pdf
+            인쇄 없음 ['2,736'] — note가 재집계를 선언한다
 OK          ACTUALS_COUNT                    스마트팜스펙/최혁진님 온실 내역서/혁진 스마트팜 온실 신축공사_공사비 내역서.pdf
             pdfplumber 텍스트 + 단어 x결합(41766자)
 OK          ACTUALS_COUNT                    스마트팜스펙/우민재/1. 공사내역서 스마트팜 확대보급 시범사업.xlsx
