@@ -729,7 +729,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #       ELECTRICAL_PUMSEM_LUMP_WON_PER_HA +1(같은 품셈 PDF 1ha 집계표).
     #       **값은 하나도 바꾸지 않았다** — 출처 포인터만 붙였다.
     #       남은 사각 7개는 (B)원문이 리포 밖 · (C)파생·결정이라 ref 개념이 없는 것들이다.
-    assert a["counts"]["registry_constants"] == 54 and a["counts"]["source_refs"] == 148
+    # 🔴151차: 148 → 151 — 추적성 사각이던 `OVERHEAD_RATES`에 원가계산서 3건을 붙였다
+    assert a["counts"]["registry_constants"] == 54 and a["counts"]["source_refs"] == 151
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

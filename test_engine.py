@@ -4591,14 +4591,17 @@ def test_133cha_refless_measured_constants_are_pinned():
     consts = reg["constants"]
 
     # 🔴 134차에 (A)계열 5개(+참고기준 1개)를 부착해 12 → 7로 줄었다.
-    #    남은 7개는 **붙일 원문이 없거나 ref 개념이 없는 것들**이다.
+    #    🔴 **151차에 6으로 줄었다** — `OVERHEAD_RATES`를 (B)로 분류한 것이 틀렸다.
+    #    *"원가계산서 6건 중 일부가 Google Drive"*라 적었으나 **3건은 리포에 실재**한다
+    #    (이두희 원가계산서 · 최혁진 내역서 · 우민재 xlsx). 붙여 보니 **등재의
+    #    「6개 문서 전부 동일」 단정이 반증**됐다(산재 3.56/3.7/3.764%로 셋 다 다르다).
+    #    남은 6개는 **붙일 원문이 없거나 ref 개념이 없는 것들**이다.
     REFLESS_MEASURED = {
         # (B) 원문이 리포 밖이다 — ★사용자가 넣어야 붙일 수 있다
         "SPEC_TABLE",                    # 농사로 마스터 xlsx(2025-108호, 249종)
         "SPEC_COUNT",                    # 그 표의 종수(파생이기도 하다)
         "REGION_DESIGN_LOAD",            # 농식품부 보도자료 첨부 참고2·참고3(172지역)
         "OPEX_ITEM_CATEGORIES",          # 🔴 132차 — 인용 CSV가 0바이트
-        "OVERHEAD_RATES",                # 원가계산서 6건 중 일부가 Google Drive
         # (C) 파생·결정이라 원문 ref 개념이 없다 — 결함이 아니다
         "CAPEX_MAJOR_CATEGORIES",        # 사용자 제안 분류표(2026-07-16 대화)
         "RFQ_REQUIRED_CATEGORIES_DEFAULT",  # CAPEX_MAJOR_EVIDENCE_STATUS에서 도출
@@ -4637,7 +4640,8 @@ def test_133cha_audit_report_surfaces_the_blind_spot():
 
     a = at.audit()
     assert "refless_measured" in a, "감사 결과에 추적성 사각 집계가 사라졌다"
-    assert len(a["refless_measured"]) == 7, (
+    assert len(a["refless_measured"]) == 6, (  # 🔴151차: OVERHEAD_RATES 부착으로 7 → 6
+
         f"추적성 사각이 {len(a['refless_measured'])}건이다 — "
         "133차 12건에서 134차에 (A)계열을 부착해 7건이 됐다")
 
@@ -4975,8 +4979,9 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 90, "partial": 50, "near": 8}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 137차 확정은 exact 90 / partial 50 / near 8이다. "
+    assert dist == {"exact": 90, "partial": 53, "near": 8}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 151차 실측은 exact 90 / partial 53 / near 8이다"
+        "(137차 확정 50에 `OVERHEAD_RATES` 원가계산서 3건이 더해졌다). "
         "ref를 늘렸다면 새 ref의 등급을 정하고 이 수를 갱신하라")
 
     # ── 🔴 near 4건 — 값이 원문과 **같지 않다**는 것이 핵심이다 ──────────
@@ -5231,7 +5236,9 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 58, f"partial·near가 {len(rows)}건이다 — 140차 실측은 58건"
+    assert len(rows) == 61, (
+        f"partial·near가 {len(rows)}건이다 — 151차 실측은 61건"
+        "(140차 58 + `OVERHEAD_RATES` 3건)")
 
     # ① 🔴 기준 없는 ref가 0건인가 — 가드가 **직접** 센다(139차 M5 교훈)
     empty = [(k, _o.path.basename(f), g) for k, f, g, note in rows
@@ -5961,8 +5968,9 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 90, "partial": 50, "near": 8}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다. "
+    assert dist == {"exact": 90, "partial": 53, "near": 8}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
+        "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53). "
         "도면이 면적을 정확히 재현해도 값의 출처는 견적서 사업량 표기다")
     assert "등급은 `partial` 그대로 둔다" in doc, "등급을 올리지 않았다는 표기가 사라졌다"
 
@@ -6382,6 +6390,109 @@ def test_150cha_remaining_eight_are_measured():
     assert "결정은 하나도 내리지 않았다" in doc
     assert "정규화 규칙을 만들지 않았다" in doc, (
         "지역명 정규화가 판단성이라 손대지 않았다는 표기가 사라졌다")
+
+
+def test_151cha_overhead_refs_and_blind_spot_classes():
+    """151차 — 추적성 사각 **7 → 6**. 붙여 보니 단정 하나가 반증됐다.
+
+    🔴 133차 분류가 틀렸다: `OVERHEAD_RATES`를 *"원가계산서 6건 중 일부가 Google
+    Drive"*라며 (B) **원문이 리포 밖**으로 넣었는데, **3건은 리포에 실재**한다.
+    **부분 부재를 전체 부재로 읽은** 것이다.
+
+    붙이자 등재 서술의 단정이 반증됐다 — *"산재 3.56%·고용 1.01%는 6개 문서 전부
+    동일"*이지만 **산재는 세 문서가 셋 다 다르다**(3.56 / 3.7 / 3.764%).
+    133차가 경고한 그대로다: *"ref가 0건이면 원문 실재 검사가 한 번도 돌지 않는다"*.
+
+    ⚠️ **요율 값은 바꾸지 않았다** — 법정요율은 시세성 계열이라 ★사용자 결정이다.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import verify_refs as vr
+    import audit_traceability as at
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_추적성사각_요율대조_20260916.md")
+
+    # ── ① 🔴 값은 하나도 바뀌지 않았다 ────────────────────────────────
+    # 엔진은 dict가 아니라 `OverheadRates` 데이터클래스로 들고 있다 —
+    #   드리프트 가드가 대조하는 **레지스트리 값**을 본다
+    _C0 = vr.load_registry()
+    assert _C0["OVERHEAD_RATES"]["value"] == {
+        "health": 0.03595, "pension": 0.0475, "industrial_accident": 0.0356,
+        "employment": 0.0101, "general_admin": 0.05, "profit": 0.1,
+        "safety_mgmt": 0.025}, (
+        "🔴 OVERHEAD_RATES 값이 바뀌었다 — 151차는 ref를 붙이고 서술을 고쳤을 뿐이다. "
+        "법정요율 교체는 시세성 계열 값 변경이라 ★사용자 결정이다")
+
+    # ── ② refs 3건이 붙었고 원문이 실재하는가 ─────────────────────────
+    C = vr.load_registry()
+    refs = C["OVERHEAD_RATES"].get("source_refs") or []
+    assert len(refs) == 3, f"OVERHEAD_RATES의 refs가 {len(refs)}건이다 — 151차는 3건이다"
+    WANT = {"원가계산서_이두희(천안) 20251028.pdf",
+            "혁진 스마트팜 온실 신축공사_공사비 내역서.pdf",
+            "1. 공사내역서 스마트팜 확대보급 시범사업.xlsx"}
+    assert {_o.path.basename(r["file"]) for r in refs} == WANT
+    for r in refs:
+        p = _o.path.join(repo, r["file"])
+        assert _o.path.isfile(p), (
+            f"🔴 {r['file']}가 리포에서 사라졌다 — 실재하니까 붙일 수 있었던 ref다")
+        assert r["match"] == "partial", (
+            "등급이 partial이 아니다 — 문서마다 요율이 달라 등재값은 여러 문서의 "
+            "**채택 결과**이지 어느 한 문서의 전사가 아니다")
+        assert vr.soft_criteria(r["note"], strict=True) >= {"숫자", "위치"}, (
+            f"{_o.path.basename(r['file'])}의 대조 기준이 줄었다")
+        assert "151차 대조 기준" in r["note"], (
+            f"🔴 {_o.path.basename(r['file'])}의 note가 「대조 기준」 선언을 잃었다 — "
+            "「참고」로 낮추면 그 문서에서 무엇을 봐야 하는지가 흐려진다")
+
+    # ── ③ 🔴 반증된 단정이 되살아나지 않는가 ──────────────────────────
+    src = C["OVERHEAD_RATES"]["source"]
+    assert "151차 정정" in src, "반증 기록이 source에서 사라졌다"
+    for tok in ("3.7%", "3.764%", "1.35%"):
+        assert tok in src, (
+            f"🔴 source에서 반례 요율 {tok}가 사라졌다 — 산재는 이두희 3.56 / "
+            "우민재 3.7 / 최혁진 3.764로 셋 다 다르다")
+    # 원문의 앵커 금액이 note에 살아 있는가(문서를 다시 찾아갈 수 있어야 한다)
+    joined = " ".join(r["note"] for r in refs)
+    for amt in ("4,006,431", "1,136,656", "7,369,083", "2,643,002",
+                "903,014", "246,498", "14,525,517"):
+        assert amt in joined, f"원문 앵커 {amt}가 note에서 사라졌다"
+
+    # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
+    a = at.audit()
+    assert a["counts"]["source_refs"] == 151, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 151차 실측은 151건"
+        "(134차 148 + OVERHEAD_RATES 3)")
+    # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
+    blind = {x[0] if isinstance(x, (list, tuple)) else x
+             for x in a["refless_measured"]}
+    assert len(blind) == 6, f"추적성 사각이 {len(blind)}건이다 — 151차는 6건"
+    assert "OVERHEAD_RATES" not in blind, (
+        "🔴 OVERHEAD_RATES가 다시 사각으로 돌아갔다 — refs 3건이 지워졌는지 보라")
+    STRUCTURAL = {"CAPEX_MAJOR_CATEGORIES", "RFQ_REQUIRED_CATEGORIES_DEFAULT"}
+    assert STRUCTURAL <= blind, (
+        "파생·결정이라 파일 ref 개념이 없는 2건이 사각 목록에서 사라졌다")
+    DATA_BLOCKED = {"SPEC_TABLE", "SPEC_COUNT", "REGION_DESIGN_LOAD",
+                    "OPEX_ITEM_CATEGORIES"}
+    assert DATA_BLOCKED <= blind and blind == STRUCTURAL | DATA_BLOCKED, (
+        f"사각 6건의 구성이 {sorted(blind)}로 바뀌었다 — "
+        "자료로 풀리는 4건(S-3 1 + S-4 3) + 구조상 0인 2건이다")
+
+    # ── ⑤ 리포에 원문이 없다는 것도 재확인된 사실이다 ─────────────────
+    assert _o.path.getsize(
+        _o.path.join(repo, "소득분석DB",
+                     "농촌진흥청_농산물소득분석 조사입력항목코드_20201015.csv")) == 0, (
+        "🔴 OPEX CSV가 더는 0바이트가 아니다 — S-3가 들어왔다면 "
+        "`OPEX_ITEM_CATEGORIES`에 ref를 붙이고 사각을 6 → 5로 줄여라")
+
+    # ── ⑥ 이 차수가 하지 않은 것 ──────────────────────────────────────
+    for mark in ("값은 바꾸지 않았다", "★사용자 결정", "safety_mgmt"):
+        assert mark in doc, f"근거문서에서 {mark}가 사라졌다"
+    assert "부분 부재를 전체 부재로" in doc, (
+        "133차 분류 오류의 성격(부분 부재 → 전체 부재)이 근거문서에서 사라졌다")
+    assert "결정은 하나도 내리지 않았다" in doc
 
 
 if __name__ == "__main__":
