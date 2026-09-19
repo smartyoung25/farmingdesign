@@ -6593,6 +6593,83 @@ def test_152cha_blind_spot_classes_are_declared_not_guessed():
     assert "값 변경 0" in doc and "결정은 하나도 내리지 않았다" in doc
 
 
+def test_154cha_plan_coverage_claims_hold():
+    """154차 — 작업계획서(2026-07-16) 대비 최종 정리의 **구조적 주장**을 고정한다.
+
+    ⚠️ **수치는 고정하지 않는다.** 상수 54·refs 151·근거문서 58 같은 값은
+    작업이 이어지면 **설계상 움직인다** — 그것을 가드에 박으면 매 차수 갱신만
+    강요하고 아무것도 지키지 못한다. 대신 **바뀌면 정리가 틀리는 것**만 본다:
+    계획서가 말한 함수가 실재하는가 · 4섹션 리포트가 살아 있는가 ·
+    P3 미착수와 스냅샷 시점이 정직하게 적혀 있는가.
+    """
+    import os as _o, sys as _s, glob as _g
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("최종개발내용_작업계획서대비_20260919.md")
+    plan = rd("작업계획_컨설팅모델_입지설계운영경제성.md")
+
+    # ── ① 계획서가 신규로 요구한 함수가 실재하는가(P1-a · P1-b) ───────
+    for fn, why in (("siting_lookup", "P1-a 지명 → 설계하중"),
+                    ("siting_design_load", "P1-a 결정론 부분"),
+                    ("opex_breakdown", "P1-b OPEX 항목 분해")):
+        assert callable(getattr(e, fn, None)), (
+            f"🔴 계획서 {why}의 `{fn}()`이 사라졌다 — 정리의 '완료' 표기가 거짓이 된다")
+    # 계획서가 "그대로 사용"이라 적은 기존 함수들
+    for fn in ("select_specs", "heating_load", "verify_heating_vs_actual",
+               "production_kg", "finance", "improvement_roi", "cluster_economics",
+               "greenhouse_total_estimate", "npv", "irr"):
+        assert callable(getattr(e, fn, None)), (
+            f"🔴 계획서가 '그대로 사용'이라 적은 `{fn}()`이 사라졌다")
+
+    # ── ② P0-b · P0-d의 데이터가 실재하는가 ───────────────────────────
+    assert len(e.REGION_DESIGN_LOAD) >= 172, (
+        f"REGION_DESIGN_LOAD가 {len(e.REGION_DESIGN_LOAD)}지역이다 — "
+        "P0-b는 2025-108호 172지역으로 닫혔다. 줄었다면 정리를 다시 쓰라")
+    assert len(e.OPEX_ITEM_CATEGORIES) >= 25, "P0-d의 OPEX 항목이 줄었다"
+
+    # ── ③ P2 — 통합 리포트가 계획서 6절 4섹션 구조인가 ────────────────
+    reports = _g.glob(_o.path.join(repo, "SmartFarm_통합보고서_*.html"))
+    assert reports, "🔴 통합보고서가 하나도 없다 — P2 '완료' 표기가 거짓이 된다"
+    h = open(reports[0], encoding="utf-8").read()
+    for sec in ("입지진단서", "설계적정성보고서", "운영계획서", "경제성분석서"):
+        assert sec in h, (
+            f"🔴 통합보고서에서 「{sec}」 섹션이 사라졌다 — "
+            "계획서 6절이 요구한 4섹션 구조다")
+
+    # ── ④ 🔴 정리가 **정직한가** — 미착수·부분을 부분이라 적었는가 ────
+    assert "❌ **미착수**" in doc, (
+        "P3(설명 계층) 미착수 표기가 사라졌다 — 계획서의 마지막 단계다")
+    assert "입력·재생성 계층" in doc, (
+        "`webapp.py`가 설명 계층이 아니라 입력 계층이라는 구분이 사라졌다 — "
+        "이걸 흐리면 P3를 완료로 읽게 된다")
+    for partial in ("P0-a", "P0-c"):
+        assert partial in doc, f"{partial} 항목이 정리에서 사라졌다"
+    assert "원문서는 끝내 미확보" in doc, (
+        "🔴 P0-a(`U_VALUE`·`FR_TABLE`)의 원문 미확보가 「완료」로 둔갑했다 — "
+        "계획서가 *'다른 모든 작업보다 우선'*이라 적은 항목이다")
+
+    # ── ⑤ 스냅샷 시점과 미반영 사실이 적혀 있는가 ─────────────────────
+    assert "fd2c116" in doc and "152차) 시점이다" in doc, (
+        "🔴 이 정리가 어느 커밋 시점의 수치인지가 사라졌다 — "
+        "수치는 계속 움직이므로 시점 없이는 검증할 수 없다")
+    assert "153차" in doc and "별도 차수" in doc, (
+        "레드팀 28회차 결과가 이 문서에 반영되지 않았다는 표기가 사라졌다")
+
+    # ── ⑥ 계획서 원문이 그대로 있는가(대조 기준이다) ──────────────────
+    for mark in ("P0-a", "P1-a", "siting_lookup", "opex_breakdown",
+                 "1. 입지진단서", "4. 경제성분석서"):
+        assert mark in plan, (
+            f"🔴 작업계획서에서 「{mark}」가 사라졌다 — 이 정리의 **대조 기준**이다")
+
+    # ── ⑦ 결정·값을 건드리지 않았다 ───────────────────────────────────
+    assert "결정은 하나도 내리지 않았다" in doc
+    assert "정리만 했다" in doc, "이 차수가 정리뿐이라는 표기가 사라졌다"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
