@@ -6051,8 +6051,11 @@ def test_148cha_markdown_render_and_area_anchor():
         f"산출물의 리터럴 마크다운 별표가 {total}개다({left}) — 148차 실측은 2개이고 "
         "그 2개는 **코드 스팬 안**이라 리터럴이 맞다. 늘었다면 `esc(...)`로 내보내는 "
         "서술 필드가 새로 생긴 것이다 — `md(...)`로 바꿔라")
-    for mark in ("3,833", "1,887", "치수 표기가 21곳"):
+    for mark in ("3,833", "1,887"):
         assert mark in doc, f"근거문서에서 {mark}가 사라졌다"
+    # 🔴 156차: 종전 "치수 표기가 21곳"은 **「곳」이 아니라 패턴 출현 횟수**였다.
+    #   단위를 갈라 적은 표가 살아 있는지 본다(자세한 검사는 test_156cha_).
+    assert "「21곳」은 「곳」이 아니었다" in doc
 
     # 🔴 생성된 HTML만 보면 **소스 회귀를 놓친다**(148차 뮤테이션 P1이 그렇게
     #   빠져나갔다 — HTML은 커밋된 것을 읽으므로 다시 빌드하기 전엔 안 바뀐다).
@@ -6851,6 +6854,93 @@ def test_155cha_span_measurement_is_reproducible():
     w = ms.measure(rev="WORKTREE")
     assert w["strings"] >= r["strings"] and w["odd_bold_strings"] == 0, (
         "작업 트리의 `**` 짝이 깨졌다 — md()가 리터럴을 남기게 된다")
+
+
+def test_156cha_dimension_count_rule_is_explicit():
+    """156차 — 「치수 표기 21곳」의 세는 단위를 밝혔다. 레드팀 28회차 「확인 불가」 마지막.
+
+    🔴 **「21곳」은 「곳」이 아니었다.** 148차가 쓴 규칙은 연결 문자열 위의
+    `\\d\\*\\d` **출현 횟수**이고, `ㅁ60*60*2.3T` 하나가 `0*6`·`0*2`로 두 번 잡힌다.
+    단위를 갈라 세면 출현 **21** · 토큰 **17** · 서로 다른 토큰 **8** · 담은 문자열 **4**.
+    131차 *"문자열 수는 항목 수가 아니다"*의 재발이고 150차 「0/25」와 같은 계열이다.
+
+    그리고 *"규격이 깨진다"*의 **메커니즘**을 적었다 — 단일 별표 하나로는 이탤릭이
+    성립하지 않는다. 실제 파손은 **한 문자열 안의 두 치수 토큰이 서로 짝지어져**
+    사이 전체를 이탤릭으로 만들고 **별표 2개를 삼키는** 것이다.
+    """
+    import os as _o, re as _re, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import measure_spans as ms
+    import build_site as bsmod
+
+    doc = open(_o.path.join(repo, "근거_마크다운렌더_면적앵커_20260916.md"),
+               encoding="utf-8").read()
+    r = ms.measure()          # 148차 기준선
+
+    # ── ① 네 수가 **따로** 나오는가 ───────────────────────────────────
+    for k, want in (("dim_star_hits", 21), ("dim_tokens", 17),
+                    ("dim_tokens_distinct", 8), ("dim_carrier_strings", 4),
+                    ("dim_single_stars", 22)):
+        assert r[k] == want, (
+            f"🔴 {k}가 {r[k]}다 — 156차 실측은 {want}. 치수 계수 규칙이 바뀌었다")
+    assert r["dim_star_hits"] > r["dim_tokens"] > r["dim_tokens_distinct"] > r["dim_carrier_strings"], (
+        "네 수의 대소 관계가 깨졌다 — 이 관계가 바로 「21은 곳이 아니다」의 근거다")
+
+    # 148차가 적은 21은 **출현 횟수**와만 같아야 한다
+    assert r["dim_star_hits"] == 21 and r["dim_carrier_strings"] != 21
+
+    # ── ② 문서가 단위를 갈라 적었는가 ─────────────────────────────────
+    assert "「21곳」은 「곳」이 아니었다" in doc
+    for mark in ("출현 횟수", "**17**", "**8**", "**4**", "measure_spans.py"):
+        assert mark in doc, f"🔴 치수 계수표에서 {mark}가 사라졌다"
+    assert "131차" in doc and "150차 「0/25」와 같은 계열" in doc, (
+        "이 결함이 131차 자기부풀림·150차 분모와 **같은 계열**이라는 진단이 사라졌다")
+
+    # ── ③ 🔴 파손 메커니즘이 적혀 있고 사실인가 ───────────────────────
+    assert "두 치수 토큰이 서로 짝지어지는 것" in doc, (
+        "🔴 *「규격이 깨진다」*의 메커니즘이 사라졌다 — 단일 별표 하나로는 "
+        "이탤릭이 성립하지 않으므로, 그 설명 없이는 주장이 검증되지 않는다")
+    # 실제로 그렇게 깨지는지 보인다
+    vals = ms.strings_of(ms.load(ms.BASELINE_REV))
+    carriers = [v for v in vals if ms.DIM_STAR.search(v)]
+    assert len(carriers) == 4
+    # 🔴 파손은 **결과로** 확인한다 — 매칭 문자열 안에서 `\d\*\d`를 찾으면 0이다
+    #   (매칭이 별표 **사이**를 잡으므로 양끝 별표는 그룹 밖이다). 일반 이탤릭을
+    #   실제로 적용해 **규격 토큰이 살아남는지**를 본다.
+    GEN = _re.compile(r"\*(.+?)\*")
+    broke = 0
+    for v in carriers:
+        specs = {m.group().strip() for m in ms.DIM_TOKEN.finditer(v) if "*" in m.group()}
+        after = GEN.sub(lambda m: "<i>%s</i>" % m.group(1), v)
+        lost = [t for t in specs if t not in after]
+        if lost and after.count("*") < v.count("*"):
+            broke += 1
+    assert broke >= 2, (
+        "🔴 일반 이탤릭이 치수 규격을 파괴하는 것을 재현하지 못했다 — "
+        "그러면 *「일반 이탤릭을 지원하지 않는다」*는 결정의 근거가 사라진다")
+
+    # ── ④ 현행 md()는 별표를 **보존**하는가 ───────────────────────────
+    for v in carriers:
+        seg = v[:400]
+        assert seg.count("*") == bsmod.md(seg).count("*"), (
+            "🔴 md()가 치수 표기의 별표를 삼킨다 — 규격이 깨진다")
+    assert bsmod.md("ㅁ60*60*2.3T") == "ㅁ60*60*2.3T"
+    assert bsmod.md("Ø31.8*1.7T@3000") == "Ø31.8*1.7T@3000"
+
+    # ── ⑤ 레드팀 「확인 불가」 3건의 현재 상태 ────────────────────────
+    rt = open(_o.path.join(repo, "검증절차_레드팀.md"), encoding="utf-8").read()
+    assert "148차 §1 스팬 실측치" in rt and "「치수 표기 21곳」" in rt, (
+        "28회차의 「확인 불가」 목록이 사라졌다 — 무엇이 닫혔는지 셀 수 없게 된다")
+    # 🔴 목록이 있는 것만으로는 부족하다 — **해소 표기**까지 본다(뮤테이션 X8)
+    assert "✅**155차 해소**" in rt and "✅**156차 해소**" in rt, (
+        "🔴 28회차 「확인 불가」 2건의 해소 표기가 사라졌다 — "
+        "닫힌 것을 닫혔다고 적지 않으면 영원히 백로그로 남는다(152차 교훈)")
+    assert "확인 불가 3건 중 2건이 155·156차에 닫혔다" in rt
+    assert "❌**미해소**(사용자만 가능)" in rt, (
+        "남은 1건(Google Drive 3문서)이 **리포 밖이라 사용자만 풀 수 있다**는 "
+        "표기가 사라졌다 — 내가 못 하는 것을 못 한다고 적는 자리다")
 
 
 if __name__ == "__main__":

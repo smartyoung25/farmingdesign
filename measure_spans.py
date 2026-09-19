@@ -35,6 +35,16 @@ BASELINE_QUOTE_MAX = 80
 BOLD = re.compile(r"\*\*(.+?)\*\*", re.S)
 CODE = re.compile(r"`([^`]+)`")
 
+# 156차 — 치수 표기(`ㅁ60*60*2.3T`)의 계수. 148차가 "치수 표기가 21곳"이라 적었으나
+#   **세는 단위를 밝히지 않았다**(레드팀 28회차 「확인 불가」). 실제로 쓴 규칙은
+#   연결 문자열 위의 `\\d\\*\\d` 출현 횟수이고 그것은 **「곳」이 아니다** —
+#   `ㅁ60*60*2.3T` 하나가 `0*6`·`0*2`로 **두 번** 매칭된다.
+DIM_STAR = re.compile(r"\d\*\d")
+DIM_TOKEN = re.compile(r"[ㅁΦφØ]?\s?\d+(?:\.\d+)?"
+                       r"(?:\s?[*x×]\s?\d+(?:\.\d+)?)+"
+                       r"(?:\s?[a-zA-Z]{0,3})?")
+SINGLE_STAR = re.compile(r"(?<!\*)\*(?!\*)")
+
 
 def quote_re(limit):
     """`*"인용"*` — 상한이 결과를 바꾼다. 148차가 이 값을 적지 않았다."""
@@ -86,6 +96,15 @@ def measure(rev=BASELINE_REV, quote_max=BASELINE_QUOTE_MAX):
         "bold_multiline": sum(1 for m in bold if "\n" in m.group(1)),
         "bold_longest": max((len(m.group(1)) for m in bold), default=0),
         "odd_bold_strings": sum(1 for v in vals if v.count("**") % 2),
+        # 🔴 네 수를 **따로** 돌려준다 — 하나로 뭉뚱그리면 148차의 「21곳」이 된다
+        "dim_star_hits": len(DIM_STAR.findall("".join(vals))),
+        "dim_tokens": sum(1 for v in vals
+                          for m in DIM_TOKEN.finditer(v) if "*" in m.group()),
+        "dim_tokens_distinct": len({m.group().strip() for v in vals
+                                    for m in DIM_TOKEN.finditer(v) if "*" in m.group()}),
+        "dim_carrier_strings": sum(1 for v in vals if DIM_STAR.search(v)),
+        "dim_single_stars": sum(len(SINGLE_STAR.findall(v))
+                                for v in vals if DIM_STAR.search(v)),
     }
 
 
@@ -97,7 +116,10 @@ def render(r):
         " · 최장 {bold_longest}자)\n"
         "  `코드`   {code:,}\n"
         '  *"인용"* {quote:,}  (안에 굵게를 품는 것 {quote_nested})\n'
-        "  `**` 개수가 홀수인 문자열 {odd_bold_strings}\n".format(**r)
+        "  `**` 개수가 홀수인 문자열 {odd_bold_strings}\n"
+        "  치수 표기 — `\\d\\*\\d` 출현 {dim_star_hits} · 토큰 {dim_tokens}"
+        "(서로 다른 {dim_tokens_distinct}) · 담은 문자열 {dim_carrier_strings}"
+        "(그 안의 단일 별표 {dim_single_stars})\n".format(**r)
     )
 
 
