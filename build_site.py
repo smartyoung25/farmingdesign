@@ -255,6 +255,26 @@ def capex_breakdown_page() -> str:
     return _page("CAPEX 공종 카테고리 분해", body)
 
 
+def _siting_probe(region_name: str, d: dict) -> str:
+    """🔴 158차 — 「설계기준 출처」는 종전에 **케이스가 손으로 적은 문장**이었고,
+    그 안에 *"siting_design_load(…) = {…}"*라는 **코드 동작 주장**이 들어 있었다.
+    chuncheon의 그 주장이 실제 반환과 달랐다(wind_ms 32 vs 34) — 147차 note
+    *「그대로 렌더된다」*가 148차에 거짓이 된 것과 같은 유형이다.
+
+    그래서 **실제로 호출**해 대조 결과를 인쇄한다. ⚠️값의 권위는 그대로
+    케이스 주입값이다 — 조회값으로 **대체하지 않는다**(원채원처럼 None인 경우의
+    fallback 설계 선택을 만들지 않기 위해서다)."""
+    got = e.siting_design_load(region_name or "")
+    if got is None:
+        return ("<code>siting_design_load</code> 결과 <b>없음</b> — "
+                "매핑표가 요구하는 시군구 해상도보다 거친 region이다(주입값 사용)")
+    same = (got["snow_cm"], got["wind_ms"]) == (d["snow_cm"], d["wind_ms"])
+    return ("<code>siting_design_load(%s)</code> = %scm · %sm/s — %s"
+            % (esc(repr(region_name)), got["snow_cm"], got["wind_ms"],
+               "주입값과 <b>일치</b>" if same else
+               "🔴 주입값(%scm · %sm/s)과 <b>불일치</b>" % (d["snow_cm"], d["wind_ms"])))
+
+
 def _trunc(s: str, n: int = 160) -> str:
     return s if len(s) <= n else s[:n].rstrip() + "…"
 
@@ -370,7 +390,8 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     <h2>부지·설계기준</h2>
     <div class="row"><span class="lbl">부지</span><span class="val">{esc(site.get('region_name', m['region']))}</span></div>
     <div class="row"><span class="lbl">설계기준(적설·풍속)</span><span class="val">{d['snow_cm']}cm · {d['wind_ms']}m/s</span></div>
-    <div class="row"><span class="lbl">설계기준 출처</span><span class="val">{esc(_trunc(site.get('design_load_source', '미확인'), 220))}</span></div>
+    <div class="row"><span class="lbl">매핑표 대조</span><span class="val">{_siting_probe(site.get('region_name', m['region']), d)}</span></div>
+    <div class="row"><span class="lbl">설계기준 출처</span><span class="val">{md_cut(site.get('design_load_source', '미확인'), 220)}</span></div>
     <div class="row"><span class="lbl">용도지역</span><span class="val">{esc(site.get('landuse_zone', '미확인'))}</span></div>
     <div class="row"><span class="lbl">계통연계</span><span class="val">{esc(site.get('grid_connection_note', '미확인'))}</span></div>
     <p class="note">규제·인프라 상세 체크리스트(도로진입·민원·인허가)는 이 리포트 범위 밖 — 향후 확장 과제(작업지시서 7절 참고).</p>

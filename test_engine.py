@@ -7059,6 +7059,104 @@ def test_157cha_d4_scope_and_source_match():
         "`siting_lookup` 배선이 설계 선택을 낳아 하지 않았다는 표기가 사라졌다")
 
 
+def test_158cha_siting_probe_is_computed_not_claimed():
+    """158차 — 「0/15 매칭」은 **틀린 측정**이었고, Ⅰ섹션의 코드 동작 주장을 계산으로 바꿨다.
+
+    🔴 150차·157차가 잰 것은 `region in table`(**직접 키 매칭**)이다.
+    `siting_design_load()`는 **부분 매칭을 내장**해 3건 중 **2건을 정상 조회**하고
+    주입값과 일치한다 — **그 함수의 docstring이 이미 그렇게 적고 있었다**.
+    나는 함수를 호출하지 않고 사전 조회만 하고 결론을 냈다.
+
+    🔴 그리고 케이스가 손으로 적은 *"siting_design_load(…) = {…}"*가 **낡아 있었다**
+    (chuncheon wind_ms 32 vs 실제 34). 147차 note *「그대로 렌더된다」*가 148차에
+    거짓이 된 것과 같은 유형이라 **생성기가 실제로 호출**하게 했다.
+    """
+    import os as _o, sys as _s, json as _j, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import build_site as bs
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_설계하중조회_측정정정_20260920.md")
+
+    # ── ① 🔴 함수는 부분 매칭을 한다 — 「0/15」가 잰 것이 아니다 ─────
+    cases = {}
+    for cid in ("chuncheon", "uminjae", "wonchaewon"):
+        inp = _j.loads(rd(_o.path.join("cases", cid + ".json")))["input"]
+        cases[cid] = inp
+        assert inp["region"] not in e.REGION_DESIGN_LOAD, (
+            f"{cid}의 region이 표의 **직접 키**가 됐다 — 「0/15」 정정 서술을 다시 보라")
+    ok = {cid: e.siting_design_load(i["region"]) for cid, i in cases.items()}
+    assert ok["chuncheon"] == {"snow_cm": 32, "wind_ms": 34}, ok["chuncheon"]
+    assert ok["uminjae"] == {"snow_cm": 26, "wind_ms": 28}, ok["uminjae"]
+    assert ok["wonchaewon"] is None, (
+        "원채원이 조회되기 시작했다 — region 해상도가 올라갔다면 주입값 30·35를 "
+        "표와 대조하라(S-1)")
+    # 조회되는 2건은 **주입값과 일치**한다 — 이것이 D-5 감응 0의 근거다
+    for cid in ("chuncheon", "uminjae"):
+        assert (ok[cid]["snow_cm"], ok[cid]["wind_ms"]) == \
+               (cases[cid]["snow_cm"], cases[cid]["wind_ms"]), (
+            f"🔴 {cid}의 주입값이 매핑표 조회와 어긋난다")
+    assert "부분 포함되는지로 찾는다" in (e.siting_design_load.__doc__ or ""), (
+        "🔴 함수 docstring의 부분 매칭 설명이 사라졌다 — 158차가 확인한 근거다")
+
+    # ── ② 케이스의 코드 동작 주장이 실제와 맞는가 ─────────────────────
+    #    손으로 적은 "함수가 이렇게 답한다"는 낡는다. 적혀 있다면 맞아야 한다.
+    PAT = _re.compile(r"siting_design_load\('([^']+)'\)\s*=\s*(\{[^}]*\})")
+    checked = 0
+    for cid in ("chuncheon", "uminjae", "wonchaewon"):
+        src = _j.loads(rd(_o.path.join("cases", cid + ".json")))["site"]["design_load_source"]
+        for m in PAT.finditer(src):
+            checked += 1
+            arg, claimed = m.group(1), m.group(2)
+            real = e.siting_design_load(arg)
+            assert str(real) == claimed, (
+                f"🔴 {cid}의 서술이 `siting_design_load({arg!r})` = {claimed}라 적었으나 "
+                f"실제 반환은 {real}다 — 손으로 쓴 코드 동작 주장이 낡았다(158차 유형)")
+    assert checked >= 2, f"검사한 주장이 {checked}건이다 — 최소 2건은 있어야 한다"
+
+    # ── ③ 🔴 Ⅰ섹션이 **호출**하는가 ─────────────────────────────────
+    src = rd("build_site.py")
+    # 🔴 정의만 세면 **호출부가 사라져도 통과**한다(뮤테이션 Z3). 정의 + 호출 = 2회 이상
+    assert src.count("_siting_probe(") >= 2 and "e.siting_design_load(" in src, (
+        f"🔴 `_siting_probe` 등장이 {src.count('_siting_probe(')}회다 — "
+        "정의(1) + Ⅰ섹션 호출(1) 이상이어야 한다. 호출이 빠지면 Ⅰ섹션이 "
+        "손으로 쓴 주장으로 되돌아간다")
+    assert "{_siting_probe(site.get(" in src, "Ⅰ섹션의 호출 지점이 사라졌다"
+    # 값의 권위는 케이스 주입값이다 — 조회값으로 **대체하지 않는다**
+    probe = bs._siting_probe("강원(춘천)", {"snow_cm": 32, "wind_ms": 34})
+    assert "일치" in probe and "32" in probe and "34" in probe
+    bad = bs._siting_probe("강원(춘천)", {"snow_cm": 99, "wind_ms": 99})
+    assert "불일치" in bad, (
+        "🔴 주입값과 조회값이 달라도 대조가 드러나지 않는다 — 대조의 의미가 없다")
+    none = bs._siting_probe("충남", {"snow_cm": 30, "wind_ms": 35})
+    assert "없음" in none and "주입값 사용" in none, (
+        "조회 불가일 때 **주입값을 쓴다**는 표기가 사라졌다 — fallback 설계 선택을 "
+        "만들지 않기로 한 것이 158차 결정이다")
+
+    # 산출물에 실제로 실렸는가
+    for cid in ("chuncheon", "uminjae", "wonchaewon"):
+        h = rd("SmartFarm_통합보고서_%s.html" % cid)
+        assert "매핑표 대조" in h, f"{cid} 리포트에 매핑표 대조 행이 없다"
+
+    # ── ④ 정정이 기록됐는가 ──────────────────────────────────────────
+    assert "틀린 측정" in doc and "직접 키 매칭" in doc
+    assert "그런 조회 함수가" in doc and doc.count("기상 4표") >= 2, (
+        "🔴 0이라는 관찰이 **기상 4표에는 여전히 해당한다**는 구분이 사라졌다 — "
+        "정정이 과잉교정이 된다. 이 구분은 §1과 §4 두 곳에 있어야 한다")
+    led = rd("근거_결정대기대장_20260915.md")
+    assert "158차 정정: 틀린 측정이었다" in led
+    d150 = rd("근거_잔여결정8건_감응측정_20260916.md")
+    assert "~~**매칭 0 / 15.**~~" in d150, "150차의 틀린 수치에 취소선이 없다"
+
+    # ── ⑤ 값은 바꾸지 않았다 ─────────────────────────────────────────
+    assert (cases["wonchaewon"]["snow_cm"], cases["wonchaewon"]["wind_ms"]) == (30, 35), (
+        "🔴 원채원 주입 설계하중이 바뀌었다 — 158차는 **대조만** 했다")
+    assert "결정은 하나도 내리지 않았다" in doc
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
