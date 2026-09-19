@@ -6784,6 +6784,75 @@ def test_153cha_redteam28_corrections_hold():
         "법정요율 교체는 ★사용자 결정이다")
 
 
+def test_155cha_span_measurement_is_reproducible():
+    """155차 — 148차의 스팬 실측치를 **재현 가능하게** 만들었다.
+
+    레드팀 28회차가 *"코퍼스 범위를 적지 않아 정확 재현 불가"*로 「확인 불가」에
+    넣은 항목이다. 세는 규칙이 없으면 그 수는 **영원히 검산되지 않는다** —
+    131차 이래 반복된 교훈이고, 140차 `soft_check` 0건도 같은 자리에서 틀렸다.
+
+    🔴 재현하는 과정에서 결함이 하나 더 나왔다: *"130(그중 23)"*은
+    **두 정규식의 수를 한 문장에 붙인 것**이다(130은 인용 상한 80, 23은 120).
+    """
+    import os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import measure_spans as ms
+
+    doc = open(_o.path.join(repo, "근거_마크다운렌더_면적앵커_20260916.md"),
+               encoding="utf-8").read()
+
+    # ── ① 148차 기준선이 **한 줄로** 재현되는가 ───────────────────────
+    r = ms.measure()          # 기본값 = --rev 099e461 --quote-max 80
+    assert r["rev"] == "099e461" and r["quote_max"] == 80, (
+        "기본값이 148차 기준선(147차 커밋 · 인용 상한 80)이 아니다 — "
+        "기본으로 재현되지 않으면 도구의 의미가 준다")
+    for k, want in (("strings", 2731), ("chars", 209110), ("bold", 1887),
+                    ("code", 443), ("quote", 130)):
+        assert r[k] == want, (
+            f"🔴 148차 기준선 {k}가 {r[k]}다 — 기록은 {want}. "
+            "코퍼스·시점·정규식 중 하나가 바뀌었다")
+
+    # 🔴 판정 근거가 된 넷은 인용 상한과 무관해야 한다
+    r120 = ms.measure(quote_max=120)
+    for k in ("bold", "bold_inner_star", "bold_multiline", "bold_longest",
+              "odd_bold_strings", "code", "strings", "chars"):
+        assert r[k] == r120[k], (
+            f"{k}가 인용 상한에 따라 달라진다({r[k]} vs {r120[k]}) — "
+            "그러면 md() 설계 근거가 흔들린다")
+    assert (r["bold_inner_star"], r["bold_multiline"],
+            r["bold_longest"], r["odd_bold_strings"]) == (1, 0, 85, 0), (
+        "md() 설계를 정한 네 값(내부 단일별표 1 · 줄바꿈 0 · 최장 85 · 홀수 0)이 바뀌었다")
+
+    # ── ② 🔴 섞인 수가 정정됐는가 ─────────────────────────────────────
+    assert r["quote_nested"] == 17 and r120["quote_nested"] == 23, (
+        f"중첩이 상한80 {r['quote_nested']} / 상한120 {r120['quote_nested']}다 — "
+        "155차 실측은 17 / 23이다. 148차는 **130(상한80)과 23(상한120)을 붙여** 적었다")
+    assert "17은 안에 굵게를 품는다" in doc, (
+        "🔴 중첩 수를 상한 80으로 통일한 정정이 사라졌다")
+    assert "두 정규식의 수를 한 문장에 붙인 것" in doc
+
+    # ── ③ 코퍼스 정의가 문서와 도구에서 같은가 ────────────────────────
+    src = open(_o.path.join(repo, "measure_spans.py"), encoding="utf-8").read()
+    assert "CAPEX_MAJOR_EVIDENCE_STATUS" in src and "이중계수" in doc, (
+        "엔진 `CAPEX_MAJOR_EVIDENCE_STATUS`를 더하면 **레지스트리에 이미 있는 값을 "
+        "두 번 센다**는 경고가 사라졌다 — 레드팀이 그렇게 재서 1,940이 나왔다")
+    for mark in ("099e461", "인용 상한", "measure_spans.py", "모든 문자열 값"):
+        assert mark in doc, f"근거문서에서 {mark}가 사라졌다"
+
+    # 실제로 이중계수가 수를 바꾸는지 — 경고가 빈말이 아님을 보인다
+    import json as _j
+    reg = ms.load("099e461")
+    dup = ms.strings_of(reg) + list(reg["constants"]["CAPEX_MAJOR_EVIDENCE_STATUS"]["value"].values())
+    assert len(dup) > r["strings"], "이중계수 경고를 시험할 수 없다"
+
+    # ── ④ 작업 트리도 잴 수 있는가(시점을 바꿔도 도구가 산다) ─────────
+    w = ms.measure(rev="WORKTREE")
+    assert w["strings"] >= r["strings"] and w["odd_bold_strings"] == 0, (
+        "작업 트리의 `**` 짝이 깨졌다 — md()가 리터럴을 남기게 된다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
