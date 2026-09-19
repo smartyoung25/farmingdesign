@@ -34,6 +34,7 @@ _MD = re.compile(
     r"`([^`]{1,200})`"                               # `코드`
     r"|\*\*(.{1,200}?)\*\*"                      # **굵게**
     r"|\*(&quot;.{1,200}?&quot;)\*"                 # *"인용"*
+    r"|~~(.{1,200}?)~~"                              # ~~취소선~~ (153차)
 )
 
 
@@ -42,7 +43,13 @@ def _md_sub(m):
         return "<code>%s</code>" % m.group(1)
     if m.group(2) is not None:
         return "<b>%s</b>" % _MD.sub(_md_sub, m.group(2))
-    return "<i>%s</i>" % _MD.sub(_md_sub, m.group(3))
+    if m.group(3) is not None:
+        return "<i>%s</i>" % _MD.sub(_md_sub, m.group(3))
+    # 🔴 153차(레드팀 28회차 [4]) — `~~취소선~~`이 빠져 있었다. 148차가
+    #   *"보수적으로 셋만"*이라며 검토조차 하지 않은 결과, **철회된 단정이
+    #   취소선 없이 평문으로 인쇄**되고 `~~26~~ 22품목`이 「26 22품목」으로 읽혔다.
+    #   148차가 세운 논리("강조는 저자 의도이므로 생성기를 고친다")가 그대로 적용된다.
+    return "<s>%s</s>" % _MD.sub(_md_sub, m.group(4))
 
 
 def md(s):
@@ -54,9 +61,11 @@ def md_cut(s, n):
     """자른 뒤 렌더한다. **자르다 짝이 깨진 `**`는 버린다** — 그대로 두면
     리터럴 별표가 화면에 남는다(148차 실측: `U_DESIGN` status_note 1건)."""
     t = _trunc("" if s is None else str(s), n)
-    if t.count("**") % 2:
-        i = t.rfind("**")
-        t = t[:i] + t[i + 2:]
+    # 🔴 153차 [11] — `**`만 재균형하고 백틱·`~~`는 두고 있었다. 같은 결함이다.
+    for mark in ("**", "~~", "`"):
+        if t.count(mark) % 2:
+            i = t.rfind(mark)
+            t = t[:i] + t[i + len(mark):]
     return md(t)
 
 _CSS = """
