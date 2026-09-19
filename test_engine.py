@@ -7157,6 +7157,93 @@ def test_158cha_siting_probe_is_computed_not_claimed():
     assert "결정은 하나도 내리지 않았다" in doc
 
 
+def test_159cha_weather_tables_unreachable_and_province_lost():
+    """159차 — D-5 잔여 범위(기상 4표)의 감응 **계산 0 · 산출물 0**, 그리고
+    원채원을 대조할 수 없는 **진짜 이유**(광역 열 유실).
+
+    🔴 측정 방법이 한 번 부풀었다: `def …(?=\\ndef )` 정규식이 **모듈 수준
+    선언**(표 dict)을 함수 본문으로 삼켜 `heating_load`·`generate_rfq_package`가
+    표를 읽는다고 나왔다(414줄 vs 실제 78줄). **AST로 다시 셌다** —
+    141차 *"파서를 쓰지 말았어야 했다"*·156차 「21곳」과 같은 계열이다.
+    """
+    import ast as _ast, os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_D5잔여감응_province유실_20260920.md")
+    TBL = {"DESIGN_OUTDOOR_TEMP_TAC", "HEATING_DEGREE_HOURS_1000",
+           "MONTHLY_SUNSHINE_HOURS", "MONTHLY_MEAN_WIND_MS"}
+
+    # ── ① 🔴 AST로 — 표를 **함수 본문에서** 읽는 것이 누구인가 ───────
+    tree = _ast.parse(rd("smartfarm_engine.py"))
+    users = set()
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.FunctionDef):
+            for n in _ast.walk(node):
+                if isinstance(n, _ast.Name) and n.id in TBL:
+                    users.add(node.name)
+    assert users == {"design_outdoor_temp", "heating_degree_hours",
+                     "monthly_sunshine", "mean_wind", "monthly_mean_wind"}, (
+        f"기상 4표를 읽는 함수가 {sorted(users)}로 바뀌었다 — 159차 실측은 5개다. "
+        "늘었다면 **계산 도달 0**이라는 결론을 다시 재라")
+
+    # ── ② 생성기가 그 다섯을 부르는가 — 계산 도달 0 ──────────────────
+    gen = "".join(rd(f) for f in ("build_site.py", "webapp.py", "render_report.py",
+                                  "run_report.py", "cases.py"))
+    calls = {fn: gen.count(fn + "(") for fn in users}
+    assert sum(calls.values()) == 0, (
+        f"🔴 생성기가 기상 4표 함수를 부르기 시작했다: {calls} — "
+        "D-5 잔여 범위의 감응이 0이 아니게 된다")
+    # 표가 아니라 스칼라 기본값을 쓴다
+    assert isinstance(e.DEGREE_HOURS_DEFAULT, float) and e.DEGREE_HOURS_DEFAULT == 10098.0
+
+    # ── ③ 데이터 경로는 있다 — 근거대장 값 열(146차 [2] 교훈) ────────
+    ledger = rd("SmartFarm_근거대장.html")
+    for t in TBL:
+        assert t in ledger, (
+            f"{t}가 근거대장에서 사라졌다 — 계산 도달 0과 **데이터 도달**은 다르다")
+    assert "계산 0 · 산출물 0" in doc and "호출 경로와 데이터 경로를 둘 다" in doc
+
+    # ── ④ 🔴 정규식 함정이 기록됐는가 ────────────────────────────────
+    # 🔴 맨 숫자만 보면 대비가 깨져도 통과한다(뮤테이션 A5) — **행 전체**를 고정한다
+    assert "모듈 수준 선언" in doc, "정규식이 모듈 선언을 삼킨 진단이 사라졌다"
+    for row in ("`heating_load` | **414** | **78** |",
+                "`generate_rfq_package` | **60** | **20** |"):
+        assert row in doc, (
+            f"🔴 정규식 캡처 vs AST 본문 대비 행이 사라졌다: {row} — "
+            "이 대비가 'AST로 다시 세야 했다'는 근거다")
+    assert "주석 한 줄" in doc, "generate_rfq_package의 hit이 주석이었다는 확인이 사라졌다"
+
+    # ── ⑤ 🔴 광역 열이 없다 — 원채원 대조가 불가능한 이유 ────────────
+    vals = {tuple(sorted(v)) for v in e.REGION_DESIGN_LOAD.values()}
+    assert vals == {("snow_cm", "wind_ms")}, (
+        f"🔴 `REGION_DESIGN_LOAD` 값 구조가 {vals}로 바뀌었다 — province가 "
+        "복원됐다면 원채원 주입값 30·35를 소속 광역 범위와 대조하라(159차가 못 한 것)")
+    paren = [k for k in e.REGION_DESIGN_LOAD if "(" in k]
+    assert sorted(paren) == ["고성(강원)", "고성(경남)", "광주(경기)"], (
+        f"광역 힌트가 붙은 키가 {sorted(paren)}로 바뀌었다 — 동명 3건뿐이었다")
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    assert "(province, 지명)" in reg["constants"]["REGION_DESIGN_LOAD"]["source"], (
+        "🔴 원문에 province 열이 **있었다**는 기록이 사라졌다 — "
+        "등재하며 버려졌다는 159차 진단의 근거다")
+    assert "등재하면서 버렸다" in doc and "S-4" in doc
+
+    # ── ⑥ 원채원은 여전히 대조 불가 ──────────────────────────────────
+    wc = _j.loads(rd(_o.path.join("cases", "wonchaewon.json")))["input"]
+    assert (wc["snow_cm"], wc["wind_ms"]) == (30, 35)
+    assert e.siting_design_load(wc["region"]) is None
+
+    # ── ⑦ 하지 않은 것 ───────────────────────────────────────────────
+    assert "외부 지식으로 채워 넣지 않았다" in doc, (
+        "행정구역 소속을 지식으로 채우지 않았다는 표기가 사라졌다 — 1절 경계다")
+    assert "쓰이지 않는 경로에 판단을 박는 것" in doc, (
+        "기상 4표용 조회 함수를 지금 만들지 않는 이유가 사라졌다")
+    assert "결정은 하나도 내리지 않았다" in doc
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
