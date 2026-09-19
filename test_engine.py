@@ -6943,6 +6943,122 @@ def test_156cha_dimension_count_rule_is_explicit():
         "표기가 사라졌다 — 내가 못 하는 것을 못 한다고 적는 자리다")
 
 
+def test_157cha_d4_scope_and_source_match():
+    """157차 — D-4의 **적용 범위**와 **성격**을 확정했다. 결정은 내리지 않았다.
+
+    🔴 149차가 D-4를 유리 케이스에 과적용했다: `COVER_ASSEMBLIES` 49종에
+    **유리 조합이 0건**인데 필름 조합을 유리에 강제 주입해 *"유리 케이스에도
+    적용된다"*고 적었다. 같은 차수에서 D-2에 대해 *"필름 계열만"*이라고
+    **자기 정정까지 하고도** 바로 옆 항목에서 같은 오류를 반복했다.
+
+    🔴 그리고 *"어느 조합인가"*는 **판단이 아니라 원문 조회**였다 — 우민재
+    공사설명서가 「PO필름 0.15T(외피)/0.1T(내피)」라 명시하고 표11에 그 조합이 있다.
+
+    ⚠️ **채택 여부는 여전히 ★사용자 결정**이다. 이 가드는 사실만 고정한다.
+    """
+    import os as _o, sys as _s, json as _j, glob as _g
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_D4적용범위_원문일치_20260920.md")
+
+    # ── ① 🔴 조합표에 유리가 없다 — D-4의 적용 범위를 정하는 사실 ────
+    A = e.COVER_ASSEMBLIES
+    assert len(A) == 49
+    glassy = [a for a in A if any("유리" in L for L in a.layers)]
+    assert not glassy, (
+        f"🔴 조합표에 유리 조합이 생겼다: {[a.layers for a in glassy][:3]} — "
+        "149차의 '유리 케이스에도 적용된다'가 과적용이라는 157차 정정을 다시 보라")
+    tables = {}
+    for a in A:
+        tables.setdefault(a.table, set()).add(len(a.layers))
+    assert tables == {"표9": {1}, "표10": {1}, "표11": {2}}, (
+        f"조합표의 층수 구성이 {tables}로 바뀌었다 — 표11이 **2층 전용**이라는 것이 "
+        "우민재 원문(외피+내피)과 맞물리는 근거다")
+
+    # D-2도 유리는 대상이 아니다(149차가 자기 정정한 사실)
+    assert "유리" not in e.U_DESIGN and "유리" in e.U_VALUE
+
+    # ── ② 닿는 완전 케이스는 uminjae 하나 ────────────────────────────
+    film_full = []
+    for f in sorted(_g.glob(_o.path.join(repo, "cases", "*.json"))):
+        try:
+            c = _j.loads(open(f, encoding="utf-8").read())
+        except Exception:
+            continue                      # 0바이트 tombstone
+        inp = c.get("input") or {}
+        if inp.get("cover") in e.U_DESIGN and inp.get("surface_area_m2") and inp.get("fr"):
+            film_full.append(c["case_id"])
+    assert film_full == ["uminjae"], (
+        f"D-2·D-4가 닿는 완전 케이스가 {film_full}로 바뀌었다 — 157차 실측은 uminjae 하나다")
+
+    # ── ③ 🔴 원문이 지정한 조합이 표에 있다 ──────────────────────────
+    KEY = ("po-0.15", "po-0.10")
+    a = e.cover_assembly_lookup(KEY)
+    assert a is not None and a.table == "표11" and len(a.layers) == 2, (
+        "🔴 우민재 원문(PO 0.15 외피 / PO 0.1 내피)에 대응하는 2층 조합이 사라졌다 — "
+        "D-4가 '원문 조회'라는 157차 결론의 근거다")
+    assert abs(a.coef_kcal - 2.5) < 1e-9 and abs(a.savings_pct - 56.0) < 1e-9
+    # 케이스 provenance가 그 원문을 인용하고 있는가
+    um = _j.loads(rd(_o.path.join("cases", "uminjae.json")))
+    prov = um["provenance"]["cover"]["source"]
+    assert "PO필름 0.15T(외피)" in prov and "0.1T(내피)" in prov, (
+        "🔴 우민재 cover provenance에서 원문 피복 사양이 사라졌다")
+    assert "근거가" in um["provenance"]["fr"]["source"] or "미확보" in um["provenance"]["fr"]["source"], (
+        "fr=0.70의 근거 부재 기록이 사라졌다 — D-4 채택 시 제거되는 것이 이것이다")
+
+    # ── ④ 감응(사실) ─────────────────────────────────────────────────
+    inp = um["input"]
+
+    def H(**kw):
+        fr = kw.pop("fr", inp["fr"])
+        return e.heating_load(inp["surface_area_m2"], inp["cover"], inp["t_target"],
+                              inp["t_min"], fr, floor_area_m2=inp["area_m2"], **kw)
+
+    base = H().max_load_kcal_h
+    d4 = H(fr=None, assembly=KEY).max_load_kcal_h
+    assert round(base) == 238776 and round(d4) == 149609, (base, d4)
+    assert abs(d4 / base - 0.627) < 0.002, "D-4 감응이 −37.3%에서 바뀌었다"
+    assert abs(H(u_design=8.9).max_load_kcal_h / base - 1.561) < 0.002
+
+    # 조합과 fr은 **배타**다 — 82차 ★결정으로 신설된 구조
+    try:
+        H(fr=None, assembly=KEY, u_design=8.9)
+        raise AssertionError("assembly와 u_design의 배타가 깨졌다")
+    except ValueError:
+        pass
+
+    # ── ⑤ 부수 — 케이스 주입 설계하중이 표와 일치하는가 ──────────────
+    #    D-5를 결정해도 값이 안 바뀐다는 근거다. 어긋나면 여기서 잡힌다.
+    for cid, sub, snow, wind in (("chuncheon", "춘천", 32, 34),
+                                 ("uminjae", "천안", 26, 28)):
+        c = _j.loads(rd(_o.path.join("cases", cid + ".json")))["input"]
+        t = e.REGION_DESIGN_LOAD[sub]
+        assert (c["snow_cm"], c["wind_ms"]) == (snow, wind) == (t["snow_cm"], t["wind_ms"]), (
+            f"🔴 {cid}의 주입 설계하중이 표({sub})와 어긋난다 — "
+            "157차 실측은 일치였고, 그 일치가 D-5 결정의 감응을 0으로 만든다")
+    wc = _j.loads(rd(_o.path.join("cases", "wonchaewon.json")))["input"]
+    assert e.siting_design_load(wc["region"]) is None, (
+        "원채원 region이 표에 닿기 시작했다 — 그러면 주입값 30·35를 표와 대조하라(S-1)")
+
+    # ── ⑥ 결정하지 않았다 ────────────────────────────────────────────
+    assert "결정 0" in doc and "이 차수가 **하지 않은 것** — 결정" in doc
+    # 🔴 149차 문서가 **정정 배너**를 달고 있는가 — 틀린 측정이 배너 없이 남으면
+    #   다음에 그것을 인용한다(뮤테이션 Y5가 그렇게 빠져나갔다)
+    d149 = rd("근거_얽힘4건_감응측정_20260916.md")
+    assert "157차 정정 — 아래 「유리 케이스에도 적용된다」는 과적용이다" in d149, (
+        "🔴 149차의 D-4 과적용에 정정 배너가 없다 — 유리 케이스 4.07배 표가 "
+        "그대로 인용될 수 있다")
+    assert "유리 조합은 0건" in d149
+    assert "과소산정 여부 별도 확인 권장" in doc, (
+        "D-4가 부하를 낮추는 방향이라 난방기 용량 과소산정 위험이 있다는 경고가 사라졌다")
+    assert "배선은 하지 않았다" in doc, (
+        "`siting_lookup` 배선이 설계 선택을 낳아 하지 않았다는 표기가 사라졌다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
