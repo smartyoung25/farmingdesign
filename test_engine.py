@@ -8102,6 +8102,154 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
         "🔴 자기 검토라는 편향 고지가 사라졌다")
 
 
+def test_171cha_stage_regression_anchors():
+    """171차 개선 ④ — **회귀가 1단계에서 6단계로** 넓어졌는지.
+
+    169차 §6: 실측 회귀 기준(원채원 ROI·Payback·실질ROI)은 **전부 ④타당성검증**의
+    산출물이라 ①②③⑤⑥은 바뀌어도 벤치마크가 울지 않는다. 새 자료 없이
+    **기존 케이스·표에서 앵커를 뽑아** 나머지 다섯 단계를 덮는다.
+
+    🔴 앵커 설계에서 지킨 것 —
+    ①**가격을 넣지 않는다**(A6은 단위 1원으로 교체 **연도 구조**만 잡는다. 가격은 시세성),
+    ②**`None`도 고정한다**(원채원 미매칭은 결함이 아니라 `S-1`의 그림자다 —
+      누가 매칭 규칙을 만들면 **다른 지점 기상값이 조용히 들어온다**),
+    ③**A3은 「전부 OK」가 아니라 「결손을 잡는가」를 고정한다**(139차 red self-test).
+    """
+    import os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    doc = open(_o.path.join(repo, "서비스설계_5단계척도_회귀앵커_20260920.md"),
+               encoding="utf-8").read()
+
+    # ── A1 ①공종설계 — 설계하중 조회(`None`까지) ─────────────────────
+    assert e.siting_design_load("강원(춘천)") == {"snow_cm": 32, "wind_ms": 34}
+    assert e.siting_design_load("충남 천안(성환읍)") == {"snow_cm": 26, "wind_ms": 28}
+    assert e.siting_design_load("충남") is None, (
+        "🔴 원채원(`region='충남'`)이 매칭되기 시작했다 — 지역명 정규화 규칙을 세웠다면 "
+        "**다른 지점의 기상값이 조용히 들어올 수 있다**. S-1이 풀린 것인지 먼저 보라")
+
+    # ── A2 ①공종설계 — 규격 최소사양 ─────────────────────────────────
+    r = e.select_specs(26, 28, form="연동")
+    assert len(r["candidates"]) == 37 and r["min_by_form"]["연동"].name == "18-연동(등)-01"
+    r2 = e.select_specs(32, 34, form="연동")
+    assert len(r2["candidates"]) == 21 and r2["min_by_form"]["연동"].name == "22-연동(등)-03"
+    for tok in ("18-연동(등)-01", "22-연동(등)-03", "**37종**", "**21종**"):
+        assert tok in doc, f"🔴 A2 앵커에서 {tok}가 사라졌다"
+
+    # ── A3 ②품질설계 — 결손을 **실제로 잡는가**(정상 행만으로는 못 잰다) ──
+    def _row(**kw):
+        base = dict(req_id="R", requirement="보온커튼", drawing_no="D-01", drawing_rev="A",
+                    spec_no="S-01", spec_rev="A", boq_id="B-01", boq_rev="A",
+                    std_id="KS X 3265", std_rev="A", equipment_model="M",
+                    manufacturer="K", verification="KS 적합")
+        base.update(kw)
+        return e.DocRefRow(**base)
+
+    rep = e.doc_consistency_check([_row(req_id="R1"), _row(req_id="R2", boq_id=""),
+                                   _row(req_id="R3", spec_rev=""),
+                                   _row(req_id="R4", boq_rev="B")])
+    assert rep.counts == {"OK": 1, "MISSING_DOC": 1, "MISSING_REV": 1, "REV_MISMATCH": 1}, (
+        f"🔴 4축 판정이 {rep.counts}다 — 결손 3종을 각각 한 건씩 잡아야 한다")
+    by = {r.req_id: r for r in rep.rows}
+    assert by["R2"].missing_docs == ["BoQ"] and by["R3"].missing_revs == ["시방서"], (
+        "🔴 결손 문서명·Rev명이 사라졌다 — 무엇이 빠졌는지 못 내놓으면 판정지원이 아니다")
+
+    # ── A4 ③감리 — 법정 요율(직선보간) ───────────────────────────────
+    fee = e.design_supervision_fee_reference(700_000_000)
+    assert fee["감리비_원"]["제2종(보통)"] == 9_450_000 and "직선보간" in fee["산정구간"]
+
+    # ── A5 ⑤운영 — 수확량 계단, **과잉도 감점한다** ──────────────────
+    assert e.yield_adjustment(89.9) == -0.05 and e.yield_adjustment(90) == 0.0
+    assert e.yield_adjustment(109) == 0.0 and e.yield_adjustment(110) == -0.05, (
+        "🔴 **과잉 감점이 사라졌다** — 이 함수는 *'환경이 좋을수록 좋다'*가 아니다. "
+        "단조증가로 바뀌면 과공급 케이스가 조용히 과대평가된다")
+    assert e.yield_adjustment(59) == -0.40 and e.yield_adjustment(140) == -0.40
+    assert e.production_kg(3000, 25, 95) == 75_000.0
+    assert e.production_kg(3000, 25, 110) == 71_250.0
+    assert "과잉도 감점한다" in doc
+
+    # ── A6 ⑥사후관리 — 교체 연도 구조(**가격 없이**) ─────────────────
+    L = e.EQUIPMENT_SERVICE_LIFE_REFERENCE
+    items = [{"name": n, "unit_cost_won": 1, "service_life_years": L[n]["years"]}
+             for n in ("온풍난방기", "배전반", "컴퓨터서버")]
+    sch = e.lcc_replacement_schedule(items, horizon_years=20)
+    got = {r["name"]: r["replacement_years"] for r in sch["rows"]}
+    assert got == {"온풍난방기": [11], "배전반": [12], "컴퓨터서버": [6, 12, 18]}, (
+        f"🔴 20년 지평 교체 연도가 {got}다 — 내용연수(11·12·6년)가 바뀌었는지 보라")
+    assert sum(r["n_replacements"] for r in sch["rows"]) == 5
+    assert "unit_cost_won = 1" in doc and "가격을 앵커에 넣지 않았다" in doc, (
+        "🔴 가격을 앵커에서 뺀 이유(시세성)가 문서에서 사라졌다")
+
+    # ── 6단계를 다 덮는가 ────────────────────────────────────────────
+    assert "**1/6 → 6/6.**" in doc
+
+
+def test_171cha_five_level_scale_downgrades_one_cell():
+    """171차 개선 ⑤ — 5단계 척도가 **166차의 ✅ 하나를 강등**시킨다.
+
+    🔴 부지 공종설계는 166차에 ✅였는데, 배정 함수가 전부 **조회**(`siting_design_load`·
+    `siting_lookup`·`select_specs`·`spec_crops`)와 **산출**(`mean_wind`)뿐이라
+    **불일치를 행으로 드러내는 함수가 없다** — 5단계로는 **「산출」**이다.
+
+    🔴 그리고 **「검증」은 18칸 중 0칸**인데, 이것은 *"검증을 안 한다"*가 아니라
+    **셀 등급이 최고 역할 하나로 정해져 덮인다**는 뜻이다(척도의 한계).
+    """
+    import os as _o, sys as _s, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    doc = open(_o.path.join(repo, "서비스설계_5단계척도_회귀앵커_20260920.md"),
+               encoding="utf-8").read()
+    src = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    tree = _ast.parse(src)
+
+    # ── ① 「판정지원」 규칙이 **데이터 구조에서** 성립하는가 ──────────
+    fields = {n.name: {x.target.id for x in n.body if isinstance(x, _ast.AnnAssign)}
+              for n in tree.body if isinstance(n, _ast.ClassDef)}
+    MARK = {"status", "checks", "overall_status", "rows", "counts", "missing"}
+    for cls in ("QuoteReconciliation", "QuoteComparison", "DocConsistencyReport",
+                "DesignOptionComparison", "HeatingLoadComponents"):
+        assert fields[cls] & MARK, (
+            f"🔴 {cls}가 불일치·결손 필드를 잃었다 — 「판정지원」 등급의 기계 근거가 무너진다")
+    # 조회 계열은 그 필드를 갖지 않는다(규칙이 구별력을 갖는가)
+    for cls in ("Spec", "CoverAssembly", "PumsemItem"):
+        assert not (fields[cls] & MARK), (
+            f"🔴 {cls}까지 판정 필드를 갖게 됐다 — 규칙이 모든 것을 판정지원으로 만든다")
+
+    # ── ② 부지 공종설계에 **판정지원 함수가 없다**(강등의 근거) ───────
+    for fn in ("siting_design_load", "siting_lookup", "select_specs", "spec_crops"):
+        assert hasattr(e, fn)
+    assert not isinstance(e.siting_lookup("충남 천안(성환읍)"), tuple), "형태가 바뀌었다"
+    assert "부지 공종설계 ✅ → 산출" in doc, (
+        "🔴 166차 ✅의 강등 기록이 사라졌다 — 이것이 개선 ⑤의 핵심 발견이다")
+    assert "기자재 품질설계 🟡 → 판정지원" in doc
+
+    # ── ③ 등급 집계가 18칸인가 ───────────────────────────────────────
+    import re as _re
+    tally = _re.search(r"\| 판정지원 \| \*\*(\d+)\*\* \|.*?\| 검증 \| \*\*(\d+)\*\* 🔴 \|"
+                       r".*?\| 산출 \| \*\*(\d+)\*\* \|.*?\| 조회 \| \*\*(\d+)\*\* \|"
+                       r".*?\| 없음 \| \*\*(\d+)\*\* \|", doc, _re.S)
+    assert tally, "🔴 5단계 집계표를 읽을 수 없다"
+    nums = [int(x) for x in tally.groups()]
+    assert nums == [4, 0, 8, 2, 4], f"🔴 집계가 {nums}다 — 171차 실측은 [4, 0, 8, 2, 4]다"
+    assert sum(nums) == 18, f"🔴 합이 {sum(nums)}다 — 3대상 × 6단계 = 18이어야 한다"
+
+    # ── ④ 「검증 0」의 뜻을 오독하지 않게 적었는가 ────────────────────
+    assert "검증을 안 한다」가 아니라" in doc and "셀 등급으로는 안 보인다" in doc
+    assert hasattr(e, "verify_heating_vs_actual") and hasattr(e, "benchmark_check"), (
+        "🔴 검증 함수가 사라졌다 — 「검증 0칸」의 설명이 거짓이 된다")
+
+    # ── ⑤ 한계를 적었는가 ───────────────────────────────────────────
+    assert "셀당 역할 분포를 적지 않았다" in doc
+    assert "배정 자체는 판단" in doc
+    assert "앵커가 「값이 맞다」를 보증하지 않는다" in doc
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
