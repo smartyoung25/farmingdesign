@@ -7244,6 +7244,92 @@ def test_159cha_weather_tables_unreachable_and_province_lost():
     assert "결정은 하나도 내리지 않았다" in doc
 
 
+def test_160cha_s1_absence_and_canonical_index():
+    """160차 — S-1 「원문 미보유」를 **탐색 범위와 함께** 확정하고, 정본 인덱스를 고정했다.
+
+    🔴 나는 **낡은 인덱스**(`_전체.jsonl`, 7월판 48,433청크)를 보고 커버리지가
+    비대칭이라 결론했다. 최신은 **`_전체_9축.jsonl`(9월, 148,424청크)**이고
+    다시 재면 희박은 9건이 아니라 **사실상 0건**이다.
+
+    남은 「희박」 2건도 결함이 아니었다 — `백가은·조윤정`은 **엔진 표본명이 합성**이라
+    이름으로 세면 0이 나오고(인덱스엔 각 435), `구창회`는 원문이 **도면 한 건**이다.
+    131차 「문자열 수는 항목 수가 아니다」·156차 「21곳」과 같은 계열이다.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_S1부재검증_인덱스정본_20260920.md")
+
+    # ── ① 정본 인덱스가 9축인가 — 크기·존재로 고정 ───────────────────
+    nine = _o.path.join(repo, "문서청킹_인덱스_전체_9축.jsonl")
+    old = _o.path.join(repo, "문서청킹_인덱스_전체.jsonl")
+    assert _o.path.exists(nine) and _o.path.exists(old), "인덱스 파일이 사라졌다"
+    assert _o.path.getsize(nine) > _o.path.getsize(old) * 3, (
+        "🔴 9축 인덱스가 더 이상 최신·최대가 아니다 — 어느 것이 정본인지 다시 정하고 "
+        "160차의 커버리지 측정을 다시 하라")
+    assert "_전체_9축.jsonl" in rd("작업지시서.md")
+
+    # ── ② 🔴 S-1 부재 — 파일명 전수(탐색 범위를 코드로 재현) ─────────
+    EXCL = (".git", "__pycache__", "노지견적", "노지시방서", "대산온실")
+    GEN = ("SmartFarm_", "근거_", "작업", "인수인계")
+    found = []
+    for root, dirs, files in _o.walk(repo):
+        if any(x in root for x in EXCL):
+            continue
+        for f in files:
+            if any(k in f for k in ("원채원", "공주장원리", "당진이상근")):
+                if not any(f.startswith(g) for g in GEN) and not f.endswith(".md"):
+                    found.append(_o.path.relpath(_o.path.join(root, f), repo))
+    # 남는 것은 리포가 만든 산출물·케이스뿐이어야 한다
+    assert all(x.startswith("cases") or x.startswith("SmartFarm_") for x in found), (
+        f"🔴 원문 미보유 3건의 자료가 리포에 들어왔다: {found[:5]} — "
+        "S-1이 풀렸다면 회귀 기준의 설계하중·밴드를 다시 대조하라")
+
+    # ── ③ 커버리지 — 9축에서 CAPEX 표본이 실제로 잡히는가 ────────────
+    #    (전량 로드는 비싸다 — 대표 3건만 존재 확인)
+    need = {"이두희": 0, "윤성호": 0, "강정구": 0, "백가은": 0, "조윤정": 0}
+    wc = 0
+    with open(nine, encoding="utf-8") as fh:
+        for line in fh:
+            if wc == 0 and "원채원" in line:
+                wc += 1
+            for k in need:
+                if '"case_name": "%s"' % k in line:
+                    need[k] += 1
+    assert wc == 0, (
+        "🔴 9축 인덱스에 원채원이 나타났다 — S-1이 들어왔다면 §1 표를 갱신하라")
+    for k, n in need.items():
+        assert n >= 100, (
+            f"🔴 9축 인덱스에서 {k}의 청크가 {n}건이다 — 160차 실측은 100건 이상이다. "
+            "7월판(`_전체.jsonl`)을 보고 있지 않은지 확인하라")
+
+    # ── ④ 🔴 합성 표본명 함정 ────────────────────────────────────────
+    assert "백가은·조윤정" in e.CAPEX_MAJOR_KNOWN_TOTALS, (
+        "엔진의 합성 표본명이 바뀌었다 — 인덱스 조회가 0을 내는 원인이었다")
+    assert need["백가은"] >= 100 and need["조윤정"] >= 100, (
+        "인덱스는 두 이름을 **분리**해 담는다 — 합성명으로 세면 0이다")
+    assert "엔진 표본명이 합성" in doc and "이름으로 세면 0이 나온다" in doc
+
+    # ── ⑤ 정정과 한계가 기록됐는가 ───────────────────────────────────
+    assert "나는 낡은 인덱스를 보고 있었다" in doc
+    assert "148,424" in doc and "48,433" in doc
+    assert "확인할 수 없다" in doc, (
+        "🔴 146차 [8]에서 레드팀이 어느 인덱스를 썼는지 **단정하지 않았다**는 "
+        "표기가 사라졌다 — 보고서에 없는 것을 추정으로 적으면 안 된다")
+    assert "지우면 그 판정들의 재현이 불가능해진다" in doc, (
+        "낡은 인덱스를 **삭제하지 않은 이유**가 사라졌다")
+    led = rd("근거_결정대기대장_20260915.md")
+    assert "160차에 자료로 확정" in led and "9축 148,424청크 중 0" in led
+
+    # ── ⑥ 결정하지 않았다 ────────────────────────────────────────────
+    assert "결정은 하나도 내리지 않았다" in doc
+    assert "청킹 인덱스를 재생성하지 않았다" in doc
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
