@@ -7770,10 +7770,11 @@ def test_166cha_service_design_claims_are_measured():
            if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
            and not n.name.startswith("_")}
     cls = {n.name for n in tree.body if isinstance(n, _ast.ClassDef)}
-    assert len(pub) == 53 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 166차 실측은 53·30이다. "
+    # 🔴172차 — 개선 ⑥으로 `consulting_fee_estimate()`가 신설돼 53 → 54가 됐다
+    assert len(pub) == 54 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 172차 실측은 54·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
-    assert "공개 함수 53개·데이터 클래스 30개" in doc
+    assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
     # ── ① 문서가 이름을 대고 인용한 함수가 **실재하는가** ─────────────
     # 🔴 7절 「미구현 백로그」는 **제안 이름**이다 — 실재 주장과 갈라야 한다.
@@ -8042,8 +8043,11 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     head = design.split("## 7. 미구현 백로그")[0]
     cited = names_in(head)
     missing = sorted(pub - cited)
-    assert len(cited) == 49 and len(missing) == 4, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 170차 실측은 49/4다: {missing}")
+    # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
+    assert len(cited) == 50 and len(missing) == 4, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 172차 실측은 50/4다: {missing}")
+    assert "consulting_fee_estimate" in cited, (
+        "🔴 과금 산정기가 설계서에서 빠졌다 — 개선 ⑥이 되돌아갔다")
     assert set(missing) == {"npv", "irr", "py_to_m2", "m2_to_py"}, (
         f"🔴 남은 미인용이 {missing}다 — 170차가 남긴 것은 **하위 유틸 4개**뿐이다")
     for fn in ("construction_company_list", "spec_crops", "cover_assembly_options",
@@ -8248,6 +8252,92 @@ def test_171cha_five_level_scale_downgrades_one_cell():
     assert "셀당 역할 분포를 적지 않았다" in doc
     assert "배정 자체는 판단" in doc
     assert "앵커가 「값이 맞다」를 보증하지 않는다" in doc
+
+
+def test_172cha_consulting_fee_keeps_the_injection_boundary():
+    """172차 개선 ⑥ — 과금 산정기가 **시세성 경계**를 지키는가.
+
+    169차 §4: 과금 근거가 6단계 중 2단계뿐이고, 함수가 가장 많은 ④타당성검증이
+    값을 못 매긴다. 막고 있던 것은 **근거가 아니라 「우리가 투입을 정하지 않은 것」**이었다.
+
+    🔴 이 가드가 지키는 것은 금액이 아니라 **경계**다 — 노임단가·요율은 **주입만**,
+    기본값 **없음**, 범위 밖이어도 **계산은 하되 판정하지 않는다**.
+    `mean_wind()`가 `months`에 기본값을 두지 않는 것과 같은 관용이다.
+    """
+    import os as _o, sys as _s, inspect as _i, pytest as _p
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    doc = open(_o.path.join(repo, "서비스설계_과금_전단계확장_20260920.md"),
+               encoding="utf-8").read()
+
+    # ── ① 🔴 요율·단가에 **기본값이 없는가**(있으면 조용히 쓰인다) ────
+    sig = _i.signature(e.consulting_fee_estimate)
+    for p in ("mandays_by_grade", "wage_by_grade", "overhead_rate", "tech_fee_rate"):
+        assert sig.parameters[p].default is _i.Parameter.empty, (
+            f"🔴 `{p}`에 기본값이 생겼다 — 고시는 **범위**만 정하고 그 안의 선택은 "
+            "협의(시세성)다. 기본값을 두면 **근거 없는 값이 조용히 쓰인다**")
+
+    # ── ② 노임단가를 **조회하지 않는가**(미주입은 거부) ──────────────
+    with _p.raises(ValueError):
+        e.consulting_fee_estimate({"박사": 1}, {"고급": 450_000},
+                                  overhead_rate=1.15, tech_fee_rate=0.30)
+    with _p.raises(ValueError):
+        e.consulting_fee_estimate({}, {"고급": 1}, overhead_rate=1.15, tech_fee_rate=0.30)
+    src = _i.getsource(e.consulting_fee_estimate)
+    assert "WAGE" not in src and "노임단가" in src, (
+        "🔴 함수 안에 노임단가 테이블이 들어왔다 — 시세성은 **주입만** 받는다(1절)")
+
+    # ── ③ 산식이 고시 구조 그대로인가(직접 재계산) ───────────────────
+    r = e.consulting_fee_estimate({"고급": 4, "중급": 6},
+                                  {"고급": 450_000, "중급": 350_000},
+                                  overhead_rate=1.15, tech_fee_rate=0.30)
+    dl = 4 * 450_000 + 6 * 350_000
+    oh = dl * 1.15
+    tf = (dl + oh) * 0.30
+    assert r["direct_labor_won"] == dl == 3_900_000
+    assert abs(r["overhead_won"] - oh) < 1e-6 and abs(r["tech_fee_won"] - tf) < 1e-6
+    assert abs(r["total_won_excl_vat"] - (dl + oh + tf)) < 1e-6
+    assert r["total_mandays"] == 10
+    assert "부가가치세 별도" in r["note"]
+
+    # ── ④ 🔴 범위 밖이어도 **계산은 하고 판정은 안 한다** ────────────
+    out = e.consulting_fee_estimate({"고급": 1}, {"고급": 450_000},
+                                    overhead_rate=1.30, tech_fee_rate=0.50)
+    assert out["in_notice_range"] == {"overhead": False, "tech_fee": False}
+    assert out["total_won_excl_vat"] > 0, (
+        "🔴 범위 밖 요율을 넣자 계산이 멈췄다 — 이 함수는 **판정하지 않는다**. "
+        "합·부를 정하는 것은 사람이다")
+    assert e.OVERHEAD_RATE_RANGE == (1.10, 1.20)
+    assert e.TECH_FEE_RATE_RANGE == (0.20, 0.40)
+
+    # ── ⑤ 기존 상수·회귀는 건드리지 않았는가 ─────────────────────────
+    import json as _j
+    reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                        encoding="utf-8").read())
+    assert len(reg["constants"]) == 54, (
+        "🔴 레지스트리 상수가 54개가 아니다 — 172차는 **등재하지 않았다**")
+    for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
+        assert tok not in open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                               encoding="utf-8").read(), (
+            f"🔴 {tok}이 레지스트리에 등재됐다 — 조문 원문을 확보하지 못했다(168차)")
+
+    # ── ⑥ 문서가 **확보하지 못한 것**을 적는가 ───────────────────────
+    assert "스캔 이미지 PDF라 텍스트가 0자" in doc, (
+        "🔴 노임단가 공표값을 **읽지 못했다**는 기록이 사라졌다 — 예시 단가는 가정값이다")
+    assert "구조 시연용 가정값" in doc and "★사용자 확정 대상" in doc
+    assert "투입 인·일은 `[제안]`이다" in doc
+
+    # ── ⑦ 세 방법 대조 — 산술이 맞는가(문서가 적은 수를 다시 센다) ───
+    assert abs(700_000_000 * (0.0378 + 0.0616 + 0.0166) - 81_200_000) < 1
+    assert "81,200,000원" in doc and "11.60%" in doc
+    assert "88,322,000" in doc and "12.62%" in doc
+    assert "C가 A·B보다 낮다" in doc, (
+        "🔴 **문헌 밴드 5~10%가 이 규모에 맞지 않는다**는 발견이 사라졌다 — "
+        "소규모일수록 요율이 높아서(10억 이하 3.78% → 100억 이하 2.49%) 항상 초과가 뜬다")
+    assert "2 → 6" in doc or "2/6 → 6/6" in doc
 
 
 if __name__ == "__main__":

@@ -4755,6 +4755,77 @@ ELECTRICAL_PUMSEM_LUMP_WON_PER_HA = 250_000_000
 
 
 # ─────────────────────────────────────────────────────────────
+# 컨설팅 대가 F0: 실비정액가산 산정 (172차 신설)
+#   산업통상자원부고시 「엔지니어링사업대가의 기준」의 **산식 구조**만 구현한다.
+#   🔴 요율·노임단가에 **기본값을 두지 않는다** — 고시는 범위(제경비 1.10~1.20 ·
+#   기술료 0.20~0.40)를 정할 뿐이고 그 안의 선택은 **협의(시세성)**다. 노임단가는
+#   공표값이 있어도 **엔진이 조회하지 않는다**(1절). mean_wind()가 'months'에
+#   기본값을 두지 않는 것과 같은 이유다.
+# ─────────────────────────────────────────────────────────────
+OVERHEAD_RATE_RANGE = (1.10, 1.20)   # 제경비 = 직접인건비 × 이 범위 (고시 조문)
+TECH_FEE_RATE_RANGE = (0.20, 0.40)   # 기술료 = (직접인건비+제경비) × 이 범위
+
+
+def consulting_fee_estimate(mandays_by_grade: dict, wage_by_grade: dict,
+                            overhead_rate: float, tech_fee_rate: float,
+                            direct_expense_won: float = 0.0) -> dict:
+    """실비정액가산방식 컨설팅 대가(결정론). 판정·추천 없음 — 금액과 구성만 낸다.
+
+    대가 = 직접인건비 + 직접경비 + 제경비 + 기술료   (부가가치세 별도)
+      직접인건비 = Σ(등급별 투입 인·일 × 등급별 노임단가)
+      제경비     = 직접인건비 × overhead_rate
+      기술료     = (직접인건비 + 제경비) × tech_fee_rate
+
+    mandays_by_grade: {등급: 인·일}  — **우리 투입량**(판단성, 사용자 확정 대상)
+    wage_by_grade:    {등급: 원/인·일} — **시세성, 주입 전용**
+    overhead_rate / tech_fee_rate: 고시 범위 안의 선택 — **협의값, 주입 전용**
+    direct_expense_won: 출장·인쇄 등 직접경비 실비 — 주입 전용
+
+    반환의 in_notice_range는 **판정이 아니라 대조 결과**다(범위 밖이어도 계산한다).
+    """
+    if not mandays_by_grade:
+        raise ValueError("mandays_by_grade가 비어 있다 — 투입 인·일 없이는 산정할 수 없다")
+    missing = [g for g in mandays_by_grade if g not in wage_by_grade]
+    if missing:
+        raise ValueError(f"노임단가가 주입되지 않은 등급: {missing} — 시세성 값은 조회하지 않는다")
+    for g, d in mandays_by_grade.items():
+        if d < 0:
+            raise ValueError(f"{g}: 투입 인·일은 0 이상이어야 한다 ({d})")
+    for g, w in wage_by_grade.items():
+        if w < 0:
+            raise ValueError(f"{g}: 노임단가는 0 이상이어야 한다 ({w})")
+    if overhead_rate < 0 or tech_fee_rate < 0 or direct_expense_won < 0:
+        raise ValueError("요율·직접경비는 0 이상이어야 한다")
+
+    rows = []
+    direct_labor = 0.0
+    for g in sorted(mandays_by_grade):
+        d = mandays_by_grade[g]
+        w = wage_by_grade[g]
+        amt = d * w
+        direct_labor += amt
+        rows.append({"grade": g, "mandays": d, "wage_won_per_manday": w,
+                     "direct_labor_won": amt})
+    overhead = direct_labor * overhead_rate
+    tech_fee = (direct_labor + overhead) * tech_fee_rate
+    total = direct_labor + direct_expense_won + overhead + tech_fee
+    lo_o, hi_o = OVERHEAD_RATE_RANGE
+    lo_t, hi_t = TECH_FEE_RATE_RANGE
+    return {"rows": rows,
+            "direct_labor_won": direct_labor,
+            "direct_expense_won": float(direct_expense_won),
+            "overhead_won": overhead,
+            "tech_fee_won": tech_fee,
+            "total_won_excl_vat": total,
+            "total_mandays": sum(mandays_by_grade.values()),
+            "in_notice_range": {"overhead": lo_o <= overhead_rate <= hi_o,
+                                "tech_fee": lo_t <= tech_fee_rate <= hi_t},
+            "note": ("부가가치세 별도. 노임단가·요율은 주입값이며 엔진이 조회하지 않는다"
+                     "(1절 시세성). 투입 인·일은 판단성이라 사용자 확정 대상이다. "
+                     "in_notice_range는 고시 범위와의 **대조 결과**이지 판정이 아니다")}
+
+
+# ─────────────────────────────────────────────────────────────
 # 경제성 F1: 생산량 (환경적합도, 엔진데이터 B)
 # ─────────────────────────────────────────────────────────────
 # 환경적합도 구간 → 생산량 증감 (B: 90~109%=0 기준)
