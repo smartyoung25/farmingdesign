@@ -9009,6 +9009,144 @@ def test_178cha_survey_sheets_names_confirmed_codes_not():
         "🔴 OPEX ref가 없거나 near가 아니다 — **명칭은 뒷받침하고 코드는 못 한다**는 뜻이다")
 
 
+def test_179cha_living_matrix_is_recounted_from_its_own_table():
+    """179차 — 설계서의 **집계를 서술에서 읽지 않고 표에서 다시 센다**.
+
+    🔴 171차 가드가 고정한 것은 **날짜 박힌 앵커 문서**(§1-2)의 집계였고,
+    **살아 있는 3×6 설계서 §2의 표는 아무도 재지 않았다**. 그 사이 173차가 한 칸을
+    옮겼고(기자재 감리 ⬜ → 산출) 174·175·176차가 **함수를 5개** 더했다 —
+    「낡은 산출물을 읽는 가드가 낡은 채로 통과」 계열이다.
+
+    🔴 이 가드는 **표를 파싱해 칸을 세어** 본문 집계와 대조하고, 두 문서의 차이가
+    **정확히 한 칸(기자재 × 감리)**인지까지 고정한다. 그리고 설계서가 현행이라
+    주장하는 수(공개 함수 · 상수 · refs)를 **엔진 AST와 감사에서 다시 잰 값**과 맞춘다.
+
+    ⚠️ **칸 배정(어느 함수가 어느 칸인가)은 판단이라 고정하지 않는다** — 166차 관례다.
+    고정하는 것은 **표와 집계가 서로 맞는가**뿐이다.
+    """
+    import os as _o, sys as _s, re as _re, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import audit_traceability as A
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    anc = rd("서비스설계_5단계척도_회귀앵커_20260920.md")
+
+    def _cells(text, rowheads):
+        """|**부지**|…| 3행을 찾아 18칸을 뽑는다(행 이름이 앵커)."""
+        got = {}
+        for rh in rowheads:
+            m = _re.search(r"^\|\s*\*\*%s\*\*\s*\|(.+)$" % rh, text, _re.M)
+            assert m, f"🔴 「{rh}」 행을 찾을 수 없다 — 매트릭스 표의 서식이 바뀌었다"
+            cols = [c.strip().strip("*").strip() for c in m.group(1).split("|")]
+            cols = [c for c in cols if c]
+            assert len(cols) == 6, (
+                f"🔴 「{rh}」 행이 {len(cols)}칸이다 — 6단계여야 한다: {cols}")
+            got[rh] = cols
+        return got
+
+    ROWS = ("부지", "시설", "기자재")
+
+    # ── ① 3단계 표(✅🟡⬜)를 **세어** 본문 집계와 맞춘다 ──────────────
+    head3 = doc.split("### 🔴 171차")[0]
+    c3 = _cells(head3, ROWS)
+    flat3 = [x for rh in ROWS for x in c3[rh]]
+    assert len(flat3) == 18
+    n_ok, n_pt, n_no = flat3.count("✅"), flat3.count("🟡"), flat3.count("⬜")
+    assert n_ok + n_pt + n_no == 18, f"🔴 3단계 기호가 아닌 칸이 있다: {flat3}"
+    m = _re.search(r"18칸 중 — 있음 (\d+) · 부분 \*\*(\d+)\*\* · 없음 \*\*(\d+)\*\*", doc)
+    assert m, "🔴 3단계 집계 문장을 찾을 수 없다"
+    said3 = [int(x) for x in m.groups()]
+    assert said3 == [n_ok, n_pt, n_no], (
+        f"🔴 3단계 집계가 서술 {said3} vs 표 실측 {[n_ok, n_pt, n_no]}로 어긋난다 — "
+        "표를 고치고 문장을 안 고쳤거나 그 반대다")
+
+    # ── ② 5단계 표를 **세어** 본문 집계와 맞춘다 ─────────────────────
+    seg5 = doc.split("### 🔴 171차")[1].split("### 🔴 179차")[0]
+    c5 = _cells(seg5, ROWS)
+    flat5 = [x for rh in ROWS for x in c5[rh]]
+    GRADES = ("판정지원", "검증", "산출", "조회", "없음")
+    assert set(flat5) <= set(GRADES), f"🔴 5단계 척도 밖의 등급이 있다: {sorted(set(flat5))}"
+    cnt5 = [flat5.count(g) for g in GRADES]
+    assert sum(cnt5) == 18
+    m = _re.search(r"\*\*판정지원 (\d+) · 검증 (\d+) · 산출 (\d+) · 조회 (\d+) · 없음 (\d+)\.",
+                   doc)
+    assert m, "🔴 5단계 집계 문장을 찾을 수 없다"
+    said5 = [int(x) for x in m.groups()]
+    assert said5 == cnt5, (
+        f"🔴 5단계 집계가 서술 {said5} vs 표 실측 {cnt5}로 어긋난다")
+
+    # ── ③ 앵커 문서(171차 기록)와의 차이가 **정확히 한 칸**인가 ──────
+    ca = _cells(anc.split("### 1-3.")[0], ROWS)
+    diff = sorted((rh, i) for rh in ROWS for i in range(6) if ca[rh][i] != c5[rh][i])
+    assert diff == [("기자재", 2)], (
+        f"🔴 두 문서의 5단계 표가 {diff}에서 갈린다 — 179차 실측은 "
+        "**기자재 × 감리 한 칸**뿐이다(173차 ⬜ → 산출). 더 벌어졌다면 "
+        "어느 쪽이 낡았는지부터 보라")
+    assert ca["기자재"][2] == "없음" and c5["기자재"][2] == "산출"
+
+    # ── ④ 설계서가 **현행이라 주장하는 수**를 다시 잰다 ───────────────
+    tree = _ast.parse(rd("smartfarm_engine.py"))
+    pub = [n.name for n in tree.body
+           if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+           and not n.name.startswith("_")]
+    a = A.audit()
+    n_const = a["counts"]["registry_constants"]
+    n_refs = a["counts"]["source_refs"]
+    assert f"공개 함수 **{len(pub)}**" in doc, (
+        f"🔴 설계서의 전달 채널 표가 공개 함수 **{len(pub)}**을 적지 않는다 — "
+        "엔진이 자라는 동안 문서가 멈춰 있었다(178차까지 53으로 남아 있었다)")
+    assert f"상수 **{n_const}** · `source_refs` **{n_refs}**" in doc, (
+        f"🔴 설계서가 적는 레지스트리 수가 실측(상수 {n_const}·refs {n_refs})과 다르다")
+    assert f"상수 **{n_const}** · refs **{n_refs}** · 배지" in doc, (
+        "🔴 D11(근거대장) 행의 수가 실측과 다르다")
+
+    # ── ⑤ 사각·S-3 표기가 **감사 결과와 같은가** ─────────────────────
+    blocked = {k for k, _st, _b in a["refless_blocked"]}
+    assert f"추적성 사각 {len(blocked)} → 0" in doc, (
+        f"🔴 S-4 행이 사각 {len(blocked)}건을 적지 않는다 — 감사 실측과 어긋난다")
+    assert "178차에 절반 풀렸다" in doc and "29시트 전수 0건" in doc, (
+        "🔴 S-3의 「절반만 풀렸다」 표기가 사라졌다 — 명칭은 확인됐고 코드는 아니다")
+
+    # ── ⑥ 이견을 **답으로 바꾸지 않았는가** ──────────────────────────
+    assert doc.count("★ 어느 읽기를 택할지는 결정이다") == 1, (
+        "🔴 규칙 문구(반환 구조) vs 구현(데이터클래스 필드)의 이견이 사라졌다 — "
+        "넓게 읽으면 시설 감리가 판정지원으로 올라간다. 고르는 것은 사용자다")
+    # 🔴 이견의 전제를 **8함수 전수 호출로** 잰다 — 서술을 믿지 않는다.
+    #    1차 작성에서 인자를 잘못 줘 **호출 실패를 「rows 없음」으로 읽었다**(자기 정정).
+    MARK = {"status", "checks", "overall_status", "rows", "counts", "missing"}
+    calls = {
+        "inspection_checklist": lambda: e.inspection_checklist(None),
+        "commissioning_plan": lambda: e.commissioning_plan(["온풍난방기"]),
+        "completion_docset": lambda: e.completion_docset(None),
+        "maintenance_schedule": lambda: e.maintenance_schedule(["온풍난방기"]),
+        "defect_tracking": lambda: e.defect_tracking(
+            [{"work_type": "전기", "reported_date": "2026-02-01"}], "2026-01-01"),
+        "site_permit_checklist": lambda: e.site_permit_checklist(),
+        "equipment_reconcile": lambda: e.equipment_reconcile(["온풍난방기"]),
+        "service_life_reference": lambda: e.service_life_reference("분무기"),
+    }
+    import dataclasses as _dc
+    marked = []
+    for nm, fn in calls.items():
+        r = fn()   # 🔴 예외를 삼키지 않는다 — 실패를 「없음」으로 읽은 것이 1차 오류였다
+        assert isinstance(r, dict) and not _dc.is_dataclass(r), (
+            f"🔴 {nm}()이 dict가 아니게 됐다 — 좁은 규칙(데이터클래스 필드)이 "
+            "이 함수를 판정지원으로 올린다. 5단계 집계를 다시 재라")
+        if set(r) & MARK:
+            marked.append(nm)
+    assert sorted(marked) == ["commissioning_plan", "defect_tracking",
+                              "equipment_reconcile", "maintenance_schedule"], (
+        f"🔴 판정 필드를 가진 함수가 {sorted(marked)}다 — 179차 실측은 4개다. "
+        "넓은 읽기에서 올라가는 칸 수가 달라졌으니 이견 절을 다시 쓰라")
+    assert "`rows`를 가진 것이" in doc and "4개**다" in doc \
+            and "판정지원 8 · 검증 0 · 산출 5" in doc, (
+        "🔴 넓은 읽기의 집계(판정지원 8 · 산출 5)가 문서에서 사라졌다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
