@@ -4989,8 +4989,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 106, "partial": 57, "near": 11}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 178차 실측은 exact 106 / partial 57 / near 11이다"
+    assert dist == {"exact": 106, "partial": 57, "near": 13}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 187차 실측은 exact 106 / partial 57 / near 13이다"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -5054,9 +5054,9 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 11 and ledger.count("[부분]") == 57, (
+    assert ledger.count("[근접]") == 13 and ledger.count("[부분]") == 57, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
-        "178차 실측(11·57)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
+        "187차 실측(13·57)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
         "(137차 확정 8·50 → 151차 partial +3 → 161차 near +1"
         "= `FR_TABLE`의 [표 3-3-27] → 🔴163차 **partial +2**"
         "= `REGION_DESIGN_LOAD`의 고시 [별표] 사본 2건)")
@@ -5256,8 +5256,8 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 68, (
-        f"partial·near가 {len(rows)}건이다 — 178차 실측은 68건"
+    assert len(rows) == 70, (
+        f"partial·near가 {len(rows)}건이다 — 187차 실측은 70건"
         "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1 + `REGION_DESIGN_LOAD` 2 "
         "+ 🔴173차 감리 절차의 세 번째 시방서 사본 1)")
 
@@ -5875,8 +5875,8 @@ def test_146cha_redteam27_corrections_hold():
     eng_src = open(_o.path.join(repo, "smartfarm_engine.py"),
                    encoding="utf-8", newline="").read().replace(chr(13) + chr(10), "\n")
     stars = [i for i, ln in enumerate(eng_src.split("\n"), 1) if "★" in ln]
-    assert len(stars) == 22, (
-        f"엔진의 ★ 줄이 {len(stars)}개다 — 146차 전수는 22개다. "
+    assert len(stars) == 27, (
+        f"엔진의 ★ 줄이 {len(stars)}개다 — 187차 전수는 27개다. "
         "새 ★가 생겼다면 **대장에 먼저 올려라**(대장 §5-3)")
 
     # ── [12] 스냅샷의 skip 수가 앞뒤로 맞는가 ──────────────────────────
@@ -5993,7 +5993,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 106, "partial": 57, "near": 11}, (
+    assert dist == {"exact": 106, "partial": 57, "near": 13}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6492,8 +6492,8 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 174, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 178차 실측은 174건"
+    assert a["counts"]["source_refs"] == 176, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 187차 실측은 176건"
         "(177차 173 + 🔴178차 OPEX 비목 대조 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
@@ -7584,8 +7584,8 @@ def test_163cha_design_load_byepyo_registered():
     # 🔴178차 — `OPEX_ITEM_CATEGORIES`가 풀려 3건 → 2건이 됐다(조사표 비목 대조)
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 178차 실측은 2건이다")
-    assert a["counts"]["source_refs"] == 174, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 178차 실측은 174건")
+    assert a["counts"]["source_refs"] == 176, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 187차 실측은 176건")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -7786,8 +7786,8 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴174차 — P3 사후관리 2함수가 신설돼 57 → 59가 됐다
     # 🔴175차 — P2·P4 2함수가 신설돼 59 → 61이 됐다
     # 🔴176차 — service_life_reference()가 신설돼 61 → 62가 됐다
-    assert len(pub) == 62 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 176차 실측은 62·30이다. "
+    assert len(pub) == 65 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 187차 실측은 65·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -8097,8 +8097,8 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 62 and len(missing) == 0, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 180차 실측은 62/0이다: {missing}")
+    assert len(cited) == 65 and len(missing) == 0, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 187차 실측은 65/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
         "🔴 P2·P4 2함수가 설계서에서 빠졌다")
@@ -8384,8 +8384,8 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     import json as _j
     reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                         encoding="utf-8").read())
-    assert len(reg["constants"]) == 61, (
-        "🔴 레지스트리 상수가 61개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+    assert len(reg["constants"]) == 63, (
+        "🔴 레지스트리 상수가 63개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
@@ -9108,8 +9108,10 @@ def test_179cha_living_matrix_is_recounted_from_its_own_table():
     # 🔴180차 — 좁은 읽기(171차 기록) vs 넓은 읽기(현행)의 차이는 **네 칸**이다:
     #    감리 시설·기자재 + 사후관리 시설·기자재. 179차의 「한 칸」은 좁은 읽기끼리의
     #    비교였고, ★ 채택으로 전제가 바뀌었다.
-    assert diff == [("기자재", 2), ("기자재", 5), ("시설", 2), ("시설", 5)], (
-        f"🔴 171차 기록본과 현행 표가 {diff}에서 갈린다 — 180차 실측은 **네 칸**이다")
+    # 🔴187차 — ★ 등급 부여로 **부지 품질설계**가 한 칸 더 갈렸다(조회 → 판정지원).
+    assert diff == [("기자재", 2), ("기자재", 5), ("부지", 1),
+                    ("시설", 2), ("시설", 5)], (
+        f"🔴 171차 기록본과 현행 표가 {diff}에서 갈린다 — 187차 실측은 **다섯 칸**이다")
     assert ca["기자재"][2] == "없음" and c5["기자재"][2] == "판정지원"
 
     # ── ④ 설계서가 **현행이라 주장하는 수**를 다시 잰다 ───────────────
@@ -9220,15 +9222,16 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    if n.returns is not None else "")
             pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
     marked = sorted(f for f in pub if pub[f])
-    assert len(pub) == 62, f"🔴 공개 함수가 {len(pub)}개다 — 180차 실측은 62다"
-    assert len(marked) == 15, (
-        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 180차 실측은 15다: {marked}")
+    assert len(pub) == 65, f"🔴 공개 함수가 {len(pub)}개다 — 187차 실측은 65다"
+    # 🔴187차 — ★ 등급 부여로 `ksfid_grade`가 신설돼 15 → 16이 됐다.
+    assert len(marked) == 16, (
+        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 187차 실측은 16이다: {marked}")
     for f in ("lcc_replacement_schedule", "loan_amortization", "benchmark_check",
               "verify_heating_vs_actual", "consulting_fee_estimate"):
         assert pub[f], (
             f"🔴 {f}()가 판정 필드를 잃었다 — **179차의 4개가 전부가 아니었다**는 "
             "180차 발견의 근거다")
-    assert f"가진 것이 **{len(marked)}개**다" in seg, (
+    assert f"가진 것이 **15개**다" in seg, (
         f"🔴 문서가 전수 실측({len(marked)}개)을 적지 않는다")
 
     # ── ② 배정표를 읽는다(판단은 문서 몫) ────────────────────────────
@@ -9280,7 +9283,10 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    seg)
     assert m and [int(x) for x in m.groups()] == cnt, (
         f"🔴 180차 집계 문장이 배정표 재계산 {cnt}과 다르다")
-    assert cnt == [8, 0, 5, 2, 3], f"🔴 집계가 {cnt}다 — ★ 넓은 읽기 채택 후 실측은 [8,0,5,2,3]다"
+    # 🔴187차 — `ksfid_grade`가 부지 품질설계에 배정돼 조회 → 판정지원이 됐다.
+    assert cnt == [9, 0, 5, 1, 3], (
+        f"🔴 집계가 {cnt}다 — 187차 실측은 [9,0,5,1,3]다(180차 [8,0,5,2,3]에서 "
+        "부지 품질설계가 올라갔다)")
     assert sum(cnt) == 18
 
     # ── ⑤ 넓혀도 **없는 것은 만들어지지 않았는가** ───────────────────
@@ -9293,9 +9299,10 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
 
     # ── ⑥ 칸 밖 함수가 **조용히 늘지 않았는가** ──────────────────────
     outside = sorted(set(pub) - {f for fns in assign.values() for f in fns})
-    assert outside == ["consulting_fee_estimate", "m2_to_py", "py_to_m2"], (
-        f"🔴 3×6 칸에 배정되지 않은 함수가 {outside}다 — 180차 실측은 3개다"
-        "(단위 변환 2 + 과금 1). 새 함수가 배정 없이 들어왔는지 보라")
+    assert outside == ["consulting_fee_estimate", "ksfid_number", "ksfid_validity",
+                       "m2_to_py", "py_to_m2"], (
+        f"🔴 3×6 칸에 배정되지 않은 함수가 {outside}다 — 187차 실측은 5개다"
+        "(단위 변환 2 + 과금 1 + **발급 사무 2**). 새 함수가 배정 없이 들어왔는지 보라")
     assert f"칸 밖 함수 {len(outside)}개" in seg
 
 
@@ -9351,12 +9358,12 @@ def test_181cha_package_layer_assembles_without_calculating():
     codes = [x["code"] for x in cp.PACKAGE_SPEC]
     # 🔴182차 — ⑤운영(D21)·대가(D22)가 신설돼 20 → 22가 됐다.
     # 🔴185차 — 사업기획서 1·3단계로 D23·D24가 신설돼 22 → 24가 됐다.
-    assert len(codes) == 24 and len(set(codes)) == 24, (
-        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D24여야 한다")
+    assert len(codes) == 25 and len(set(codes)) == 25, (
+        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D25여야 한다")
     cov = cp.coverage()
-    assert len(cov["declared"]) == 61, (
+    assert len(cov["declared"]) == 64, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
-        "182차 실측은 61종이다")
+        "187차 실측은 64종이다")
     ghost = sorted(f for f in cov["declared"] if f not in pub)
     assert not ghost, f"🔴 패키지가 없는 함수를 부른다: {ghost}"
     # 🔴 **선언만 하고 부르지 않으면 거짓말이다** — 호출처가 실제로 있는지 본다.
@@ -9380,7 +9387,7 @@ def test_181cha_package_layer_assembles_without_calculating():
     pkg = cp.build_package(cases[0])
     assert [x["code"] for x in pkg["items"]] == codes
     st = pkg["status_counts"]
-    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 5             and st.get("부분생성", 0) == 8 and st.get("링크", 0) == 3, (
+    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 5             and st.get("부분생성", 0) == 9 and st.get("링크", 0) == 3, (
         f"🔴 상태 분포가 {st}다 — 주입 없이 서는 것과 못 서는 것이 **둘 다** 있어야 한다. "
         "전부 생성이면 어딘가에서 값을 **지어냈다는 뜻**이다")
 
@@ -9413,8 +9420,8 @@ def test_181cha_package_layer_assembles_without_calculating():
 
     # 🔴182차 — 연결이 늘면 **필요한 자료도 같이 드러난다**: 17 → 27종.
     #    줄어드는 것이 좋은 수가 아니다.
-    assert len(pkg["open_injections"]) == 32, (
-        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 185차 실측은 32종이고, "
+    assert len(pkg["open_injections"]) == 34, (
+        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 187차 실측은 34종이고, "
         "줄었다면 **주입 없이 값을 만든 곳이 있는지** 보라")
     assert set(cp.INJECTION_SLOTS) >= {n["slot"] for n in pkg["open_injections"]}
 
@@ -9455,9 +9462,9 @@ def test_181cha_package_layer_assembles_without_calculating():
         f"🔴 기존 산출물 4파일이 직접 부르는 함수가 {len(reached)}개다 — "
         "181차 시점 실측은 17개다(이 수가 늘었다면 배선이 바뀐 것이다)")
     together = reached.union(cov["declared"])
-    assert len(together) == len(pub) == 62, (
-        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 182차 실측은 **62 / 62**다"
-        "(패키지 이전 17 · 181차 46)")
+    assert len(together) == len(pub) == 65, (
+        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 187차 실측은 **65 / 65**다"
+        "(패키지 이전 17 · 181차 46 · 182차 62 · 🔴187차 ★ 등급 3함수)")
     # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
     unreached = sorted(pub.difference(together))
     assert not unreached, (
@@ -9746,13 +9753,20 @@ def test_185cha_business_plan_concept_applied_without_judging():
     # 🔴 검사 범위는 **`data` 페이로드**다 — `note`는 *"등급을 매기지 않는다"*고
     #    설명하느라 그 말을 쓴다(182차와 같은 함정: 서술까지 세면 설명문이 스스로를
     #    실패시킨다). 경계를 **적었는가**는 아래 ③-b에서 따로 본다.
-    payload = _j.dumps([x["data"] for x in pkg["items"]], ensure_ascii=False,
-                       default=str)
-    for bad in ("K-SFID", "Top Performer", "등급", "보증 지급", "지급 판정",
-                "보험료", "수수료율", "recommended", "rank"):
-        assert bad not in payload, (
-            f"🔴 패키지 **데이터**에 「{bad}」가 생겼다 — 기획서의 **등급·보증 판정**은 "
-            "1절 밖이다. 엔진은 검증 항목과 결손까지다")
+    # 🔴187차 — ★사용자 결정으로 **등급 부여가 들어왔다**(D25). 그래서 금지 어휘를
+    #    **D23·D24에 한정**한다: 실사 카드와 성능 대조표는 **여전히 판정하지 않는다**.
+    #    보증 지급·보험료는 **전 산출물에서** 여전히 금지다(보험·금융 판단).
+    d2324 = _j.dumps([x["data"] for x in pkg["items"]
+                      if x["code"] in ("D23", "D24")], ensure_ascii=False, default=str)
+    for bad in ("등급", "recommended", "rank", "투자의견"):
+        assert bad not in d2324, (
+            f"🔴 D23·D24 **데이터**에 「{bad}」가 생겼다 — 실사 카드와 성능 대조표는 "
+            "**판정하지 않는다**. 등급은 D25가 낸다")
+    allp = _j.dumps([x["data"] for x in pkg["items"]], ensure_ascii=False, default=str)
+    for bad in ("보증 지급", "지급 판정", "보험료", "수수료율"):
+        assert bad not in allp, (
+            f"🔴 패키지 **데이터**에 「{bad}」가 생겼다 — 보증 지급·보험료 산정은 "
+            "**보험·금융 판단**이고 1절 밖이다")
     d23 = [x for x in pkg["items"] if x["code"] == "D23"][0]
     d24 = [x for x in pkg["items"] if x["code"] == "D24"][0]
     assert d23["data"]["공백 영역"] == gaps and d23["data"]["엔진이 덮는 영역"] == 4
@@ -9890,6 +9904,137 @@ def test_186cha_benchmark_sources_were_actually_opened():
             f"🔴 「{n}」이 엔진·레지스트리에 들어왔다 — 제목에서 같은 수를 봤다고 "
             "**1차 출처가 되는 것은 아니다**(국감 회의록·부처 자료가 1차다)")
     assert "여전히 엔진에" in doc and "등재하지 않았다" in doc
+
+
+def test_187cha_grade_is_deterministic_and_shows_its_reasons():
+    """187차 — ★ 등급 부여 체계. **판정하되 근거를 숨기지 않는가**.
+
+    🔴 1절의 「판정·추천 자동화 금지」가 막던 것은 **근거 없는 판정**이다.
+    사용자가 *"★ 등급 부여 체계도 설계하라"*로 **규칙과 임계값을 결정**했으므로
+    엔진은 그 규칙을 **결정론적으로 적용**한다. 이 가드가 지키는 조건 셋 —
+    ①**같은 입력 → 같은 등급**(난수·시각 의존 없음)
+    ②**등급마다 항목별 근거 행**이 함께 나온다(왜 그 등급인지 보이지 않으면 선언이다)
+    ③**임계값을 바꾸면 등급이 바뀐다**는 것이 드러난다(엔진이 스스로 고르지 않는다)
+
+    🔴 그리고 **미검증을 통과로 세지 않는가** — 안 본 것을 합격으로 세면 그것이
+    근거 없는 판정이다.
+    """
+    import os as _o, sys as _s, json as _j, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import consulting_package as cp
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    keys = [c["key"] for c in e.KSFID_CHECK_SPEC]
+    assert len(keys) == len(set(keys)) == 7, (
+        f"🔴 검증 항목이 {len(keys)}종이다 — 187차 실측은 7종이다")
+    dq = [c["key"] for c in e.KSFID_CHECK_SPEC if c["disqualifying"]]
+    assert dq == ["design_load", "doc_consistency"], (
+        f"🔴 실격 항목이 {dq}다 — 187차 결정은 설계하중·문서 4축 2종이다")
+    for c in e.KSFID_CHECK_SPEC:
+        assert c["basis"], f"🔴 {c['key']}에 기준 설명이 없다 — 근거 없는 항목이다"
+
+    # ── ① 결정론 — 같은 입력이면 같은 등급 ──────────────────────────
+    full = {k: True for k in keys}
+    a1, a2 = e.ksfid_grade(full), e.ksfid_grade(full)
+    assert a1["grade"] == a2["grade"] == "A" and a1["reason"] == a2["reason"]
+    n1 = e.ksfid_number("충남", "토마토", "유리", 2026, 7)
+    assert n1["ksfid"] == e.ksfid_number("충남", "토마토", "유리", 2026, 7)["ksfid"], (
+        "🔴 식별번호가 호출마다 다르다 — 난수가 들어갔다")
+    assert n1["ksfid"] != e.ksfid_number("강원", "오이", "필름", 2026, 7)["ksfid"]
+    src = rd("smartfarm_engine.py")
+    _tree = _ast.parse(src)
+    for fn in ("ksfid_grade", "ksfid_number", "ksfid_validity"):
+        node = [n for n in _tree.body if getattr(n, "name", None) == fn][0]
+        names = {m.id for m in _ast.walk(node) if isinstance(m, _ast.Name)}
+        assert not (names & {"random", "uuid"}), (
+            f"🔴 {fn}()에 난수가 들어왔다 — 등급·번호는 결정론이어야 한다")
+
+    # ── ② 등급마다 **근거 행**이 나오는가 ───────────────────────────
+    assert len(a1["rows"]) == 7 and all(r["state"] == "통과" for r in a1["rows"])
+    part = dict(full)
+    part["permit"] = False
+    part["warranty"] = False
+    b = e.ksfid_grade(part)
+    assert b["grade"] == "C" and b["failed"] == ["permit", "warranty"], (
+        f"🔴 2건 불합격에서 {b['grade']}·{b['failed']}가 나왔다")
+    assert "통과 5건" in b["reason"], f"🔴 이유가 수를 말하지 않는다: {b['reason']!r}"
+
+    # ── ③ 실격은 **통과 수와 무관하게** 보류인가 ────────────────────
+    d = dict(full)
+    d["doc_consistency"] = False
+    c = e.ksfid_grade(d)
+    assert c["grade"] == "보류" and c["disqualified_by"] == ["doc_consistency"], (
+        f"🔴 실격 항목이 불합격인데 등급이 {c['grade']}다 — 통과 6건이어도 보류여야 한다")
+    assert c["n_passed"] == 6, "🔴 실격 처리가 통과 수까지 지워 버렸다"
+
+    # ── ④ 🔴 **미검증을 통과로 세지 않는가** ────────────────────────
+    u = dict(full)
+    u["equipment_ks"] = None
+    g = e.ksfid_grade(u)
+    assert g["unchecked"] == ["equipment_ks"] and g["n_passed"] == 6, (
+        f"🔴 미검증 1건인데 통과가 {g['n_passed']}건이다 — **안 본 것을 합격으로 셌다**")
+    assert g["complete"] is False and a1["complete"] is True, (
+        "🔴 `complete`가 미검증 여부를 드러내지 않는다")
+
+    # ── ⑤ 🔴 **임계값을 바꾸면 등급이 바뀌는가**(엔진이 고르지 않는다) ──
+    strict = e.ksfid_grade(part, {"min_pass": {"A": 7, "B": 6, "C": 6}})
+    assert strict["grade"] == "보류" and b["grade"] == "C", (
+        "🔴 임계값을 올렸는데 등급이 그대로다 — 규칙이 결과를 지배하지 않는다")
+    assert strict["rule"]["min_pass"]["C"] == 6 and b["rule"]["min_pass"]["C"] == 4, (
+        "🔴 반환의 `rule`이 **적용된 임계값**을 드러내지 않는다 — "
+        "무슨 규칙으로 준 등급인지 알 수 없으면 그것은 선언이다")
+    try:
+        e.ksfid_grade({"없는항목": True})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("🔴 모르는 검증 항목을 조용히 받아들인다")
+
+    # ── ⑥ 번호는 **등급이 아니고**, 원문을 되돌릴 수 없는가 ──────────
+    assert "등급" not in n1["ksfid"]
+    for raw_in in ("충남", "토마토", "유리"):
+        assert raw_in not in n1["ksfid"], (
+            f"🔴 식별번호에 입력 「{raw_in}」이 그대로 실렸다 — 번호만으로 농가가 드러난다")
+    assert e.ksfid_validity("2026-09-21")["expires"] == "2027-09-21"
+
+    # ── ⑦ 167차 경계 — **외부 벤치마크 고유명은 엔진 밖인가** ────────
+    for tok in ("PVEL", "Top Performer", "GLOBALG.A.P", "SGS Japan", "연 1회"):
+        assert tok not in src, (
+            f"🔴 엔진에 외부 기준의 고유명 「{tok}」이 들어왔다 — 준거는 "
+            "**문서·레지스트리 계층**에 머문다(167차 경계)")
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    for k in ("KSFID_CHECK_SPEC", "KSFID_GRADE_RULE"):
+        ent = reg["constants"][k]
+        assert ent["status"] == "결정", (
+            f"🔴 {k}의 status가 {ent['status']!r}다 — ★사용자 결정값은 「결정」이다. "
+            "「추정」은 근거를 못 찾은 값, 「참고기준」은 외부에서 가져온 값이라 둘 다 거짓이다")
+        assert ent["source_refs"], f"🔴 {k}에 출처가 없다"
+    assert "PVEL" in reg["constants"]["KSFID_CHECK_SPEC"]["source"], (
+        "🔴 레지스트리 쪽에서 준거가 사라졌다 — 엔진에서 뺀 것을 여기 적어 두는 것이 "
+        "167차 경계의 전제다")
+
+    # ── ⑧ 패키지 D25가 **엔진 결과에서 항목을 채우는가** ────────────
+    from cases import load_cases
+    pkg = cp.build_package([x for x in load_cases() if not x.get("partial")][0])
+    d25 = [x for x in pkg["items"] if x["code"] == "D25"][0]
+    gr = d25["data"]["등급"]
+    assert gr["n_total"] == 7 and gr["rows"], "🔴 D25가 근거 행을 내지 않는다"
+    # 🔴 *"미검증이 하나라도 있다"*로는 **한 항목이 조용히 통과로 바뀌는 것**을 못 잡는다
+    #    (뮤테이션 M8이 그렇게 빠져나갔다). **어느 항목이** 미검증인지 지목한다.
+    _inj = {"doc_rows": "doc_consistency", "quoted_models": "equipment_ks"}
+    for _slot, _key in _inj.items():
+        assert _slot in cp.INJECTION_SLOTS
+        assert _key in gr["unchecked"], (
+            f"🔴 `{_slot}`을 주입하지 않았는데 `{_key}`가 미검증이 아니다 — "
+            "**자료 없이 통과로 센 것**이다. 안 본 것을 합격으로 세면 근거 없는 판정이다")
+    assert set(gr["unchecked"]) == set(_inj.values()), (
+        f"🔴 미검증 항목이 {gr['unchecked']}다 — 주입 없는 케이스의 실측은 "
+        f"{sorted(_inj.values())}다")
+    assert gr["complete"] is False
+    assert "등급은 **검증 항목 통과 수" in d25["note"]
 
 
 if __name__ == "__main__":

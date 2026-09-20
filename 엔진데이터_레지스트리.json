@@ -14,7 +14,8 @@
     "참고기준": "요율·정액·절차 등 참고 정보(판정·실측 대체 불가)",
     "추정": "산정치·가정값(근거 확보 전)",
     "확인요망": "값 사용 중이나 출처 의심·재현 불가 요소 있음",
-    "미검증": "값 사용 중이나 근거문서 미확보"
+    "미검증": "값 사용 중이나 근거문서 미확보",
+    "결정": "★사용자가 정한 값 — 실측도 법정기준도 아니다. 「추정」은 근거를 못 찾은 값, 「참고기준」은 외부에서 가져온 값이라 둘 다 거짓이라 187차에 칸을 새로 만들었다. 결정값은 주입으로 덮어쓸 수 있고, 바꾸면 결과가 바뀐다"
   },
   "constants": {
     "U_VALUE": {
@@ -11295,6 +11296,98 @@
         {
           "file": "근거_농진청_경제성분석기준자료집_2023.pdf",
           "note": "농촌진흥청 『2023 농업과학기술 경제성 분석 기준자료집』 — **인쇄 p.123~129 「7. 고정자산 내용연수」**(가.수리구축물 123 · **나.대농기구 124** · **다.원예시설 및 부속 농기구 126**(유리·PET·PC 126 / 파이프·비닐 127) · **라.영농시설물 128** · 마.대동물 128 · 바.대식물 129). ⚠️**141쪽 전부 텍스트 0자인 스캔본**이라 `winocr` 좌표 복원으로 읽었다 — 대조 기준: 방제 계열 **9·9·5·8·6**, 유리시설 기초·철골 **20** vs 파이프·비닐 **10**, 외피복 유리 **20**·PC **10**·PET **7**·내피복 **3**, **온풍기 7**, 영농시설물 주택 70·창고 70·축사 50. p.125 하단 **「※ 조달청고시(제2021-41호) 참조」**. match=near — 원문이 **등재값(준용 가정)과 다르다**는 것을 보이는 ref다",
+          "match": "near"
+        }
+      ]
+    },
+    "KSFID_CHECK_SPEC": {
+      "engine_attr": "KSFID_CHECK_SPEC",
+      "axis": "품질설계→감리(등급)",
+      "check": "list",
+      "desc": "K-SFID 검증 항목 7종(실격 항목 2종 포함) — 등급 산정의 대상",
+      "source": "2026-09-21 187차 — ★**사용자 결정**(*「★ 등급 부여 체계도 설계하라」*)으로 신설한 **검증 등급 규칙**이다. 🔴**값의 출처는 원문이 아니라 사용자 결정**이므로 status를 `결정`으로 둔다 — 실측도 법정기준도 아니다. 구조의 준거는 186차에 **원문에서 확인**한 Kiwa PVEL PV Module Reliability Scorecard의 Top Performer 기준이다: 시험별 *「< 2% power degradation」* **그리고** *「must not have experienced a wet leakage failure, a 'major' defect during visual inspection, or a diode failure」* — **합격선 명시형**이라 가중합 총점이 아니라 **항목별 통과 수 + 실격 사유**로 등급을 낸다. 유효기간 12개월은 **SGS Japan JAS 인증의 연 1회 갱신** 준용(186차 원문 확인). ⚠️**임계값(A 7 / B 6 / C 4)은 벤치마크에서 유도한 것이 아니라 이 프로젝트의 결정**이고, `ksfid_grade(thresholds=)`로 **덮어쓸 수 있다** — 바꾸면 등급이 바뀐다는 것을 반환의 `rule`이 드러낸다",
+      "status": "결정",
+      "status_note": "결정(★사용자 2026-09-21) — 원문 실측이 아니라 프로젝트 결정값이다",
+      "value": [
+        {
+          "key": "design_load",
+          "title": "설계하중 충족",
+          "basis": "내재해형 규격 고시 제2025-108호 — 지역 설계하중 이상의 규격인가",
+          "disqualifying": true
+        },
+        {
+          "key": "doc_consistency",
+          "title": "문서 4축 정합",
+          "basis": "도면·시방서·BoQ·규격서의 식별자·Rev 일치(결손 0)",
+          "disqualifying": true
+        },
+        {
+          "key": "heating_design",
+          "title": "난방 설계 자릿수 검증",
+          "basis": "verify_heating_vs_actual의 기준 대비 비율이 판정 구간 안인가",
+          "disqualifying": false
+        },
+        {
+          "key": "cost_band",
+          "title": "단위 공사비 밴드",
+          "basis": "피복별 실측 밴드(ACTUALS 유도) 안인가",
+          "disqualifying": false
+        },
+        {
+          "key": "equipment_ks",
+          "title": "기자재 규격 선언",
+          "basis": "견적 모델의 KS 적합 선언·재료승인 첨부가 갖춰졌는가",
+          "disqualifying": false
+        },
+        {
+          "key": "permit",
+          "title": "인허가 확인 항목",
+          "basis": "site_permit_checklist의 확인 항목에 결손이 없는가",
+          "disqualifying": false
+        },
+        {
+          "key": "warranty",
+          "title": "하자담보 공종 등재",
+          "basis": "대상 공종이 법정 담보기간 표에 등재돼 있는가",
+          "disqualifying": false
+        }
+      ],
+      "source_refs": [
+        {
+          "file": "근거_벤치마킹출처_검증_20260921.md",
+          "note": "§2 — PVEL Top Performer 기준 원문 인용(*「< 2% power degradation」* + 실격 사유 3종)과 SGS Japan 7단계·연 1회 갱신을 **원문에서 확인**한 기록. 🔴구조는 여기서 준용했고 **임계값은 사용자 결정**이다",
+          "match": "near"
+        }
+      ]
+    },
+    "KSFID_GRADE_RULE": {
+      "engine_attr": "KSFID_GRADE_RULE",
+      "axis": "품질설계→감리(등급)",
+      "check": "dict",
+      "desc": "등급 경계(A 7 / B 6 / C 4) · 실격 시 보류 · 유효기간 12개월",
+      "source": "2026-09-21 187차 — ★**사용자 결정**(*「★ 등급 부여 체계도 설계하라」*)으로 신설한 **검증 등급 규칙**이다. 🔴**값의 출처는 원문이 아니라 사용자 결정**이므로 status를 `결정`으로 둔다 — 실측도 법정기준도 아니다. 구조의 준거는 186차에 **원문에서 확인**한 Kiwa PVEL PV Module Reliability Scorecard의 Top Performer 기준이다: 시험별 *「< 2% power degradation」* **그리고** *「must not have experienced a wet leakage failure, a 'major' defect during visual inspection, or a diode failure」* — **합격선 명시형**이라 가중합 총점이 아니라 **항목별 통과 수 + 실격 사유**로 등급을 낸다. 유효기간 12개월은 **SGS Japan JAS 인증의 연 1회 갱신** 준용(186차 원문 확인). ⚠️**임계값(A 7 / B 6 / C 4)은 벤치마크에서 유도한 것이 아니라 이 프로젝트의 결정**이고, `ksfid_grade(thresholds=)`로 **덮어쓸 수 있다** — 바꾸면 등급이 바뀐다는 것을 반환의 `rule`이 드러낸다",
+      "status": "결정",
+      "status_note": "결정(★사용자 2026-09-21) — 주입으로 덮어쓸 수 있다",
+      "value": {
+        "levels": [
+          "A",
+          "B",
+          "C",
+          "보류"
+        ],
+        "min_pass": {
+          "A": 7,
+          "B": 6,
+          "C": 4
+        },
+        "disqualify_to": "보류",
+        "validity_months": 12,
+        "note": "**합격선 명시형** — 등급은 통과 항목 수의 계단이고, 실격 항목(설계하중·문서 4축)이 하나라도 불합격이면 통과 수와 무관하게 **보류**다. 임계값과 유효기간은 ★사용자 결정이며 구조의 준거는 레지스트리 `source`에 있다"
+      },
+      "source_refs": [
+        {
+          "file": "근거_사업기획서_투자검증설계보증플랫폼_20260921.docx",
+          "note": "§5.2 *「검증 통과 시 K-SFID 인증번호와 등급(PVEL Top Performer 방식 준용)을 부여한다」* — **등급 체계를 두라는 요구의 출처**다. 🔴다만 **임계값은 기획서에 없다** — 187차 ★사용자 결정이다",
           "match": "near"
         }
       ]

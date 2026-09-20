@@ -95,6 +95,13 @@ PACKAGE_SPEC = [
     {"code": "D24", "title": "설계값–실측 대조표", "stage": "⑤운영",
      "targets": ["시설", "기자재"],
      "engine": ["verify_heating_vs_actual", "benchmark_check", "production_kg"]},
+    # 🔴187차 — ★사용자 결정으로 **등급 부여**가 들어왔다.
+    #   등급은 **검증 항목 통과 수 + 실격 사유**이지 사업 평가가 아니다.
+    {"code": "D25", "title": "K-SFID 검증 등급·인증서", "stage": "②품질설계",
+     "targets": ["부지", "시설", "기자재"],
+     "engine": ["ksfid_grade", "ksfid_number", "ksfid_validity",
+                "select_specs", "verify_heating_vs_actual", "benchmark_check",
+                "site_permit_checklist", "warranty_period"]},
 ]
 
 # 주입 슬롯 — 이름과 성격을 밝혀 둔다(무엇이 없어서 못 세우는지 고객이 알아야 한다)
@@ -141,6 +148,9 @@ INJECTION_SLOTS = {
     "actual_energy": "준공 후 실측 에너지 사용량 — 운영 실측",
     "actual_uptime_pct": "준공 후 실측 가동률(%) — 운영 실측",
     "dd_documents": "실사 제출 문서 목록(사업계획서·설계도서·견적·판로계약 등) — 고객 문서",
+    "ksfid_seq": "K-SFID 일련번호(0~9999) — 발급 기관이 관리한다",
+    "ksfid_issued": "인증 발급일(YYYY-MM-DD) — 유효기간의 기산점",
+    "ksfid_thresholds": "등급 경계를 바꿀 규칙 — 🔴바꾸면 등급이 바뀐다",
 }
 
 # 🔴 `장비정보.csv`에는 `농장명/업체명`·`농장주`·`계약 금액` 열이 있다 —
@@ -631,6 +641,54 @@ def build_package(case: dict, injections: dict = None) -> dict:
                                "(설계값 대 실측)까지다. "
                                f"⚠️**{len(no_fn)}개 항목은 엔진에 편차 함수가 없다** — "
                                "만들지 않고 없다고 적는다"))
+
+        elif code == "D25":
+            # 🔴 검증 항목은 **엔진이 이미 내는 결과**에서 채운다 — 사람이 손으로
+            #    체크박스를 켜는 것이 아니라, 결손이 있으면 그대로 불합격이 된다.
+            #    자료가 없어 못 본 항목은 **None(미검증)**이다 — 통과로 세지 않는다.
+            _sel = e.select_specs(inp.snow_cm, inp.wind_ms)
+            _bc = e.benchmark_check(inp.total_construction_cost, inp.area_m2, inp.cover)
+            _pm = e.site_permit_checklist(area_m2=inp.area_m2, cover=inp.cover.value,
+                                          land_use_zone=inj.get("land_use_zone"))
+            _hv = e.verify_heating_vs_actual(res["heating"]["load_per_m2"],
+                                             inp.cover.value)
+            _rows = inj.get("doc_rows")
+            checks = {
+                "design_load": bool(_sel["candidates"]),
+                "doc_consistency": (None if not _rows else
+                                    e.doc_consistency_check(_rows).counts["OK"]
+                                    == len(_rows)),
+                "heating_design": _hv["status"] == "정상",
+                "cost_band": _bc["status"] == "정상",
+                "equipment_ks": (None if not inj.get("quoted_models") else
+                                 not e.equipment_reconcile(
+                                     inj["quoted_models"],
+                                     inj.get("ks_declared"))["needs_ks_declaration"]),
+                "permit": not _pm["missing_inputs"],
+                "warranty": e.warranty_period("온실설치") is not None,
+            }
+            gr = e.ksfid_grade(checks, inj.get("ksfid_thresholds"))
+            d = {"등급": gr}
+            issued = inj.get("ksfid_issued")
+            seq = inj.get("ksfid_seq")
+            need25 = []
+            if seq is None:
+                need25 = need25 + _need("ksfid_seq")
+            else:
+                d["식별번호"] = e.ksfid_number(inp.region, inp.crop, inp.cover.value,
+                                           2026, seq)
+            if issued:
+                d["유효기간"] = e.ksfid_validity(issued, inj.get("ksfid_thresholds"))
+            else:
+                need25 = need25 + _need("ksfid_issued")
+            if not gr["complete"]:
+                need25 = need25 + _need("doc_rows", "quoted_models")
+            items.append(_item(spec, "생성" if not need25 else "부분생성", d, need25,
+                               "🔴 등급은 **검증 항목 통과 수 + 실격 사유**이지 "
+                               "**사업 평가가 아니다**. 임계값은 ★사용자 결정이고 "
+                               "`ksfid_thresholds`로 덮어쓰면 **등급이 바뀐다** — "
+                               "반환의 `rule`이 그것을 드러낸다. 미검증 항목은 "
+                               "**통과로 세지 않는다**"))
 
         else:                                       # 카탈로그에 있으나 조립되지 않은 항목
             items.append(_item(spec, "미조립", None, [], "조립기가 없다"))

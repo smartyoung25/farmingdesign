@@ -140,9 +140,12 @@ def test_source_refs_point_to_existing_files():
 
 
 def test_status_vocabulary_is_normalized_enum():
-    # 45차(사용자 승인): status는 8종 enum만 — 자유 서술은 status_note로 분리.
+    # 45차(사용자 승인): status는 enum만 — 자유 서술은 status_note로 분리.
+    # 🔴187차: ★사용자 결정값(등급 경계 등)을 위해 「결정」을 더해 9종이 됐다 —
+    #   「추정」은 근거를 못 찾은 값, 「참고기준」은 외부에서 가져온 값이라 둘 다 거짓이다.
     # 기계 게이팅(46차 감사)의 전제. legend와 실사용의 괴리(구 24종)를 재발 방지.
-    ENUM = ("실측", "부분실측", "법정기준", "공공기준", "참고기준", "추정", "확인요망", "미검증")
+    ENUM = ("실측", "부분실측", "법정기준", "공공기준", "참고기준", "추정",
+            "확인요망", "미검증", "결정")
     assert set(REG["status_legend"]) == set(ENUM)
     for key, ent in C.items():
         assert ent["status"] in ENUM, (key, ent["status"])

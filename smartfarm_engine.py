@@ -4889,6 +4889,179 @@ def completion_docset(doc_consistency_report=None) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# 등급 부여 G6: K-SFID 검증 등급 (187차 신설 — ★사용자 결정 2026-09-21)
+#
+#   🔴 **왜 이제 판정하는가.** 1절의 「판정·추천 자동화 금지」가 막던 것은
+#      **근거 없는 판정**이다. 사용자가 *"★ 등급 부여 체계도 설계하라"*로
+#      **규칙과 임계값을 결정**했으므로, 엔진은 그 규칙을 **결정론적으로 적용**한다.
+#      여전히 **엔진이 임계값을 스스로 고르지는 않는다** — 아래 값은 결정 기록이고,
+#      `thresholds`로 **주입해 덮어쓸 수 있다**.
+#
+#   🔴 **구조의 준거는 엔진 밖에 적는다**(167차 경계 — 외부 기준의 이름·수치는
+#      문서·레지스트리 계층에 머문다): `근거_벤치마킹출처_검증_20260921.md` §2·§3과
+#      레지스트리 `KSFID_CHECK_SPEC`·`KSFID_GRADE_RULE`의 `source`를 보라.
+#      여기서는 **채택한 형태**만 적는다 —
+#        · **합격선 명시형**: 항목 점수를 가중합해 총점을 만들지 않는다.
+#          **항목마다 기준을 넘었는가**와 **실격 사유가 있는가**를 따로 본다.
+#        · **유효기간이 있다**: 인증은 영구가 아니다.
+#        · **식별번호는 등급이 아니다**: 번호는 추적용이다.
+#
+#   ⚠️ **등급은 「검증 항목을 몇 개 통과했는가」이지 「사업이 좋은가」가 아니다.**
+#      반환에 추천·투자의견은 없다.
+# ─────────────────────────────────────────────────────────────
+KSFID_CHECK_SPEC: list[dict] = [
+    {"key": "design_load", "title": "설계하중 충족",
+     "basis": "내재해형 규격 고시 제2025-108호 — 지역 설계하중 이상의 규격인가",
+     "disqualifying": True},
+    {"key": "doc_consistency", "title": "문서 4축 정합",
+     "basis": "도면·시방서·BoQ·규격서의 식별자·Rev 일치(결손 0)",
+     "disqualifying": True},
+    {"key": "heating_design", "title": "난방 설계 자릿수 검증",
+     "basis": "verify_heating_vs_actual의 기준 대비 비율이 판정 구간 안인가",
+     "disqualifying": False},
+    {"key": "cost_band", "title": "단위 공사비 밴드",
+     "basis": "피복별 실측 밴드(ACTUALS 유도) 안인가",
+     "disqualifying": False},
+    {"key": "equipment_ks", "title": "기자재 규격 선언",
+     "basis": "견적 모델의 KS 적합 선언·재료승인 첨부가 갖춰졌는가",
+     "disqualifying": False},
+    {"key": "permit", "title": "인허가 확인 항목",
+     "basis": "site_permit_checklist의 확인 항목에 결손이 없는가",
+     "disqualifying": False},
+    {"key": "warranty", "title": "하자담보 공종 등재",
+     "basis": "대상 공종이 법정 담보기간 표에 등재돼 있는가",
+     "disqualifying": False},
+]
+
+# ★결정 기록 — 등급 경계. 주입(`thresholds`)으로 덮어쓸 수 있다.
+KSFID_GRADE_RULE: dict = {
+    "levels": ["A", "B", "C", "보류"],
+    "min_pass": {"A": 7, "B": 6, "C": 4},
+    "disqualify_to": "보류",
+    "validity_months": 12,
+    "note": ("**합격선 명시형** — 등급은 통과 항목 수의 계단이고, 실격 항목"
+             "(설계하중·문서 4축)이 하나라도 불합격이면 통과 수와 무관하게 **보류**다. "
+             "임계값과 유효기간은 ★사용자 결정이며 구조의 준거는 레지스트리 `source`에 있다"),
+}
+
+
+def ksfid_grade(check_results: dict, thresholds: Optional[dict] = None) -> dict:
+    """검증 항목 결과 → K-SFID 등급(결정론).
+
+    check_results: {항목 key: True/False/None}. **None은 「미검증」**이고
+      통과로도 불합격으로도 세지 않는다 — 판단을 만들지 않기 위해서다.
+    thresholds: KSFID_GRADE_RULE을 덮어쓸 규칙(★사용자 결정을 바꿀 때).
+
+    🔴 **등급마다 근거 행을 함께 낸다** — 왜 그 등급인지 항목별로 보이지 않으면
+       그것은 판정이 아니라 선언이다.
+    🔴 **미검증 항목이 있으면 `complete=False`**다. 등급은 나오되 *"무엇을 안 보고
+       준 등급인지"*가 함께 나온다.
+    """
+    rule = dict(KSFID_GRADE_RULE)
+    if thresholds:
+        rule.update(thresholds)
+    known = {c["key"] for c in KSFID_CHECK_SPEC}
+    unknown = sorted(set(check_results or {}) - known)
+    if unknown:
+        raise ValueError("모르는 검증 항목: %s (등재 항목: %s)"
+                         % (unknown, sorted(known)))
+
+    rows, passed, failed, unchecked, dq = [], [], [], [], []
+    for c in KSFID_CHECK_SPEC:
+        v = (check_results or {}).get(c["key"])
+        state = "미검증" if v is None else ("통과" if v else "불합격")
+        rows.append({"key": c["key"], "title": c["title"], "basis": c["basis"],
+                     "disqualifying": c["disqualifying"], "state": state})
+        if v is None:
+            unchecked.append(c["key"])
+        elif v:
+            passed.append(c["key"])
+        else:
+            failed.append(c["key"])
+            if c["disqualifying"]:
+                dq.append(c["key"])
+
+    n = len(passed)
+    grade = rule["disqualify_to"]
+    reason = ""
+    if dq:
+        reason = "실격 항목 불합격: %s" % dq
+    else:
+        for lv in rule["levels"]:
+            need = rule["min_pass"].get(lv)
+            if need is not None and n >= need:
+                grade = lv
+                reason = "통과 %d건 ≥ %s 기준 %d건" % (n, lv, need)
+                break
+        else:
+            reason = "통과 %d건 — 최저 등급 기준에 미달" % n
+    return {"grade": grade, "reason": reason, "rows": rows,
+            "passed": passed, "failed": failed, "unchecked": unchecked,
+            "disqualified_by": dq,
+            "n_passed": n, "n_total": len(KSFID_CHECK_SPEC),
+            "complete": not unchecked,
+            "rule": rule,
+            "note": ("🔴 등급은 **검증 항목을 몇 개 통과했는가**이지 "
+                     "**사업이 좋은가**가 아니다. 투자·시공 판단은 사람 몫이고 "
+                     "이 반환에 추천·투자의견은 없다. 미검증 항목이 있으면 "
+                     "`complete=False`이고 `unchecked`가 그것을 드러낸다")}
+
+
+def ksfid_number(region: str, crop: str, cover: str, year: int, seq: int) -> dict:
+    """K-SFID 식별번호(결정론) — **등급이 아니라 추적 식별자**다.
+
+    형식: `KSF-<연도 4>-<지역 2>-<작목 2>-<피복 1>-<일련 4>-<검증문자 1>`
+    검증문자는 앞 자리의 **모듈러 37 체크**로 만든다(오타 검출용, 난수 없음).
+    🔴 번호는 **식별자이지 등급이 아니다** — 준거는 레지스트리 `source`에 적었다.
+    """
+    for nm, v in (("region", region), ("crop", crop), ("cover", cover)):
+        if not v:
+            raise ValueError("%s가 비어 있다 — 식별번호를 만들 수 없다" % nm)
+    if not (1000 <= int(year) <= 9999):
+        raise ValueError("year는 4자리여야 한다: %r" % (year,))
+    if not (0 <= int(seq) <= 9999):
+        raise ValueError("seq는 0~9999여야 한다: %r" % (seq,))
+    ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ*"
+
+    def _two(text):
+        h = 0
+        for ch in str(text):
+            h = (h * 131 + ord(ch)) % 1296
+        return ALPHABET[h // 36] + ALPHABET[h % 36]
+
+    body = "KSF-%04d-%s-%s-%s-%04d" % (int(year), _two(region), _two(crop),
+                                       _two(cover)[0], int(seq))
+    acc = 0
+    for ch in body:
+        if ch != "-":
+            acc = (acc * 37 + (ALPHABET.index(ch) if ch in ALPHABET else 36)) % 37
+    return {"ksfid": "%s-%s" % (body, ALPHABET[acc]),
+            "body": body, "check_char": ALPHABET[acc],
+            "inputs": {"region": region, "crop": crop, "cover": cover,
+                       "year": int(year), "seq": int(seq)},
+            "note": ("🔴 번호는 **추적 식별자이지 등급이 아니다**. "
+                     "지역·작목·피복은 **되돌릴 수 없는 2자 해시**로 줄여 담는다 — "
+                     "번호만으로 농가를 식별하지 못하게 한다")}
+
+
+def ksfid_validity(issued_date: str, rule: Optional[dict] = None) -> dict:
+    """인증 유효기간(결정론) — 만료일과 갱신 시점. 갱신 여부는 판정하지 않는다."""
+    r = dict(KSFID_GRADE_RULE)
+    if rule:
+        r.update(rule)
+    from datetime import date as _d          # 엔진 관례 — 함수 안에서 들인다
+    d = _d.fromisoformat(str(issued_date))
+    months = int(r["validity_months"])
+    y, m = d.year + (d.month - 1 + months) // 12, (d.month - 1 + months) % 12 + 1
+    day = min(d.day, [31, 29 if y % 4 == 0 and (y % 100 or y % 400 == 0) else 28,
+                      31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1])
+    return {"issued": str(d), "expires": str(_d(y, m, day)),
+            "validity_months": months,
+            "note": ("**유효기간이 있는 인증**이다 — 만료일만 낸다. "
+                     "갱신 통과 여부는 갱신 시점의 검증 결과이지 지금 판정할 수 없다")}
+
+
+# ─────────────────────────────────────────────────────────────
 # 내용연수 G5: 농진청 준용·세법 기준 (176차 신설)
 #   출처: `근거_스마트팜_경영데이터_조사표_개선본_260812.xlsx` 마지막 탭 「내용연수_기준」
 #   (사용자 제공, 리포 사본 보존). 67품목 × 12 자산유형.
