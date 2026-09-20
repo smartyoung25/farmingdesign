@@ -4988,8 +4988,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 94, "partial": 56, "near": 9}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 173차 실측은 exact 94 / partial 56 / near 9이다"
+    assert dist == {"exact": 97, "partial": 56, "near": 9}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 174차 실측은 exact 97 / partial 56 / near 9이다"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -5992,7 +5992,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 94, "partial": 56, "near": 9}, (
+    assert dist == {"exact": 97, "partial": 56, "near": 9}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6491,9 +6491,9 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 159, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 173차 실측은 159건"
-        "(163차 154 + 🔴173차 감리 절차 2상수 5건)")
+    assert a["counts"]["source_refs"] == 162, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 174차 실측은 162건"
+        "(173차 159 + 🔴174차 하자보수 조항 3건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
              for x in a["refless_measured"]}
@@ -7576,8 +7576,8 @@ def test_163cha_design_load_byepyo_registered():
         "🔴 REGION_DESIGN_LOAD가 다시 refless_blocked에 있다")
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE", "OPEX_ITEM_CATEGORIES"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 163차 실측은 3건이다")
-    assert a["counts"]["source_refs"] == 159, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 173차 실측은 159건")
+    assert a["counts"]["source_refs"] == 162, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 174차 실측은 162건")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -7775,8 +7775,9 @@ def test_166cha_service_design_claims_are_measured():
     cls = {n.name for n in tree.body if isinstance(n, _ast.ClassDef)}
     # 🔴172차 — 개선 ⑥으로 `consulting_fee_estimate()`가 신설돼 53 → 54가 됐다
     # 🔴173차 — P1 감리 3함수가 신설돼 54 → 57이 됐다
-    assert len(pub) == 57 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 173차 실측은 57·30이다. "
+    # 🔴174차 — P3 사후관리 2함수가 신설돼 57 → 59가 됐다
+    assert len(pub) == 59 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 174차 실측은 59·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -7784,8 +7785,8 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴 7절 「미구현 백로그」는 **제안 이름**이다 — 실재 주장과 갈라야 한다.
     #    1차 설계가 이 둘을 섞어 세서 가드가 제안 7건을 "없는 기능"으로 잡았다.
     # 🔴173차 — P1 3함수가 **구현돼 백로그에서 나갔다**. 남은 제안은 4건이다.
-    PROPOSED = {"site_permit_checklist", "maintenance_schedule",
-                "defect_tracking", "equipment_reconcile"}
+    # 🔴174차 — P3 2함수가 구현돼 백로그에서 나갔다. 남은 제안은 2건이다.
+    PROPOSED = {"site_permit_checklist", "equipment_reconcile"}
     IMPLEMENTED_P1 = {"inspection_checklist", "commissioning_plan", "completion_docset"}
     head, _, backlog = doc.partition("## 7. 미구현 백로그")
     assert backlog, "🔴 7절(미구현 백로그)이 사라졌다"
@@ -7810,16 +7811,16 @@ def test_166cha_service_design_claims_are_measured():
     blob = "".join(rd(f) for f in FILES)
     # 🔴173차 — P1 감리가 구현돼 **검측·시운전·준공이 0건이 아니게 됐다**.
     #    166차가 「0건」이라 적었던 10종 중 이 셋은 **문서에서도 해소 표기로 바뀌었다**.
-    for kw in ("유지보수", "정기점검", "A/S"):
-        assert f"`{kw}` **0건**" in doc, f"🔴 문서에서 {kw}의 0건 표기가 사라졌다"
-    for kw in ("유지보수", "정기점검", "지내력", "측량", "농지전용"):
+    # 🔴174차 — P3가 구현돼 「정기점검」도 0건이 아니게 됐다. 남은 0건은 셋이다.
+    for kw in ("유지보수", "지내력", "측량", "농지전용"):
         assert blob.count(kw) == 0, (
             f"🔴 「{kw}」가 코드 5파일에 {blob.count(kw)}건 있다 — 문서는 0건이라 적는다. "
             "구현이 들어왔다면 커버리지 표와 7절 백로그를 갱신하라")
     # 반대 방향 — 구현된 것은 **있어야 한다**
-    for kw in ("검측", "시운전", "준공"):
+    for kw in ("검측", "시운전", "준공", "정기점검"):
         assert blob.count(kw) > 0, (
-            f"🔴 「{kw}」가 코드에서 사라졌다 — 173차 P1 감리 구현이 되돌아갔다")
+            f"🔴 「{kw}」가 코드에서 사라졌다 — 173차 P1·174차 P3 구현이 되돌아갔다")
+    assert "174차 — 점검·보수 운영체계가 섰다" in doc
     assert "173차 — 감리 행위가 구현됐다" in doc
 
     # ── ③ 있다고 적은 핵심 경로는 **실제로 있는가** ──────────────────
@@ -8028,9 +8029,9 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     sec3 = design.split("## 3. 단계별 상세 설계")[1].split("## 3-b.")[0]
     blocks = _re.split(r"### 3-\d\. ", sec3)[1:]
     counts = [len(names_in(b)) for b in blocks]
-    assert counts == [17, 5, 9, 18, 6, 2], (
-        f"🔴 단계별 함수 수가 {counts}다 — 173차 실측은 [17, 5, 9, 18, 6, 2]다"
-        "(170차 [17,5,2,18,6,2]에 P1 감리가 더해졌다)")
+    assert counts == [17, 5, 9, 18, 6, 4], (
+        f"🔴 단계별 함수 수가 {counts}다 — 174차 실측은 [17, 5, 9, 18, 6, 4]다"
+        "(173차 [17,5,9,18,6,2]에 P3 사후관리 2함수가 더해졌다)")
     # 🔴173차 — ③감리의 9개 중 **4개는 다른 단계 소유의 「대조 지점」**이다
     #    (select_specs·cover_assembly_lookup·verify_heating_vs_actual·
     #     doc_consistency_check). 그대로 세면 감리 역량이 **4.5배로 부풀어 보인다** —
@@ -8046,18 +8047,25 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     total = sum(own)
     front = own[0] + own[3]
     back = own[2] + own[5]
-    assert total == 53 and front == 35 and back == 7, (
-        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 173차 실측은 53/35/7다")
+    assert total == 55 and front == 35 and back == 9, (
+        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 174차 실측은 55/35/9다")
     # 🔴 핵심 — **개선 ⑦을 적용해도 쏠림 진단은 깨지지 않는다**(69→70% · 9→8%)
-    assert front / total > 0.60 and back / total < 0.16, (
-        f"🔴 쏠림이 해소됐다(앞단 {front/total:.0%} · 뒤 {back/total:.0%}) — "
-        "비판 §0을 갱신하라. P1 감리로 뒤가 4/50(8%) → 7/53(13%)로 **줄긴 줄었다**")
+    # 🔴 방향을 고정한다 — 뒤(감리+사후관리) 비중은 **170차 8%에서 올라가는 중**이다.
+    #    줄어들면 기능이 빠진 것이므로 하한으로 잡는다(상한이 아니다).
+    assert back / total > 0.14, (
+        f"🔴 뒤(감리+사후관리) 비중이 {back/total:.0%}로 떨어졌다 — "
+        "170차 8% → 173차 13% → 174차 16%로 **올라오던 중**이다. 기능이 빠졌는가")
+    assert front / total > 0.55, (
+        f"🔴 앞단이 {front/total:.0%}다 — 70%→66%→64%로 내려오는 중이고, "
+        "55% 아래로 가면 §0 진단 자체를 다시 써야 한다")
     assert "31/45 (69%)" in crit and "4/45 (9%)" in crit, (
         "🔴 169차 시점의 실측(31/45·4/45)이 사라졌다 — 그때의 기록이다")
     assert "70%" in crit and "8%" in crit, (
         "🔴 170차 재측정(앞단 70% · 뒤 8%) 기록이 비판 문서에 없다")
     assert "66%" in crit and "13%" in crit, (
         "🔴 173차 재측정(앞단 66% · 뒤 13%) 기록이 비판 문서에 없다")
+    assert "64%" in crit and "16%" in crit, (
+        "🔴 174차 재측정(앞단 64% · 뒤 16%) 기록이 비판 문서에 없다")
 
     # ── ② 인용/미인용을 다시 센다 ────────────────────────────────────
     # 🔴170차 — 개선 ⑦을 적용해 5함수를 배치했다: 인용 44 → 49, 미인용 9 → 4.
@@ -8066,8 +8074,10 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 53 and len(missing) == 4, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 173차 실측은 53/4다: {missing}")
+    assert len(cited) == 55 and len(missing) == 4, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 174차 실측은 55/4다: {missing}")
+    assert {"maintenance_schedule", "defect_tracking"} <= cited, (
+        "🔴 P3 사후관리 2함수가 설계서에서 빠졌다")
     _P1 = {"inspection_checklist", "commissioning_plan", "completion_docset"}
     assert _P1 <= cited and _P1 <= pub, (
         "🔴 P1 감리 3함수가 구현·인용에서 빠졌다 — 173차가 되돌아갔다")
@@ -8342,9 +8352,9 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     import json as _j
     reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                         encoding="utf-8").read())
-    assert len(reg["constants"]) == 56, (
-        "🔴 레지스트리 상수가 56개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
-        "🔴173차 감리 절차 2상수는 **등재했다**(원문이 리포에 있다)")
+    assert len(reg["constants"]) == 57, (
+        "🔴 레지스트리 상수가 57개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+        "173차 감리 2상수·🔴174차 하자 1상수는 **등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
         assert tok not in open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                                encoding="utf-8").read(), (
@@ -8464,6 +8474,112 @@ def test_173cha_inspection_is_transcribed_not_invented():
     assert "장비별 합격 기준은 만들지 않았다" in doc
     assert "부지 감리는 여전히 비어 있다" in doc
     assert "3종만" in doc, "🔴 36종 중 3종만 열었다는 탐색 범위 표기가 사라졌다"
+
+
+def test_174cha_p3_defect_from_source_interval_injected():
+    """174차 P3 — 하자는 **원문**에서, 점검 주기는 **주입**으로.
+
+    🔴 리포를 다시 재니 둘이 갈렸다 — 하자보수 조항은 공사시방서 **3/3 사본**에 있고,
+    점검 주기표는 **없다**(「단동 비닐하우스 유지관리 개선방안 연구」 47쪽을 열어 보니
+    **실태조사**였다. p41의 「정기안전점검 1년 1회」는 실험실 이야기다).
+
+    🔴 그래서 `defect_tracking()`은 원문 규칙대로 **보수 미완료 건의 만료일을 만들지
+    않고**(원문: *"완료때 까지 자동 연장"*), `maintenance_schedule()`은 주기를
+    **주입받고 미주입을 드러낸다**.
+    """
+    import os as _o, sys as _s, json as _j, pytest as _p
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    doc = open(_o.path.join(repo, "근거_P3사후관리_하자원문_점검주입_20260920.md"),
+               encoding="utf-8").read()
+
+    # ── ① 하자 조항이 3/3 사본이라고 적혀 있고 값도 그렇게 서 있는가 ──
+    spec = e.DEFECT_HANDLING_SPEC
+    assert len(spec) == 3 and all(x["copies"] == 3 for x in spec), (
+        "🔴 하자 조항의 copies가 3이 아니다 — 174차 실측은 **3/3 사본 전부**다")
+    effects = {x["effect"] for x in spec}
+    assert effects == {"cost_bearer", "substitute_performance", "auto_extension"}
+    joined = "".join(x["rule"] for x in spec)
+    for frag in ("시공자부담", "하자보수 보증금에서 공제", "완료때 까지 자동 연장"):
+        assert frag in joined, f"🔴 하자 조항에서 「{frag}」가 사라졌다"
+
+    # ── ② 🔴 보수 미완료 건의 만료일을 **만들지 않는가** ─────────────
+    d = e.defect_tracking([
+        {"work_type": "온실설치", "reported_date": "2027-05-01"},
+        {"work_type": "온실설치", "reported_date": "2029-01-10"},
+        {"work_type": "방수", "reported_date": "2028-06-01", "repaired_date": "2028-07-01"},
+        {"work_type": "없는공종", "reported_date": "2027-01-01"},
+    ], completion_date="2026-09-20")
+    by = {(r["work_type"], r["reported_date"]): r for r in d["rows"]}
+    a1 = by[("온실설치", "2027-05-01")]
+    assert a1["warranty_years"] == 2 and a1["warranty_expiry"] == "2028-09-20"
+    assert a1["reported_within_warranty"] is True and a1["expiry_extended"] is True, (
+        "🔴 보수 미완료 건이 **연장 상태로 표시되지 않는다** — 원문은 "
+        "「완료때 까지 자동 연장」이다")
+    assert a1["warranty_expiry"] == "2028-09-20", (
+        "🔴 연장된 만료일을 **계산해 버렸다** — 완료일이 없으면 확정할 수 없다. "
+        "없는 날짜를 만드는 것이 창작이다")
+    assert by[("온실설치", "2029-01-10")]["reported_within_warranty"] is False
+    assert by[("방수", "2028-06-01")]["warranty_years"] == 3
+    assert by[("방수", "2028-06-01")]["expiry_extended"] is False
+    unk = by[("없는공종", "2027-01-01")]
+    assert unk["warranty_years"] is None and "확인요망" in unk["status"], (
+        "🔴 미등록 공종에 담보기간을 지어냈다")
+    assert d["unknown_work_types"] == ["없는공종"]
+    assert d["extended_work_types"] == ["온실설치"]
+    assert "하자 인정 여부는 판정하지 않는다" in d["note"]
+    assert "보증금에서 공제" in d["cost_bearer"]
+    with _p.raises(ValueError):
+        e.defect_tracking([], "2026-09-20")
+    with _p.raises(ValueError):
+        e.defect_tracking([{"work_type": "온실설치", "reported_date": "2027/05/01"}],
+                          "2026-09-20")
+
+    # ── ③ 점검 주기 — **주입 전용**이고 미주입을 드러내는가 ──────────
+    import inspect as _i
+    sig = _i.signature(e.maintenance_schedule)
+    assert sig.parameters["interval_months_by_item"].default is None, (
+        "🔴 점검 주기에 기본 주기표가 생겼다 — 리포에 온실 점검 주기표는 **없다**")
+    m = e.maintenance_schedule(["온풍난방기", "보온커튼", "컴퓨터서버"],
+                               interval_months_by_item={"온풍난방기": 12},
+                               horizon_years=10)
+    rows = {r["item"]: r for r in m["rows"]}
+    assert m["needs_interval"] == ["보온커튼", "컴퓨터서버"], (
+        "🔴 주기가 주입되지 않은 품목을 드러내지 않는다 — 채우지 말고 **밝혀야** 한다")
+    assert rows["온풍난방기"]["n_inspections"] == 10
+    assert rows["온풍난방기"]["inspection_months"][:3] == [12, 24, 36]
+    assert rows["보온커튼"]["service_life_years"] is None, (
+        "🔴 등재에 없는 품목의 내용연수를 지어냈다")
+    assert rows["컴퓨터서버"]["replacement_years"] == [6]
+    with _p.raises(ValueError):
+        e.maintenance_schedule([])
+    with _p.raises(ValueError):
+        e.maintenance_schedule(["온풍난방기"], {"온풍난방기": 0})
+
+    # ── ④ 등재됐고 외부 주기는 엔진에 새지 않았는가 ──────────────────
+    reg_raw = open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8").read()
+    reg = _j.loads(reg_raw)
+    ent = reg["constants"]["DEFECT_HANDLING_SPEC"]
+    assert ent["status"] == "실측" and len(ent["source_refs"]) == 3, (
+        "🔴 하자 조항 등재가 빠졌거나 ref가 3건이 아니다(사본 3종)")
+    src = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    for tok in ("NGMA", "Hortica", "UMass", "연 1회"):
+        assert tok not in src, (
+            f"🔴 외부 점검 주기 「{tok}」가 엔진에 들어왔다 — 167차 경계(외부 기준은 "
+            "문서 참고 계층에만)를 지켜야 한다")
+        assert tok in doc or tok == "연 1회", f"🔴 문서에서 {tok} 출처 표기가 사라졌다"
+
+    # ── ⑤ 열어서 확인했다는 기록 / 하지 않은 것 ──────────────────────
+    assert "실태조사**이고 주기표가 아니다" in doc or "실태조사**이고" in doc
+    assert "실험실** 이야기다" in doc, (
+        "🔴 연구 PDF p41의 「1년 1회」가 실험실 것이라는 확인이 사라졌다 — "
+        "「리포에 있으니 됐다」로 넘기지 않았다는 기록이다")
+    assert "점검 주기의 국내 기준을 확보하지 못했다" in doc
+    assert "연장된 담보 만료일을 계산하지 않는다" in doc
+    assert "copies`를 2로 적었다가 3/3 실측으로 정정했다" in doc
 
 
 if __name__ == "__main__":

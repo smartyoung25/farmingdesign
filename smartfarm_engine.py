@@ -4889,6 +4889,132 @@ def completion_docset(doc_consistency_report=None) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# 사후관리 G2: 점검 일정·하자 추적 (174차 신설 — P3)
+#   🔴 하자는 **리포 원문**에서 왔다(공사시방서 하자보수 조항 + 건산법 별표4).
+#   🔴 점검 **주기**는 리포에 없다 — 「단동 비닐하우스 유지관리 개선방안 연구」는
+#   실태조사이고 주기표가 아니다. 그러므로 **주입만 받고 미주입은 드러낸다**
+#   (`consulting_fee_estimate`·`commissioning_plan`과 같은 관용).
+# ─────────────────────────────────────────────────────────────
+DEFECT_HANDLING_SPEC = (
+    {"clause": "하자보수", "copies": 3,
+     "rule": "공사 준공 후 계약서상에 명기되어 있는 하자보수 기간내에 발생한 하자는 "
+             "시공자부담으로 즉시 재시공 또는 보수되어야 한다",
+     "effect": "cost_bearer"},
+    {"clause": "하자보수", "copies": 3,
+     "rule": "신속하게 처리하지 아니 할 경우 건축주 및 감독자는 타업체로 하여금 "
+             "재시공이나 보수시킬 수 있으며, 이에 따른 제반 발생비용은 "
+             "하자보수 보증금에서 공제할 수 있다",
+     "effect": "substitute_performance"},
+    {"clause": "하자보수", "copies": 3,
+     "rule": "하자 보수 기간은 해당 하자보수 공사 완료때 까지 자동 연장되는 것으로 한다",
+     "effect": "auto_extension"},
+)
+
+
+def maintenance_schedule(items: list, interval_months_by_item: dict = None,
+                         horizon_years: int = 10) -> dict:
+    """정기점검 일정(결정론) — 점검 주기는 **주입**, 미주입은 드러낸다.
+
+    items: 품목명 리스트. 내용연수는 EQUIPMENT_SERVICE_LIFE_REFERENCE에서 읽고,
+    없으면 None(지어내지 않는다).
+    interval_months_by_item: {품목: 점검 주기(개월)} — 🔴리포에 온실 점검 주기표가
+    없으므로 **주입 전용**이다. 미주입 품목은 needs_interval에 모아 드러낸다.
+
+    반환: 품목별 점검 시점(개월)과 교체 연차. 판정·추천 없음.
+    """
+    if not items:
+        raise ValueError("items가 비어 있다 — 점검 대상 없이는 일정이 서지 않는다")
+    if horizon_years <= 0:
+        raise ValueError(f"horizon_years는 양수여야 한다: {horizon_years}")
+    iv = interval_months_by_item or {}
+    rows, needs = [], []
+    horizon_months = horizon_years * 12
+    for name in items:
+        m = iv.get(name)
+        if m is not None and m <= 0:
+            raise ValueError(f"{name}: 점검 주기는 양수 개월이어야 한다 ({m})")
+        if m is None:
+            needs.append(name)
+            months = []
+        else:
+            months = list(range(m, horizon_months + 1, m))
+        life = (EQUIPMENT_SERVICE_LIFE_REFERENCE.get(name) or {}).get("years")
+        repl = list(range(life, horizon_years, life)) if life else []
+        rows.append({"item": name, "interval_months": m,
+                     "inspection_months": months, "n_inspections": len(months),
+                     "service_life_years": life, "replacement_years": repl,
+                     "status": "주기 주입됨" if m is not None else "[확인요망] 주기 미주입"})
+    return {"horizon_years": horizon_years, "rows": rows, "needs_interval": needs,
+            "note": ("🔴온실 점검 주기표는 리포에 없다 — 주기는 **주입 전용**이고 "
+                     "미주입은 needs_interval로 드러낼 뿐 채우지 않는다. 내용연수는 "
+                     "EQUIPMENT_SERVICE_LIFE_REFERENCE(조달청 고시) 등재값이고, "
+                     "없는 품목은 None이다. 판정·추천 없음")}
+
+
+def defect_tracking(records: list, completion_date: str) -> dict:
+    """하자 추적(결정론) — 법정 담보기간과 **날짜를 대조**한다. 하자 인정 판정은 없다.
+
+    records: [{"work_type", "reported_date"(YYYY-MM-DD), "repaired_date"(선택)}]
+    completion_date: 준공일 YYYY-MM-DD
+
+    🔴공사시방서: **「하자 보수 기간은 해당 하자보수 공사 완료때 까지 자동 연장」** —
+    미완료 보수가 있으면 그 공종의 만료일을 **연장 상태**로 표시한다(날짜를 만들지
+    않는다. 완료일이 없으므로 만료일도 확정할 수 없다는 뜻이다).
+    담보기간은 WARRANTY_STATUTORY(건산법 시행령 별표4 등) 등재값이다.
+    """
+    from datetime import date as _d
+
+    def _p(x, what):
+        try:
+            y, m, dd = (int(v) for v in str(x).split("-"))
+            return _d(y, m, dd)
+        except Exception:
+            raise ValueError(f"{what}: 날짜는 YYYY-MM-DD여야 한다 ({x!r})")
+
+    done = _p(completion_date, "completion_date")
+    if not records:
+        raise ValueError("records가 비어 있다 — 추적할 하자가 없다")
+    rows, unknown, open_ext = [], [], []
+    for r in records:
+        wt = r.get("work_type")
+        wp = warranty_period(wt) if wt else None
+        rep = _p(r.get("reported_date"), f"{wt} reported_date")
+        years = wp["years"] if wp else None
+        expiry = None
+        within = None
+        if years is not None:
+            try:
+                expiry = done.replace(year=done.year + years)
+            except ValueError:           # 2/29 준공
+                expiry = done.replace(month=2, day=28, year=done.year + years)
+            within = rep <= expiry
+        else:
+            unknown.append(wt)
+        fixed = r.get("repaired_date")
+        extended = bool(years is not None and within and not fixed)
+        if extended:
+            open_ext.append(wt)
+        rows.append({"work_type": wt, "reported_date": str(rep),
+                     "warranty_years": years,
+                     "warranty_expiry": str(expiry) if expiry else None,
+                     "reported_within_warranty": within,
+                     "repaired_date": fixed,
+                     "expiry_extended": extended,
+                     "basis": (wp or {}).get("근거"),
+                     "status": ("[확인요망] 미등록 공종" if years is None else
+                                "담보기간 내 접수" if within else "담보기간 경과 후 접수")})
+    return {"completion_date": str(done), "rows": rows,
+            "unknown_work_types": unknown, "extended_work_types": open_ext,
+            "cost_bearer": "시공자 부담(공사시방서 하자보수 조항) — 신속히 처리하지 않으면 "
+                           "타업체 시공 후 하자보수 보증금에서 공제",
+            "note": ("🔴**하자 보수 기간은 해당 보수 공사 완료때까지 자동 연장**된다"
+                     "(공사시방서). 보수 완료일이 없는 건은 expiry_extended=True로 "
+                     "표시하며 **연장된 만료일을 만들지 않는다** — 완료일이 없으면 "
+                     "확정할 수 없다. 담보기간은 WARRANTY_STATUTORY 등재값이고 "
+                     "미등록 공종은 지어내지 않는다. **하자 인정 여부는 판정하지 않는다**")}
+
+
+# ─────────────────────────────────────────────────────────────
 # 컨설팅 대가 F0: 실비정액가산 산정 (172차 신설)
 #   산업통상자원부고시 「엔지니어링사업대가의 기준」의 **산식 구조**만 구현한다.
 #   🔴 요율·노임단가에 **기본값을 두지 않는다** — 고시는 범위(제경비 1.10~1.20 ·
