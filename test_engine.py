@@ -9293,6 +9293,188 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
     assert f"칸 밖 함수 {len(outside)}개" in seg
 
 
+def test_181cha_package_layer_assembles_without_calculating():
+    """181차 — 컨설팅 패키지 조립 계층은 **계산하지 않는다**.
+
+    🔴 180차까지 엔진 공개 함수 62개 중 **산출물 계층에서 호출되는 것은 17개**뿐이었다 —
+    D13~D20(173~176차 신설)은 **생성 경로가 아예 없었다**. `consulting_package.py`가
+    케이스 1건을 D1~D20으로 세운다.
+
+    🔴 이 가드가 지키는 경계 셋 —
+    ①**산술 금지**: 조립 계층에 `*`·`/`·`-`·`//`·`%`·`**` 연산자가 **하나도 없다**(AST).
+      4축 수치는 이미 있는 단일 경로(`render_report.compute`)를 재사용한다.
+      넣는 순간 그것이 **병렬 계산기**다(1절).
+    ②**채우지 않는다**: 주입이 없는 산출물은 `주입대기`로 남고 `data`가 `None`이다 —
+      기본값을 만들어 끼우면 근거 없는 값이 된다.
+    ③**판정하지 않는다**: 반환 어디에도 추천·순위·최종판정 키가 없다.
+    """
+    import os as _o, sys as _s, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import consulting_package as cp
+    from cases import load_cases
+
+    src = open(_o.path.join(repo, "consulting_package.py"), encoding="utf-8").read()
+    tree = _ast.parse(src)
+
+    # ── ① 산술 연산자가 **하나도 없는가**(표시 포맷팅만 허용) ────────
+    BANNED = (_ast.Mult, _ast.Div, _ast.FloorDiv, _ast.Pow, _ast.Sub, _ast.MatMult)
+    bad = []
+    for nd in _ast.walk(tree):
+        if isinstance(nd, _ast.BinOp) and isinstance(nd.op, BANNED):
+            bad.append((getattr(nd, "lineno", "?"), type(nd.op).__name__))
+        if isinstance(nd, (_ast.AugAssign,)) and isinstance(nd.op, BANNED):
+            bad.append((getattr(nd, "lineno", "?"), "Aug" + type(nd.op).__name__))
+    assert not bad, (
+        f"🔴 조립 계층에 산술이 들어왔다: {bad} — 1절은 **엔진이 유일한 계산 출처**라고 "
+        "적는다. 필요한 수는 엔진 함수에서 받아 오라")
+    # `%`는 문자열 포맷에만 쓴다 — 숫자 양쪽이면 산술이다
+    for nd in _ast.walk(tree):
+        if isinstance(nd, _ast.BinOp) and isinstance(nd.op, _ast.Mod):
+            assert not (isinstance(nd.left, _ast.Constant)
+                        and isinstance(nd.left.value, (int, float))), (
+                f"🔴 {nd.lineno}행의 `%`가 숫자 나머지 연산이다 — 포맷팅만 허용된다")
+
+    # ── ② 카탈로그 20종 · 선언 함수가 **실재하는가** ─────────────────
+    pub = {n.name for n in _ast.parse(
+        open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()).body
+        if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+        and not n.name.startswith("_")}
+    codes = [x["code"] for x in cp.PACKAGE_SPEC]
+    assert len(codes) == 20 and len(set(codes)) == 20, (
+        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D20이어야 한다")
+    cov = cp.coverage()
+    assert len(cov["declared"]) == 43, (
+        f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
+        "181차 실측은 43종이다")
+    ghost = sorted(f for f in cov["declared"] if f not in pub)
+    assert not ghost, f"🔴 패키지가 없는 함수를 부른다: {ghost}"
+    # 🔴 **선언만 하고 부르지 않으면 거짓말이다** — 호출처가 실제로 있는지 본다.
+    #    이 계층이 직접 부르거나, 재사용하는 단일 경로(render_report)가 부르거나 둘 중 하나다.
+    _rrsrc = open(_o.path.join(repo, "render_report.py"), encoding="utf-8").read()
+    uncalled = sorted(f for f in cov["declared"]
+                      if ("e.%s(" % f) not in src and ("e.%s(" % f) not in _rrsrc)
+    assert not uncalled, (
+        f"🔴 카탈로그가 이름만 대고 **부르지 않는** 함수가 있다: {uncalled} — "
+        "커버리지를 숫자로만 올리는 것이 가장 쉬운 자기기만이다")
+    for fn in ("inspection_checklist", "commissioning_plan", "completion_docset",
+               "maintenance_schedule", "defect_tracking", "site_permit_checklist",
+               "equipment_reconcile", "service_life_reference"):
+        assert fn in cov["declared"], (
+            f"🔴 {fn}()이 패키지에서 빠졌다 — 173~176차 8함수는 **이 계층이 처음으로 "
+            "산출물에 연결한 것들**이다")
+
+    # ── ③ 실제 케이스로 세운다(서술이 아니라 실행으로 잰다) ──────────
+    cases = [c for c in load_cases() if not c.get("partial")]
+    assert cases, "🔴 4축 케이스가 없다"
+    pkg = cp.build_package(cases[0])
+    assert [x["code"] for x in pkg["items"]] == codes
+    st = pkg["status_counts"]
+    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 6             and st.get("부분생성", 0) == 3 and st.get("링크", 0) == 3, (
+        f"🔴 상태 분포가 {st}다 — 주입 없이 서는 것과 못 서는 것이 **둘 다** 있어야 한다. "
+        "전부 생성이면 어딘가에서 값을 **지어냈다는 뜻**이다")
+
+    # ── ④ 🔴 **비어 있는 것을 채우지 않았는가** ──────────────────────
+    for it in pkg["items"]:
+        if it["status"] == "주입대기":
+            assert it["data"] is None and it["needs"], (
+                f"🔴 {it['code']}가 주입대기인데 data가 채워져 있거나 needs가 비었다 — "
+                "무엇이 없어서 못 세웠는지 말하지 않으면 자료 요청서가 되지 않는다")
+        if it["needs"]:
+            for n in it["needs"]:
+                assert n["slot"] in cp.INJECTION_SLOTS and n["why"], (
+                    f"🔴 {it['code']}의 주입 슬롯 {n}이 카탈로그에 없거나 설명이 없다")
+    # 🔴 **미주입을 기본값으로 덮지 않았는가** — 뮤테이션 M2가 여기서 잡힌다.
+    #    "주입대기"만 보면 부족하다: 생성된 산출물 안에서도 미주입 슬롯이 살아 있어야 한다.
+    d16 = [x for x in pkg["items"] if x["code"] == "D16"][0]
+    assert d16["status"] == "생성" and d16["data"]["needs_interval"], (
+        "🔴 점검 일정표에 `needs_interval`이 비었다 — 주입이 없는데 주기가 채워졌다면 "
+        "🔴**리포에 없는 국내 기준을 만든 것**이다(174차)")
+    assert len(d16["data"]["needs_interval"]) == len(d16["data"]["rows"]), (
+        f"🔴 점검 품목 {len(d16['data']['rows'])}개 중 "
+        f"{len(d16['data']['needs_interval'])}개만 미주입이다 — 주입 없이 "
+        "일부 주기가 생겼다면 어디서 왔는지 보라")
+    d14 = [x for x in pkg["items"] if x["code"] == "D14"][0]
+    assert d14["data"]["needs_criteria"] and d14["needs"], (
+        "🔴 시운전 합격 기준이 채워졌다 — 🔴**시방서 원문에 없는 값**이다(173차)")
+    d18 = [x for x in pkg["items"] if x["code"] == "D18"][0]
+    assert d18["data"]["missing_inputs"], (
+        "🔴 인허가 체크리스트의 `missing_inputs`가 비었다 — 용도지역은 지자체 확인 사항이다")
+
+    assert len(pkg["open_injections"]) == 17, (
+        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 181차 실측은 17종이고, "
+        "줄었다면 **주입 없이 값을 만든 곳이 있는지** 보라")
+    assert set(cp.INJECTION_SLOTS) >= {n["slot"] for n in pkg["open_injections"]}
+
+    # ── ⑤ 🔴 판정·추천 어휘가 반환에 **없는가** ──────────────────────
+    import json as _j
+    blob = _j.dumps(pkg, ensure_ascii=False, default=str)
+    for key in ('"recommended"', '"selected"', '"rank"', '"best"', '"추천"', '"최종판정"'):
+        assert key not in blob, (
+            f"🔴 패키지 반환에 {key}가 생겼다 — 이 계층은 **자료를 모아 줄 뿐** "
+            "고르지 않는다(1절 판단성)")
+
+    # ── ⑥ 4축 수치는 **단일 경로에서 오는가** ────────────────────────
+    assert "render_report" in src and "rr.compute(" in src, (
+        "🔴 조립 계층이 `render_report.compute`를 쓰지 않는다 — 4축 수치를 여기서 "
+        "다시 만들면 병렬 계산기다")
+    d8 = [x for x in pkg["items"] if x["code"] == "D8"][0]
+    assert d8["status"] == "링크" and d8["data"]["요약"]["roi"], (
+        "🔴 D8이 통합보고서로 연결되지 않는다")
+
+    # ── ⑦ 등재 키를 **그대로** 쓰는가(비슷한 이름은 None을 부른다) ───
+    d10 = [x for x in pkg["items"] if x["code"] == "D10"][0]
+    w = d10["data"]["법정 하자담보기간"]
+    assert w and all(v is not None for v in w.values()), (
+        f"🔴 하자담보기간 조회가 {w}다 — `WARRANTY_STATUTORY`에 **등재된 키**를 "
+        "그대로 써야 한다. `None`을 「담보기간 없음」으로 읽으면 있는 것을 없다고 말하게 된다")
+    for k in w:
+        assert k in e.WARRANTY_STATUTORY
+
+    # ── ⑧ 산출물 계층 도달 범위가 **실제로 넓어졌는가** ──────────────
+    FILES = ("build_site.py", "webapp.py", "cases.py", "render_report.py")
+    reached = set()
+    for f in FILES:
+        b = open(_o.path.join(repo, f), encoding="utf-8").read()
+        for fn in pub:
+            if (fn + "(") in b:
+                reached.add(fn)
+    assert len(reached) == 17, (
+        f"🔴 기존 산출물 4파일이 직접 부르는 함수가 {len(reached)}개다 — "
+        "181차 시점 실측은 17개다(이 수가 늘었다면 배선이 바뀐 것이다)")
+    together = reached.union(cov["declared"])
+    assert len(together) == 46, (
+        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 181차 실측은 **46 / 62**다"
+        "(패키지 이전은 17이었다)")
+    # 🔴 **아직 닿지 않는 16개를 「0」이라 적지 않는다** — 남은 공백이 얼마인지 센다.
+    unreached = sorted(pub.difference(together))
+    assert len(unreached) == 16, (
+        f"🔴 산출물에 닿지 않는 공개 함수가 {len(unreached)}개다 — 181차 실측은 16개다: "
+        f"{unreached}")
+    # 🔴 문자열 「consulting_package」는 **독스트링에도 나온다** — 그걸로 재면
+    #    import를 갈아치워도 통과한다(뮤테이션 M8). import 문과 호출을 따로 본다.
+    _bs = open(_o.path.join(repo, "build_site.py"), encoding="utf-8").read()
+    assert "import consulting_package as cpkg" in _bs, (
+        "🔴 build_site가 `consulting_package`를 import하지 않는다 — 페이지가 생성되지 않는다")
+
+    # ── ⑨ 설계서가 적는 수를 **여기서 다시 잰 값**과 맞춘다(179·180차 계열) ──
+    _doc = open(_o.path.join(repo, "서비스설계_컨설팅_3대상x6단계_20260920.md"),
+                encoding="utf-8").read()
+    for frag in (f"**{len(reached)} → {len(together)} / {len(pub)}**",
+                 f"| **{len(cov['declared'])}종** |",
+                 f"| **{len(unreached)}개** |",
+                 f"주입 슬롯 | **{len(pkg['open_injections'])}종**"):
+        assert frag in _doc, (
+            f"🔴 설계서 §3-d가 실측과 다른 수를 적는다 — 찾지 못한 조각: {frag!r}")
+    assert (f"생성 **{st['생성']}** · 부분생성 **{st['부분생성']}** · "
+            f"링크 **{st['링크']}** · 주입대기 **{st['주입대기']}**") in _doc, (
+        f"🔴 설계서의 상태 분포가 실측 {st}과 다르다")
+    assert "cpkg.build_package(" in _bs and "consulting_package_page(" in _bs, (
+        "🔴 build_site가 패키지를 부르거나 렌더하지 않는다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

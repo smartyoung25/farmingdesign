@@ -11,6 +11,7 @@ import html, json, os, re, datetime as _dt
 import smartfarm_engine as e
 import render_report as rr
 from cases import load_cases, case_to_input
+import consulting_package as cpkg
 
 esc = html.escape
 
@@ -126,11 +127,28 @@ def _sc(s: str) -> str:
     return "ok" if "정상" in s else ("warn" if ("경계" in s or "재확인" in s) else "bad")
 
 
+_PKG_CSS = """
+table.pkg{width:100%;border-collapse:collapse;font-size:.9em}
+table.pkg td,table.pkg th{border-top:1px solid #e3e6ea;padding:7px 8px;vertical-align:top}
+table.pkg td.code{font-family:ui-monospace,monospace;white-space:nowrap;font-weight:700}
+table.pkg{table-layout:fixed}
+table.pkg td:nth-child(1){width:52px}
+table.pkg td:nth-child(2){width:40%}
+table.pkg td:nth-child(3){width:86px}
+table.pkg .meta{color:#667;font-size:.86em;margin-top:3px}
+table.pkg pre{white-space:pre-wrap;word-break:break-all;margin:0;font-size:.86em;color:#334}
+ul.needs{margin:6px 0 0 16px;padding:0;color:#7a4b00;font-size:.88em}
+.pill{display:inline-block;padding:2px 8px;border-radius:9px;font-size:.84em;white-space:nowrap}
+.pill.ok{background:#e6f5ea;color:#1c6b33}.pill.warn{background:#fff3d6;color:#8a5a00}
+.pill.need{background:#fdeaea;color:#a22}.pill.link{background:#e8eefb;color:#2c4d9b}
+"""
+
+
 def _page(title: str, body: str) -> str:
     gen = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{esc(title)}</title><style>{_CSS}</style></head>
+<title>{esc(title)}</title><style>{_CSS}{_PKG_CSS}</style></head>
 <body><div class="wrap">{body}
 <div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 {gen}</div>
 </div></body></html>"""
@@ -849,6 +867,61 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
     return _page(data["title"], body)
 
 
+def consulting_package_page(case: dict, pkg: dict) -> str:
+    """D1~D20 컨설팅 패키지 1장 (181차 신설).
+
+    🔴 이 함수는 **계산하지 않는다** — `consulting_package.build_package()`가 낸 것을
+    표로 옮길 뿐이다. 주입이 없어 서지 못한 산출물은 **빈칸이 아니라 「무엇이 없는지」**로
+    적는다(자료 요청서가 곧 산출물이다).
+    """
+    BADGE = {"생성": "ok", "부분생성": "warn", "주입대기": "need",
+             "링크": "link", "미조립": "need"}
+    rows = []
+    for it in pkg["items"]:
+        need_html = ""
+        if it["needs"]:
+            lis = "".join(f"<li><b>{esc(n['slot'])}</b> — {md(n['why'])}</li>"
+                          for n in it["needs"])
+            need_html = f"<ul class='needs'>{lis}</ul>"
+        fns = " · ".join(f"<code>{esc(f)}()</code>" for f in it["engine"]) or "—"
+        data = it["data"]
+        if data is None:
+            shown = "<i>세우지 못했다</i>"
+        else:
+            # 🔴 덤프에도 엔진 `note`의 **굵게**가 섞여 들어온다 — 148차 가드는
+            #    코드 스팬 예외 없이 리터럴 별표를 센다. `md_cut()`은 자른 뒤
+            #    **짝이 깨진 마커까지 버리는** 전용 헬퍼라 그대로 쓴다.
+            shown = ("<pre>"
+                     + md_cut(json.dumps(data, ensure_ascii=False, default=str), 520)
+                     + "</pre>")
+        rows.append(
+            f"<tr><td class='code'>{esc(it['code'])}</td>"
+            f"<td><b>{esc(it['title'])}</b><div class='meta'>{esc(it['stage'])} · "
+            f"{esc(' / '.join(it['targets']))}</div>"
+            f"<div class='meta'>{fns}</div>"
+            f"<div class='meta'>{md(it['note'])}</div>{need_html}</td>"
+            f"<td><span class='pill {BADGE.get(it['status'], 'need')}'>"
+            f"{esc(it['status'])}</span></td>"
+            f"<td>{shown}</td></tr>")
+
+    cnt = pkg["status_counts"]
+    tally = " · ".join(f"{esc(k)} <b>{v}</b>" for k, v in sorted(cnt.items()))
+    slots = "".join(f"<li><b>{esc(n['slot'])}</b> — {md(n['why'])}</li>"
+                    for n in pkg["open_injections"])
+    body = f"""
+  <header class="top"><h1>컨설팅 패키지 — {esc(pkg['title'])}</h1>
+    <div class="sub">D1~D20 · {tally}</div></header>
+  <section class="card"><span class="axis">자료 요청서</span>
+    <h2>아직 주입되지 않은 것 {len(pkg['open_injections'])}종</h2>
+    <p>{md(pkg['note'])}</p>
+    <ul class='needs'>{slots}</ul></section>
+  <section class="card"><span class="axis">산출물</span>
+    <h2>D1~D20</h2>
+    <table class="pkg"><thead><tr><th>#</th><th>산출물</th><th>상태</th><th>내용</th></tr></thead>
+    <tbody>{''.join(rows)}</tbody></table></section>"""
+    return _page(f"컨설팅 패키지 — {case['case_id']}", body)
+
+
 def index_page(links: list[dict]) -> str:
     items = "".join(
         f"<a class='report-link' href='{esc(l['href'])}'>"
@@ -866,6 +939,7 @@ def main():
     cases = load_cases()
     computed, links = [], []
     n_partial = 0
+    n_pkg = 0
     for c in cases:
         # P3-21d: 부분 케이스(시공축 전용)는 4축 계산 없이 전용 페이지만 렌더
         if c.get("partial"):
@@ -886,6 +960,16 @@ def main():
         rr_ = f" · 실질ROI {ec['real_roi']*100:.1f}%" if ec["real_roi"] else ""
         links.append({"href": fn, "title": c["title"],
                       "desc": f"4축 종합 · ROI {ec['roi']*100:.1f}%{rr_}"})
+
+        # 🔴181차 — D1~D20 패키지. 주입이 없는 산출물은 **자료 요청서로** 나온다.
+        pkg = cpkg.build_package(c)
+        pfn = f"SmartFarm_컨설팅패키지_{c['case_id']}.html"
+        with open(pfn, "w", encoding="utf-8") as f:
+            f.write(consulting_package_page(c, pkg))
+        _n_open = len(pkg["open_injections"])
+        links.append({"href": pfn, "title": f"■ {c['title']} 컨설팅 패키지",
+                      "desc": f"D1~D20 · 주입 대기 {_n_open}종(판정 없음)"})
+        n_pkg += 1
 
         crn = f"SmartFarm_통합보고서_{c['case_id']}.html"
         with open(crn, "w", encoding="utf-8") as f:
@@ -928,6 +1012,7 @@ def main():
 
     print(f"사이트 생성 완료: index + 케이스 {len(cases) - n_partial}건"
           + (f" + 부분케이스 {n_partial}건" if n_partial else "")
+          + f" + 컨설팅패키지 {n_pkg}건"
           + " + 비교뷰 + 벤치마크 + CAPEX분해 + 근거대장"
           + (f" + 견적비교 {n_quote_pages}건" if n_quote_pages else ""))
     return computed
