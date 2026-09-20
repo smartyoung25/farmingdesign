@@ -4988,8 +4988,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 106, "partial": 57, "near": 9}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 176차 실측은 exact 106 / partial 57 / near 9이다"
+    assert dist == {"exact": 106, "partial": 57, "near": 10}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 177차 실측은 exact 106 / partial 57 / near 10이다"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -5053,9 +5053,9 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 9 and ledger.count("[부분]") == 57, (
+    assert ledger.count("[근접]") == 10 and ledger.count("[부분]") == 57, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
-        "173차 실측(9·56)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
+        "177차 실측(10·57)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
         "(137차 확정 8·50 → 151차 partial +3 → 161차 near +1"
         "= `FR_TABLE`의 [표 3-3-27] → 🔴163차 **partial +2**"
         "= `REGION_DESIGN_LOAD`의 고시 [별표] 사본 2건)")
@@ -5255,8 +5255,8 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 66, (
-        f"partial·near가 {len(rows)}건이다 — 175차 실측은 66건"
+    assert len(rows) == 67, (
+        f"partial·near가 {len(rows)}건이다 — 177차 실측은 67건"
         "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1 + `REGION_DESIGN_LOAD` 2 "
         "+ 🔴173차 감리 절차의 세 번째 시방서 사본 1)")
 
@@ -5992,7 +5992,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 106, "partial": 57, "near": 9}, (
+    assert dist == {"exact": 106, "partial": 57, "near": 10}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6491,9 +6491,9 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 172, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 176차 실측은 172건"
-        "(175차 171 + 🔴176차 내용연수 표 1건)")
+    assert a["counts"]["source_refs"] == 173, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 177차 실측은 173건"
+        "(176차 172 + 🔴177차 농진청 원문 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
              for x in a["refless_measured"]}
@@ -7576,8 +7576,8 @@ def test_163cha_design_load_byepyo_registered():
         "🔴 REGION_DESIGN_LOAD가 다시 refless_blocked에 있다")
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE", "OPEX_ITEM_CATEGORIES"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 163차 실측은 3건이다")
-    assert a["counts"]["source_refs"] == 172, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 176차 실측은 172건")
+    assert a["counts"]["source_refs"] == 173, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 177차 실측은 173건")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -8802,6 +8802,95 @@ def test_176cha_service_life_three_sources_not_merged():
     assert "기본 조회처를 바꾸지 않았다" in doc, (
         "🔴 LCC·점검 함수가 여전히 조달청 표를 본다는 표기가 사라졌다")
     assert "다른 28개 시트를 읽지 않았다" in doc
+
+
+def test_177cha_rda_source_obtained_but_not_transcribed():
+    """177차 — 농진청 원문을 **확보했고**, 그래도 **등재하지 않았다**.
+
+    🔴 176차 등재의 출처 xlsx는 *「원문을 온라인으로 확보하지 못해 … 준용 가정치」*라
+    적었다. 농사로에 **있었다**(141쪽) — 161·163·168·173차와 같은 **탐색 범위** 문제다.
+
+    🔴 그런데 **141쪽 전부 텍스트가 0자인 스캔본**이고, 좌표 OCR 복원에서 한 행의 값과
+    두 행의 이름이 빠졌다. **검증 없이 옮기면 OCR 잡음이 등재값이 된다** — 그래서
+    확보 사실·구조·**준용 가정의 반증**만 기록하고 **값은 등재하지 않았다**.
+    """
+    import os as _o, sys as _s, json as _j, warnings as _w, pytest as _p
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    doc = open(_o.path.join(repo, "근거_농진청원문확보_내용연수_20260920.md"),
+               encoding="utf-8").read()
+    PDF = "근거_농진청_경제성분석기준자료집_2023.pdf"
+    path = _o.path.join(repo, PDF)
+
+    # ── ① 원문이 리포에 있고 **스캔본**인가 ──────────────────────────
+    assert _o.path.isfile(path) and _o.path.getsize(path) > 10_000_000, (
+        f"🔴 농진청 원문 사본이 사라졌다({PDF}) — 확보 사실의 근거다")
+    pdfplumber = _p.importorskip("pdfplumber")
+    # ⚠️141쪽 전수 추출은 4분이 걸린다 — 내용연수 절을 포함한 **표본 6쪽**만 본다
+    #    (전수 0자는 177차에 한 번 확인했고 근거문서에 적혀 있다).
+    SAMPLE = (1, 3, 124, 126, 128, 141)          # 인쇄 아님, PDF 쪽 번호
+    with _w.catch_warnings():
+        _w.simplefilter("ignore")
+        with pdfplumber.open(path) as f:
+            n_pages = len(f.pages)
+            text_len = sum(len(f.pages[i - 1].extract_text() or "") for i in SAMPLE)
+    assert n_pages == 141, f"🔴 원문이 {n_pages}쪽이다 — 2023년판은 141쪽이다"
+    assert text_len == 0, (
+        f"🔴 표본 6쪽에서 텍스트가 {text_len}자 추출된다 — 177차 실측은 **0자(스캔본)**이고, "
+        "그것이 OCR로 읽어야 했던 이유이자 **등재하지 않은 이유**다. "
+        "텍스트층이 생겼다면 값 확정을 다시 검토하라")
+    assert "141쪽 전부 텍스트가 0자" in doc, (
+        "🔴 **전수 0자**를 한 번 확인했다는 기록이 사라졌다 — 가드는 표본만 본다")
+
+    # ── ② 🔴 값을 등재하지 **않았는가** ──────────────────────────────
+    T = e.EQUIPMENT_SERVICE_LIFE_AGRI
+    assert len(T) == 67, "🔴 내용연수 등재 품목 수가 바뀌었다 — 177차는 **등재 0건**이다"
+    assert T["분무기"]["rda_years"] == 8, (
+        "🔴 `분무기`의 rda_years가 바뀌었다 — 원문은 동력/살분무/인력으로 **나뉘고** "
+        "`분무기` 단독 기종이 없다. 임의로 하나를 고르면 안 된다")
+    combo = {(v["rda_years"], v["tax_years"]) for v in T.values()}
+    assert combo == {(8, 5), (10, 5), (5, 5)}, (
+        "🔴 등재값이 원문 값으로 바뀌었다 — 177차는 **반증만 기록**했다")
+    src = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    for tok in ("동력살분무기", "고성능분무기", "스피드 스프레이어", "유리세척"):
+        assert tok not in src, (
+            f"🔴 원문 기종명 「{tok}」이 엔진에 들어왔다 — OCR 재구성은 **검증되지 않았다**")
+
+    # ── ③ 반증이 기록됐는가(원문이 준용 가정과 다르다) ───────────────
+    for tok in ("동력분무기 | **9**", "인력분무기 | **5**",
+                "| 기초공사(토목) | **20** | **10** |", "**온풍기** | **7** | **7** |"):
+        assert tok in doc, f"🔴 원문 대조에서 「{tok}」가 사라졌다"
+    assert "조달청고시(제2021-41호, 2022년 1월 1일 시행) 참조" in doc, (
+        "🔴 **두 표가 참조 관계**라는 부수 발견이 사라졌다")
+    assert "제2024-30호" in doc and "판이 다르다" in doc, (
+        "🔴 엔진 등재 조달청 표의 **판이 다르다**는 단서가 사라졌다")
+
+    # ── ④ 🔴 등재하지 않은 이유와 결손이 적혔는가 ────────────────────
+    assert "동력경운기` 한 행의 값이 숫자로 인식되지 않아 빠졌고" in doc
+    assert "OCR 잡음을 등재값으로 만든다" in doc
+    assert "33/33" in doc and "33/35" in doc, "🔴 짝짓기 성적표가 사라졌다"
+
+    # ── ⑤ ★ 질문이 바뀌었다는 기록 ───────────────────────────────────
+    assert "고를 문제가 아니라" in doc and "어떤 분무기인가" in doc, (
+        "🔴 ★`분무기` 항목이 **질문 자체가 바뀌었다**는 결론이 사라졌다")
+    assert "임의로 하나를 고르지 않았다" in doc
+
+    # ── ⑥ ref가 near로 붙었는가(등재값과 다르다는 뜻) ────────────────
+    reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                        encoding="utf-8").read())
+    refs = reg["constants"]["EQUIPMENT_SERVICE_LIFE_AGRI"]["source_refs"]
+    hit = [r for r in refs if r["file"] == PDF]
+    assert len(hit) == 1 and hit[0]["match"] == "near", (
+        "🔴 농진청 원문 ref가 없거나 near가 아니다 — **등재값과 다르다**는 것이 이 ref의 뜻이다")
+    assert "141쪽 전부 텍스트 0자인 스캔본" in hit[0]["note"]
+
+    # ── ⑦ 하지 않은 것 ───────────────────────────────────────────────
+    assert "기종별 값을 등재하지 않았다" in doc
+    assert "조달청 제2021-41호 원문을 대조하지 않았다" in doc
+    assert "2023년판만 봤다" in doc
 
 
 if __name__ == "__main__":
