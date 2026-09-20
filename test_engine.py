@@ -7745,6 +7745,95 @@ def test_164cha_change_count_claim_is_internally_impossible():
     assert "자료 없음은 스킵" in doc
 
 
+def test_166cha_service_design_claims_are_measured():
+    """166차 — 서비스 설계 문서의 **커버리지 주장을 결과로 재검증**한다.
+
+    설계 문서는 *"있음/부분/없음"*을 적는다. 그 주장이 **서술로만 남으면**
+    코드가 움직였을 때 조용히 거짓이 된다(146차 계열). 그래서 이 가드는
+    ①문서가 **이름을 대고 인용한 엔진 함수가 실제로 있는지**를 AST로 확인하고
+    ②*"코드 5파일 전수 0건"*이라 적은 키워드가 **정말 0건인지** 다시 센다.
+
+    🔴 **단계 분류(어느 함수를 「감리」로 볼지)는 판단이라 고정하지 않는다** —
+    고정하면 재분류를 막는다. 고정하는 것은 **실재와 부재**뿐이다.
+    """
+    import os as _o, sys as _s, ast as _ast, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    eng = rd("smartfarm_engine.py")
+    tree = _ast.parse(eng)
+
+    pub = {n.name for n in tree.body
+           if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+           and not n.name.startswith("_")}
+    cls = {n.name for n in tree.body if isinstance(n, _ast.ClassDef)}
+    assert len(pub) == 53 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 166차 실측은 53·30이다. "
+        "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
+    assert "공개 함수 53개·데이터 클래스 30개" in doc
+
+    # ── ① 문서가 이름을 대고 인용한 함수가 **실재하는가** ─────────────
+    # 🔴 7절 「미구현 백로그」는 **제안 이름**이다 — 실재 주장과 갈라야 한다.
+    #    1차 설계가 이 둘을 섞어 세서 가드가 제안 7건을 "없는 기능"으로 잡았다.
+    PROPOSED = {"inspection_checklist", "commissioning_plan", "completion_docset",
+                "site_permit_checklist", "maintenance_schedule",
+                "defect_tracking", "equipment_reconcile"}
+    head, _, backlog = doc.partition("## 7. 미구현 백로그")
+    assert backlog, "🔴 7절(미구현 백로그)이 사라졌다"
+    cited = set(_re.findall(r"`([a-z_][a-z0-9_]{3,})\(", head))
+    known = pub | cls | {"finance", "md", "main"}
+    missing = sorted(c for c in cited if c not in known)
+    assert not missing, (
+        f"🔴 문서가 **있다고** 인용한 함수가 엔진에 없다: {missing} — "
+        "설계 문서가 없는 기능을 있다고 적고 있다")
+    assert not (cited & PROPOSED), (
+        f"🔴 미구현 제안이 7절 밖에서 인용됐다: {sorted(cited & PROPOSED)}")
+    for fn in PROPOSED:
+        assert f"`{fn}(" in backlog, f"🔴 백로그에서 {fn}() 제안이 사라졌다"
+        assert fn not in pub, (
+            f"🔴 {fn}()이 구현됐다 — 7절 백로그에서 빼고 커버리지 표의 ⬜를 갱신하라")
+    assert len(cited) >= 30, (
+        f"문서가 인용한 엔진 함수가 {len(cited)}종뿐이다 — 커버리지 표가 비었는지 보라")
+
+    # ── ② 「0건」이라 적은 것이 **정말 0건인가**(부재도 측정이다) ──────
+    FILES = ("smartfarm_engine.py", "webapp.py", "build_site.py",
+             "cases.py", "render_report.py")
+    blob = "".join(rd(f) for f in FILES)
+    # 문서가 **「**0건**」 형태로 못 박은** 10종은 표기까지 고정한다
+    for kw in ("검측", "시공검사", "성능시험", "시운전", "준공", "검사체크",
+               "유지보수", "사후관리", "정기점검", "A/S"):
+        assert f"`{kw}` **0건**" in doc, f"🔴 문서에서 {kw}의 0건 표기가 사라졌다"
+    # 실측은 표기와 별개로 **다시 센다** — 구현이 들어오면 문서가 거짓이 된다
+    for kw in ("검측", "시공검사", "성능시험", "시운전", "준공", "검사체크",
+               "유지보수", "사후관리", "정기점검", "지내력", "측량", "농지전용"):
+        assert blob.count(kw) == 0, (
+            f"🔴 「{kw}」가 코드 5파일에 {blob.count(kw)}건 있다 — 문서는 0건이라 적는다. "
+            "구현이 들어왔다면 커버리지 표의 ⬜와 7절 백로그를 갱신하라")
+
+    # ── ③ 있다고 적은 핵심 경로는 **실제로 있는가** ──────────────────
+    for fn in ("siting_design_load", "select_specs", "heating_load",
+               "generate_rfq_package", "doc_consistency_check",
+               "reconcile_quote", "compare_quotes", "capex_major_breakdown",
+               "warranty_period", "lcc_replacement_schedule",
+               "design_supervision_fee_reference", "subsidy_application_checklist",
+               "max_investable_capex", "operating_breakeven"):
+        assert fn in pub, f"🔴 설계 문서가 기대는 {fn}()이 사라졌다"
+
+    # ── ④ 자동화 금지선 6개가 문서에 그대로 있는가 ───────────────────
+    for line in ("작목 선정을 하지 않는다", "부지를 고르지 않는다",
+                 "업체를 추천하지 않는다", "최종 판정을 하지 않는다",
+                 "시세를 조회하지 않는다", "근거 없는 수를 만들지 않는다"):
+        assert line in doc, f"🔴 자동화 금지선에서 「{line}」가 사라졌다"
+
+    # ── ⑤ 한계를 적었는가 ────────────────────────────────────────────
+    assert "단계 분류 자체는 판단이다" in doc
+    assert "코드를 한 줄도 바꾸지 않았다" in doc
+    assert "기간·대가·과금 구조를 설계하지 않았다" in doc
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
