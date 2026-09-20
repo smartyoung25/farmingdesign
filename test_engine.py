@@ -7457,6 +7457,49 @@ _BYEPYO_PDFS = (
 )
 
 
+def _byepyo_tail_row(pdfplumber, path, page):
+    """165차 — 셀 파싱이 놓치는 **마지막 「40 이상」 행**을 좌표로 뽑는다.
+
+    🔴 163·164차는 이 행의 16개 지명을 **테스트 안에 손으로 적어 넣고** 다시 셌다.
+    그래서 `len(w40) == 16`은 **깨질 수 없는 가드**였다(156차 *"매칭 텍스트로 재서
+    늘 0"*과 같은 계열). 이제 **헤더 열의 x중심**으로 꼬리 단어를 열에 배정해
+    **실제로 센다** — 원문이 바뀌면 수가 달라진다.
+    """
+    import re as _re
+    ZONES = ["강원도", "경기권", "경상권", "전라권", "충청권", "제주도"]
+    ALIAS = {("강원도", "고성"): "고성(강원)", ("경상권", "고성"): "고성(경남)",
+             ("경기권", "광주"): "광주(경기)", ("전라권", "광주"): "광주광역시"}
+    with pdfplumber.open(path) as pdf:
+        words = pdf.pages[page - 1].extract_words()
+    centers = {}
+    for wd in words:
+        t = wd["text"].strip()
+        if t in ZONES and t not in centers:
+            centers[t] = (wd["x0"] + wd["x1"]) / 2
+    assert len(centers) == len(ZONES), f"권역 헤더를 {len(centers)}개만 찾았다"
+
+    y40 = None
+    for i, wd in enumerate(words):
+        if wd["text"].strip() == "40" and i + 1 < len(words) \
+                and words[i + 1]["text"].strip() == "이상":
+            y40 = wd["top"]
+            break
+    assert y40 is not None, "「40 이상」 라벨을 찾지 못했다"
+
+    order = sorted(centers.items(), key=lambda kv: kv[1])
+    out = {}
+    for wd in words:
+        if wd["top"] < y40 - 14:
+            continue
+        t = wd["text"].strip().strip(",")
+        if not t or t == "-" or t == "이상" or _re.search(r"\d", t):
+            continue
+        x = (wd["x0"] + wd["x1"]) / 2
+        zone = min(order, key=lambda kv: abs(x - kv[1]))[0]
+        out[ALIAS.get((zone, t), t)] = 40
+    return out
+
+
 def _parse_byepyo(pdfplumber, path, page, bands):
     """163차 — 검토서에 전재된 고시 [별표]를 권역 열 x 구간 행으로 읽는다."""
     import re as _re
@@ -7580,10 +7623,18 @@ def test_163cha_design_load_byepyo_reparse():
     assert parsed[0][1] == parsed[1][1], "🔴 두 사본의 풍속 별표가 다르게 읽힌다"
 
     snow, wind = parsed[0]
-    # 풍속표는 셀 파싱이 마지막 「40 이상」 행을 놓친다 — 본문으로 보충한 사실을 남긴다
-    for nm in ("고성(강원)", "양양", "대관령", "속초", "강릉", "통영", "울릉", "울진",
-               "진도", "여수", "완도", "신안", "제주", "고산", "서귀포", "성산"):
-        wind.setdefault(nm, 40)
+    # 🔴165차 자기정정 — 풍속표는 셀 파싱이 마지막 「40 이상」 행을 놓친다.
+    #    163·164차는 그 16개 지명을 **여기에 손으로 적어 넣고** 다시 세서
+    #    `len(w40) == 16`이 **깨질 수 없는 가드**였다. 이제 좌표로 **실제 추출**한다.
+    tails = []
+    with _w.catch_warnings():
+        _w.simplefilter("ignore")
+        for rel in _BYEPYO_PDFS:
+            tails.append(_byepyo_tail_row(pdfplumber, _o.path.join(repo, rel), 6))
+    assert tails[0] == tails[1], "🔴 두 사본의 「40 이상」 꼬리 행이 다르게 읽힌다"
+    assert not (set(tails[0]) & set(wind)), (
+        "🔴 꼬리 행 지명이 이미 셀 파싱에 들어 있다 — 보충이 중복이면 수가 어긋난다")
+    wind.update(tails[0])
 
     for axis, table, key in (("적설", snow, "snow_cm"), ("풍속", wind, "wind_ms")):
         assert set(table) == set(RDL), (
@@ -7606,11 +7657,15 @@ def test_163cha_design_load_byepyo_reparse():
     w40 = {k for k in wind if wind[k] == 40}
     sup_s = {k for k in snow if snow[k] != 40 and RDL[k]["snow_cm"] > snow[k]}
     sup_w = {k for k in wind if wind[k] != 40 and RDL[k]["wind_ms"] > wind[k]}
+    # 🔴165차 — 네 수치는 이제 **전부 원문에서 기계로** 나온다(풍속 16 포함).
+    #    164차 시점의 "네 수치 전부 일치"는 풍속 16에 한해 **자기대조**였다.
     assert (len(s40), len(w40), len(sup_s), len(sup_w)) == (22, 16, 14, 8), (
         f"🔴 서술의 네 수치와 별표 실측이 어긋났다: "
         f"40이상 적설 {len(s40)}(22)·풍속 {len(w40)}(16) · "
         f"그 밖 상향 적설 {len(sup_s)}(14)·풍속 {len(sup_w)}(8). "
         "164차는 **이 넷이 맞다**는 것을 확인하고 합산만 정정했다")
+    assert w40 == set(tails[0]), (
+        "🔴 풍속 「40 이상」 집합이 꼬리 추출 결과와 다르다 — 어느 한쪽이 섞였다")
     changed = (s40 | sup_s) | (w40 | sup_w)
     assert len(changed) == 49 and 172 - len(changed) == 123, (
         f"🔴 바뀐 지역이 {len(changed)}개다 — 164차 실측은 49개 변경·123개 불변이다. "
