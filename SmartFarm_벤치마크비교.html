@@ -65,6 +65,16 @@ ul.needs{margin:6px 0 0 16px;padding:0;color:#7a4b00;font-size:.88em}
 .pill{display:inline-block;padding:2px 8px;border-radius:9px;font-size:.84em;white-space:nowrap}
 .pill.ok{background:#e6f5ea;color:#1c6b33}.pill.warn{background:#fff3d6;color:#8a5a00}
 .pill.need{background:#fdeaea;color:#a22}.pill.link{background:#e8eefb;color:#2c4d9b}
+
+.card.case{border-left:3px solid var(--brand)}
+.steps{display:grid;gap:8px;margin-top:6px}
+a.step{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:baseline;
+  padding:9px 12px;border:1px solid var(--line);border-radius:7px;text-decoration:none;
+  background:var(--card);color:inherit}
+a.step:hover{border-color:var(--brand);background:var(--brand-soft)}
+a.step .k{font-weight:700;color:var(--brand);white-space:nowrap}
+a.step .w{color:var(--muted);font-size:.9em}
+@media (max-width:560px){a.step{grid-template-columns:1fr}}
 </style></head>
 <body><div class="wrap">
   <header class="top"><h1>실측 벤치마크 비교 (시공축)</h1>
@@ -78,5 +88,5 @@ ul.needs{margin:6px 0 0 16px;padding:0;color:#7a4b00;font-size:.88em}
     <p class="note">밴드: 필름 115,000~240,000 / 유리 180,000~230,000 / 불소필름 230,000~310,000 (원/㎡).</p>
   </section>
   <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>
-<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-09-21 05:52</div>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-09-21 06:09</div>
 </div></body></html>

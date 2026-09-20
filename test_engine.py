@@ -7154,9 +7154,15 @@ def test_158cha_siting_probe_is_computed_not_claimed():
         "만들지 않기로 한 것이 158차 결정이다")
 
     # 산출물에 실제로 실렸는가
+    #   🔴183차 — 산출물 **파일명이 표시 코드**로 바뀌었다(실명을 URL에서도 뺐다).
+    #   내부 `case_id`로 파일을 찾던 자리를 `case_display`를 거치게 고친다.
+    import case_display as _cdsp
     for cid in ("chuncheon", "uminjae", "wonchaewon"):
-        h = rd("SmartFarm_통합보고서_%s.html" % cid)
+        _code = _cdsp.ALIASES[cid]["code"]
+        h = rd("SmartFarm_통합보고서_%s.html" % _code)
         assert "매핑표 대조" in h, f"{cid} 리포트에 매핑표 대조 행이 없다"
+        assert not _cdsp.audit(h), (
+            f"🔴 {_code} 통합보고서에 케이스 실명·식별자가 남았다: {_cdsp.audit(h)}")
 
     # ── ④ 정정이 기록됐는가 ──────────────────────────────────────────
     assert "틀린 측정" in doc and "직접 키 매칭" in doc
@@ -9495,6 +9501,102 @@ def test_181cha_package_layer_assembles_without_calculating():
             "**실명과 계약가가 산출물에 나간다**. 등재 수만 센다")
     assert "cpkg.build_package(" in _bs and "consulting_package_page(" in _bs, (
         "🔴 build_site가 패키지를 부르거나 렌더하지 않는다")
+
+
+def test_183cha_case_outputs_carry_no_real_names():
+    """183차 — **케이스 산출물에 실명이 없는가**, 그리고 메뉴가 순서를 갖는가.
+
+    🔴 케이스 5건은 실제 농가·기관 이름을 달고 있다. 산출물은 팀과 공유되므로
+    **생성 HTML과 파일명에서** 실명을 뺀다(`case_display`).
+
+    🔴 **범위는 「케이스」다.** `SmartFarm_근거대장.html`·`CAPEX분해`·`벤치마크비교`에는
+    **실측 출처의 업체·농가 이름**이 남아 있다 — 그것은 케이스가 아니라 **근거의 출처**이고
+    가리면 근거대장이 근거대장이 아니게 된다. **★사용자 결정**으로 남긴다.
+    이 가드는 그 경계를 **수로 고정**한다(조용히 넘어가지 않게).
+    """
+    import os as _o, sys as _s, glob as _g
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import case_display as cdsp
+    import cases as C
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+
+    # ── ① 별칭이 **1:1**이고 이름을 쓰지 않는가 ──────────────────────
+    codes = [a["code"] for a in cdsp.ALIASES.values()]
+    assert len(codes) == len(set(codes)) == 5, f"🔴 표시 코드가 {codes}다 — 5건 1:1이어야 한다"
+    ids = {c["case_id"] for c in C.load_cases()}
+    assert ids == set(cdsp.ALIASES), (
+        f"🔴 케이스와 별칭이 어긋난다 — 케이스 {sorted(ids)} vs 별칭 "
+        f"{sorted(cdsp.ALIASES)}. 등재 안 된 케이스는 산출물에 **해시 코드**로 나간다")
+    for cid, a in cdsp.ALIASES.items():
+        t = cdsp.alias({"case_id": cid})["title"]
+        assert cid not in t and not cdsp.audit(t), f"🔴 {cid}의 표시 제목에 이름이 남았다: {t}"
+
+    # ── ② 미등재 케이스도 **이름을 쓰지 않는가** ─────────────────────
+    fake = {"case_id": "some_farm_name", "title": "실명 농장",
+            "input": {"crop": "토마토", "cover": "유리", "region": "충남"}}
+    fa = cdsp.alias(fake)
+    assert fa["code"].startswith("CX-") and "some_farm_name" not in fa["title"], (
+        "🔴 미등재 케이스가 이름으로 표시된다 — 해시 코드를 써야 한다")
+    assert cdsp.alias(fake)["code"] == fa["code"], "🔴 해시 코드가 호출마다 달라진다"
+
+    # ── ③ 🔴 케이스 산출물 전량에 실명·식별자가 **0건인가** ──────────
+    KINDS = ("리포트", "통합보고서", "부분케이스", "컨설팅패키지")
+    outs = [p for p in _g.glob(_o.path.join(repo, "SmartFarm_*.html"))
+            if any(("_" + k + "_") in _o.path.basename(p) for k in KINDS)]
+    outs.append(_o.path.join(repo, "SmartFarm_케이스비교.html"))
+    outs.append(_o.path.join(repo, "index.html"))
+    assert len(outs) == 13, (
+        f"🔴 케이스 산출물이 {len(outs)}건이다 — 183차 실측은 13건이다"
+        "(리포트 3 · 통합보고서 3 · 컨설팅패키지 3 · 부분케이스 2 · 케이스비교 1 · index 1)")
+    dirty = {}
+    for p in outs:
+        found = cdsp.audit(open(p, encoding="utf-8").read())
+        if found:
+            dirty[_o.path.basename(p)] = found
+    assert not dirty, (
+        f"🔴 케이스 산출물에 실명·내부 식별자가 남았다: {dirty} — "
+        "`case_display.scrub()`을 거치지 않은 생성 경로가 있다")
+
+    # ── ④ 파일명에도 남지 않았는가(URL이 곧 노출이다) ────────────────
+    #   🔴 **고아 파일**까지 본다: 이름을 바꾸면 옛 이름의 산출물이 리포에 남는다.
+    #   183차에 실제로 **11건이 남아 있었다**(git 추적 중이었다) — 지웠다.
+    orphans = sorted(_o.path.basename(p) for p in
+                     _g.glob(_o.path.join(repo, "SmartFarm_*.html"))
+                     if cdsp.audit(_o.path.basename(p)))
+    assert not orphans, (
+        f"🔴 실명·내부 식별자가 **파일명에 남은 산출물**이 있다: {orphans} — "
+        "이름을 바꾼 뒤 옛 파일을 지우지 않으면 URL로 그대로 노출된다")
+    for p in outs:
+        b = _o.path.basename(p)
+        assert not cdsp.audit(b), f"🔴 파일명에 실명·식별자가 남았다: {b}"
+
+    # ── ⑤ 🔴 범위 밖은 **가리지 않았다**(그리고 그 사실을 센다) ──────
+    OUT_OF_SCOPE = ("SmartFarm_근거대장.html", "SmartFarm_CAPEX분해.html",
+                    "SmartFarm_벤치마크비교.html")
+    left = {f: sum(cdsp.audit(rd(f)).values()) for f in OUT_OF_SCOPE}
+    assert all(v > 0 for v in left.values()), (
+        f"🔴 범위 밖 산출물에서 이름이 사라졌다: {left} — 근거대장의 출처 표기까지 "
+        "가렸다면 **추적성이 끊긴 것**이다. 의도한 변경이면 ★결정으로 기록하라")
+    src = rd("case_display.py")
+    assert "★사용자 결정으로 남긴다" in src and "근거대장이 근거대장이 아니게 된다" in src, (
+        "🔴 범위를 「케이스」로 한정한 이유가 모듈에서 사라졌다")
+
+    # ── ⑥ 메뉴가 **보는 순서**를 갖는가 ──────────────────────────────
+    idx = rd("index.html")
+    for kind in ("통합보고서", "컨설팅 패키지", "4축 리포트"):
+        assert kind in idx, f"🔴 메뉴에서 「{kind}」 단계가 사라졌다"
+    assert idx.index("통합보고서") < idx.index("컨설팅 패키지") < idx.index("4축 리포트"), (
+        "🔴 메뉴의 단계 순서가 바뀌었다 — **통합보고서 → 패키지 → 상세**가 보는 순서다")
+    for cod in sorted(codes):
+        assert ("class='axis'>%s<" % cod) in idx or (">%s<" % cod) in idx, (
+            f"🔴 메뉴에 케이스 {cod} 묶음이 없다")
+    for g in ("비교", "기준·근거"):
+        assert g in idx, f"🔴 메뉴에서 「{g}」 묶음이 사라졌다"
+    assert "추천·판정 없음" in idx, (
+        "🔴 첫 화면의 **판정하지 않는다**는 표기가 사라졌다 — 서비스의 전제다")
 
 
 if __name__ == "__main__":

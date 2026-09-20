@@ -20,8 +20,14 @@ def test_home_lists_every_case_with_chips():
     r = client.get("/")
     assert r.status_code == 200
     body = r.text
+    # 🔴183차 — 카드는 **표시 코드**로 나온다(산출물에 실명을 싣지 않는다).
+    import case_display as cdsp
     for c in C.load_cases():
-        assert c["title"] in body, f"{c['case_id']} 카드 누락"
+        assert cdsp.alias(c)["title"] in body, f"{c['case_id']} 카드 누락"
+        assert c["title"] not in body, (
+            f"🔴 {c['case_id']}의 **실명 제목이 그대로 나갔다** — 표시 계층을 거치지 않았다")
+    assert not cdsp.audit(body), (
+        f"🔴 홈 화면에 케이스 실명·식별자가 남았다: {cdsp.audit(body)}")
     # 근거 칩: 실측(정식 3건)과 참고(부분 2건)가 모두 노출
     assert "chip-measured" in body and "chip-ref" in body
     # 데이터 대기 배너는 케이스 데이터에서 도출된다(현재 ①·③·④ 전부 대기)
@@ -56,9 +62,12 @@ def test_pages_whitelist_and_traversal_guard():
 
 def test_partial_case_links_to_partial_page():
     r = client.get("/")
-    assert "SmartFarm_부분케이스_yonggyun.html" in r.text
-    assert "SmartFarm_부분케이스_mulhyangki.html" in r.text
-    assert "SmartFarm_통합보고서_wonchaewon.html" in r.text
+    # 🔴183차 — 파일명도 표시 코드다. 실명이 URL에 남으면 가린 의미가 없다.
+    assert "SmartFarm_부분케이스_C4.html" in r.text
+    assert "SmartFarm_부분케이스_C5.html" in r.text
+    assert "SmartFarm_통합보고서_C2.html" in r.text
+    for old in ("yonggyun", "mulhyangki", "wonchaewon"):
+        assert old not in r.text, f"🔴 내부 식별자 {old}가 링크에 남았다"
 
 
 def test_health():
@@ -86,7 +95,9 @@ def tmp_cases(tmp_path, monkeypatch):
 def test_entry_hub_lists_full_cases_only():
     r = client.get("/entry")
     assert r.status_code == 200
-    assert "원채원" in r.text and "물향기" not in r.text  # 부분 케이스는 기입 대상 아님
+    # 🔴183차 — 실명 대신 표시 코드. 부분 케이스(C5)는 기입 대상이 아니다.
+    assert "C2" in r.text and "C5" not in r.text
+    assert "원채원" not in r.text and "물향기" not in r.text
     assert "폼 열기" in r.text
 
 
@@ -206,7 +217,11 @@ def test_newcase_save_roundtrip(tmp_cases):
     assert saved["wizard"]["policy"].startswith("웹 마법사")
     assert "test_wizard" in {c["case_id"] for c in C.load_cases()}  # 로더가 그대로 소비
     home = client.get("/").text
-    assert "마법사 테스트(합성)" in home and "chip-est" in home  # 홈 카드 + 추정 칩
+    # 🔴183차 — 미등재 케이스도 **이름을 쓰지 않는다**: `case_id` 해시 코드로 나온다.
+    import case_display as cdsp
+    assert cdsp._fallback_code("test_wizard") in home and "chip-est" in home
+    assert "마법사 테스트(합성)" not in home, (
+        "🔴 미등재 케이스의 제목이 그대로 나갔다 — 새 케이스에도 표시 계층이 걸려야 한다")
     # 마법사는 신규 전용 — 중복 id는 409
     assert client.post("/entry/newcase/save", data=_wizard_form()).status_code == 409
 

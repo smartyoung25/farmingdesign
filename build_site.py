@@ -12,6 +12,7 @@ import smartfarm_engine as e
 import render_report as rr
 from cases import load_cases, case_to_input
 import consulting_package as cpkg
+import case_display as cdsp
 
 esc = html.escape
 
@@ -127,6 +128,18 @@ def _sc(s: str) -> str:
     return "ok" if "정상" in s else ("warn" if ("경계" in s or "재확인" in s) else "bad")
 
 
+_MENU_CSS = """
+.card.case{border-left:3px solid var(--brand)}
+.steps{display:grid;gap:8px;margin-top:6px}
+a.step{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:baseline;
+  padding:9px 12px;border:1px solid var(--line);border-radius:7px;text-decoration:none;
+  background:var(--card);color:inherit}
+a.step:hover{border-color:var(--brand);background:var(--brand-soft)}
+a.step .k{font-weight:700;color:var(--brand);white-space:nowrap}
+a.step .w{color:var(--muted);font-size:.9em}
+@media (max-width:560px){a.step{grid-template-columns:1fr}}
+"""
+
 _PKG_CSS = """
 table.pkg{width:100%;border-collapse:collapse;font-size:.9em}
 table.pkg td,table.pkg th{border-top:1px solid #e3e6ea;padding:7px 8px;vertical-align:top}
@@ -148,7 +161,7 @@ def _page(title: str, body: str) -> str:
     gen = _dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{esc(title)}</title><style>{_CSS}{_PKG_CSS}</style></head>
+<title>{esc(title)}</title><style>{_CSS}{_PKG_CSS}{_MENU_CSS}</style></head>
 <body><div class="wrap">{body}
 <div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 {gen}</div>
 </div></body></html>"""
@@ -922,17 +935,79 @@ def consulting_package_page(case: dict, pkg: dict) -> str:
     return _page(f"컨설팅 패키지 — {case['case_id']}", body)
 
 
+_MENU_KINDS = (
+    ("통합보고서", "먼저 볼 것 — 4축 요약과 경영자 요약"),
+    ("컨설팅 패키지", "D1~D22 산출물 + 무엇이 더 필요한지"),
+    ("4축 리포트", "계산 상세 — 진단·설계·시공·경제성"),
+    ("부분 케이스", "시공축만 — 실측 공사비·규격(4축 미산출)"),
+)
+
+
 def index_page(links: list[dict]) -> str:
-    items = "".join(
-        f"<a class='report-link' href='{esc(l['href'])}'>"
-        f"<span class='t'>{esc(l['title'])}</span>"
-        f"<span class='d'>{esc(l['desc'])}</span></a>" for l in links)
+    """183차 — **무엇부터 보면 되는지**가 보이게 짠다.
+
+    종전은 산출물 12~15건이 한 줄로 나열돼 있어 **어디서 시작할지**를 알 수 없었다.
+    ①케이스별로 묶고 ②케이스 안에서 **보는 순서**(통합보고서 → 패키지 → 상세)로 세우고
+    ③케이스에 속하지 않는 기준·비교 자료를 따로 뺀다.
+    🔴 케이스 이름은 **표시 코드**다(`case_display`) — 산출물에 실명을 싣지 않는다.
+    """
+    def card(l, num=None):
+        n = f"<span class='num'>{esc(num)}</span>" if num else ""
+        return (f"<a class='report-link' href='{esc(l['href'])}'>{n}"
+                f"<span class='t'>{esc(l['title'])}</span>"
+                f"<span class='d'>{esc(l['desc'])}</span></a>")
+
+    cases, groups = {}, {}
+    for l in links:
+        g = l.get("group") or "기타"
+        if g == "케이스":
+            cases.setdefault(l["code"], []).append(l)
+        else:
+            groups.setdefault(g, []).append(l)
+
+    blocks = []
+    for cod in sorted(cases):
+        rows = cases[cod]
+        head = rows[0]["title"].split(" — ")[0]
+        ordered, seen = [], set()
+        for kind, why in _MENU_KINDS:
+            for l in rows:
+                if l["title"].endswith(kind) and id(l) not in seen:
+                    seen.add(id(l))
+                    ordered.append((l, kind, why))
+        rest = [l for l in rows if id(l) not in seen]
+        lis = "".join(
+            f"<a class='step' href='{esc(l['href'])}'>"
+            f"<span class='k'>{esc(kind)}</span>"
+            f"<span class='w'>{esc(why)}</span></a>"
+            for l, kind, why in ordered)
+        lis += "".join(
+            f"<a class='step' href='{esc(l['href'])}'>"
+            f"<span class='k'>{esc(l['title'].split(' — ')[-1])}</span>"
+            f"<span class='w'>{esc(l['desc'])}</span></a>" for l in rest)
+        blocks.append(
+            f"<section class='card case'><span class='axis'>{esc(cod)}</span>"
+            f"<h2>{esc(head)}</h2><div class='steps'>{lis}</div></section>")
+
+    tail = []
+    for g in ("비교", "기준·근거", "기타"):
+        if not groups.get(g):
+            continue
+        head = {"비교": "여러 건을 나란히 보기",
+                "기준·근거": "수치가 어디서 왔는지"}.get(g, g)
+        tail.append(f"<section class='card'><span class='axis'>{esc(g)}</span>"
+                    f"<h2>{esc(head)}</h2>"
+                    + "".join(card(l) for l in groups[g]) + "</section>")
+
     body = f"""
-  <header class="top"><h1>SmartFarm 진단·운영 리포트</h1>
-    <div class="sub">진단 · 설계 · 시공 · 경제성 4축 · 계산 출처 smartfarm_engine 단일</div></header>
-  <section class="card"><span class="axis">리포트 목록</span>
-    <h2>바로가기</h2>{items}</section>"""
-    return _page("SmartFarm 리포트", body)
+  <header class="top"><h1>스마트팜 컨설팅 산출물</h1>
+    <div class="sub">케이스 {len(cases)}건 · 진단 · 설계 · 시공 · 경제성 4축 ·
+      계산 출처 <b>smartfarm_engine 단일</b> · <b>추천·판정 없음</b></div>
+    <div class="sub">케이스는 <b>표시 코드</b>로 적는다 — 산출물에 실명을 싣지 않는다.
+      보는 순서는 <b>통합보고서 → 컨설팅 패키지 → 4축 리포트</b>다.</div></header>
+  {''.join(blocks)}
+  {''.join(tail)}"""
+    return _page("스마트팜 컨설팅 산출물", body)
 
 
 def main():
@@ -942,58 +1017,71 @@ def main():
     n_pkg = 0
     for c in cases:
         # P3-21d: 부분 케이스(시공축 전용)는 4축 계산 없이 전용 페이지만 렌더
+        # 🔴183차 — 파일명·제목·본문에서 케이스 실명을 뺀다(`case_display`).
+        #   내부 `case_id`는 그대로 쓰고 **표시 계층에서만** 코드로 바꾼다.
+        al = cdsp.alias(c)
         if c.get("partial"):
-            fn = f"SmartFarm_부분케이스_{c['case_id']}.html"
+            fn = f"SmartFarm_부분케이스_{al['code']}.html"
             with open(fn, "w", encoding="utf-8") as f:
-                f.write(partial_construction_page(c))
-            links.append({"href": fn, "title": f"▷ {c['title']}",
-                          "desc": "시공축 부분 케이스 — 실측 공사비·규격만(4축 미산출)"})
+                f.write(cdsp.scrub(partial_construction_page(c)))
+            links.append({"href": fn, "title": f"{al['title']} — 부분 케이스",
+                          "desc": "시공축만 — 실측 공사비·규격(4축 미산출)",
+                          "group": "케이스", "code": al["code"]})
             n_partial += 1
             continue
         inp = case_to_input(c)
         res = rr.compute(inp)
-        fn = f"SmartFarm_리포트_{c['case_id']}.html"
+        fn = f"SmartFarm_리포트_{al['code']}.html"
         with open(fn, "w", encoding="utf-8") as f:
-            f.write(rr.render_html(res))
+            f.write(cdsp.scrub(rr.render_html(res)))
         computed.append({"case": c, "res": res})
         ec = res["economics"]
         rr_ = f" · 실질ROI {ec['real_roi']*100:.1f}%" if ec["real_roi"] else ""
-        links.append({"href": fn, "title": c["title"],
-                      "desc": f"4축 종합 · ROI {ec['roi']*100:.1f}%{rr_}"})
+        links.append({"href": fn, "title": f"{al['title']} — 4축 리포트",
+                      "desc": f"진단·설계·시공·경제성 · ROI {ec['roi']*100:.1f}%{rr_}",
+                      "group": "케이스", "code": al["code"]})
 
         # 🔴181차 — D1~D20 패키지. 주입이 없는 산출물은 **자료 요청서로** 나온다.
         pkg = cpkg.build_package(c)
-        pfn = f"SmartFarm_컨설팅패키지_{c['case_id']}.html"
+        pfn = f"SmartFarm_컨설팅패키지_{al['code']}.html"
         with open(pfn, "w", encoding="utf-8") as f:
-            f.write(consulting_package_page(c, pkg))
+            f.write(cdsp.scrub(consulting_package_page(c, pkg)))
         _n_open = len(pkg["open_injections"])
-        links.append({"href": pfn, "title": f"■ {c['title']} 컨설팅 패키지",
-                      "desc": f"D1~D20 · 주입 대기 {_n_open}종(판정 없음)"})
+        links.append({"href": pfn, "title": f"{al['title']} — 컨설팅 패키지",
+                      "desc": f"D1~D22 산출물 + 자료 요청서 {_n_open}종 (판정 없음)",
+                      "group": "케이스", "code": al["code"]})
         n_pkg += 1
 
-        crn = f"SmartFarm_통합보고서_{c['case_id']}.html"
+        crn = f"SmartFarm_통합보고서_{al['code']}.html"
         with open(crn, "w", encoding="utf-8") as f:
-            f.write(consulting_report_page(c, res, inp))
-        links.append({"href": crn, "title": f"▶ {c['title']} 통합보고서",
-                      "desc": "입지·설계·운영·경제성 4섹션 + 경영자요약"})
+            f.write(cdsp.scrub(consulting_report_page(c, res, inp)))
+        links.append({"href": crn, "title": f"{al['title']} — 통합보고서",
+                      "desc": "입지·설계·운영·경제성 4섹션 + 경영자요약",
+                      "group": "케이스", "code": al["code"]})
 
     with open("SmartFarm_벤치마크비교.html", "w", encoding="utf-8") as f:
         f.write(benchmark_page())
     with open("SmartFarm_케이스비교.html", "w", encoding="utf-8") as f:
-        f.write(comparison_page(computed))
+        # 🔴183차 — 케이스 비교도 **케이스 산출물**이라 실명을 뺀다.
+        #   벤치마크·CAPEX분해·근거대장은 **실측 출처 계층**이라 범위 밖이다(★결정).
+        f.write(cdsp.scrub(comparison_page(computed)))
     with open("SmartFarm_근거대장.html", "w", encoding="utf-8") as f:
         f.write(registry_page())
     with open("SmartFarm_CAPEX분해.html", "w", encoding="utf-8") as f:
         f.write(capex_breakdown_page())
 
-    links.append({"href": "SmartFarm_케이스비교.html", "title": "▶ 케이스 비교 뷰",
-                  "desc": f"{len(cases) - n_partial}개 케이스 KPI 대조 + 근거"})
-    links.append({"href": "SmartFarm_벤치마크비교.html", "title": "▶ 실측 벤치마크 비교",
-                  "desc": f"{len(e.ACTUALS)}건 · 시공축 밴드 대조"})
-    links.append({"href": "SmartFarm_CAPEX분해.html", "title": "▶ CAPEX 공종 카테고리 분해",
-                  "desc": f"{len(e.CAPEX_CASE_CHUNKS)}건 실측 청킹 · 9개 표준 카테고리"})
-    links.append({"href": "SmartFarm_근거대장.html", "title": "▶ 엔진 상수 근거대장",
-                  "desc": "P0 provenance · 엔진과 자동 대조"})
+    links.append({"href": "SmartFarm_케이스비교.html", "title": "케이스 비교",
+                  "desc": f"{len(cases) - n_partial}건 KPI 나란히 보기 + 근거",
+                  "group": "비교"})
+    links.append({"href": "SmartFarm_벤치마크비교.html", "title": "실측 벤치마크 비교",
+                  "desc": f"실측 {len(e.ACTUALS)}건 · 시공축 밴드 대조",
+                  "group": "비교"})
+    links.append({"href": "SmartFarm_CAPEX분해.html", "title": "CAPEX 공종 분해",
+                  "desc": f"실측 {len(e.CAPEX_CASE_CHUNKS)}건 · 9개 표준 카테고리",
+                  "group": "기준·근거"})
+    links.append({"href": "SmartFarm_근거대장.html", "title": "엔진 상수 근거대장",
+                  "desc": "상수마다 출처를 붙여 둔 대장 · 엔진과 자동 대조",
+                  "group": "기준·근거"})
 
     # P3-23(2026-08-17): 7단계 compare_quotes 연결 — 견적비교_*.json 전부 순회
     # (확장 2026-08-17: 파일 고정 → glob 일반화. 데이터 파일 추가만으로 페이지 증설)
@@ -1003,8 +1091,9 @@ def main():
         fn = f"SmartFarm_견적비교_{qdata['comparison_id']}.html"
         with open(fn, "w", encoding="utf-8") as f:
             f.write(quotes_comparison_page(qdata, qrfq, qcmp))
-        links.append({"href": fn, "title": f"▶ {qdata['title']}",
-                      "desc": f"{len(qdata['vendor_quotes'])}개 안 · RFQ 정합검증 · 참고정보(추천 없음)"})
+        links.append({"href": fn, "title": qdata["title"],
+                      "desc": f"{len(qdata['vendor_quotes'])}개 안 · RFQ 정합검증 · "
+                              "참고정보(추천 없음)", "group": "비교"})
         n_quote_pages += 1
 
     with open("index.html", "w", encoding="utf-8") as f:

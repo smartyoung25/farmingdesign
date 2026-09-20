@@ -13,6 +13,7 @@
 실행:  python -m uvicorn webapp:app --port 8600
 테스트: pytest test_webapp.py -q
 """
+import case_display as cdsp
 import glob
 import json
 import re
@@ -53,11 +54,11 @@ def _case_card(case: dict) -> dict:
     if case.get("partial"):
         inp = case.get("input", {})
         return {
-            "case_id": cid, "title": case["title"],
+            "case_id": cid, "title": cdsp.alias(case)["title"],
             "meta": f"{inp.get('crop', '—')} · {inp.get('area_m2', '—')}㎡ · {case.get('partial')}",
             "kpi": f"총공사비 {inp.get('total_construction_cost', 0):,}원 · 4축 미산출(부분 케이스)",
             "chip": "참고", "chip_class": "chip-ref",
-            "href": f"/pages/SmartFarm_부분케이스_{cid}.html",
+            "href": f"/pages/SmartFarm_부분케이스_{cdsp.code(case)}.html",
         }
     inp = C.case_to_input(case)
     ec = rr.compute(inp)["economics"]
@@ -65,11 +66,11 @@ def _case_card(case: dict) -> dict:
     status = (prov.get("total_construction_cost") or {}).get("status", "추정")
     payback = f"{ec['payback']:.1f}년" if ec["payback"] else "N/A"
     return {
-        "case_id": cid, "title": case["title"],
+        "case_id": cid, "title": cdsp.alias(case)["title"],
         "meta": f"{case['input'].get('crop')} · {case['input'].get('region')} · {case['input'].get('area_m2'):,}㎡",
         "kpi": f"ROI {ec['roi']*100:.1f}% · Payback {payback}",
         "chip": status, "chip_class": chip_class(status),
-        "href": f"/pages/SmartFarm_통합보고서_{cid}.html",
+        "href": f"/pages/SmartFarm_통합보고서_{cdsp.code(case)}.html",
     }
 
 
@@ -175,7 +176,7 @@ def _form_float(form, key, *, required=False, as_int=False):
 def entry_hub(request: Request):
     cs = [c for c in C.load_cases() if not c.get("partial")]
     rows = [{
-        "case_id": c["case_id"], "title": c["title"],
+        "case_id": c["case_id"], "title": cdsp.alias(c)["title"],
         "fin": bool(c.get("financing")),
         "n_sets": len((c.get("scenarios") or {}).get("sets", [])),
     } for c in cs]
