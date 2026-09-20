@@ -4889,6 +4889,123 @@ def completion_docset(doc_consistency_report=None) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# 내용연수 G5: 농진청 준용·세법 기준 (176차 신설)
+#   출처: `근거_스마트팜_경영데이터_조사표_개선본_260812.xlsx` 마지막 탭 「내용연수_기준」
+#   (사용자 제공, 리포 사본 보존). 67품목 × 12 자산유형.
+#   🔴`rda_years`는 **[추정]**이다 — 원본 파일이 스스로 그렇게 적는다:
+#     "기준자료집 원문의 기종별 내용연수표를 온라인으로 확보하지 못해 Q열 수치는
+#      준용 가정치입니다. 원문 확보 시 C열 값을 대조·확정해야 합니다."
+#   ✅`tax_years`는 전 품목 5년이고 **법인세법 시행규칙 별표6 구분2(농업 01)**에서 온다 —
+#     이미 등재된 STRUCTURE_SERVICE_LIFE_STATUTORY의 '별표6_제2호(농업 01 업종별 자산)'
+#     기준연수 5년(범위 4~6)과 **교차 확인된다**.
+#   ⚠️조달청 고시 표(EQUIPMENT_SERVICE_LIFE_REFERENCE)는 **출처가 달라 건드리지 않았다**.
+#     겹치는 키는 '분무기' 하나뿐이고 값이 다르다 — 이견으로 드러낸다.
+# ─────────────────────────────────────────────────────────────
+EQUIPMENT_SERVICE_LIFE_AGRI = {
+    "전기모터 및 배터리": {"asset_type": "원동기·동력기", "rda_years": 8, "tax_years": 5},
+    "분무기": {"asset_type": "방제기", "rda_years": 8, "tax_years": 5},
+    "분무기용 자재": {"asset_type": "방제기", "rda_years": 8, "tax_years": 5},
+    "살분무기": {"asset_type": "방제기", "rda_years": 8, "tax_years": 5},
+    "연무기": {"asset_type": "방제기", "rda_years": 8, "tax_years": 5},
+    "살균기": {"asset_type": "방제기", "rda_years": 8, "tax_years": 5},
+    "원거리용방제기": {"asset_type": "방제기", "rda_years": 8, "tax_years": 5},
+    "종자소독기": {"asset_type": "방제기", "rda_years": 8, "tax_years": 5},
+    "농업용 랩핑기": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "농업용 운반구": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "농업용 작업대": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "농업용동력운반차": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "농업용리프트": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "온실인상장비": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "배토기": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "적과기": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "고설재배정지기": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "농작업의자": {"asset_type": "운반·작업기", "rda_years": 8, "tax_years": 5},
+    "육묘용파종기": {"asset_type": "육묘·파종·정식기", "rda_years": 8, "tax_years": 5},
+    "육묘상자공급기": {"asset_type": "육묘·파종·정식기", "rda_years": 8, "tax_years": 5},
+    "육묘상자세척기": {"asset_type": "육묘·파종·정식기", "rda_years": 8, "tax_years": 5},
+    "육묘상자이송기": {"asset_type": "육묘·파종·정식기", "rda_years": 8, "tax_years": 5},
+    "정식기": {"asset_type": "육묘·파종·정식기", "rda_years": 8, "tax_years": 5},
+    "상토혼합기": {"asset_type": "육묘·파종·정식기", "rda_years": 8, "tax_years": 5},
+    "종자부착기": {"asset_type": "육묘·파종·정식기", "rda_years": 8, "tax_years": 5},
+    "종자선별기": {"asset_type": "육묘·파종·정식기", "rda_years": 8, "tax_years": 5},
+    "농업용난방기": {"asset_type": "난방·냉난방설비", "rda_years": 10, "tax_years": 5},
+    "농업용냉난방기": {"asset_type": "난방·냉난방설비", "rda_years": 10, "tax_years": 5},
+    "농업용 난방자재": {"asset_type": "난방·냉난방설비", "rda_years": 10, "tax_years": 5},
+    "농업용 난방제어기": {"asset_type": "난방·냉난방설비", "rda_years": 10, "tax_years": 5},
+    "농업용방상팬": {"asset_type": "난방·냉난방설비", "rda_years": 10, "tax_years": 5},
+    "시설·온실 환풍기": {"asset_type": "환기·공기순환설비", "rda_years": 10, "tax_years": 5},
+    "시설·온실 환풍기자재": {"asset_type": "환기·공기순환설비", "rda_years": 10, "tax_years": 5},
+    "시설·온실 환풍제어기": {"asset_type": "환기·공기순환설비", "rda_years": 10, "tax_years": 5},
+    "농업용환풍기": {"asset_type": "환기·공기순환설비", "rda_years": 10, "tax_years": 5},
+    "농업용공기교반기": {"asset_type": "환기·공기순환설비", "rda_years": 10, "tax_years": 5},
+    "농업용공기순환제습기": {"asset_type": "환기·공기순환설비", "rda_years": 10, "tax_years": 5},
+    "악취제거기": {"asset_type": "환기·공기순환설비", "rda_years": 10, "tax_years": 5},
+    "농업용 개폐기": {"asset_type": "개폐·스크린설비", "rda_years": 10, "tax_years": 5},
+    "농업용 개폐제어기": {"asset_type": "개폐·스크린설비", "rda_years": 10, "tax_years": 5},
+    "스크린": {"asset_type": "개폐·스크린설비", "rda_years": 10, "tax_years": 5},
+    "양액공급기": {"asset_type": "양액·관수·수처리설비", "rda_years": 10, "tax_years": 5},
+    "양액공급제어기": {"asset_type": "양액·관수·수처리설비", "rda_years": 10, "tax_years": 5},
+    "양액처리장치": {"asset_type": "양액·관수·수처리설비", "rda_years": 10, "tax_years": 5},
+    "농업용수처리기": {"asset_type": "양액·관수·수처리설비", "rda_years": 10, "tax_years": 5},
+    "농업용 관수기자재": {"asset_type": "양액·관수·수처리설비", "rda_years": 10, "tax_years": 5},
+    "농업용수탱크": {"asset_type": "양액·관수·수처리설비", "rda_years": 10, "tax_years": 5},
+    "조사료수경재배기": {"asset_type": "양액·관수·수처리설비", "rda_years": 10, "tax_years": 5},
+    "미생물배양기": {"asset_type": "양액·관수·수처리설비", "rda_years": 10, "tax_years": 5},
+    "CO2발생장치": {"asset_type": "CO2·보광설비", "rda_years": 8, "tax_years": 5},
+    "CO2발생장치제어기": {"asset_type": "CO2·보광설비", "rda_years": 8, "tax_years": 5},
+    "온실용 보광등": {"asset_type": "CO2·보광설비", "rda_years": 8, "tax_years": 5},
+    "식물재배용조명": {"asset_type": "CO2·보광설비", "rda_years": 8, "tax_years": 5},
+    "환경제어기": {"asset_type": "계측·제어·통신·SW", "rda_years": 5, "tax_years": 5},
+    "센서류": {"asset_type": "계측·제어·통신·SW", "rda_years": 5, "tax_years": 5},
+    "통신장치": {"asset_type": "계측·제어·통신·SW", "rda_years": 5, "tax_years": 5},
+    "소프트웨어": {"asset_type": "계측·제어·통신·SW", "rda_years": 5, "tax_years": 5},
+    "온습도조절기": {"asset_type": "계측·제어·통신·SW", "rda_years": 5, "tax_years": 5},
+    "당도측정기": {"asset_type": "계측·제어·통신·SW", "rda_years": 5, "tax_years": 5},
+    "구동기": {"asset_type": "기타 구동설비", "rda_years": 8, "tax_years": 5},
+    "농작물유인자재": {"asset_type": "소농구·유인자재", "rda_years": 5, "tax_years": 5},
+    "농작물유인결속기": {"asset_type": "소농구·유인자재", "rda_years": 5, "tax_years": 5},
+    "농작물유인줄권선기": {"asset_type": "소농구·유인자재", "rda_years": 5, "tax_years": 5},
+    "농작물꼭지제거기": {"asset_type": "소농구·유인자재", "rda_years": 5, "tax_years": 5},
+    "농작물부산물수거기": {"asset_type": "소농구·유인자재", "rda_years": 5, "tax_years": 5},
+    "농작물부산물절단기": {"asset_type": "소농구·유인자재", "rda_years": 5, "tax_years": 5},
+    "농작물잔뿌리제거기": {"asset_type": "소농구·유인자재", "rda_years": 5, "tax_years": 5},
+}
+
+
+def service_life_reference(name: str) -> dict:
+    """내용연수 3출처 대조(결정론) — 어느 값을 쓸지는 정하지 않는다.
+
+    ①조달청 고시(EQUIPMENT_SERVICE_LIFE_REFERENCE, 공공물품 불용 기준)
+    ②농진청 준용(EQUIPMENT_SERVICE_LIFE_AGRI.rda_years) — 🔴**[추정]**
+    ③세법(같은 표 tax_years) — 법인세법 시행규칙 별표6 구분2(농업) 5년
+
+    원본 파일의 권고: *"감가상각·자산등록부는 세법 기준, 경제성·소득분석은 농진청 기준"*.
+    ⚠️**권고를 판정으로 바꾸지 않는다** — 셋을 나란히 두고 `disagreement`만 표시한다.
+    """
+    if not name:
+        raise ValueError("name이 비어 있다")
+    pg = (EQUIPMENT_SERVICE_LIFE_REFERENCE.get(name) or {}).get("years")
+    agri = EQUIPMENT_SERVICE_LIFE_AGRI.get(name)
+    rda = agri["rda_years"] if agri else None
+    tax = agri["tax_years"] if agri else None
+    vals = [v for v in (pg, rda, tax) if v is not None]
+    return {"name": name,
+            "procurement_years": pg,
+            "rda_years": rda, "rda_is_estimate": rda is not None,
+            "tax_years": tax,
+            "asset_type": (agri or {}).get("asset_type"),
+            "disagreement": len(set(vals)) > 1,
+            "sources": {"procurement": "조달청 고시 내용연수표(공공물품 불용 기준)",
+                        "rda": "농진청 경제성분석 기준자료집 준용 — [추정], 원문 미확보",
+                        "tax": "법인세법 시행규칙 별표6 구분2(농업 01) 5년(범위 4~6)"},
+            "note": ("🔴어느 값을 쓸지 **정하지 않는다**. 원본 파일은 *「감가상각·자산등록부는 "
+                     "세법 기준, 경제성·소득분석은 농진청 기준」*을 권고하지만 그것은 **권고**다. "
+                     "`rda_years`는 원본이 스스로 **준용 가정치**라 적는다 — 기준자료집 원문이 "
+                     "들어와야 확정된다. 조달청 표와 농진청 표는 **출처가 다르고** 겹치는 키는 "
+                     "`분무기` 하나뿐이다")}
+
+
+# ─────────────────────────────────────────────────────────────
 # 부지 전단 G3: 인허가·제출물 (175차 신설 — P2)
 #   🔴 공사시방서 「관공서, 기타민원에 대한 인허가 수속 및 협의」 절에서 전사했다.
 #   ⚠️**비용 부담이 사본마다 다르다** — 본문에 섞지 않고 **이견으로 분리**한다

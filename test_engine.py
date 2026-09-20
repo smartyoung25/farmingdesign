@@ -4988,8 +4988,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 105, "partial": 57, "near": 9}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 175차 실측은 exact 105 / partial 57 / near 9이다"
+    assert dist == {"exact": 106, "partial": 57, "near": 9}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 176차 실측은 exact 106 / partial 57 / near 9이다"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -5992,7 +5992,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 105, "partial": 57, "near": 9}, (
+    assert dist == {"exact": 106, "partial": 57, "near": 9}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6491,9 +6491,9 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 171, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 175차 실측은 171건"
-        "(174차 162 + 🔴175차 P2·P4 3상수 9건)")
+    assert a["counts"]["source_refs"] == 172, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 176차 실측은 172건"
+        "(175차 171 + 🔴176차 내용연수 표 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
              for x in a["refless_measured"]}
@@ -7576,8 +7576,8 @@ def test_163cha_design_load_byepyo_registered():
         "🔴 REGION_DESIGN_LOAD가 다시 refless_blocked에 있다")
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE", "OPEX_ITEM_CATEGORIES"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 163차 실측은 3건이다")
-    assert a["counts"]["source_refs"] == 171, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 175차 실측은 171건")
+    assert a["counts"]["source_refs"] == 172, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 176차 실측은 172건")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -7777,8 +7777,9 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴173차 — P1 감리 3함수가 신설돼 54 → 57이 됐다
     # 🔴174차 — P3 사후관리 2함수가 신설돼 57 → 59가 됐다
     # 🔴175차 — P2·P4 2함수가 신설돼 59 → 61이 됐다
-    assert len(pub) == 61 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 175차 실측은 61·30이다. "
+    # 🔴176차 — service_life_reference()가 신설돼 61 → 62가 됐다
+    assert len(pub) == 62 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 176차 실측은 62·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -8032,9 +8033,9 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     sec3 = design.split("## 3. 단계별 상세 설계")[1].split("## 3-b.")[0]
     blocks = _re.split(r"### 3-\d\. ", sec3)[1:]
     counts = [len(names_in(b)) for b in blocks]
-    assert counts == [18, 6, 9, 18, 6, 4], (
-        f"🔴 단계별 함수 수가 {counts}다 — 175차 실측은 [18, 6, 9, 18, 6, 4]다"
-        "(174차 [17,5,9,18,6,4]에 P2·P4 2함수가 더해졌다)")
+    assert counts == [18, 6, 9, 18, 6, 5], (
+        f"🔴 단계별 함수 수가 {counts}다 — 176차 실측은 [18, 6, 9, 18, 6, 5]다"
+        "(175차 [18,6,9,18,6,4]에 내용연수 대조 1함수가 더해졌다)")
     # 🔴173차 — ③감리의 9개 중 **4개는 다른 단계 소유의 「대조 지점」**이다
     #    (select_specs·cover_assembly_lookup·verify_heating_vs_actual·
     #     doc_consistency_check). 그대로 세면 감리 역량이 **4.5배로 부풀어 보인다** —
@@ -8050,8 +8051,8 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     total = sum(own)
     front = own[0] + own[3]
     back = own[2] + own[5]
-    assert total == 57 and front == 36 and back == 9, (
-        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 175차 실측은 57/36/9다")
+    assert total == 58 and front == 36 and back == 10, (
+        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 176차 실측은 58/36/10다")
     # 🔴 핵심 — **개선 ⑦을 적용해도 쏠림 진단은 깨지지 않는다**(69→70% · 9→8%)
     # 🔴 방향을 고정한다 — 뒤(감리+사후관리) 비중은 **170차 8%에서 올라가는 중**이다.
     #    줄어들면 기능이 빠진 것이므로 하한으로 잡는다(상한이 아니다).
@@ -8077,8 +8078,9 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 57 and len(missing) == 4, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 175차 실측은 57/4다: {missing}")
+    assert len(cited) == 58 and len(missing) == 4, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 176차 실측은 58/4다: {missing}")
+    assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
         "🔴 P2·P4 2함수가 설계서에서 빠졌다")
     assert "백로그가 전부 닫혔다" in design, (
@@ -8359,9 +8361,10 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     import json as _j
     reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                         encoding="utf-8").read())
-    assert len(reg["constants"]) == 60, (
-        "🔴 레지스트리 상수가 60개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
-        "173차 감리 2 · 174차 하자 1 · 🔴175차 P2·P4 3상수는 **등재했다**(원문이 리포에 있다)")
+    assert len(reg["constants"]) == 61, (
+        "🔴 레지스트리 상수가 61개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+        "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
+        "**등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
         assert tok not in open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                                encoding="utf-8").read(), (
@@ -8698,6 +8701,107 @@ def test_175cha_permit_dispute_kept_and_equipment_not_judged():
     assert "기자재 적합 판정을 하지 않았다" in doc
     assert "두 기자재 등재 목록을 통합하지 않았다" in doc
     assert "167차 경계 가드에 걸려 뺐다" in doc
+
+
+def test_176cha_service_life_three_sources_not_merged():
+    """176차 — 내용연수 **세 출처를 나란히** 두고 **고르지 않는다**.
+
+    🔴 원본 파일이 **스스로** 농진청 열을 *「준용 가정치」*라 적는다 —
+    *"기준자료집 원문의 기종별 내용연수표를 온라인으로 확보하지 못해"*. 그래서
+    `rda_years`는 `[추정]`이고 등재 status는 **부분실측**이다.
+
+    ✅ 세법 열(전 품목 5년)은 리포에 **이미 등재된** 별표6 제2호(농업 01) 5년(4~6)과
+    **교차 확인**된다.
+
+    🔴 조달청 표(35품목)는 **출처가 달라 건드리지 않았다**. 겹치는 키는 `분무기`
+    하나뿐이고 **셋이 다르다**(10 / 8 / 5) — `disagreement`로 드러낼 뿐 고르지 않는다.
+    """
+    import os as _o, sys as _s, json as _j, warnings as _w, pytest as _p
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    doc = open(_o.path.join(repo, "근거_내용연수_농진청세법_3출처대조_20260920.md"),
+               encoding="utf-8").read()
+    XL = "근거_스마트팜_경영데이터_조사표_개선본_260812.xlsx"
+
+    # ── ① 전사 규모 ──────────────────────────────────────────────────
+    T = e.EQUIPMENT_SERVICE_LIFE_AGRI
+    assert len(T) == 67, f"🔴 내용연수 품목이 {len(T)}개다 — 176차 전사는 67품목이다"
+    assert len({v["asset_type"] for v in T.values()}) == 12
+    import collections as _c
+    combo = _c.Counter((v["rda_years"], v["tax_years"]) for v in T.values())
+    assert combo == {(8, 5): 31, (10, 5): 23, (5, 5): 13}, (
+        f"🔴 (농진청, 세법) 조합이 {dict(combo)}다 — 실측은 (8,5)31·(10,5)23·(5,5)13이다")
+    assert all(v["tax_years"] == 5 for v in T.values()), "🔴 세법 열이 전 품목 5년이 아니다"
+
+    # ── ② 🔴 원본 xlsx에서 **다시 읽어** 대조한다(서술을 믿지 않는다) ──
+    _p.importorskip("openpyxl")
+    from openpyxl import load_workbook
+    path = _o.path.join(repo, XL)
+    assert _o.path.isfile(path), f"🔴 원본 사본이 사라졌다({XL})"
+    with _w.catch_warnings():
+        _w.simplefilter("ignore")
+        wb = load_workbook(path, data_only=True, read_only=True)
+        assert wb.sheetnames[-1] == "내용연수_기준", (
+            f"🔴 마지막 탭이 {wb.sheetnames[-1]}다 — 요청은 **제일 마지막 탭**이었다")
+        rows = [[("" if x is None else str(x).strip()) for x in r]
+                for r in wb["내용연수_기준"].iter_rows(values_only=True)]
+    rows = [r for r in rows if any(r)]
+    body = [r for r in rows[1:] if r[2].isdigit() and r[3].isdigit()]
+    assert len(body) == 67 and len(rows) - 1 - len(body) == 7, (
+        "🔴 원본의 품목 67행·주석 7행 구조가 바뀌었다")
+    import re as _re
+    xl = {_re.sub(r"\s+", " ", r[0]).strip(): (int(r[2]), int(r[3])) for r in body}
+    for k, v in T.items():
+        assert xl.get(k) == (v["rda_years"], v["tax_years"]), (
+            f"🔴 {k}의 등재값이 원본과 다르다 — 등재 {v} vs 원본 {xl.get(k)}")
+    # 원본이 스스로 「준용 가정치」라 적는가
+    blob = "".join("".join(r) for r in rows)
+    assert "준용 가정치" in blob and "확보하지 못해" in blob, (
+        "🔴 원본의 **추정 고지**가 사라졌다 — rda_years를 [추정]으로 묶은 근거다")
+
+    # ── ③ ✅ 세법 5년이 기존 등재와 교차 확인되는가 ──────────────────
+    st = e.STRUCTURE_SERVICE_LIFE_STATUTORY["별표6_제2호(농업 01 업종별 자산)"]
+    assert st["years"] == 5 and tuple(st["range"]) == (4, 6), (
+        "🔴 별표6 제2호 등재값이 바뀌었다 — 세법 열의 교차 확인이 깨진다")
+
+    # ── ④ 🔴 조달청 표를 건드리지 않았는가 ───────────────────────────
+    assert len(e.EQUIPMENT_SERVICE_LIFE_REFERENCE) == 35, (
+        "🔴 조달청 고시 표의 품목 수가 바뀌었다 — 176차는 **건드리지 않았다**")
+    assert e.EQUIPMENT_SERVICE_LIFE_REFERENCE["분무기"]["years"] == 10
+    overlap = set(T) & set(e.EQUIPMENT_SERVICE_LIFE_REFERENCE)
+    assert overlap == {"분무기"}, (
+        f"🔴 두 표의 겹치는 키가 {sorted(overlap)}다 — 실측은 `분무기` 하나뿐이다")
+
+    # ── ⑤ 🔴 고르지 않는가 ──────────────────────────────────────────
+    r = e.service_life_reference("분무기")
+    assert (r["procurement_years"], r["rda_years"], r["tax_years"]) == (10, 8, 5)
+    assert r["disagreement"] is True and r["rda_is_estimate"] is True
+    # 🔴 1차 작성에 `or True`를 붙여 **항상 참인 단언**을 만들었다(165차 계열) — 제거했다.
+    assert "정하지 않는다" in r["note"], "🔴 「고르지 않는다」 표기가 사라졌다"
+    assert "권고" in r["note"], "🔴 원본 권고가 **판정이 아니라는** 표기가 사라졌다"
+    for k in ("recommended", "selected", "best", "적합"):
+        assert k not in r, f"🔴 반환에 선택 결과({k})가 생겼다 — 고르면 1절을 넘는다"
+    r2 = e.service_life_reference("온풍난방기")
+    assert r2["procurement_years"] == 11 and r2["rda_years"] is None
+    assert r2["disagreement"] is False
+    with _p.raises(ValueError):
+        e.service_life_reference("")
+
+    # ── ⑥ 등재와 한계 ────────────────────────────────────────────────
+    reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                        encoding="utf-8").read())
+    ent = reg["constants"]["EQUIPMENT_SERVICE_LIFE_AGRI"]
+    assert ent["status"] == "부분실측", (
+        "🔴 status가 부분실측이 아니다 — 농진청 열이 [추정]인데 실측이라 적으면 안 된다")
+    assert ent["source_refs"][0]["file"] == XL
+    assert "농진청 원문(기준자료집)을 확보하지 못했다" in doc
+    assert "두 표를 통합하지 않았다" in doc
+    assert "기본 조회처를 바꾸지 않았다" in doc, (
+        "🔴 LCC·점검 함수가 여전히 조달청 표를 본다는 표기가 사라졌다")
+    assert "다른 28개 시트를 읽지 않았다" in doc
 
 
 if __name__ == "__main__":

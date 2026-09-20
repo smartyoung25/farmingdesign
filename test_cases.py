@@ -736,7 +736,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 🔴173차: 54/154 → 56/159(P1 감리 — 공사시방서 3종에서 전사한 검측 절차 2상수)
     # 🔴174차: 56/159 → 57/162(P3 사후관리 — 시방서 하자보수 조항 1상수)
     # 🔴175차: 57/162 → 60/171(P2 인허가 2상수 + P4 재료승인 첨부 1상수)
-    assert a["counts"]["registry_constants"] == 60 and a["counts"]["source_refs"] == 171
+    # 🔴176차: 60/171 → 61/172(농진청·세법 내용연수 67품목)
+    assert a["counts"]["registry_constants"] == 61 and a["counts"]["source_refs"] == 172
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
