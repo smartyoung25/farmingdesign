@@ -7597,6 +7597,98 @@ def test_163cha_design_load_byepyo_reparse():
     assert sum(1 for k in snow if RDL[k]["snow_cm"] == snow[k] and snow[k] != 40) == 136
     assert sum(1 for k in wind if RDL[k]["wind_ms"] == wind[k] and wind[k] != 40) == 148
 
+    # ── 🔴164차 — 레지스트리 서술의 네 수치를 **결과로** 재현한다 ──────
+    #    서술: "40 이상 뭉뚱그림이 22개(적설)·16개(풍속)에서 구체화 …
+    #           나머지 14개(적설)·8개(풍속) 상향 … 172개 중 84개 변경·88개 불변"
+    #    앞의 넷은 맞고 **뒤의 둘이 틀렸다** — 22+14=36 · 16+8=24이므로
+    #    바뀐 지역은 **합쳐도 최대 60**이다. 84는 어떤 읽기로도 나오지 않는다.
+    s40 = {k for k in snow if snow[k] == 40}
+    w40 = {k for k in wind if wind[k] == 40}
+    sup_s = {k for k in snow if snow[k] != 40 and RDL[k]["snow_cm"] > snow[k]}
+    sup_w = {k for k in wind if wind[k] != 40 and RDL[k]["wind_ms"] > wind[k]}
+    assert (len(s40), len(w40), len(sup_s), len(sup_w)) == (22, 16, 14, 8), (
+        f"🔴 서술의 네 수치와 별표 실측이 어긋났다: "
+        f"40이상 적설 {len(s40)}(22)·풍속 {len(w40)}(16) · "
+        f"그 밖 상향 적설 {len(sup_s)}(14)·풍속 {len(sup_w)}(8). "
+        "164차는 **이 넷이 맞다**는 것을 확인하고 합산만 정정했다")
+    changed = (s40 | sup_s) | (w40 | sup_w)
+    assert len(changed) == 49 and 172 - len(changed) == 123, (
+        f"🔴 바뀐 지역이 {len(changed)}개다 — 164차 실측은 49개 변경·123개 불변이다. "
+        "레지스트리 서술의 84·88은 이 실측과도, 같은 문장의 네 수치와도 맞지 않는다")
+    assert len(sup_s | sup_w) == 22 and len(s40 | w40) == 31, (
+        "🔴 확정 변경 22건 · 판정 불가 31건이 어긋났다 — 「40 이상」 칸은 하한만 주므로 "
+        "그 지역의 변경 여부는 **확정할 수 없다**. 둘을 합쳐 세면 안 된다")
+    # 🔴 서술이 든 예시 「함평 36→40」은 그 묶음일 수 없다 — 별표에서 40 이상 칸이다
+    assert snow["함평"] == 40, (
+        "🔴 별표의 함평이 「40 이상」 칸이 아니게 됐다 — 164차 §3의 전제가 깨졌다")
+
+
+def test_164cha_change_count_claim_is_internally_impossible():
+    """164차 — 「84개 값 변경·88개 불변」은 **같은 문장 안에서** 이미 틀려 있었다.
+
+    사용자 지시 *"오류는 개선, 자료 없음은 스킵"*. 이 오류는 **원문이 없어도**
+    판정된다 — 서술이 스스로 준 네 수치(22·16·14·8)가 축별 변경 지역
+    **적설 36 · 풍속 24**를 뜻하므로 합쳐도 **최대 60개 지역**이다.
+
+    🔴 앞의 네 수치는 **전부 실측과 일치**했다(163차 [별표] 대조). 합산 단계의
+    오류이지 대조 단계의 오류가 아니다 — 그래서 값을 의심하지 않았다.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_설계하중_변경건수_정정_20260920.md")
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    src = reg["constants"]["REGION_DESIGN_LOAD"]["source"]
+
+    # ── ① 산술 자체 — 외부 자료가 필요 없다 ──────────────────────────
+    snow_changed, wind_changed = 22 + 14, 16 + 8
+    assert snow_changed == 36 and wind_changed == 24
+    assert snow_changed + wind_changed == 60 < 84, (
+        "🔴 이 산술이 깨지면 164차의 판정 근거가 사라진다 — "
+        "네 수치가 함의하는 상한은 60개 지역이고 84는 그 위다")
+
+    # ── ② 원 서술이 **지워지지 않았는가**(무엇이 틀렸는지가 기록이다) ──
+    #    🔴 1차 설계가 뮤테이션 M2를 놓쳤다: `"84개 값 변경" in src`로 쟀는데
+    #    **내 정정문이 원 서술을 인용**하고 있어 원문을 지워도 통과했다.
+    #    131·134·137차 「세는 문자열을 서술에 쓰지 마라」와 같은 계열이다 —
+    #    **인용본에 없는 자리**를 앵커로 잡고, 개수까지 함께 고정한다.
+    for tok in ("상향 조정 반영, 172개 중 84개 값 변경·88개 불변",
+                "함평 36→40cm)"):
+        assert tok in src, (
+            f"🔴 원 서술에서 「{tok}」가 사라졌다 — 164차는 **덧붙여 정정**했지 "
+            "지우지 않았다. 지우면 무엇이 어떻게 틀렸는지가 남지 않는다")
+    assert src.count("84개 값 변경") == 2, (
+        f"🔴 「84개 값 변경」이 {src.count('84개 값 변경')}번 나온다 — "
+        "원 서술 1 + 164차 정정문의 인용 1 = 2가 맞다. 1이면 한쪽이 지워진 것이고, "
+        "3 이상이면 서술이 또 불어난 것이다")
+
+    # ── ③ 정정이 붙어 있는가 ─────────────────────────────────────────
+    for tok in ("84는 어떤 읽기로도 나오지 않는다", "49개 변경 · 123개 불변",
+                "확정 변경은 22건 · 판정 불가 31건", "합산 단계의 오류"):
+        assert tok in src, f"🔴 164차 정정에서 「{tok}」가 사라졌다"
+    assert "판(2014-78호/2019-44호/2025-108호)은 확정하지 않았다" in src, (
+        "🔴 판을 확정하지 않았다는 표기가 사라졌다 — 고시 원문이 리포에 없다")
+
+    # ── ④ 163차 문서가 **약화됐음을 스스로 밝히는가** ────────────────
+    b163 = rd("근거_설계하중별표_리포내발견_20260920.md")
+    assert "164차 정정 — 이 판별의 뒤쪽 근거가 약해졌다" in b163, (
+        "🔴 163차 문서만 읽는 사람에게 판별이 약화된 사실이 보이지 않는다")
+    assert "근거_설계하중_변경건수_정정_20260920.md" in b163
+
+    # ── ⑤ 값은 바뀌지 않았다 ─────────────────────────────────────────
+    assert len(e.REGION_DESIGN_LOAD) == 172
+    assert e.REGION_DESIGN_LOAD["함평"] == {"snow_cm": 40, "wind_ms": 34}
+    assert e.REGION_DESIGN_LOAD["대관령"]["snow_cm"] == 167
+    assert e.REGION_DESIGN_LOAD["울릉"]["snow_cm"] == 197
+
+    # ── ⑥ 하지 않은 것 ───────────────────────────────────────────────
+    assert "엔진 값 0건 변경" in doc and "원인은 추정하지 않았다" in doc
+    assert "자료 없음은 스킵" in doc
+
 
 if __name__ == "__main__":
     import sys, traceback
