@@ -9350,8 +9350,9 @@ def test_181cha_package_layer_assembles_without_calculating():
         and not n.name.startswith("_")}
     codes = [x["code"] for x in cp.PACKAGE_SPEC]
     # 🔴182차 — ⑤운영(D21)·대가(D22)가 신설돼 20 → 22가 됐다.
-    assert len(codes) == 22 and len(set(codes)) == 22, (
-        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D22여야 한다")
+    # 🔴185차 — 사업기획서 1·3단계로 D23·D24가 신설돼 22 → 24가 됐다.
+    assert len(codes) == 24 and len(set(codes)) == 24, (
+        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D24여야 한다")
     cov = cp.coverage()
     assert len(cov["declared"]) == 61, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
@@ -9379,7 +9380,7 @@ def test_181cha_package_layer_assembles_without_calculating():
     pkg = cp.build_package(cases[0])
     assert [x["code"] for x in pkg["items"]] == codes
     st = pkg["status_counts"]
-    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 5             and st.get("부분생성", 0) == 6 and st.get("링크", 0) == 3, (
+    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 5             and st.get("부분생성", 0) == 8 and st.get("링크", 0) == 3, (
         f"🔴 상태 분포가 {st}다 — 주입 없이 서는 것과 못 서는 것이 **둘 다** 있어야 한다. "
         "전부 생성이면 어딘가에서 값을 **지어냈다는 뜻**이다")
 
@@ -9412,8 +9413,8 @@ def test_181cha_package_layer_assembles_without_calculating():
 
     # 🔴182차 — 연결이 늘면 **필요한 자료도 같이 드러난다**: 17 → 27종.
     #    줄어드는 것이 좋은 수가 아니다.
-    assert len(pkg["open_injections"]) == 27, (
-        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 182차 실측은 27종이고, "
+    assert len(pkg["open_injections"]) == 32, (
+        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 185차 실측은 32종이고, "
         "줄었다면 **주입 없이 값을 만든 곳이 있는지** 보라")
     assert set(cp.INJECTION_SLOTS) >= {n["slot"] for n in pkg["open_injections"]}
 
@@ -9697,6 +9698,95 @@ def test_184cha_source_names_masked_but_traceable():
     assert "정규식으로 훑지 않는다" in src, (
         "🔴 주소를 정규식으로 훑지 않는 이유가 사라졌다 — `천창유리 136`처럼 "
         "**「리」로 끝나는 일반어 + 숫자**가 걸린다")
+
+
+def test_185cha_business_plan_concept_applied_without_judging():
+    """185차 — 사업기획서 3단계를 얹되 **판정선은 넘지 않았는가**.
+
+    🔴 기획서(`근거_사업기획서_투자검증설계보증플랫폼_20260921.docx`)는
+    **K-SFID 등급 부여**(PVEL Top Performer 방식)와 **성능보증 지급**을 상품으로 둔다.
+    1절은 *「판정·추천 자동화 금지」*다 — **엔진은 항목과 결손까지**다.
+
+    🔴 그리고 **덮지 못하는 자리를 덮은 척하지 않았는가**: 실사 6영역 중 **2개**
+    (경영진 역량·시장위치), 성능 5항목 중 **3개**(수확량·에너지효율·가동률)는
+    엔진 밖이고, 그 수를 **센다**.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import consulting_package as cp
+    from cases import load_cases
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+
+    # ── ① 원본 기획서가 **리포에 보존됐는가** ────────────────────────
+    src_doc = _o.path.join(repo, "근거_사업기획서_투자검증설계보증플랫폼_20260921.docx")
+    assert _o.path.isfile(src_doc) and _o.path.getsize(src_doc) > 20000, (
+        "🔴 기획서 원본 사본이 리포에 없다 — 출처 없는 컨셉 적용이 된다")
+
+    # ── ② 6영역·5항목이 **그대로인가**(수를 센다) ────────────────────
+    areas = [a["area"] for a in cp.DD_AREAS]
+    assert len(areas) == 6, f"🔴 실사 영역이 {len(areas)}개다 — 기획서 §5.1은 6영역이다"
+    gaps = [a["area"] for a in cp.DD_AREAS if not a["engine"]]
+    assert gaps == ["경영진 역량", "시장위치"], (
+        f"🔴 엔진 밖 영역이 {gaps}다 — 185차 실측은 경영진 역량·시장위치 **2개**다. "
+        "줄었다면 **사람 자료·시장자료를 엔진이 답하기 시작한 것**인지 보라")
+    for a in cp.DD_AREAS:
+        assert bool(a["engine"]) != bool(a.get("gap")), (
+            f"🔴 {a['area']}에 함수와 공백 설명이 함께 있거나 둘 다 없다")
+    no_fn = [p["item"] for p in cp.PERF_ITEMS if p["fn"] is None]
+    assert len(cp.PERF_ITEMS) == 5 and no_fn == ["수확량", "에너지효율", "가동률"], (
+        f"🔴 편차 함수가 없는 항목이 {no_fn}다 — 185차 실측은 3개다. "
+        "생겼다면 **몇 % 미달을 기준으로 삼았는지**(보증 상품 설계 = 판단성) 보라")
+
+    # ── ③ 🔴 **판정선을 넘지 않았는가** ──────────────────────────────
+    cases = [c for c in load_cases() if not c.get("partial")]
+    pkg = cp.build_package(cases[0])
+    # 🔴 검사 범위는 **`data` 페이로드**다 — `note`는 *"등급을 매기지 않는다"*고
+    #    설명하느라 그 말을 쓴다(182차와 같은 함정: 서술까지 세면 설명문이 스스로를
+    #    실패시킨다). 경계를 **적었는가**는 아래 ③-b에서 따로 본다.
+    payload = _j.dumps([x["data"] for x in pkg["items"]], ensure_ascii=False,
+                       default=str)
+    for bad in ("K-SFID", "Top Performer", "등급", "보증 지급", "지급 판정",
+                "보험료", "수수료율", "recommended", "rank"):
+        assert bad not in payload, (
+            f"🔴 패키지 **데이터**에 「{bad}」가 생겼다 — 기획서의 **등급·보증 판정**은 "
+            "1절 밖이다. 엔진은 검증 항목과 결손까지다")
+    d23 = [x for x in pkg["items"] if x["code"] == "D23"][0]
+    d24 = [x for x in pkg["items"] if x["code"] == "D24"][0]
+    assert d23["data"]["공백 영역"] == gaps and d23["data"]["엔진이 덮는 영역"] == 4
+    assert d24["data"]["편차 함수 없는 항목"] == no_fn
+    assert "등급을 매기지 않는다" in d23["note"]
+    assert "보증 지급을 판정하지 않는다" in d24["note"]
+
+    # ── ④ 기획서가 인용한 **보도 수치를 엔진에 넣지 않았는가** ───────
+    eng = rd("smartfarm_engine.py") + rd("엔진데이터_레지스트리.json")
+    for n in ("407건", "6,900억", "2,348억", "2,470억"):
+        assert n not in eng, (
+            f"🔴 기획서가 인용한 「{n}」이 엔진·레지스트리에 들어왔다 — "
+            "보도·정책자료 인용이고 **원문 확보 전까지 등재하지 않는다**")
+
+    # ── ⑤ 근거문서가 **경계를 적었는가** ─────────────────────────────
+    doc = rd("근거_사업기획서_컨셉적용_20260921.md")
+    for line in ("덮은 척하지 않고 세었다", "등급을 매기지 않는다",
+                 "만들지 않고 없다고 적었다", "층이 다르다"):
+        assert line in doc, f"🔴 근거문서에서 「{line}」가 사라졌다"
+    assert "기획서가 틀렸다는 뜻이 아니다" in doc, (
+        "🔴 **기획서와 1절은 층이 다르다**는 정리가 사라졌다 — "
+        "경계를 적지 않으면 「하지 않는다」가 「할 수 없다」로 읽힌다")
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    assert "## 0-c." in design and "이미 서 있다" in design, (
+        "🔴 설계서의 기획서 대응표가 사라졌다")
+
+    # ── ⑥ 2단계는 **이미 있던 것**이라 새로 만들지 않았는가 ──────────
+    for fn in ("doc_consistency_check", "inspection_checklist",
+               "commissioning_plan", "completion_docset"):
+        assert fn in cp.coverage()["declared"], (
+            f"🔴 기획서 2단계를 덮는 {fn}()이 패키지에서 빠졌다")
+    d23_spec = [x for x in cp.PACKAGE_SPEC if x["code"] == "D23"][0]
+    assert "doc_consistency_check" not in d23_spec["engine"], (
+        "🔴 2단계 함수를 1단계 카드에 다시 끌어왔다 — 대응표가 흐려진다")
 
 
 if __name__ == "__main__":

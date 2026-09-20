@@ -85,6 +85,16 @@ PACKAGE_SPEC = [
                 "opex_breakdown", "improvement_roi"]},
     {"code": "D22", "title": "컨설팅 대가 산출", "stage": "④타당성검증", "targets": ["시설"],
      "engine": ["consulting_fee_estimate", "design_supervision_fee_reference"]},
+    # 🔴185차 — 사업기획서(투자검증·설계보증 플랫폼)의 1·3단계를 3×6에 얹는다.
+    #   2단계(설계 적정성 검증)는 이미 D4·D13·D14·D15가 덮는다(대응표는 설계서 §0-c).
+    {"code": "D23", "title": "투자 실사 카드(6영역)", "stage": "④타당성검증",
+     "targets": ["부지", "시설", "기자재"],
+     "engine": ["select_specs", "verify_heating_vs_actual", "equipment_reconcile",
+                "operating_breakeven", "benchmark_check", "dscr_schedule",
+                "site_permit_checklist", "service_life_reference"]},
+    {"code": "D24", "title": "설계값–실측 대조표", "stage": "⑤운영",
+     "targets": ["시설", "기자재"],
+     "engine": ["verify_heating_vs_actual", "benchmark_check", "production_kg"]},
 ]
 
 # 주입 슬롯 — 이름과 성격을 밝혀 둔다(무엇이 없어서 못 세우는지 고객이 알아야 한다)
@@ -126,6 +136,11 @@ INJECTION_SLOTS = {
     "improvement": "개선 투자(연간 절감액·투자비) — 운영 실측",
     "fee_inputs": "컨설팅 대가 산출 입력(등급별 인·일 · 노임단가 · 제경비율 · 기술료율) "
                   "— 🔴노임은 **시세성**, 인·일은 **우리 원가(판단성)**다",
+    "actual_load_per_m2": "준공 후 실측 난방부하(kcal/h·㎡) — 운영 실측",
+    "actual_yield_kg": "준공 후 실측 수확량(kg) — 운영 실측",
+    "actual_energy": "준공 후 실측 에너지 사용량 — 운영 실측",
+    "actual_uptime_pct": "준공 후 실측 가동률(%) — 운영 실측",
+    "dd_documents": "실사 제출 문서 목록(사업계획서·설계도서·견적·판로계약 등) — 고객 문서",
 }
 
 # 🔴 `장비정보.csv`에는 `농장명/업체명`·`농장주`·`계약 금액` 열이 있다 —
@@ -133,6 +148,41 @@ INJECTION_SLOTS = {
 #    패키지는 아래 열만 옮긴다(182차).
 _DEVICE_FIELDS = ("표준 장치명", "세부 장치명", "모델명", "제조국", "KC 인증여부")
 _DEVICE_DROP = ("농장명/업체명", "농장주", "계약 금액")
+
+# ─────────────────────────────────────────────────────────────
+# 투자 실사 6영역 (185차) — 사업기획서 §5.1의 평가영역을 엔진에 얹는다.
+#   🔴 **덮지 못하는 영역을 덮은 척하지 않는다**: 경영진 역량·시장위치는
+#      사람·시장 자료라 엔진 밖이다. 그 둘을 「없음」으로 드러내는 것이
+#      이 카드의 값어치다(기획서도 *「문서검토 → 기술평가 → 보고서」*의
+#      문서검토 단계를 사람이 한다고 적는다).
+#   ⚠️ **등급을 매기지 않는다.** 기획서는 K-SFID 등급(PVEL Top Performer 방식)을
+#      두지만, 1절은 판정·추천 자동화를 금한다 — 엔진은 **항목과 결손**까지다.
+# ─────────────────────────────────────────────────────────────
+DD_AREAS = [
+    {"area": "기술시스템", "engine": ["select_specs", "verify_heating_vs_actual",
+                                 "equipment_reconcile"],
+     "covers": "규격 적합·난방 설계 자릿수 검증·기자재 3열 대조"},
+    {"area": "단위경제성", "engine": ["operating_breakeven", "benchmark_check"],
+     "covers": "손익분기·단위 공사비 밴드 대조(ROI·NPV·IRR은 D8·D9)"},
+    {"area": "운영프로세스", "engine": ["service_life_reference"],
+     "covers": "내용연수 3출처 대조(점검 일정·검측은 D16·D13)"},
+    {"area": "경영진 역량", "engine": [],
+     "covers": "", "gap": "영농경력·기술이해도·재무역량은 **사람 자료**다 — 엔진 밖"},
+    {"area": "시장위치", "engine": [],
+     "covers": "", "gap": "판로·경쟁강도는 **시세성·시장자료**다 — 1절이 조회를 금한다"},
+    {"area": "리스크 평가", "engine": ["dscr_schedule", "site_permit_checklist"],
+     "covers": "상환능력·인허가 결손(하자·기후는 D17·D1)"},
+]
+
+# 설계값 ↔ 실측 대조 항목 (185차) — 기획서 §5.3 성능보증의 **기술적 전제**
+#   🔴 편차를 재는 **엔진 함수가 있는 항목만** 잰다. 없는 항목은 **없다고 적는다**.
+PERF_ITEMS = [
+    {"item": "난방부하", "fn": "verify_heating_vs_actual", "slot": "actual_load_per_m2"},
+    {"item": "공사비", "fn": "benchmark_check", "slot": None},
+    {"item": "수확량", "fn": None, "slot": "actual_yield_kg"},
+    {"item": "에너지효율", "fn": None, "slot": "actual_energy"},
+    {"item": "가동률", "fn": None, "slot": "actual_uptime_pct"},
+]
 
 _LINKED = {
     "D8": "SmartFarm_통합보고서_{case_id}.html",
@@ -529,6 +579,58 @@ def build_package(case: dict, injections: dict = None) -> dict:
                                    "🔴 노임단가·요율에 **기본값을 두지 않는다** — 고시는 "
                                    "범위만 정하고 그 안의 선택은 협의(시세성)다. "
                                    "인·일은 우리 원가라 `[제안]`이다"))
+
+        elif code == "D23":
+            rows, gaps = [], []
+            for a in DD_AREAS:
+                row = {"영역": a["area"], "엔진 함수": list(a["engine"]),
+                       "무엇을 덮는가": a["covers"] or None}
+                if not a["engine"]:
+                    row["공백"] = a["gap"]
+                    gaps.append(a["area"])
+                rows.append(row)
+            # 🔴 `len(DD_AREAS) - len(gaps)`는 **산술**이다(가드가 잡았다) — 센다.
+            d = {"영역": rows,
+                 "엔진이 덮는 영역": sum(1 for a in DD_AREAS if a["engine"]),
+                 "공백 영역": gaps,
+                 "규격 적합(하중 충족 후보)": len(
+                     e.select_specs(inp.snow_cm, inp.wind_ms)["candidates"]),
+                 "단위 공사비 대조": e.benchmark_check(
+                     inp.total_construction_cost, inp.area_m2, inp.cover),
+                 "인허가 결손": e.site_permit_checklist(
+                     area_m2=inp.area_m2, cover=inp.cover.value)["missing_inputs"]}
+            items.append(_item(spec, "부분생성", d,
+                               _need("dd_documents"),
+                               "🔴 **등급을 매기지 않는다** — 기획서가 둔 인증 등급은 "
+                               "**판정**이고 1절이 금한다. "
+                               f"6영역 중 **{len(gaps)}개는 엔진 밖**이다(경영진 역량·시장위치) "
+                               "— 덮은 척하지 않는다"))
+
+        elif code == "D24":
+            rows, no_fn = [], []
+            for p in PERF_ITEMS:
+                r = {"항목": p["item"], "편차 함수": p["fn"], "실측 주입": p["slot"]}
+                if p["fn"] is None:
+                    r["상태"] = "엔진에 편차 함수가 없다"
+                    no_fn.append(p["item"])
+                rows.append(r)
+            al = inj.get("actual_load_per_m2")
+            if al is not None:
+                rows[0]["대조"] = e.verify_heating_vs_actual(al, inp.cover.value)
+            d = {"행": rows,
+                 "설계 수확량(kg)": e.production_kg(inp.area_m2, inp.base_yield_kg_m2,
+                                              inp.fitness_pct),
+                 "공사비 밴드 대조": e.benchmark_check(inp.total_construction_cost,
+                                                inp.area_m2, inp.cover),
+                 "편차 함수 없는 항목": no_fn}
+            need = _need("actual_load_per_m2", "actual_yield_kg",
+                         "actual_energy", "actual_uptime_pct")
+            items.append(_item(spec, "부분생성", d, need,
+                               "🔴 **보증 지급을 판정하지 않는다** — 기획서 §5.3의 보상은 "
+                               "보험·금융 판단이고 1절 밖이다. 이 표는 그 **기술적 전제**"
+                               "(설계값 대 실측)까지다. "
+                               f"⚠️**{len(no_fn)}개 항목은 엔진에 편차 함수가 없다** — "
+                               "만들지 않고 없다고 적는다"))
 
         else:                                       # 카탈로그에 있으나 조립되지 않은 항목
             items.append(_item(spec, "미조립", None, [], "조립기가 없다"))
