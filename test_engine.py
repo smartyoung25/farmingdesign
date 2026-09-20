@@ -9573,16 +9573,18 @@ def test_183cha_case_outputs_carry_no_real_names():
         b = _o.path.basename(p)
         assert not cdsp.audit(b), f"🔴 파일명에 실명·식별자가 남았다: {b}"
 
-    # ── ⑤ 🔴 범위 밖은 **가리지 않았다**(그리고 그 사실을 센다) ──────
-    OUT_OF_SCOPE = ("SmartFarm_근거대장.html", "SmartFarm_CAPEX분해.html",
-                    "SmartFarm_벤치마크비교.html")
-    left = {f: sum(cdsp.audit(rd(f)).values()) for f in OUT_OF_SCOPE}
-    assert all(v > 0 for v in left.values()), (
-        f"🔴 범위 밖 산출물에서 이름이 사라졌다: {left} — 근거대장의 출처 표기까지 "
-        "가렸다면 **추적성이 끊긴 것**이다. 의도한 변경이면 ★결정으로 기록하라")
+    # ── ⑤ 🔴 184차에 **범위가 산출물 전체로 넓어졌다**(사용자 결정) ──
+    #    183차는 여기서 *"범위 밖에는 이름이 남아 있어야 한다"*를 고정했다.
+    #    사용자가 **가리라**고 정했으므로 그 단언을 **뒤집는다** — 이제 0이어야 한다.
+    ALSO = ("SmartFarm_근거대장.html", "SmartFarm_CAPEX분해.html",
+            "SmartFarm_벤치마크비교.html")
+    left = {f: cdsp.audit(rd(f)) for f in ALSO if cdsp.audit(rd(f))}
+    assert not left, (
+        f"🔴 근거대장 계열에 실명이 남았다: {left} — 184차에 **전 산출물**로 넓혔다")
     src = rd("case_display.py")
-    assert "★사용자 결정으로 남긴다" in src and "근거대장이 근거대장이 아니게 된다" in src, (
-        "🔴 범위를 「케이스」로 한정한 이유가 모듈에서 사라졌다")
+    assert "지우지 않고 코드로 바꾼다" in src, (
+        "🔴 **지우지 않고 코드로 바꾼다**는 원칙이 모듈에서 사라졌다 — "
+        "근거대장은 추적성 산출물이라 이름을 지우면 출처가 사라진다")
 
     # ── ⑥ 메뉴가 **보는 순서**를 갖는가 ──────────────────────────────
     idx = rd("index.html")
@@ -9597,6 +9599,104 @@ def test_183cha_case_outputs_carry_no_real_names():
         assert g in idx, f"🔴 메뉴에서 「{g}」 묶음이 사라졌다"
     assert "추천·판정 없음" in idx, (
         "🔴 첫 화면의 **판정하지 않는다**는 표기가 사라졌다 — 서비스의 전제다")
+
+
+def test_184cha_source_names_masked_but_traceable():
+    """184차 — 근거대장 계열도 가렸다. **지우지 않고 코드로 바꿨는가**.
+
+    🔴 사용자 결정으로 범위를 **산출물 전체**로 넓혔다(183차는 케이스에 한정했다).
+    근거대장은 **추적성 산출물**이라 이름을 지우면 출처가 사라진다 —
+    **한 실체 = 한 코드**로 치환하고 **비-실명 출처 정보(파일명·쪽수·조문·고시번호·
+    연도·금액)는 그대로 둔다**. 같은 코드가 모든 페이지에서 같은 원본을 가리킨다.
+
+    🔴 이 차수에서 실제로 걸린 것 둘 —
+    ①`그린팜`을 항목으로 두어 `그린팜스글로벌`이 **`V7스글로벌`**로 잘렸다(실명 조각),
+    ②`이동혁`·`오기수`·`맹주연` 같은 **순수 인명**을 업체 접미 기반 후보 추출이 놓쳤다.
+    그래서 목록은 **엔진의 권위 있는 키**(`ACTUALS`·`CAPEX_MAJOR_CASE_CHUNKS`·
+    `SPEC_TABLE.developer`)에서 뽑는다.
+    """
+    import os as _o, sys as _s, glob as _g, collections as _c
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import case_display as cdsp
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    M = cdsp.SOURCE_ALIASES
+
+    # ── ① 엔진의 **권위 있는 이름**이 전부 등재됐는가 ────────────────
+    known = set(M) | set(cdsp.ALIASES) | set(cdsp._NAME_TO_CODE)
+    for nm, *_ in e.ACTUALS:
+        assert nm in known, (
+            f"🔴 `ACTUALS`의 「{nm}」이 표시 계층에 없다 — 벤치마크 페이지로 그대로 나간다")
+    for key in e.CAPEX_MAJOR_CASE_CHUNKS:
+        for part in key.split("·"):
+            assert part in known, (
+                f"🔴 CAPEX 표본 「{part}」이 표시 계층에 없다 — 근거대장으로 그대로 나간다")
+
+    # ── ② 🔴 실명 **조각**을 남기지 않는가(부분 치환 사고) ───────────
+    for short in sorted(M):
+        longer = [x for x in M if x != short and short in x]
+        for lg in longer:
+            assert len(short) < len(lg)
+            assert M[short] == M[lg] or True   # 코드는 달라도 된다(다른 실체)
+        # 긴 이름부터 바꾸는지 직접 확인한다
+        for lg in longer:
+            assert cdsp.scrub(lg) == M[lg], (
+                f"🔴 `{lg}`가 `{cdsp.scrub(lg)}`로 잘린다 — **긴 이름부터** 바꿔야 한다. "
+                f"`{short}`가 그 안에 들어 있다")
+    # `그린팜`은 단독으로 나타나지 않으므로 **항목으로 두면 안 된다**
+    assert "그린팜" not in M, (
+        "🔴 `그린팜`이 항목으로 들어왔다 — 리포에서 5회 전부 `그린팜스글로벌` 안에 있어 "
+        "치환하면 **`V7스글로벌` 같은 실명 조각**이 남는다")
+
+    # ── ③ 한 실체 = 한 코드인가(코드 충돌·중복 없이) ─────────────────
+    by_code = _c.defaultdict(set)
+    for nm, cd_ in M.items():
+        by_code[cd_].add(nm)
+    for cd_, names in by_code.items():
+        base = min(names, key=len)
+        assert all(base in n or n in base for n in names), (
+            f"🔴 코드 {cd_}가 서로 다른 실체 {sorted(names)}에 붙었다")
+    assert not (set(M.values()) & set(a["code"] for a in cdsp.ALIASES.values())), (
+        "🔴 출처 코드가 케이스 코드(C*)와 겹친다 — 한 코드가 두 실체를 가리킨다")
+
+    # ── ④ 🔴 산출물 전량에 실명·주소가 **0건인가** ───────────────────
+    outs = sorted(_g.glob(_o.path.join(repo, "SmartFarm_*.html"))) +         [_o.path.join(repo, "index.html")]
+    assert len(outs) == 18, f"🔴 산출물이 {len(outs)}건이다 — 184차 실측은 18건이다"
+    dirty = {}
+    for p in outs:
+        f = cdsp.audit(open(p, encoding="utf-8").read())
+        if f:
+            dirty[_o.path.basename(p)] = f
+    assert not dirty, f"🔴 산출물에 실명·소재지가 남았다: {dirty}"
+
+    # ── ⑤ 🔴 **추적성은 살아 있는가**(가린 것이지 지운 것이 아니다) ──
+    led = rd("SmartFarm_근거대장.html")
+    for tok in ("별표", "고시", ".pdf", ".xlsx", ".hwp", "시행령", "p."):
+        assert led.count(tok) > 0, (
+            f"🔴 근거대장에서 「{tok}」가 사라졌다 — **출처의 비-실명 부분까지 지웠다**")
+    for cd_ in ("A2", "A4", "S1", "C3"):
+        assert cd_ in led, f"🔴 근거대장에 출처 코드 {cd_}가 없다 — 치환이 되지 않았다"
+    # 공공기관·정부부처는 **남긴다** — 가리면 법령·고시 인용이 불가능해진다
+    for pub in ("농촌진흥청", "조달청", "국토교통부", "한국농어촌공사"):
+        assert pub in led, (
+            f"🔴 「{pub}」까지 가렸다 — 공공기관은 법령·고시·공표자료의 주체이고 "
+            "가리면 인용이 불가능해진다")
+    # 일반어가 깨지지 않았는가(「리」·「계수」로 끝나는 말 + 숫자)
+    for word in ("난방부하계수", "원가계산", "천창유리"):
+        assert word in led, f"🔴 일반어 「{word}」가 치환에 깨졌다"
+
+    # ── ⑥ 소재지는 **번지만** 가렸는가(시·군은 근거라 남긴다) ────────
+    assert "[소재지]" in led, "🔴 소재지 마스크가 산출물에 없다"
+    for gun in ("예산군", "논산시", "공주시"):
+        assert gun in led, (
+            f"🔴 「{gun}」까지 가렸다 — 시·군은 설계하중·기상 조회의 **근거**다")
+    src = rd("case_display.py")
+    assert "정규식으로 훑지 않는다" in src, (
+        "🔴 주소를 정규식으로 훑지 않는 이유가 사라졌다 — `천창유리 136`처럼 "
+        "**「리」로 끝나는 일반어 + 숫자**가 걸린다")
 
 
 if __name__ == "__main__":

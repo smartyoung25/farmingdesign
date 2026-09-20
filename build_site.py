@@ -1010,6 +1010,17 @@ def index_page(links: list[dict]) -> str:
     return _page("스마트팜 컨설팅 산출물", body)
 
 
+def _emit(filename: str, html: str) -> None:
+    """🔴184차 — **모든 산출물을 한 자리에서** 표시 계층에 통과시킨다.
+
+    183차까지는 케이스 페이지마다 `cdsp.scrub()`을 걸었고, 그래서 근거대장·CAPEX분해·
+    벤치마크·견적비교가 빠졌다(부분 케이스 페이지에도 출처 이름이 1건 새어 있었다).
+    **쓰는 지점을 하나로 모으면 빠질 자리가 없다.**
+    """
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(cdsp.scrub(html))
+
+
 def main():
     cases = load_cases()
     computed, links = [], []
@@ -1022,8 +1033,7 @@ def main():
         al = cdsp.alias(c)
         if c.get("partial"):
             fn = f"SmartFarm_부분케이스_{al['code']}.html"
-            with open(fn, "w", encoding="utf-8") as f:
-                f.write(cdsp.scrub(partial_construction_page(c)))
+            _emit(fn, partial_construction_page(c))
             links.append({"href": fn, "title": f"{al['title']} — 부분 케이스",
                           "desc": "시공축만 — 실측 공사비·규격(4축 미산출)",
                           "group": "케이스", "code": al["code"]})
@@ -1032,8 +1042,7 @@ def main():
         inp = case_to_input(c)
         res = rr.compute(inp)
         fn = f"SmartFarm_리포트_{al['code']}.html"
-        with open(fn, "w", encoding="utf-8") as f:
-            f.write(cdsp.scrub(rr.render_html(res)))
+        _emit(fn, rr.render_html(res))
         computed.append({"case": c, "res": res})
         ec = res["economics"]
         rr_ = f" · 실질ROI {ec['real_roi']*100:.1f}%" if ec["real_roi"] else ""
@@ -1044,8 +1053,7 @@ def main():
         # 🔴181차 — D1~D20 패키지. 주입이 없는 산출물은 **자료 요청서로** 나온다.
         pkg = cpkg.build_package(c)
         pfn = f"SmartFarm_컨설팅패키지_{al['code']}.html"
-        with open(pfn, "w", encoding="utf-8") as f:
-            f.write(cdsp.scrub(consulting_package_page(c, pkg)))
+        _emit(pfn, consulting_package_page(c, pkg))
         _n_open = len(pkg["open_injections"])
         links.append({"href": pfn, "title": f"{al['title']} — 컨설팅 패키지",
                       "desc": f"D1~D22 산출물 + 자료 요청서 {_n_open}종 (판정 없음)",
@@ -1053,22 +1061,15 @@ def main():
         n_pkg += 1
 
         crn = f"SmartFarm_통합보고서_{al['code']}.html"
-        with open(crn, "w", encoding="utf-8") as f:
-            f.write(cdsp.scrub(consulting_report_page(c, res, inp)))
+        _emit(crn, consulting_report_page(c, res, inp))
         links.append({"href": crn, "title": f"{al['title']} — 통합보고서",
                       "desc": "입지·설계·운영·경제성 4섹션 + 경영자요약",
                       "group": "케이스", "code": al["code"]})
 
-    with open("SmartFarm_벤치마크비교.html", "w", encoding="utf-8") as f:
-        f.write(benchmark_page())
-    with open("SmartFarm_케이스비교.html", "w", encoding="utf-8") as f:
-        # 🔴183차 — 케이스 비교도 **케이스 산출물**이라 실명을 뺀다.
-        #   벤치마크·CAPEX분해·근거대장은 **실측 출처 계층**이라 범위 밖이다(★결정).
-        f.write(cdsp.scrub(comparison_page(computed)))
-    with open("SmartFarm_근거대장.html", "w", encoding="utf-8") as f:
-        f.write(registry_page())
-    with open("SmartFarm_CAPEX분해.html", "w", encoding="utf-8") as f:
-        f.write(capex_breakdown_page())
+    _emit("SmartFarm_벤치마크비교.html", benchmark_page())
+    _emit("SmartFarm_케이스비교.html", comparison_page(computed))
+    _emit("SmartFarm_근거대장.html", registry_page())
+    _emit("SmartFarm_CAPEX분해.html", capex_breakdown_page())
 
     links.append({"href": "SmartFarm_케이스비교.html", "title": "케이스 비교",
                   "desc": f"{len(cases) - n_partial}건 KPI 나란히 보기 + 근거",
@@ -1089,15 +1090,13 @@ def main():
     for qpath in sorted(glob.glob(QUOTES_GLOB)):
         qdata, qrfq, qcmp = load_quotes_comparison(qpath)
         fn = f"SmartFarm_견적비교_{qdata['comparison_id']}.html"
-        with open(fn, "w", encoding="utf-8") as f:
-            f.write(quotes_comparison_page(qdata, qrfq, qcmp))
+        _emit(fn, quotes_comparison_page(qdata, qrfq, qcmp))
         links.append({"href": fn, "title": qdata["title"],
                       "desc": f"{len(qdata['vendor_quotes'])}개 안 · RFQ 정합검증 · "
                               "참고정보(추천 없음)", "group": "비교"})
         n_quote_pages += 1
 
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(index_page(links))
+    _emit("index.html", index_page(links))
 
     print(f"사이트 생성 완료: index + 케이스 {len(cases) - n_partial}건"
           + (f" + 부분케이스 {n_partial}건" if n_partial else "")
