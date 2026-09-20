@@ -4988,8 +4988,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 97, "partial": 56, "near": 9}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 174차 실측은 exact 97 / partial 56 / near 9이다"
+    assert dist == {"exact": 105, "partial": 57, "near": 9}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 175차 실측은 exact 105 / partial 57 / near 9이다"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -5053,7 +5053,7 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 9 and ledger.count("[부분]") == 56, (
+    assert ledger.count("[근접]") == 9 and ledger.count("[부분]") == 57, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
         "173차 실측(9·56)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
         "(137차 확정 8·50 → 151차 partial +3 → 161차 near +1"
@@ -5255,8 +5255,8 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 65, (
-        f"partial·near가 {len(rows)}건이다 — 173차 실측은 65건"
+    assert len(rows) == 66, (
+        f"partial·near가 {len(rows)}건이다 — 175차 실측은 66건"
         "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1 + `REGION_DESIGN_LOAD` 2 "
         "+ 🔴173차 감리 절차의 세 번째 시방서 사본 1)")
 
@@ -5992,7 +5992,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 97, "partial": 56, "near": 9}, (
+    assert dist == {"exact": 105, "partial": 57, "near": 9}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6491,9 +6491,9 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 162, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 174차 실측은 162건"
-        "(173차 159 + 🔴174차 하자보수 조항 3건)")
+    assert a["counts"]["source_refs"] == 171, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 175차 실측은 171건"
+        "(174차 162 + 🔴175차 P2·P4 3상수 9건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
              for x in a["refless_measured"]}
@@ -6611,7 +6611,7 @@ def test_152cha_blind_spot_classes_are_declared_not_guessed():
         "🔴 게이트 순서(build_site를 pytest **앞에**)가 근거문서에서 사라졌다 — "
         "151차에 실제로 낡은 HTML로 배지 가드가 통과했다")
     ledger = rd("SmartFarm_근거대장.html")
-    assert ledger.count("[부분]") == 56, (
+    assert ledger.count("[부분]") == 57, (
         f"근거대장 [부분] 배지가 {ledger.count('[부분]')}다 — build_site를 먼저 돌렸는지 보라")
 
     # ── ⑦ 이 차수가 하지 않은 것 ──────────────────────────────────────
@@ -7576,8 +7576,8 @@ def test_163cha_design_load_byepyo_registered():
         "🔴 REGION_DESIGN_LOAD가 다시 refless_blocked에 있다")
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE", "OPEX_ITEM_CATEGORIES"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 163차 실측은 3건이다")
-    assert a["counts"]["source_refs"] == 162, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 174차 실측은 162건")
+    assert a["counts"]["source_refs"] == 171, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 175차 실측은 171건")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -7776,8 +7776,9 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴172차 — 개선 ⑥으로 `consulting_fee_estimate()`가 신설돼 53 → 54가 됐다
     # 🔴173차 — P1 감리 3함수가 신설돼 54 → 57이 됐다
     # 🔴174차 — P3 사후관리 2함수가 신설돼 57 → 59가 됐다
-    assert len(pub) == 59 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 174차 실측은 59·30이다. "
+    # 🔴175차 — P2·P4 2함수가 신설돼 59 → 61이 됐다
+    assert len(pub) == 61 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 175차 실측은 61·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -7785,8 +7786,8 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴 7절 「미구현 백로그」는 **제안 이름**이다 — 실재 주장과 갈라야 한다.
     #    1차 설계가 이 둘을 섞어 세서 가드가 제안 7건을 "없는 기능"으로 잡았다.
     # 🔴173차 — P1 3함수가 **구현돼 백로그에서 나갔다**. 남은 제안은 4건이다.
-    # 🔴174차 — P3 2함수가 구현돼 백로그에서 나갔다. 남은 제안은 2건이다.
-    PROPOSED = {"site_permit_checklist", "equipment_reconcile"}
+    # 🔴175차 — P2·P4까지 구현돼 **백로그가 전부 닫혔다**. 남은 제안은 0건이다.
+    PROPOSED = set()
     IMPLEMENTED_P1 = {"inspection_checklist", "commissioning_plan", "completion_docset"}
     head, _, backlog = doc.partition("## 7. 미구현 백로그")
     assert backlog, "🔴 7절(미구현 백로그)이 사라졌다"
@@ -7812,14 +7813,16 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴173차 — P1 감리가 구현돼 **검측·시운전·준공이 0건이 아니게 됐다**.
     #    166차가 「0건」이라 적었던 10종 중 이 셋은 **문서에서도 해소 표기로 바뀌었다**.
     # 🔴174차 — P3가 구현돼 「정기점검」도 0건이 아니게 됐다. 남은 0건은 셋이다.
-    for kw in ("유지보수", "지내력", "측량", "농지전용"):
+    # 🔴175차 — P2로 「지내력」·「농지전용」이 확인 항목으로 코드에 들어왔다
+    for kw in ("유지보수", "측량"):
         assert blob.count(kw) == 0, (
             f"🔴 「{kw}」가 코드 5파일에 {blob.count(kw)}건 있다 — 문서는 0건이라 적는다. "
             "구현이 들어왔다면 커버리지 표와 7절 백로그를 갱신하라")
     # 반대 방향 — 구현된 것은 **있어야 한다**
-    for kw in ("검측", "시운전", "준공", "정기점검"):
+    for kw in ("검측", "시운전", "준공", "정기점검", "지내력", "농지전용"):
         assert blob.count(kw) > 0, (
-            f"🔴 「{kw}」가 코드에서 사라졌다 — 173차 P1·174차 P3 구현이 되돌아갔다")
+            f"🔴 「{kw}」가 코드에서 사라졌다 — 173차 P1·174차 P3·175차 P2 구현이 "
+            "되돌아갔다")
     assert "174차 — 점검·보수 운영체계가 섰다" in doc
     assert "173차 — 감리 행위가 구현됐다" in doc
 
@@ -8029,9 +8032,9 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     sec3 = design.split("## 3. 단계별 상세 설계")[1].split("## 3-b.")[0]
     blocks = _re.split(r"### 3-\d\. ", sec3)[1:]
     counts = [len(names_in(b)) for b in blocks]
-    assert counts == [17, 5, 9, 18, 6, 4], (
-        f"🔴 단계별 함수 수가 {counts}다 — 174차 실측은 [17, 5, 9, 18, 6, 4]다"
-        "(173차 [17,5,9,18,6,2]에 P3 사후관리 2함수가 더해졌다)")
+    assert counts == [18, 6, 9, 18, 6, 4], (
+        f"🔴 단계별 함수 수가 {counts}다 — 175차 실측은 [18, 6, 9, 18, 6, 4]다"
+        "(174차 [17,5,9,18,6,4]에 P2·P4 2함수가 더해졌다)")
     # 🔴173차 — ③감리의 9개 중 **4개는 다른 단계 소유의 「대조 지점」**이다
     #    (select_specs·cover_assembly_lookup·verify_heating_vs_actual·
     #     doc_consistency_check). 그대로 세면 감리 역량이 **4.5배로 부풀어 보인다** —
@@ -8047,8 +8050,8 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     total = sum(own)
     front = own[0] + own[3]
     back = own[2] + own[5]
-    assert total == 55 and front == 35 and back == 9, (
-        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 174차 실측은 55/35/9다")
+    assert total == 57 and front == 36 and back == 9, (
+        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 175차 실측은 57/36/9다")
     # 🔴 핵심 — **개선 ⑦을 적용해도 쏠림 진단은 깨지지 않는다**(69→70% · 9→8%)
     # 🔴 방향을 고정한다 — 뒤(감리+사후관리) 비중은 **170차 8%에서 올라가는 중**이다.
     #    줄어들면 기능이 빠진 것이므로 하한으로 잡는다(상한이 아니다).
@@ -8074,8 +8077,12 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 55 and len(missing) == 4, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 174차 실측은 55/4다: {missing}")
+    assert len(cited) == 57 and len(missing) == 4, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 175차 실측은 57/4다: {missing}")
+    assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
+        "🔴 P2·P4 2함수가 설계서에서 빠졌다")
+    assert "백로그가 전부 닫혔다" in design, (
+        "🔴 백로그 완료 표기가 사라졌다 — P1·P2·P3·P4가 전부 구현됐다")
     assert {"maintenance_schedule", "defect_tracking"} <= cited, (
         "🔴 P3 사후관리 2함수가 설계서에서 빠졌다")
     _P1 = {"inspection_checklist", "commissioning_plan", "completion_docset"}
@@ -8352,9 +8359,9 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     import json as _j
     reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                         encoding="utf-8").read())
-    assert len(reg["constants"]) == 57, (
-        "🔴 레지스트리 상수가 57개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
-        "173차 감리 2상수·🔴174차 하자 1상수는 **등재했다**(원문이 리포에 있다)")
+    assert len(reg["constants"]) == 60, (
+        "🔴 레지스트리 상수가 60개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+        "173차 감리 2 · 174차 하자 1 · 🔴175차 P2·P4 3상수는 **등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
         assert tok not in open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                                encoding="utf-8").read(), (
@@ -8580,6 +8587,117 @@ def test_174cha_p3_defect_from_source_interval_injected():
     assert "점검 주기의 국내 기준을 확보하지 못했다" in doc
     assert "연장된 담보 만료일을 계산하지 않는다" in doc
     assert "copies`를 2로 적었다가 3/3 실측으로 정정했다" in doc
+
+
+def test_175cha_permit_dispute_kept_and_equipment_not_judged():
+    """175차 P2·P4 — 이견은 **분리**하고, 기자재는 **판정하지 않는다**.
+
+    🔴 인허가 비용 부담이 **사본마다 다르다** — A·B는 「관공서 수속은 발주자 부담,
+    민원 처리는 시공자 비용」, C는 「건축주와 협의하여 발주자 부담」. CLAUDE.md
+    사실성(*"자료 간 모순은 본문에 섞지 않고 이견 항목으로 분리"*)에 따라 별도 상수로 뒀다.
+
+    🔴 기자재는 시방서가 *「K.S규격에 합격한 신품 … 부득이한 경우 **감독자가 인정하는
+    동등품 이상**」*이라 적으므로 **적합 판정을 하지 않는다** — 3열 대조표까지다.
+    """
+    import os as _o, sys as _s, json as _j, pytest as _p
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    doc = open(_o.path.join(repo, "근거_P2P4_인허가이견_기자재대조_20260920.md"),
+               encoding="utf-8").read()
+
+    # ── ① 이견이 **본문과 분리돼** 있는가 ────────────────────────────
+    assert len(e.PERMIT_COST_DISPUTE) == 2, (
+        "🔴 비용 부담 이견이 2건이 아니다 — 사본 A·B와 C가 서로 다르게 적는다")
+    srcs = [x["source"] for x in e.PERMIT_COST_DISPUTE]
+    assert any("A·B" in x for x in srcs) and any("C" in x for x in srcs)
+    joined = "".join(x["text"] for x in e.PERMIT_COST_DISPUTE)
+    assert "시공자의 비용" in joined and "발주자 부담" in joined, (
+        "🔴 이견의 두 편 중 하나가 사라졌다 — 둘 다 있어야 이견이다")
+    steps_txt = "".join(x["action"] for x in e.PERMIT_PROCEDURE_SPEC)
+    assert "비용" not in steps_txt, (
+        "🔴 비용 부담이 절차 본문에 섞였다 — 모순은 **이견으로 분리**해야 한다")
+
+    # ── ② 절차 4단계와 사본 수 ───────────────────────────────────────
+    st = e.PERMIT_PROCEDURE_SPEC
+    assert len(st) == 4 and sum(1 for x in st if x["copies"] == 3) == 3, (
+        "🔴 인허가 절차가 4단계·3/3 셋이 아니다")
+    assert any(x["timing"] == "착공 3일 이내" for x in st)
+    assert any("접수 후 1주" in x["timing"] for x in st)
+
+    # ── ③ 🔴 해당 여부를 **판정하지 않는가** ─────────────────────────
+    r = e.site_permit_checklist(area_m2=3000, cover="유리")
+    assert r["missing_inputs"] == ["용도지역"], (
+        f"🔴 미입력 항목이 {r['missing_inputs']}다 — 주어지지 않은 것만 담아야 한다")
+    assert len(r["confirmations"]) == 4
+    for c in r["confirmations"]:
+        assert c["decided_by"] in ("지자체", "발주자·설계자"), (
+            f"🔴 {c['item']}의 결정 주체가 엔진이 됐다")
+    assert "판정하지 않는다" in r["note"] and "이견으로 분리" in r["note"]
+    assert r["given"]["cover"] == "유리"
+    blob = open(_o.path.join(repo, "smartfarm_engine.py"), encoding="utf-8").read()
+    # 🔴 1차 설계가 「별표4」를 썼다가 **하자담보 법정 근거**(건산법 시행령 별표4)에
+    #    걸렸다 — 131·134·137·164·167차 「세는 문자열」 계열이다. 구별되는 토큰으로 잡는다.
+    #    ⚠️「축조신고」·「가설건축물」은 **확인 항목의 이름**이라 엔진에 있어야 하고,
+    #    「FRP」는 피복재다. 막아야 하는 것은 **조문 기준 수치**뿐이다.
+    for tok in ("100㎡", "건축법 시행령"):
+        assert tok not in blob, (
+            f"🔴 개별 인허가 조문 기준 「{tok}」이 엔진에 들어왔다 — 원문 미확보다"
+            "(웹 요약까지). 해당 여부는 지자체가 정한다")
+    assert "가설건축물 축조신고 해당 여부" in blob, (
+        "🔴 확인 항목에서 축조신고가 빠졌다 — 이름은 있어야 한다(기준 수치만 없다)")
+    assert "건축법 시행령 제15조⑤" in doc, "🔴 외부 조문 출처가 문서에서 사라졌다"
+    r0 = e.site_permit_checklist()
+    assert len(r0["missing_inputs"]) == 3
+    with _p.raises(ValueError):
+        e.site_permit_checklist(area_m2=-1)
+
+    # ── ④ 기자재 3열 대조 — 판정 없음 ────────────────────────────────
+    assert e.MATERIAL_APPROVAL_ATTACHMENTS == (
+        "제조업자 시방서", "시험성적표", "표준 색상철", "카탈로그", "계산서",
+        "자재유지관리 지침서"), "🔴 재료승인 첨부 6종이 바뀌었다 — 원문 열거다"
+    q = e.equipment_reconcile(["온풍난방기", "환경제어기"],
+                              ks_declared={"온풍난방기": "KS 동등품 이상"},
+                              attachments_by_model={"온풍난방기": ["제조업자 시방서",
+                                                                "시험성적표"]})
+    by = {x["model"]: x for x in q["rows"]}
+    assert by["온풍난방기"]["ks_declared"] == "KS 동등품 이상"
+    assert len(by["온풍난방기"]["attachments_missing"]) == 4
+    assert q["needs_ks_declaration"] == ["환경제어기"], (
+        "🔴 규격 미선언을 드러내지 않는다 — 채우지 말고 **밝혀야** 한다")
+    assert "적합 판정을 하지 않는다" in q["note"]
+    assert "감독자가 인정하는 동등품 이상" in q["note"]
+    for x in q["rows"]:
+        assert "적합" not in x["status"] and "부적합" not in x["status"], (
+            "🔴 행 상태가 적합/부적합을 말한다 — 판정은 감독자 몫이다")
+    with _p.raises(ValueError):
+        e.equipment_reconcile([])
+
+    # ── ⑤ 🔴 두 등재 목록이 다르다는 사실 ────────────────────────────
+    assert by["온풍난방기"]["service_life_years"] == 11
+    assert by["온풍난방기"]["in_equipment_db"] is False, (
+        "🔴 온풍난방기가 기자재 DB에 들어왔다 — 두 등재 목록이 통합됐다면 "
+        "`not_in_equipment_db`의 뜻(등재 범위 밖)을 다시 써야 한다")
+    assert by["환경제어기"]["in_equipment_db"] is True
+    assert "등재 범위 밖" in q["note"]
+    assert "두 등재가 서로 다른 목록이다" in doc
+
+    # ── ⑥ 등재됐는가 ─────────────────────────────────────────────────
+    reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                        encoding="utf-8").read())
+    for k in ("PERMIT_PROCEDURE_SPEC", "PERMIT_COST_DISPUTE",
+              "MATERIAL_APPROVAL_ATTACHMENTS"):
+        ent = reg["constants"][k]
+        assert ent["status"] == "실측" and len(ent["source_refs"]) == 3, (
+            f"🔴 {k}이 등재에서 빠졌거나 ref가 3건(사본 3종)이 아니다")
+
+    # ── ⑦ 하지 않은 것 ───────────────────────────────────────────────
+    assert "인허가 비용 부담을 정하지 않았다" in doc
+    assert "기자재 적합 판정을 하지 않았다" in doc
+    assert "두 기자재 등재 목록을 통합하지 않았다" in doc
+    assert "167차 경계 가드에 걸려 뺐다" in doc
 
 
 if __name__ == "__main__":

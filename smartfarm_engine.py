@@ -4889,6 +4889,147 @@ def completion_docset(doc_consistency_report=None) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# 부지 전단 G3: 인허가·제출물 (175차 신설 — P2)
+#   🔴 공사시방서 「관공서, 기타민원에 대한 인허가 수속 및 협의」 절에서 전사했다.
+#   ⚠️**비용 부담이 사본마다 다르다** — 본문에 섞지 않고 **이견으로 분리**한다
+#   (CLAUDE.md 사실성: "자료 간 모순은 '이견' 항목으로 분리").
+#   🔴**개별 인허가(가설건축물 축조신고·농지전용 등)의 조문은 리포에 없다** —
+#   조항 수치를 엔진에 박지 않고 **무엇을 확인해야 하는지**만 낸다.
+# ─────────────────────────────────────────────────────────────
+PERMIT_PROCEDURE_SPEC = (
+    {"clause": "인허가 수속", "copies": 3, "timing": "착공 전~준공",
+     "item": "관공서 인허가 수속 사전 협의",
+     "action": "건물 준공의 처리를 포함한 모든 관공서 및 기타 소정의 인허가 수속은 "
+               "특별한 사항을 제외하고는 사전에 감독자와 협의하여 공정에 맞도록 처리한다"},
+    {"clause": "공사의 관리", "copies": 3, "timing": "착공 3일 이내",
+     "item": "현장 구성요원 기구 조직표",
+     "action": "현장 구성요원의 기구 조직표를 제출하여 감독자의 승인을 받아 "
+               "현장사무실에 게시한다"},
+    {"clause": "공정계획", "copies": 3, "timing": "공사 착수 전",
+     "item": "종합공정표·시공계획서",
+     "action": "관련 및 별도 공사를 포함한 공사 전반의 종합공정표와 시공계획서를 "
+               "작성하여 감독자의 승인을 받는다"},
+    {"clause": "제출물", "copies": 2, "timing": "제출물 접수 후 1주 이내",
+     "item": "감독자 회신",
+     "action": "접수 후 1주 이내에 승인·수정·조건부 승인·불승인 등의 조치사항을 통보한다"},
+)
+
+# 🔴 같은 절인데 사본마다 다르게 적는다 — 판정하지 않고 나란히 둔다.
+PERMIT_COST_DISPUTE = (
+    {"source": "사본 A·B(경주형 연동하우스 김해농원·파파딸기)",
+     "text": "관공서 인허가 수속에 소요되는 비용은 발주자 부담으로 한다. 다만 공사완료 "
+             "때까지 필요한 인허가 수속과 민원 처리는 시공자의 책임 하에 "
+             "시공자의 비용으로 지체없이 이행해야 한다"},
+    {"source": "사본 C(과수 스마트팜)",
+     "text": "인허가 수속과 민원 처리에 대한 수속 및 제반 협의사항들을 건축주와 협의하여 "
+             "이와 관련된 비용은 발주자 부담으로 한다"},
+)
+
+
+def site_permit_checklist(area_m2: float = None, cover: str = None,
+                          land_use_zone: str = None) -> dict:
+    """부지 전단 인허가·제출물 체크리스트(결정론) — 판정·해당 여부 결정 없음.
+
+    시방서 절차(PERMIT_PROCEDURE_SPEC)와 **비용 부담 이견**(PERMIT_COST_DISPUTE)을
+    함께 낸다. 개별 인허가(가설건축물 축조신고·농지전용·개발행위허가)의 조문은
+    **리포에 없으므로 조항 수치를 판단에 쓰지 않는다** — 대신 그 판단에 필요한
+    **입력이 갖춰졌는지**만 드러낸다(missing_inputs).
+
+    area_m2·cover·land_use_zone은 전부 선택이며, 주어지지 않으면 그 항목을
+    missing_inputs에 담는다. 🔴**해당/비해당을 정하지 않는다** — 지자체 확인 사항이다.
+    """
+    need = []
+    if area_m2 is None:
+        need.append("연면적(㎡)")
+    elif area_m2 <= 0:
+        raise ValueError(f"area_m2는 양수여야 한다: {area_m2}")
+    if not cover:
+        need.append("피복 종류(골조·피복 재료)")
+    if not land_use_zone:
+        need.append("용도지역")
+    checks = [
+        {"item": "가설건축물 축조신고 해당 여부", "decided_by": "지자체",
+         "inputs": ["연면적(㎡)", "용도지역", "피복 종류(골조·피복 재료)"]},
+        {"item": "농지전용(신고/허가) 해당 여부", "decided_by": "지자체",
+         "inputs": ["지목", "영농 목적 여부"]},
+        {"item": "개발행위허가 해당 여부", "decided_by": "지자체",
+         "inputs": ["용도지역", "부지 형질변경 유무"]},
+        {"item": "지반조사 성과품 제출", "decided_by": "발주자·설계자",
+         "inputs": ["지내력(kN/㎡)", "지하수위"]},
+    ]
+    return {"steps": [dict(x) for x in PERMIT_PROCEDURE_SPEC],
+            "cost_dispute": [dict(x) for x in PERMIT_COST_DISPUTE],
+            "confirmations": checks, "missing_inputs": need,
+            "given": {"area_m2": area_m2, "cover": cover,
+                      "land_use_zone": land_use_zone},
+            "note": ("🔴**해당 여부를 판정하지 않는다** — 개별 인허가의 조문이 리포에 없고, "
+                     "용도지역·지목 판단은 지자체 사항이다. 이 함수는 **무엇을 확인해야 "
+                     "하고 어떤 입력이 비어 있는지**만 낸다. ⚠️**비용 부담은 사본마다 "
+                     "달라 이견으로 분리**했다 — 계약서에서 정해야 한다. "
+                     "지반은 설계기준이 따로 있어도 **그 부지의 값**은 "
+                     "지반조사 성과품에서만 나온다")}
+
+
+# ─────────────────────────────────────────────────────────────
+# 기자재 정합 G4: 견적 모델 ↔ 등재 DB ↔ 규격 선언 (175차 신설 — P4)
+#   🔴 시방서 근거 — 「공사용 재료 및 시설물은 K.S규격에 합격한 신품을 사용하되,
+#   부득이한 경우 **감독자가 인정하는 동등품 이상**의 재료를 사용한다」(3/3 사본).
+#   즉 **합격 판정은 감독자**이고, 이 함수는 **대조표만** 만든다.
+# ─────────────────────────────────────────────────────────────
+MATERIAL_APPROVAL_ATTACHMENTS = ("제조업자 시방서", "시험성적표", "표준 색상철",
+                                 "카탈로그", "계산서", "자재유지관리 지침서")
+
+
+def equipment_reconcile(quoted_models: list, ks_declared: dict = None,
+                        attachments_by_model: dict = None) -> dict:
+    """기자재 3열 대조(결정론) — 등재 DB · 규격 선언 · 재료승인 첨부. 판정 없음.
+
+    quoted_models: 견적서에 적힌 기자재 모델·장치명 리스트.
+    ks_declared: {모델: KS 번호 또는 '동등품 이상' 등 선언} — 🔴**주입 전용**이다.
+      규격 적합은 시험성적표·검정으로 증명되는 것이지 엔진이 조회할 대상이 아니다.
+    attachments_by_model: {모델: [첨부 서류명]} — 시방서가 요구한 6종과 대조한다.
+
+    반환 rows의 각 행은 ①등재 DB 조회 결과 ②규격 선언 ③첨부 누락을 나란히 둔다.
+    **적합/부적합을 정하지 않는다** — 시방서가 「감독자가 인정하는」이라 적는다.
+    """
+    if not quoted_models:
+        raise ValueError("quoted_models가 비어 있다 — 대조할 기자재가 없다")
+    ks = ks_declared or {}
+    att = attachments_by_model or {}
+    rows, no_ks, not_in_db = [], [], []
+    for m in quoted_models:
+        try:
+            found = equipment_lookup(m)
+        except Exception:
+            found = []
+        in_db = bool(found)
+        if not in_db:
+            not_in_db.append(m)
+        decl = ks.get(m)
+        if decl is None:
+            no_ks.append(m)
+        given = list(att.get(m) or [])
+        missing_att = [a for a in MATERIAL_APPROVAL_ATTACHMENTS if a not in given]
+        rows.append({"model": m, "in_equipment_db": in_db,
+                     "db_hits": len(found),
+                     "service_life_years": (EQUIPMENT_SERVICE_LIFE_REFERENCE.get(m)
+                                            or {}).get("years"),
+                     "ks_declared": decl,
+                     "attachments_given": given,
+                     "attachments_missing": missing_att,
+                     "status": ("[확인요망] 규격 선언 없음" if decl is None else
+                                "선언됨 — 감독자 인정 대상")})
+    return {"rows": rows, "needs_ks_declaration": no_ks,
+            "not_in_equipment_db": not_in_db,
+            "required_attachments": list(MATERIAL_APPROVAL_ATTACHMENTS),
+            "note": ("🔴**적합 판정을 하지 않는다** — 시방서는 「K.S규격에 합격한 신품을 "
+                     "사용하되, 부득이한 경우 **감독자가 인정하는 동등품 이상**」이라 "
+                     "적는다. 규격 선언은 **주입 전용**이고(시험성적표·검정이 증명한다) "
+                     "미선언은 needs_ks_declaration으로 드러낸다. "
+                     "`not_in_equipment_db`는 **결함이 아니라 등재 범위 밖**이라는 뜻이다")}
+
+
+# ─────────────────────────────────────────────────────────────
 # 사후관리 G2: 점검 일정·하자 추적 (174차 신설 — P3)
 #   🔴 하자는 **리포 원문**에서 왔다(공사시방서 하자보수 조항 + 건산법 별표4).
 #   🔴 점검 **주기**는 리포에 없다 — 「단동 비닐하우스 유지관리 개선방안 연구」는
