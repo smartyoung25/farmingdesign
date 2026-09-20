@@ -4980,9 +4980,10 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 90, "partial": 53, "near": 8}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 151차 실측은 exact 90 / partial 53 / near 8이다"
-        "(137차 확정 50에 `OVERHEAD_RATES` 원가계산서 3건이 더해졌다). "
+    assert dist == {"exact": 90, "partial": 53, "near": 9}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 161차 실측은 exact 90 / partial 53 / near 9이다"
+        "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 **near +1**"
+        "= `FR_TABLE`의 [표 3-3-27] 수치 근거 후보). "
         "ref를 늘렸다면 새 ref의 등급을 정하고 이 수를 갱신하라")
 
     # ── 🔴 near 4건 — 값이 원문과 **같지 않다**는 것이 핵심이다 ──────────
@@ -5041,10 +5042,11 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 8 and ledger.count("[부분]") == 53, (
+    assert ledger.count("[근접]") == 9 and ledger.count("[부분]") == 53, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
-        "151차 실측(8·53)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
-        "(137차 확정은 8·50이었고 151차에 `OVERHEAD_RATES` partial 3건이 더해졌다)")
+        "161차 실측(9·53)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
+        "(137차 확정 8·50 → 151차 partial +3 → 161차 **near +1**"
+        "= `FR_TABLE`의 [표 3-3-27] 수치 근거 후보)")
     # 🔴 152차 — 이 가드는 **커밋된 HTML**을 읽는다. 게이트를 돌릴 때 `build_site.py`를
     #   pytest **뒤에** 실행하면 낡은 산출물로 통과해 버린다(151차에 실제로 그랬다).
     #   순서는 **build_site → pytest**다.
@@ -5241,9 +5243,9 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 61, (
-        f"partial·near가 {len(rows)}건이다 — 151차 실측은 61건"
-        "(140차 58 + `OVERHEAD_RATES` 3건)")
+    assert len(rows) == 62, (
+        f"partial·near가 {len(rows)}건이다 — 161차 실측은 62건"
+        "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1)")
 
     # ① 🔴 기준 없는 ref가 0건인가 — 가드가 **직접** 센다(139차 M5 교훈)
     empty = [(k, _o.path.basename(f), g) for k, f, g, note in rows
@@ -5977,7 +5979,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 90, "partial": 53, "near": 8}, (
+    assert dist == {"exact": 90, "partial": 53, "near": 9}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53). "
         "도면이 면적을 정확히 재현해도 값의 출처는 견적서 사업량 표기다")
@@ -6475,9 +6477,9 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 151, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 151차 실측은 151건"
-        "(134차 148 + OVERHEAD_RATES 3)")
+    assert a["counts"]["source_refs"] == 152, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 161차 실측은 152건"
+        "(134차 148 + OVERHEAD_RATES 3 + FR_TABLE 1)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
              for x in a["refless_measured"]}
@@ -7328,6 +7330,95 @@ def test_160cha_s1_absence_and_canonical_index():
     # ── ⑥ 결정하지 않았다 ────────────────────────────────────────────
     assert "결정은 하나도 내리지 않았다" in doc
     assert "청킹 인덱스를 재생성하지 않았다" in doc
+
+
+def test_161cha_p0a_sources_and_unit_conversion():
+    """161차 — P0-a 재탐색. `U_VALUE`는 **이미 풀려 있었고**, `FR_TABLE`은 후보를 찾았다.
+
+    🔴 나는 `[표 3-3-30]`을 열어 *"등재 유리 5.3이 어디에도 없다"*고 적었다가
+    **기존 ref note를 읽고 틀렸음을 알았다** — 표는 **W/㎡·K**이고 엔진은
+    **kcal/㎡·hr·℃**라 **×0.86** 환산이다(100차가 이미 지목). 158차의
+    *"함수는 호출해서 확인한다"*와 같은 유형: **등재된 근거를 읽지 않고 원문만 봤다.**
+
+    🔴 그리고 ref를 붙이며 **중복 키**를 만들 뻔했다 — 두 상수에 이미
+    `source_refs`가 있었고, 새 키를 삽입하면 JSON 파서가 **뒤엣것만 남긴다**.
+    배열에 append해야 한다.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_P0a원문발견_9축재탐색_20260920.md")
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    C = reg["constants"]
+
+    # ── ① 🔴 중복 키가 없는가(JSON은 조용히 뒤엣것만 남긴다) ─────────
+    src = rd("엔진데이터_레지스트리.json")
+    for k in ("FR_TABLE", "U_VALUE", "U_DESIGN"):
+        i = src.find('"%s": {' % k)
+        j = src.find("\n    },", i)
+        assert src[i:j].count('"source_refs"') == 1, (
+            f"🔴 {k}에 `source_refs` 키가 둘이다 — JSON 파서는 **뒤엣것만** 남기므로 "
+            "앞의 ref가 조용히 사라진다. 배열에 append하라")
+
+    # ── ② W → kcal 환산이 등재값을 설명하는가(100차 확정) ────────────
+    #    표 3-3-30은 W/㎡·K, 엔진은 kcal/㎡·hr·℃ — 1W = 0.86 kcal/h
+    assert abs(6.16 * 0.86 - 5.2976) < 1e-4
+    assert abs(6.63 * 0.86 - 5.7018) < 1e-4
+    assert abs(e.U_VALUE["유리"] - 5.3) < 1e-9, "U_VALUE[유리] 값이 바뀌었다"
+    assert abs(e.U_DESIGN["필름"] - 5.7) < 1e-9, "U_DESIGN[필름] 값이 바뀌었다"
+    assert abs(6.16 * 0.86 - e.U_VALUE["유리"]) < 0.01, (
+        "🔴 유리 6.16 W×0.86 = 5.298 ≈ 5.3이라는 **정상환산설**이 깨졌다")
+    assert abs(6.63 * 0.86 - e.U_DESIGN["필름"]) < 0.01, (
+        "🔴 플라스틱 6.63 W×0.86 = 5.702 ≈ 5.70이라는 99차 채택 근거가 깨졌다")
+    # 그 근거가 ref에 **적혀 있다**
+    ud = " ".join(r.get("note") or "" for r in C["U_DESIGN"]["source_refs"])
+    uv = " ".join(r.get("note") or "" for r in C["U_VALUE"]["source_refs"])
+    assert "6.63" in ud and "0.86" in ud and "5.70" in ud, (
+        "U_DESIGN의 환산 근거(6.63×0.86=5.70)가 ref에서 사라졌다")
+    assert "6.16" in uv and "5.298" in uv, (
+        "U_VALUE의 환산 근거(6.16×0.86=5.298)가 ref에서 사라졌다")
+    assert any(r.get("match") == "exact" for r in C["U_DESIGN"]["source_refs"]), (
+        "U_DESIGN의 exact ref가 사라졌다 — 99차 채택 근거다")
+    assert "이미 해소돼 있었다" in doc and "등재된 근거를 읽지 않고 원문만 봤다" in doc
+
+    # ── ③ 🔴 FR_TABLE — 수치 근거 후보가 붙었고 정합하지 않는다 ──────
+    fr = C["FR_TABLE"]["source_refs"]
+    assert len(fr) == 3, f"FR_TABLE의 refs가 {len(fr)}건이다 — 161차 실측은 3건"
+    cand = [r for r in fr if "신개념온실" in r["file"] or "에너지절감과생산성" in r["file"]]
+    assert len(cand) == 1 and cand[0]["match"] == "near", (
+        "🔴 [표 3-3-27] ref가 사라졌거나 등급이 near가 아니다 — 등재값이 이 문서에서 "
+        "나온 것이 **아니라** 근접·불일치를 보이므로 near다")
+    note = cand[0]["note"]
+    # 표 **행 형태**로 고정한다 — 맨 숫자는 같은 note의 다른 문장에도 있다(뮤테이션 C4)
+    for row in ("폴리에틸렌 필름 30~35", "다겹보온커튼 58~67",
+                "알루미늄 스크린(LSP) 43~47"):
+        assert row in note, f"🔴 [표 3-3-27]의 행 「{row}」이 대조 기준에서 사라졌다"
+    for tok in ("표 3-3-27", "1층"):
+        assert tok in note, f"[표 3-3-27] 대조 기준에서 {tok}가 사라졌다"
+    assert _o.path.isfile(_o.path.join(repo, cand[0]["file"])), "원문이 사라졌다"
+
+    # 값은 바뀌지 않았다 — 정합하지 않는 표를 채택하는 것은 ★결정이다
+    assert e.FR_TABLE == {"PO단일": 0.35, "다겹보온": 0.5,
+                          "이중커튼": 0.7, "2중커튼": 0.7}, (
+        "🔴 FR_TABLE 값이 바뀌었다 — 161차는 ref를 붙이고 대조만 했다. "
+        "표 3-3-27 채택은 ★사용자 결정이고, 채택하려면 어느 행을 PO단일·이중커튼에 "
+        "대응시킬지부터 정해야 한다")
+    assert not (0.58 <= e.FR_TABLE["다겹보온"] <= 0.67), (
+        "다겹보온이 표 범위(58~67%)로 들어왔다면 **값이 교체된 것**이다 — "
+        "그것은 ★결정이므로 근거문서를 갱신하라")
+
+    # ── ④ 탐색 범위가 좁았다는 진단 ──────────────────────────────────
+    assert "스마트팜스펙/` 전수 검색" in doc and "스마트팜연구DB/`를 보지 않았다" in doc, (
+        "🔴 종전 「전무」가 **탐색 범위 탓**이었다는 진단이 사라졌다 — R6의 실례다")
+    assert "88,915" in doc
+
+    # ── ⑤ 단정하지 않은 것 ───────────────────────────────────────────
+    assert "단정하지 않는다" in doc and "이중커튼 = 0.70`의 출처는 여전히 미확보" in doc
+    assert "결정은 하나도 내리지 않았다" in doc
 
 
 if __name__ == "__main__":
