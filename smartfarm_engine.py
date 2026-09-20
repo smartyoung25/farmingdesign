@@ -4889,6 +4889,181 @@ def completion_docset(doc_consistency_report=None) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# 성능보증 G7: 편차·지급 판정·보증수수료 (188차 신설 — ★사용자 결정 2026-09-21)
+#
+#   🔴 **왜 판정하는가.** 187차와 같다 — 1절이 막던 것은 **근거 없는 판정**이고,
+#      사용자가 규칙을 결정했으므로 엔진은 **결정론적으로 적용**한다.
+#      조건 셋은 그대로: ①같은 입력 → 같은 결과 ②**항목별 근거 행** ③**규칙 주입 가능**.
+#
+#   🔴 **기준선은 설계값이다.** 185차가 *"설계값 대 실측까지"*로 남긴 자리에
+#      **면책 구간과 보상 산식**을 얹는다. 설계값이 없으면 판정하지 않는다.
+#
+#   ⚠️ **요율은 주입 전용**이다(1절 — 시세성). 보증수수료 **산식**만 엔진에 둔다.
+#      산식의 준거는 레지스트리 `source`와 `근거_벤치마킹출처_검증_20260921.md`에 있다.
+# ─────────────────────────────────────────────────────────────
+PERF_GUARANTEE_SPEC: list[dict] = [
+    {"key": "yield", "title": "수확량", "unit": "kg",
+     "direction": "higher_is_better",
+     "design_from": "production_kg() — 면적·단수·환경적합도"},
+    {"key": "energy", "title": "에너지 사용량", "unit": "L 또는 kWh",
+     "direction": "lower_is_better",
+     "design_from": "heating_load()의 fuel_consumption"},
+    {"key": "uptime", "title": "가동률", "unit": "%",
+     "direction": "higher_is_better",
+     "design_from": "설계 전제 — 엔진이 내지 않는다(주입)"},
+]
+
+# ★결정 기록 — 면책·보상 규칙. 주입(`rule`)으로 덮어쓸 수 있다.
+PERF_GUARANTEE_RULE: dict = {
+    "tolerance_pct": 5.0,        # 이 폭 안의 미달은 면책(지급 대상 아님)
+    "max_cover_ratio": 0.95,     # 보상은 손실의 이 비율까지
+    "claim_days": 30,            # 청구 후 지급 기한(일)
+    "baseline": "준공 시 설계도서",
+    "note": ("면책 구간 밖의 미달만 지급 대상이다. 보상은 **손실액 × 보상비율**이고 "
+             "보험가액을 넘지 않는다. 기준선은 **준공 시 설계도서**다 — "
+             "값과 준거는 ★사용자 결정이며 레지스트리 `source`에 적었다"),
+}
+
+
+def performance_shortfall(design_value: float, actual_value: float,
+                          direction: str = "higher_is_better",
+                          tolerance_pct: Optional[float] = None) -> dict:
+    """설계값 대비 실측 편차(결정론). **면책 판정은 tolerance가 주어질 때만** 한다.
+
+    direction: `higher_is_better`(수확량·가동률) / `lower_is_better`(에너지).
+    tolerance_pct: 면책 폭(%). **None이면 판정하지 않고 편차만 낸다** —
+      몇 %를 면책으로 볼지는 **보증 상품 설계**이지 엔진이 고를 값이 아니다.
+    """
+    if direction not in ("higher_is_better", "lower_is_better"):
+        raise ValueError("direction은 higher_is_better / lower_is_better다: %r" % direction)
+    if design_value is None or actual_value is None:
+        raise ValueError("설계값·실측값이 모두 있어야 편차를 낼 수 있다")
+    d, a = float(design_value), float(actual_value)
+    if d == 0:
+        raise ValueError("설계값이 0이라 편차 비율을 낼 수 없다")
+    diff = (d - a) if direction == "higher_is_better" else (a - d)
+    shortfall_pct = diff / abs(d) * 100.0
+    out = {"design": d, "actual": a, "direction": direction,
+           "shortfall_pct": shortfall_pct,
+           "shortfall_abs": diff if diff > 0 else 0.0,
+           "tolerance_pct": tolerance_pct,
+           "note": ("🔴 `shortfall_pct`가 음수면 **설계값을 넘어섰다**는 뜻이다. "
+                    "면책 여부는 `tolerance_pct`가 주어질 때만 판정한다 — "
+                    "몇 %를 면책으로 볼지는 **보증 상품 설계**다")}
+    if tolerance_pct is None:
+        out["within_tolerance"] = None
+        out["claimable"] = None
+    else:
+        t = float(tolerance_pct)
+        out["within_tolerance"] = shortfall_pct <= t
+        out["claimable"] = shortfall_pct > t
+    return out
+
+
+def guarantee_assessment(items: list, insured_value_won: float,
+                         rule: Optional[dict] = None) -> dict:
+    """성능보증 지급 판정(결정론) — 항목별 편차 → 지급 대상 → 보상액.
+
+    items: [{"key", "design", "actual", "loss_won"(선택)}]
+      `loss_won`은 **그 미달이 만든 손실액**이고 **주입**이다(단가는 시세성).
+      없으면 보상액을 만들지 않고 `needs_loss`로 드러낸다.
+    insured_value_won: 보험가액(주입) — 보상 합계의 상한.
+
+    🔴 **판정 근거를 항목마다 낸다.** 무엇이 몇 % 미달이라 지급 대상인지가
+       보이지 않으면 그것은 판정이 아니라 통보다.
+    """
+    r = dict(PERF_GUARANTEE_RULE)
+    if rule:
+        r.update(rule)
+    spec = {c["key"]: c for c in PERF_GUARANTEE_SPEC}
+    unknown = sorted({(i or {}).get("key") for i in (items or [])} - set(spec))
+    if unknown:
+        raise ValueError("모르는 보증 항목: %s (등재: %s)" % (unknown, sorted(spec)))
+    if insured_value_won is None:
+        raise ValueError("보험가액이 없다 — 보상 상한을 정할 수 없다")
+
+    rows, claimable, needs_loss, total = [], [], [], 0.0
+    for it in (items or []):
+        k = it["key"]
+        sh = performance_shortfall(it.get("design"), it.get("actual"),
+                                   spec[k]["direction"], r["tolerance_pct"])
+        loss = it.get("loss_won")
+        pay = None
+        if sh["claimable"]:
+            claimable.append(k)
+            if loss is None:
+                needs_loss.append(k)
+            else:
+                pay = float(loss) * float(r["max_cover_ratio"])
+                total += pay
+        rows.append({"key": k, "title": spec[k]["title"],
+                     "shortfall_pct": sh["shortfall_pct"],
+                     "tolerance_pct": sh["tolerance_pct"],
+                     "claimable": sh["claimable"],
+                     "loss_won": loss, "payout_won": pay,
+                     "basis": spec[k]["design_from"]})
+    capped = min(total, float(insured_value_won))
+    return {"rows": rows, "claimable": claimable, "needs_loss": needs_loss,
+            "payout_won": capped, "payout_before_cap_won": total,
+            "capped_by_insured_value": total > float(insured_value_won),
+            "insured_value_won": float(insured_value_won),
+            "rule": r,
+            "note": ("🔴 **손실액은 주입**이다 — 단가·시세를 엔진이 만들지 않는다. "
+                     "`needs_loss`가 비지 않으면 그 항목은 **지급 대상이지만 금액을 "
+                     "낼 수 없다**는 뜻이다. 최종 지급은 보증 계약과 보험사 심사가 "
+                     "정한다 — 이 표는 **계약이 정한 규칙을 그대로 적용한 결과**다")}
+
+
+def guarantee_fee(guarantee_amount_won: float, base_rate_pct: float,
+                  days: int, operation_rate_pct: float = 0.0) -> dict:
+    """보증수수료(결정론) — **요율은 주입 전용**(1절 시세성).
+
+    산식: 보증금액 × (기본요율 ± 운용요율) × 보증기간 일수 ÷ 365.
+    🔴 **요율에 기본값을 두지 않는다.** 기관·등급·기간마다 다르고 협의 대상이다.
+    """
+    if base_rate_pct is None:
+        raise ValueError("기본요율이 없다 — 시세성이라 엔진이 만들지 않는다")
+    if days is None or int(days) <= 0:
+        raise ValueError("보증기간 일수가 없다")
+    rate = (float(base_rate_pct) + float(operation_rate_pct)) / 100.0
+    fee = float(guarantee_amount_won) * rate * int(days) / 365.0
+    return {"fee_won": fee, "applied_rate_pct": float(base_rate_pct) + float(operation_rate_pct),
+            "base_rate_pct": float(base_rate_pct),
+            "operation_rate_pct": float(operation_rate_pct),
+            "days": int(days), "guarantee_amount_won": float(guarantee_amount_won),
+            "formula": "보증금액 × (기본요율 ± 운용요율) × 일수 ÷ 365",
+            "note": ("🔴 요율은 **주입 전용**이다 — 기관·등급·기간마다 다르고 협의 대상이라 "
+                     "엔진이 고르지 않는다. 산식의 준거는 레지스트리 `source`에 적었다")}
+
+
+def progress_certification(planned: dict, completed: dict) -> dict:
+    """기성 확인(결정론) — 공종별 기성률과 누계. **지급 승인은 하지 않는다**.
+
+    planned / completed: {공종: 금액 또는 물량}. 같은 단위여야 한다.
+    🔴 계획에 없는 공종이 실적에 있으면 **조용히 더하지 않고** `unplanned`로 드러낸다.
+    """
+    if not planned:
+        raise ValueError("계획이 비어 있다 — 기성률을 낼 수 없다")
+    unplanned = sorted(set(completed or {}) - set(planned))
+    rows, tot_p, tot_c = [], 0.0, 0.0
+    for k in planned:
+        p = float(planned[k])
+        c = float((completed or {}).get(k, 0.0))
+        tot_p += p
+        tot_c += c
+        rows.append({"work_type": k, "planned": p, "completed": c,
+                     "rate_pct": (c / p * 100.0) if p else None,
+                     "over": c > p})
+    return {"rows": rows, "unplanned": unplanned,
+            "planned_total": tot_p, "completed_total": tot_c,
+            "overall_rate_pct": (tot_c / tot_p * 100.0) if tot_p else None,
+            "over_work_types": [r["work_type"] for r in rows if r["over"]],
+            "note": ("🔴 **기성률을 낼 뿐 지급을 승인하지 않는다** — 기성 인정과 대출 인출은 "
+                     "발주처·대출기관의 판단이다. 계획에 없는 공종은 `unplanned`로 "
+                     "드러낼 뿐 합계에 넣지 않는다. 계획 대비 초과분도 `over`로 표시만 한다")}
+
+
+# ─────────────────────────────────────────────────────────────
 # 등급 부여 G6: K-SFID 검증 등급 (187차 신설 — ★사용자 결정 2026-09-21)
 #
 #   🔴 **왜 이제 판정하는가.** 1절의 「판정·추천 자동화 금지」가 막던 것은

@@ -102,6 +102,13 @@ PACKAGE_SPEC = [
      "engine": ["ksfid_grade", "ksfid_number", "ksfid_validity",
                 "select_specs", "verify_heating_vs_actual", "benchmark_check",
                 "site_permit_checklist", "warranty_period"]},
+    # 🔴188차 — 185차 `D24`가 *"편차 함수가 없다"*로 세어 둔 3항목에 함수를 붙였다.
+    {"code": "D26", "title": "성능보증 판정서", "stage": "⑥사후관리",
+     "targets": ["시설", "기자재"],
+     "engine": ["performance_shortfall", "guarantee_assessment", "guarantee_fee",
+                "production_kg"]},
+    {"code": "D27", "title": "기성 확인서", "stage": "③감리", "targets": ["시설"],
+     "engine": ["progress_certification"]},
 ]
 
 # 주입 슬롯 — 이름과 성격을 밝혀 둔다(무엇이 없어서 못 세우는지 고객이 알아야 한다)
@@ -151,6 +158,13 @@ INJECTION_SLOTS = {
     "ksfid_seq": "K-SFID 일련번호(0~9999) — 발급 기관이 관리한다",
     "ksfid_issued": "인증 발급일(YYYY-MM-DD) — 유효기간의 기산점",
     "ksfid_thresholds": "등급 경계를 바꿀 규칙 — 🔴바꾸면 등급이 바뀐다",
+    "perf_losses": "성능 미달이 만든 **손실액**(항목별 원) — 🔴단가는 시세성이라 주입 전용",
+    "insured_value_won": "보험가액(원) — 보상 합계의 상한. 보증 계약이 정한다",
+    "guarantee_rule": "면책·보상비율을 바꿀 규칙 — 🔴바꾸면 지급 대상이 바뀐다",
+    "guarantee_fee_inputs": "보증수수료 입력(보증금액·기본요율·운용요율·일수) — "
+                            "🔴**요율은 시세성**이라 기본값을 두지 않는다",
+    "progress_plan": "공종별 계획(금액 또는 물량) — 설계 성과품",
+    "progress_done": "공종별 실적(같은 단위) — 현장 기성 자료",
 }
 
 # 🔴 `장비정보.csv`에는 `농장명/업체명`·`농장주`·`계약 금액` 열이 있다 —
@@ -689,6 +703,69 @@ def build_package(case: dict, injections: dict = None) -> dict:
                                "`ksfid_thresholds`로 덮어쓰면 **등급이 바뀐다** — "
                                "반환의 `rule`이 그것을 드러낸다. 미검증 항목은 "
                                "**통과로 세지 않는다**"))
+
+        elif code == "D26":
+            # 🔴 설계값은 엔진이 낸다. **실측은 주입**이고, 없으면 편차를 만들지 않는다.
+            # 🔴 `rr.compute`의 heating 요약에는 연료소비량이 없다 — **엔진 함수에서
+            #    직접** 받는다(같은 단일 계산 출처다. 이 계층이 다시 계산하는 것이 아니다).
+            _hr = e.heating_load(inp.surface_area_m2, inp.cover.value, inp.t_target,
+                                 inp.t_min, inp.fr, floor_area_m2=inp.area_m2)
+            design = {"yield": e.production_kg(inp.area_m2, inp.base_yield_kg_m2,
+                                               inp.fitness_pct),
+                      "energy": _hr.fuel_consumption,
+                      "uptime": None}
+            actual = {"yield": inj.get("actual_yield_kg"),
+                      "energy": inj.get("actual_energy"),
+                      "uptime": inj.get("actual_uptime_pct")}
+            losses = inj.get("perf_losses") or {}
+            ready = [k for k in design
+                     if design[k] is not None and actual[k] is not None]
+            # 🔴 **보험가액이 없어도 편차는 낸다** — 지급 판정과 편차는 다른 일이다.
+            _rule = dict(e.PERF_GUARANTEE_RULE)
+            _rule.update(inj.get("guarantee_rule") or {})
+            _dirs = {c["key"]: c["direction"] for c in e.PERF_GUARANTEE_SPEC}
+            gaps = {}
+            for k in ready:
+                gaps[k] = e.performance_shortfall(design[k], actual[k], _dirs[k],
+                                                  _rule["tolerance_pct"])
+            d = {"설계값": design, "실측 주입": actual,
+                 "판정 가능한 항목": ready, "항목별 편차": gaps}
+            n26 = []
+            for _sl in ("actual_yield_kg", "actual_energy", "actual_uptime_pct"):
+                if inj.get(_sl) is None:
+                    n26 = n26 + _need(_sl)
+            iv = inj.get("insured_value_won")
+            if ready and iv is not None:
+                d["판정"] = e.guarantee_assessment(
+                    [{"key": k, "design": design[k], "actual": actual[k],
+                      "loss_won": losses.get(k)} for k in ready],
+                    iv, inj.get("guarantee_rule"))
+            elif iv is None:
+                n26 = n26 + _need("insured_value_won")
+            fi = inj.get("guarantee_fee_inputs")
+            if fi:
+                d["보증수수료"] = e.guarantee_fee(**fi)
+            else:
+                n26 = n26 + _need("guarantee_fee_inputs")
+            items.append(_item(spec, "생성" if not n26 else "부분생성", d, n26,
+                               "🔴 **손실액과 요율은 주입**이다 — 단가·시세를 엔진이 "
+                               "만들지 않는다. 🔴**가동률의 설계값은 엔진이 내지 않는다**"
+                               "(설계 전제라 주입). 면책·보상비율은 ★사용자 결정이고 "
+                               "`guarantee_rule`로 덮어쓰면 **지급 대상이 바뀐다**. "
+                               "최종 지급은 보증 계약과 보험사 심사가 정한다"))
+
+        elif code == "D27":
+            plan, done = inj.get("progress_plan"), inj.get("progress_done")
+            if not plan:
+                items.append(_item(spec, "주입대기", None,
+                                   _need("progress_plan", "progress_done"),
+                                   "계획이 없으면 기성률을 낼 수 없다"))
+            else:
+                items.append(_item(spec, "생성" if done else "부분생성",
+                                   e.progress_certification(plan, done or {}),
+                                   [] if done else _need("progress_done"),
+                                   "🔴 **기성률을 낼 뿐 지급을 승인하지 않는다** — "
+                                   "기성 인정과 대출 인출은 발주처·대출기관의 판단이다"))
 
         else:                                       # 카탈로그에 있으나 조립되지 않은 항목
             items.append(_item(spec, "미조립", None, [], "조립기가 없다"))

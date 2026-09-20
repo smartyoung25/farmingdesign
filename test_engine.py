@@ -4989,8 +4989,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 106, "partial": 57, "near": 13}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 187차 실측은 exact 106 / partial 57 / near 13이다"
+    assert dist == {"exact": 106, "partial": 57, "near": 15}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 188차 실측은 exact 106 / partial 57 / near 15이다"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -5054,9 +5054,9 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 13 and ledger.count("[부분]") == 57, (
+    assert ledger.count("[근접]") == 15 and ledger.count("[부분]") == 57, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
-        "187차 실측(13·57)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
+        "188차 실측(15·57)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
         "(137차 확정 8·50 → 151차 partial +3 → 161차 near +1"
         "= `FR_TABLE`의 [표 3-3-27] → 🔴163차 **partial +2**"
         "= `REGION_DESIGN_LOAD`의 고시 [별표] 사본 2건)")
@@ -5256,8 +5256,8 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 70, (
-        f"partial·near가 {len(rows)}건이다 — 187차 실측은 70건"
+    assert len(rows) == 72, (
+        f"partial·near가 {len(rows)}건이다 — 188차 실측은 72건"
         "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1 + `REGION_DESIGN_LOAD` 2 "
         "+ 🔴173차 감리 절차의 세 번째 시방서 사본 1)")
 
@@ -5875,8 +5875,8 @@ def test_146cha_redteam27_corrections_hold():
     eng_src = open(_o.path.join(repo, "smartfarm_engine.py"),
                    encoding="utf-8", newline="").read().replace(chr(13) + chr(10), "\n")
     stars = [i for i, ln in enumerate(eng_src.split("\n"), 1) if "★" in ln]
-    assert len(stars) == 27, (
-        f"엔진의 ★ 줄이 {len(stars)}개다 — 187차 전수는 27개다. "
+    assert len(stars) == 30, (
+        f"엔진의 ★ 줄이 {len(stars)}개다 — 188차 전수는 30개다. "
         "새 ★가 생겼다면 **대장에 먼저 올려라**(대장 §5-3)")
 
     # ── [12] 스냅샷의 skip 수가 앞뒤로 맞는가 ──────────────────────────
@@ -5993,7 +5993,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 106, "partial": 57, "near": 13}, (
+    assert dist == {"exact": 106, "partial": 57, "near": 15}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6492,8 +6492,8 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 176, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 187차 실측은 176건"
+    assert a["counts"]["source_refs"] == 178, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 188차 실측은 178건"
         "(177차 173 + 🔴178차 OPEX 비목 대조 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
@@ -7584,8 +7584,8 @@ def test_163cha_design_load_byepyo_registered():
     # 🔴178차 — `OPEX_ITEM_CATEGORIES`가 풀려 3건 → 2건이 됐다(조사표 비목 대조)
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 178차 실측은 2건이다")
-    assert a["counts"]["source_refs"] == 176, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 187차 실측은 176건")
+    assert a["counts"]["source_refs"] == 178, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 188차 실측은 178건")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -7786,8 +7786,8 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴174차 — P3 사후관리 2함수가 신설돼 57 → 59가 됐다
     # 🔴175차 — P2·P4 2함수가 신설돼 59 → 61이 됐다
     # 🔴176차 — service_life_reference()가 신설돼 61 → 62가 됐다
-    assert len(pub) == 65 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 187차 실측은 65·30이다. "
+    assert len(pub) == 69 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 188차 실측은 69·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -8097,8 +8097,8 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 65 and len(missing) == 0, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 187차 실측은 65/0이다: {missing}")
+    assert len(cited) == 69 and len(missing) == 0, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 188차 실측은 69/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
         "🔴 P2·P4 2함수가 설계서에서 빠졌다")
@@ -8384,8 +8384,8 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     import json as _j
     reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                         encoding="utf-8").read())
-    assert len(reg["constants"]) == 63, (
-        "🔴 레지스트리 상수가 63개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+    assert len(reg["constants"]) == 65, (
+        "🔴 레지스트리 상수가 65개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
@@ -9222,16 +9222,17 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    if n.returns is not None else "")
             pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
     marked = sorted(f for f in pub if pub[f])
-    assert len(pub) == 65, f"🔴 공개 함수가 {len(pub)}개다 — 187차 실측은 65다"
+    assert len(pub) == 69, f"🔴 공개 함수가 {len(pub)}개다 — 188차 실측은 69다"
     # 🔴187차 — ★ 등급 부여로 `ksfid_grade`가 신설돼 15 → 16이 됐다.
-    assert len(marked) == 16, (
-        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 187차 실측은 16이다: {marked}")
+    # 🔴188차 — `guarantee_assessment`·`progress_certification`이 신설돼 16 → 18.
+    assert len(marked) == 18, (
+        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 188차 실측은 18이다: {marked}")
     for f in ("lcc_replacement_schedule", "loan_amortization", "benchmark_check",
               "verify_heating_vs_actual", "consulting_fee_estimate"):
         assert pub[f], (
             f"🔴 {f}()가 판정 필드를 잃었다 — **179차의 4개가 전부가 아니었다**는 "
             "180차 발견의 근거다")
-    assert f"가진 것이 **15개**다" in seg, (
+    assert f"가진 것이 **18개**다" in seg, (
         f"🔴 문서가 전수 실측({len(marked)}개)을 적지 않는다")
 
     # ── ② 배정표를 읽는다(판단은 문서 몫) ────────────────────────────
@@ -9299,10 +9300,11 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
 
     # ── ⑥ 칸 밖 함수가 **조용히 늘지 않았는가** ──────────────────────
     outside = sorted(set(pub) - {f for fns in assign.values() for f in fns})
-    assert outside == ["consulting_fee_estimate", "ksfid_number", "ksfid_validity",
-                       "m2_to_py", "py_to_m2"], (
-        f"🔴 3×6 칸에 배정되지 않은 함수가 {outside}다 — 187차 실측은 5개다"
-        "(단위 변환 2 + 과금 1 + **발급 사무 2**). 새 함수가 배정 없이 들어왔는지 보라")
+    assert outside == ["consulting_fee_estimate", "guarantee_fee", "ksfid_number",
+                       "ksfid_validity", "m2_to_py", "py_to_m2"], (
+        f"🔴 3×6 칸에 배정되지 않은 함수가 {outside}다 — 188차 실측은 6개다"
+        "(단위 변환 2 + 과금·수수료 2 + **발급 사무 2**). 새 함수가 배정 없이 "
+        "들어왔는지 보라")
     assert f"칸 밖 함수 {len(outside)}개" in seg
 
 
@@ -9358,12 +9360,12 @@ def test_181cha_package_layer_assembles_without_calculating():
     codes = [x["code"] for x in cp.PACKAGE_SPEC]
     # 🔴182차 — ⑤운영(D21)·대가(D22)가 신설돼 20 → 22가 됐다.
     # 🔴185차 — 사업기획서 1·3단계로 D23·D24가 신설돼 22 → 24가 됐다.
-    assert len(codes) == 25 and len(set(codes)) == 25, (
-        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D25여야 한다")
+    assert len(codes) == 27 and len(set(codes)) == 27, (
+        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D27이어야 한다")
     cov = cp.coverage()
-    assert len(cov["declared"]) == 64, (
+    assert len(cov["declared"]) == 68, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
-        "187차 실측은 64종이다")
+        "188차 실측은 68종이다")
     ghost = sorted(f for f in cov["declared"] if f not in pub)
     assert not ghost, f"🔴 패키지가 없는 함수를 부른다: {ghost}"
     # 🔴 **선언만 하고 부르지 않으면 거짓말이다** — 호출처가 실제로 있는지 본다.
@@ -9387,7 +9389,7 @@ def test_181cha_package_layer_assembles_without_calculating():
     pkg = cp.build_package(cases[0])
     assert [x["code"] for x in pkg["items"]] == codes
     st = pkg["status_counts"]
-    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 5             and st.get("부분생성", 0) == 9 and st.get("링크", 0) == 3, (
+    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 6             and st.get("부분생성", 0) == 10 and st.get("링크", 0) == 3, (
         f"🔴 상태 분포가 {st}다 — 주입 없이 서는 것과 못 서는 것이 **둘 다** 있어야 한다. "
         "전부 생성이면 어딘가에서 값을 **지어냈다는 뜻**이다")
 
@@ -9420,8 +9422,8 @@ def test_181cha_package_layer_assembles_without_calculating():
 
     # 🔴182차 — 연결이 늘면 **필요한 자료도 같이 드러난다**: 17 → 27종.
     #    줄어드는 것이 좋은 수가 아니다.
-    assert len(pkg["open_injections"]) == 34, (
-        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 187차 실측은 34종이고, "
+    assert len(pkg["open_injections"]) == 38, (
+        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 188차 실측은 38종이고, "
         "줄었다면 **주입 없이 값을 만든 곳이 있는지** 보라")
     assert set(cp.INJECTION_SLOTS) >= {n["slot"] for n in pkg["open_injections"]}
 
@@ -9462,9 +9464,9 @@ def test_181cha_package_layer_assembles_without_calculating():
         f"🔴 기존 산출물 4파일이 직접 부르는 함수가 {len(reached)}개다 — "
         "181차 시점 실측은 17개다(이 수가 늘었다면 배선이 바뀐 것이다)")
     together = reached.union(cov["declared"])
-    assert len(together) == len(pub) == 65, (
-        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 187차 실측은 **65 / 65**다"
-        "(패키지 이전 17 · 181차 46 · 182차 62 · 🔴187차 ★ 등급 3함수)")
+    assert len(together) == len(pub) == 69, (
+        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 188차 실측은 **69 / 69**다"
+        "(패키지 이전 17 · 181차 46 · 182차 62 · 187차 65 · 🔴188차 성능보증 4함수)")
     # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
     unreached = sorted(pub.difference(together))
     assert not unreached, (
@@ -10035,6 +10037,168 @@ def test_187cha_grade_is_deterministic_and_shows_its_reasons():
         f"{sorted(_inj.values())}다")
     assert gr["complete"] is False
     assert "등급은 **검증 항목 통과 수" in d25["note"]
+
+
+def test_188cha_guarantee_judges_only_what_the_rule_and_injection_allow():
+    """188차 — 성능보증 판정·편차·기성률. **규칙과 주입이 허락한 것만 판정하는가**.
+
+    🔴 185차 `D24`가 *"수확량·에너지효율·가동률은 편차 함수가 없다"*로 **세어 둔 3항목**에
+    함수를 붙였다. 늘리지도 줄이지도 않았다.
+
+    🔴 이 가드가 지키는 것 —
+    ①**방향이 항목마다 다르다**: 수확량·가동률은 미달이, 에너지는 **초과가** 손실이다.
+      한 방향으로 묶으면 **에너지 절감이 미달로 잡힌다**.
+    ②**면책이 없으면 판정하지 않는다**: `tolerance_pct`가 없으면 편차만 내고
+      `claimable`은 `None`이다 — 몇 %를 면책으로 볼지는 **보증 상품 설계**다.
+    ③**손실액·요율은 주입 전용**: 단가·시세를 엔진이 만들지 않는다.
+    ④**기성률은 내되 지급을 승인하지 않는다**.
+    """
+    import os as _o, sys as _s, json as _j, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import consulting_package as cp
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+
+    # ── ① 3항목 — 185차가 센 것과 같은가 ────────────────────────────
+    keys = [c["key"] for c in e.PERF_GUARANTEE_SPEC]
+    assert keys == ["yield", "energy", "uptime"], (
+        f"🔴 보증 항목이 {keys}다 — 185차 `D24`가 센 3항목(수확량·에너지효율·가동률)이다. "
+        "늘었다면 **무엇을 근거로 늘렸는지** 보라")
+    dirs = {c["key"]: c["direction"] for c in e.PERF_GUARANTEE_SPEC}
+    assert dirs["energy"] == "lower_is_better", (
+        "🔴 에너지의 방향이 `lower_is_better`가 아니다 — **절감이 미달로 잡힌다**")
+    assert dirs["yield"] == dirs["uptime"] == "higher_is_better"
+    _up = [c for c in e.PERF_GUARANTEE_SPEC if c["key"] == "uptime"][0]
+    assert "엔진이 내지 않는다" in _up["design_from"], (
+        "🔴 가동률의 설계값을 엔진이 내는 것처럼 적혔다 — 설계 전제라 **주입**이다")
+
+    # ── ② 방향이 실제로 반대로 도는가 ───────────────────────────────
+    up = e.performance_shortfall(100.0, 90.0, "higher_is_better", 5.0)
+    dn = e.performance_shortfall(100.0, 90.0, "lower_is_better", 5.0)
+    assert round(up["shortfall_pct"], 6) == 10.0 and round(dn["shortfall_pct"], 6) == -10.0, (
+        f"🔴 방향이 반대로 돌지 않는다: {up['shortfall_pct']} / {dn['shortfall_pct']}")
+    assert up["claimable"] is True and dn["claimable"] is False, (
+        "🔴 `lower_is_better`에서 **적게 쓴 것**이 지급 대상이 됐다")
+
+    # ── ③ 🔴 **면책이 없으면 판정하지 않는가** ──────────────────────
+    none_t = e.performance_shortfall(100.0, 80.0, "higher_is_better")
+    assert none_t["claimable"] is None and none_t["within_tolerance"] is None, (
+        "🔴 `tolerance_pct` 없이 지급 여부를 판정했다 — 몇 %를 면책으로 볼지는 "
+        "**보증 상품 설계**이지 엔진이 고를 값이 아니다")
+    assert round(none_t["shortfall_pct"], 6) == 20.0, "🔴 편차 자체는 내야 한다"
+    for bad in ({"design_value": 0.0, "actual_value": 1.0},
+                {"design_value": None, "actual_value": 1.0}):
+        try:
+            e.performance_shortfall(bad["design_value"], bad["actual_value"])
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"🔴 {bad}를 조용히 받아들인다")
+
+    # ── ④ 지급 판정 — 면책 안은 제외, 손실 없으면 금액을 만들지 않는가 ──
+    g = e.guarantee_assessment(
+        [{"key": "yield", "design": 100.0, "actual": 90.0, "loss_won": 1_000_000},
+         {"key": "energy", "design": 100.0, "actual": 112.0},
+         {"key": "uptime", "design": 95.0, "actual": 94.0}], 100_000_000)
+    assert g["claimable"] == ["yield", "energy"], (
+        f"🔴 지급 대상이 {g['claimable']}다 — 가동률 1.05% 미달은 면책 5% 안이다")
+    assert g["needs_loss"] == ["energy"], (
+        "🔴 손실액이 없는 항목을 `needs_loss`로 드러내지 않는다 — "
+        "**지급 대상이지만 금액을 낼 수 없다**는 사실이 사라진다")
+    assert g["payout_won"] == 1_000_000 * g["rule"]["max_cover_ratio"], (
+        "🔴 보상액이 손실 × 보상비율이 아니다")
+    for r in g["rows"]:
+        assert r["basis"], f"🔴 {r['key']}에 설계값 출처가 없다 — 판정이 아니라 통보다"
+
+    # ── ⑤ 보험가액 상한이 실제로 무는가 ─────────────────────────────
+    cap = e.guarantee_assessment(
+        [{"key": "yield", "design": 100.0, "actual": 50.0, "loss_won": 500_000_000}],
+        100_000_000)
+    assert cap["payout_won"] == 100_000_000 and cap["capped_by_insured_value"] is True, (
+        "🔴 보험가액 상한이 무는데 그 사실이 드러나지 않는다")
+
+    # ── ⑥ 🔴 **규칙을 바꾸면 지급 대상이 바뀌는가** ─────────────────
+    loose = e.guarantee_assessment(
+        [{"key": "yield", "design": 100.0, "actual": 92.0}], 1,
+        {"tolerance_pct": 10.0})
+    assert loose["claimable"] == [] and loose["rule"]["tolerance_pct"] == 10.0, (
+        "🔴 면책을 10%로 올렸는데 8% 미달이 여전히 지급 대상이다 — "
+        "규칙이 결과를 지배하지 않는다")
+
+    # ── ⑦ 🔴 **요율은 주입 전용인가**(시세성) ───────────────────────
+    try:
+        e.guarantee_fee(1_000_000_000, None, 365)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("🔴 기본요율 없이 수수료가 나왔다 — 요율은 시세성이다")
+    fee = e.guarantee_fee(1_000_000_000, 0.35, 365)
+    assert round(fee["fee_won"]) == 3_500_000 and "365" in fee["formula"], (
+        f"🔴 수수료 산식이 바뀌었다: {fee['fee_won']} / {fee['formula']}")
+    src = rd("smartfarm_engine.py")
+    _tree = _ast.parse(src)
+    node = [n for n in _tree.body if getattr(n, "name", None) == "guarantee_fee"][0]
+    defaults = [d for d in node.args.defaults if d is not None]
+    assert all(not (isinstance(d, _ast.Constant) and isinstance(d.value, float)
+                    and d.value > 0) for d in defaults), (
+        "🔴 `guarantee_fee()`에 0이 아닌 요율 기본값이 생겼다 — 주입 전용이다")
+
+    # ── ⑧ 기성률 — 계획 밖은 합계에 넣지 않는가 ─────────────────────
+    pc = e.progress_certification({"토공": 100.0, "철골": 200.0},
+                                  {"토공": 100.0, "철골": 120.0, "전기": 50.0})
+    assert pc["unplanned"] == ["전기"] and pc["completed_total"] == 220.0, (
+        f"🔴 계획에 없는 공종이 합계에 섞였다: {pc['completed_total']}")
+    assert round(pc["overall_rate_pct"], 6) == round(220.0 / 300.0 * 100.0, 6)
+    over = e.progress_certification({"토공": 100.0}, {"토공": 130.0})
+    assert over["over_work_types"] == ["토공"], "🔴 계획 초과가 드러나지 않는다"
+    assert "지급을 승인하지 않는다" in pc["note"]
+    try:
+        e.progress_certification({}, {"토공": 1.0})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("🔴 계획이 비었는데 기성률을 냈다")
+
+    # ── ⑨ 등재 — ★결정이고 준거는 문서 계층인가 ────────────────────
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    for k in ("PERF_GUARANTEE_SPEC", "PERF_GUARANTEE_RULE"):
+        ent = reg["constants"][k]
+        assert ent["status"] == "결정", f"🔴 {k}의 status가 {ent['status']!r}다"
+        assert ent["source_refs"], f"🔴 {k}에 출처가 없다"
+    for tok in ("kWh Analytics", "Solar Revenue Put", "건설공제조합"):
+        assert tok not in src, (
+            f"🔴 엔진에 외부 기준의 고유명 「{tok}」이 들어왔다 — 준거는 "
+            "**문서·레지스트리 계층**에 머문다(167차 경계)")
+    assert "건설공제조합" in reg["constants"]["PERF_GUARANTEE_RULE"]["source"], (
+        "🔴 레지스트리 쪽에서 준거가 사라졌다")
+
+    # ── ⑩ 패키지 D26·D27 — 주입이 없으면 판정하지 않는가 ────────────
+    from cases import load_cases
+    case = [x for x in load_cases() if not x.get("partial")][0]
+    bare = cp.build_package(case)
+    d26 = [x for x in bare["items"] if x["code"] == "D26"][0]
+    d27 = [x for x in bare["items"] if x["code"] == "D27"][0]
+    assert d26["status"] == "부분생성" and "판정" not in d26["data"], (
+        "🔴 실측·보험가액 주입 없이 지급 판정이 나왔다")
+    assert d26["data"]["판정 가능한 항목"] == [], (
+        "🔴 실측이 하나도 없는데 판정 가능한 항목이 있다")
+    assert d26["data"]["설계값"]["uptime"] is None, (
+        "🔴 가동률 설계값을 엔진이 만들어 냈다 — 설계 전제라 주입이다")
+    assert d27["status"] == "주입대기" and d27["data"] is None
+
+    full = cp.build_package(case, {
+        "actual_yield_kg": 120000, "actual_energy": 30000, "actual_uptime_pct": 92,
+        "insured_value_won": 100_000_000, "perf_losses": {"yield": 20_000_000},
+        "guarantee_fee_inputs": {"guarantee_amount_won": 1_000_000_000,
+                                 "base_rate_pct": 0.35, "days": 365},
+        "progress_plan": {"토공": 100.0}, "progress_done": {"토공": 100.0}})
+    f26 = [x for x in full["items"] if x["code"] == "D26"][0]
+    assert f26["status"] == "생성" and f26["data"]["판정"]["rows"], (
+        "🔴 주입을 다 줬는데도 판정이 서지 않는다")
+    assert f26["data"]["항목별 편차"], "🔴 편차 행이 없다"
 
 
 if __name__ == "__main__":
