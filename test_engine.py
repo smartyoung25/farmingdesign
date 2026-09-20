@@ -4600,7 +4600,10 @@ def test_133cha_refless_measured_constants_are_pinned():
         # (B) 원문이 리포 밖이다 — ★사용자가 넣어야 붙일 수 있다
         "SPEC_TABLE",                    # 농사로 마스터 xlsx(2025-108호, 249종)
         "SPEC_COUNT",                    # 그 표의 종수(파생이기도 하다)
-        "REGION_DESIGN_LOAD",            # 농식품부 보도자료 첨부 참고2·참고3(172지역)
+        # 🔴163차 — `REGION_DESIGN_LOAD`는 **여기서 빠졌다**: 고시 [별표]가 리포 안
+        #   구조검토서 2건(함평·천안, PDF p5~p6)에 전재돼 있었고 172지역을 전수
+        #   대조(지명 집합 전량 일치·하향 0건)해 partial 2건을 붙였다. 133차의
+        #   "원문이 리포에 없다"는 **현행 2025-108호 전면표**에 한해 유효하다.
         "OPEX_ITEM_CATEGORIES",          # 🔴 132차 — 인용 CSV가 0바이트
         # (C) 파생·결정이라 원문 ref 개념이 없다 — 결함이 아니다
         "CAPEX_MAJOR_CATEGORIES",        # 사용자 제안 분류표(2026-07-16 대화)
@@ -4620,9 +4623,14 @@ def test_133cha_refless_measured_constants_are_pinned():
         "지금까지 이 계열은 21개 전부 ref를 갖고 있었다")
 
     # 산출물에 닿는데 아직 사각인 둘은 특히 표시해 둔다(★사용자가 원문을 넣어야 한다)
-    for k, why in (("REGION_DESIGN_LOAD", "webapp이 조회 결과에 status='실측'을 찍어 내보낸다"),
-                   ("SPEC_TABLE", "select_specs()가 render_report·run_report에서 쓰인다")):
+    for k, why in (("SPEC_TABLE", "select_specs()가 render_report·run_report에서 쓰인다"),):
         assert k in REFLESS_MEASURED, f"{k}가 목록에서 빠졌다 — {why}"
+    # 🔴163차 — 반대 방향으로 고정한다: `REGION_DESIGN_LOAD`는 **풀렸다**.
+    #   webapp이 조회 결과에 status='실측'을 찍어 내보내는데 그 근거가 서술뿐이던
+    #   상태가 끝났다 — 되돌아가면 그 '실측' 표기가 다시 무근거가 된다.
+    assert ("REGION_DESIGN_LOAD" not in REFLESS_MEASURED
+            and consts["REGION_DESIGN_LOAD"].get("source_refs")), (
+        "🔴 REGION_DESIGN_LOAD의 refs가 사라져 다시 사각이 됐다")
 
 
 def test_133cha_audit_report_surfaces_the_blind_spot():
@@ -4640,10 +4648,10 @@ def test_133cha_audit_report_surfaces_the_blind_spot():
 
     a = at.audit()
     assert "refless_measured" in a, "감사 결과에 추적성 사각 집계가 사라졌다"
-    assert len(a["refless_measured"]) == 6, (  # 🔴151차: OVERHEAD_RATES 부착으로 7 → 6
-
-        f"추적성 사각이 {len(a['refless_measured'])}건이다 — "
-        "133차 12건에서 134차에 (A)계열을 부착해 7건이 됐다")
+    assert len(a["refless_measured"]) == 5, (
+        f"추적성 사각이 {len(a['refless_measured'])}건이다 — 133차 12건 → "
+        "134차 7건 → 🔴151차 `OVERHEAD_RATES` 부착으로 6건 → "
+        "🔴163차 `REGION_DESIGN_LOAD` 부착으로 **5건**")
 
     # 사각은 FAIL 사유가 아니다 — 판정 의미를 바꾸지 않았음을 고정한다
     assert a["ok"] and not a["hard_failures"], (
@@ -4653,7 +4661,7 @@ def test_133cha_audit_report_surfaces_the_blind_spot():
     report = at.render_report(a)
     assert "추적성 사각" in report and "한 번도" in report, (
         "리포트에서 추적성 사각 절이 사라졌다 — 보이지 않으면 종전과 같다")
-    for k in ("SPEC_TABLE", "REGION_DESIGN_LOAD", "OPEX_ITEM_CATEGORIES"):
+    for k in ("SPEC_TABLE", "SPEC_COUNT", "OPEX_ITEM_CATEGORIES"):
         assert k in report, f"리포트 사각 목록에서 {k}가 빠졌다"
 
     # 저장된 리포트 파일도 같은 절을 담고 있어야 한다(게이트 실행 산출물)
@@ -4980,10 +4988,11 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 90, "partial": 53, "near": 9}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 161차 실측은 exact 90 / partial 53 / near 9이다"
-        "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 **near +1**"
-        "= `FR_TABLE`의 [표 3-3-27] 수치 근거 후보). "
+    assert dist == {"exact": 90, "partial": 55, "near": 9}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 163차 실측은 exact 90 / partial 55 / near 9이다"
+        "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
+        "= `FR_TABLE`의 [표 3-3-27] → 🔴163차 **partial +2** = "
+        "`REGION_DESIGN_LOAD`의 고시 [별표] 사본 2건). "
         "ref를 늘렸다면 새 ref의 등급을 정하고 이 수를 갱신하라")
 
     # ── 🔴 near 4건 — 값이 원문과 **같지 않다**는 것이 핵심이다 ──────────
@@ -5042,11 +5051,12 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 9 and ledger.count("[부분]") == 53, (
+    assert ledger.count("[근접]") == 9 and ledger.count("[부분]") == 55, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
-        "161차 실측(9·53)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
-        "(137차 확정 8·50 → 151차 partial +3 → 161차 **near +1**"
-        "= `FR_TABLE`의 [표 3-3-27] 수치 근거 후보)")
+        "163차 실측(9·55)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
+        "(137차 확정 8·50 → 151차 partial +3 → 161차 near +1"
+        "= `FR_TABLE`의 [표 3-3-27] → 🔴163차 **partial +2**"
+        "= `REGION_DESIGN_LOAD`의 고시 [별표] 사본 2건)")
     # 🔴 152차 — 이 가드는 **커밋된 HTML**을 읽는다. 게이트를 돌릴 때 `build_site.py`를
     #   pytest **뒤에** 실행하면 낡은 산출물로 통과해 버린다(151차에 실제로 그랬다).
     #   순서는 **build_site → pytest**다.
@@ -5243,9 +5253,9 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 62, (
-        f"partial·near가 {len(rows)}건이다 — 161차 실측은 62건"
-        "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1)")
+    assert len(rows) == 64, (
+        f"partial·near가 {len(rows)}건이다 — 163차 실측은 64건"
+        "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1 + `REGION_DESIGN_LOAD` 2)")
 
     # ① 🔴 기준 없는 ref가 0건인가 — 가드가 **직접** 센다(139차 M5 교훈)
     empty = [(k, _o.path.basename(f), g) for k, f, g, note in rows
@@ -5979,9 +5989,10 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 90, "partial": 53, "near": 9}, (
+    assert dist == {"exact": 90, "partial": 55, "near": 9}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
-        "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53). "
+        "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
+        "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
         "도면이 면적을 정확히 재현해도 값의 출처는 견적서 사업량 표기다")
     assert "등급은 `partial` 그대로 둔다" in doc, "등급을 올리지 않았다는 표기가 사라졌다"
 
@@ -6477,23 +6488,23 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 152, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 161차 실측은 152건"
-        "(134차 148 + OVERHEAD_RATES 3 + FR_TABLE 1)")
+    assert a["counts"]["source_refs"] == 154, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 163차 실측은 154건"
+        "(134차 148 + OVERHEAD_RATES 3 + FR_TABLE 1 + REGION_DESIGN_LOAD 2)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
              for x in a["refless_measured"]}
-    assert len(blind) == 6, f"추적성 사각이 {len(blind)}건이다 — 151차는 6건"
+    assert len(blind) == 5, f"추적성 사각이 {len(blind)}건이다 — 163차는 5건"
     assert "OVERHEAD_RATES" not in blind, (
         "🔴 OVERHEAD_RATES가 다시 사각으로 돌아갔다 — refs 3건이 지워졌는지 보라")
     STRUCTURAL = {"CAPEX_MAJOR_CATEGORIES", "RFQ_REQUIRED_CATEGORIES_DEFAULT"}
     assert STRUCTURAL <= blind, (
         "파생·결정이라 파일 ref 개념이 없는 2건이 사각 목록에서 사라졌다")
-    DATA_BLOCKED = {"SPEC_TABLE", "SPEC_COUNT", "REGION_DESIGN_LOAD",
-                    "OPEX_ITEM_CATEGORIES"}
+    # 🔴163차 — `REGION_DESIGN_LOAD`가 빠져 4건 → 3건이 됐다(고시 [별표] 사본 확보)
+    DATA_BLOCKED = {"SPEC_TABLE", "SPEC_COUNT", "OPEX_ITEM_CATEGORIES"}
     assert DATA_BLOCKED <= blind and blind == STRUCTURAL | DATA_BLOCKED, (
-        f"사각 6건의 구성이 {sorted(blind)}로 바뀌었다 — "
-        "자료로 풀리는 4건(S-3 1 + S-4 3) + 구조상 0인 2건이다")
+        f"사각 5건의 구성이 {sorted(blind)}로 바뀌었다 — "
+        "자료로 풀리는 3건 + 구조상 0인 2건이다")
 
     # ── ⑤ 리포에 원문이 없다는 것도 재확인된 사실이다 ─────────────────
     assert _o.path.getsize(
@@ -6559,12 +6570,11 @@ def test_152cha_blind_spot_classes_are_declared_not_guessed():
     structural = {k for k, _s0, _b in a["refless_structural"]}
     assert structural == set(declared), (
         f"구조상 0인 집합이 {sorted(structural)}로 바뀌었다 — 선언과 같아야 한다")
-    assert blocked == {"SPEC_TABLE", "SPEC_COUNT", "REGION_DESIGN_LOAD",
-                       "OPEX_ITEM_CATEGORIES"}, (
-        f"자료로 풀리는 집합이 {sorted(blocked)}로 바뀌었다 — 152차 실측은 4건"
-        "(S-4 3 + S-3 1)이다")
+    assert blocked == {"SPEC_TABLE", "SPEC_COUNT", "OPEX_ITEM_CATEGORIES"}, (
+        f"자료로 풀리는 집합이 {sorted(blocked)}로 바뀌었다 — 🔴163차에 "
+        "`REGION_DESIGN_LOAD`가 풀려 4건 → **3건**이다")
     total = {k for k, _s0 in a["refless_measured"]}
-    assert total == blocked | structural and len(total) == 6, (
+    assert total == blocked | structural and len(total) == 5, (
         "분류 합이 사각 전체와 다르다 — 빠지거나 겹친 항목이 있다")
 
     # ── ④ 🔴 불변식이 **실제로 도는가**(139차 red self-test와 같은 이유) ──
@@ -6586,8 +6596,9 @@ def test_152cha_blind_spot_classes_are_declared_not_guessed():
     rep = at.render_report(a)
     assert "### (가) 원문이 리포에 없어 못 붙인다" in rep
     assert "### (나) 파일 ref 개념이 성립하지 않는다" in rep
-    assert "**실제 백로그는 (가) 4건**이다(총 6건 중)" in rep, (
-        "🔴 실제 백로그가 4건이라는 결론이 리포트에서 사라졌다 — "
+    # 🔴163차 — `REGION_DESIGN_LOAD`가 풀려 (가)4→3 · 총6→5가 됐다
+    assert "**실제 백로그는 (가) 3건**이다(총 5건 중)" in rep, (
+        "🔴 실제 백로그가 3건이라는 결론이 리포트에서 사라졌다 — "
         "151차 발견은 '영원히 0인 수를 백로그처럼 끌고 다니지 말라'였다")
     assert "`결정`" in rep and "`파생`" in rep, "분류 사유가 리포트에 인쇄되지 않는다"
 
@@ -6597,7 +6608,7 @@ def test_152cha_blind_spot_classes_are_declared_not_guessed():
         "🔴 게이트 순서(build_site를 pytest **앞에**)가 근거문서에서 사라졌다 — "
         "151차에 실제로 낡은 HTML로 배지 가드가 통과했다")
     ledger = rd("SmartFarm_근거대장.html")
-    assert ledger.count("[부분]") == 53, (
+    assert ledger.count("[부분]") == 55, (
         f"근거대장 [부분] 배지가 {ledger.count('[부분]')}다 — build_site를 먼저 돌렸는지 보라")
 
     # ── ⑦ 이 차수가 하지 않은 것 ──────────────────────────────────────
@@ -7437,6 +7448,154 @@ def test_161cha_p0a_sources_and_unit_conversion():
     note2 = cand[0]["note"]
     assert "55∼65%" in note2 and "p375" in note2, (
         "FR_TABLE ref에서 2층 열절감율 대조 기준이 사라졌다")
+
+
+_BYEPYO_PDFS = (
+    "스마트팜스펙/2025년 청년농업인 스마트팜 자립기반 구축지원사업 준호네 자연농장 "
+    "이준호/25 - 117 - [함평] 이준호 온실 검토서.pdf",
+    "스마트팜스펙/견적참조/설계도25 - 233 - [천안] 이두희 온실 검토서_251024 final.pdf",
+)
+
+
+def _parse_byepyo(pdfplumber, path, page, bands):
+    """163차 — 검토서에 전재된 고시 [별표]를 권역 열 x 구간 행으로 읽는다."""
+    import re as _re
+    ZONES = ["강원도", "경기권", "경상권", "전라권", "충청권", "제주도"]
+    ALIAS = {("강원도", "고성"): "고성(강원)", ("경상권", "고성"): "고성(경남)",
+             ("경기권", "광주"): "광주(경기)", ("전라권", "광주"): "광주광역시"}
+    with pdfplumber.open(path) as pdf:
+        rows = pdf.pages[page - 1].extract_tables()[0][1:]
+    got = {}
+    for bi, row in enumerate(rows):
+        if bi >= len(bands):
+            break
+        for zi, zone in enumerate(ZONES):
+            if zi + 1 >= len(row):
+                continue
+            for nm in _re.split(r"[,\s]+", row[zi + 1] or ""):
+                nm = nm.strip(" ,")
+                if nm and nm != "-" and not _re.search(r"\d", nm):
+                    got[ALIAS.get((zone, nm), nm)] = bands[bi]
+    return got
+
+
+def test_163cha_design_load_byepyo_registered():
+    """163차 — `REGION_DESIGN_LOAD`의 원문 [별표]가 **리포 안에 있었다**.
+
+    133차는 이 상수를 *"원문이 리포에 없다 — ★사용자 몫"*으로 이관했고, 그 결과
+    `source_refs`가 **0건**이라 추적성 감사가 **한 번도 돌지 않았다**. 162차에서
+    *"「없다」는 판정에는 전수 확인이 필요하다"*를 배운 직후 재탐색하니, 고시 [별표]가
+    리포 안 **구조검토서 2건**(PDF p5~p6)에 통째로 전재돼 있었다.
+
+    🔴 원문 **서술**에는 오류가 있다 — 함평 검토서 p3 결론문이 *"장수군에 적합한"*이라
+    적지만 적용값 40cm/34㎧는 함평 기준이다. 그래서 대조는 **서술이 아니라 표**에 댔다.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import audit_traceability as A
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_설계하중별표_리포내발견_20260920.md")
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    ent = reg["constants"]["REGION_DESIGN_LOAD"]
+
+    # ── ① 🔴 중복 키가 없는가(161차 교훈 — JSON은 조용히 뒤엣것만 남긴다) ──
+    src = rd("엔진데이터_레지스트리.json")
+    i = src.find('"REGION_DESIGN_LOAD": {')
+    j = src.find('"RFQ_REQUIRED_CATEGORIES_DEFAULT"', i)
+    assert i >= 0 and j > i
+    assert src[i:j].count('"source_refs"') == 1, (
+        "🔴 REGION_DESIGN_LOAD에 `source_refs` 키가 둘이다 — 파서는 **뒤엣것만** 남긴다")
+
+    # ── ② ref 2건이 서 있고 원문이 실재하는가 ────────────────────────
+    refs = ent.get("source_refs") or []
+    assert len(refs) == 2, (
+        f"🔴 REGION_DESIGN_LOAD의 refs가 {len(refs)}건이다 — 163차 실측은 2건이다. "
+        "0건으로 돌아갔다면 이 상수는 다시 **추적성 감사 사각**이다")
+    for r in refs:
+        assert r["match"] == "partial", (
+            "🔴 match가 partial이 아니다 — 이 별표는 **이전 판**이라 등재값(현행 판)을 "
+            "전량 확정하지 못하고 지명 집합과 하한만 뒷받침한다. exact는 과대다")
+        assert _o.path.isfile(_o.path.join(repo, r["file"])), f"원문 소실 {r['file']}"
+    assert {r["file"] for r in refs} == set(_BYEPYO_PDFS), (
+        "🔴 ref가 가리키는 검토서가 바뀌었다 — 두 번째 사본은 **독립성**이 근거력이다")
+
+    # ── ③ 감사 사각이 실제로 줄었는가(수가 아니라 **명단**으로 본다) ──
+    a = A.audit()
+    blocked = {k for k, _st, _b in a["refless_blocked"]}
+    assert "REGION_DESIGN_LOAD" not in blocked, (
+        "🔴 REGION_DESIGN_LOAD가 다시 refless_blocked에 있다")
+    assert blocked == {"SPEC_COUNT", "SPEC_TABLE", "OPEX_ITEM_CATEGORIES"}, (
+        f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 163차 실측은 3건이다")
+    assert a["counts"]["source_refs"] == 154, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 163차 실측은 154건")
+
+    # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
+    assert len(e.REGION_DESIGN_LOAD) == 172
+    assert e.REGION_DESIGN_LOAD["함평"] == {"snow_cm": 40, "wind_ms": 34}
+    assert e.REGION_DESIGN_LOAD["천안"] == {"snow_cm": 26, "wind_ms": 28}
+    assert e.REGION_DESIGN_LOAD["장수"] == {"snow_cm": 38, "wind_ms": 26}
+
+    # ── ⑤ 단정하지 않은 것이 문서에 남아 있는가 ──────────────────────
+    assert "2025-108호 아님" in doc and "2014-78호 아님" in doc, (
+        "🔴 별표가 **현행 판도 최초 판도 아니다**라는 판별이 사라졌다")
+    assert "단정하지 않는다" in doc and "2019-44호" in doc
+    assert "장수군" in doc, "🔴 원문 서술 오류(결론문 지명) 기록이 사라졌다"
+    assert "값은 하나도 바꾸지 않았다" in doc
+    assert "★사용자 몫이다" in doc, "현행 판 원문 확보가 사용자 몫이라는 표기가 사라졌다"
+
+
+def test_163cha_design_load_byepyo_reparse():
+    """163차 — [별표]를 **다시 파싱해** 등재 172지역과 대조한다(문자열이 아니라 결과로).
+
+    🔴 **하향이 0건**이어야 한다 — 개정 사유가 *"폭설·강풍 피해 예방"*(상향)이므로
+    등재값이 별표 구간보다 **낮아지는 지역**은 전사 오류 신호다. 「40 이상」 칸은
+    하한만 주므로 *"등재 >= 40"* 만 검사한다.
+    """
+    import os as _o, sys as _s, pytest as _p
+    pdfplumber = _p.importorskip("pdfplumber")
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import warnings as _w
+
+    SNOW = [20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40]
+    WIND = [24, 26, 28, 30, 32, 34, 36, 38, 40]
+    RDL = e.REGION_DESIGN_LOAD
+    parsed = []
+    with _w.catch_warnings():
+        _w.simplefilter("ignore")
+        for rel in _BYEPYO_PDFS:
+            path = _o.path.join(repo, rel)
+            assert _o.path.isfile(path), f"별표 원문이 사라졌다 {rel}"
+            parsed.append((_parse_byepyo(pdfplumber, path, 5, SNOW),
+                           _parse_byepyo(pdfplumber, path, 6, WIND)))
+
+    # 두 사본이 서로 같은가 — 한 PDF의 추출 사고가 아님을 보이는 교차 확인
+    assert parsed[0][0] == parsed[1][0], "🔴 두 사본의 적설 별표가 다르게 읽힌다"
+    assert parsed[0][1] == parsed[1][1], "🔴 두 사본의 풍속 별표가 다르게 읽힌다"
+
+    snow, wind = parsed[0]
+    # 풍속표는 셀 파싱이 마지막 「40 이상」 행을 놓친다 — 본문으로 보충한 사실을 남긴다
+    for nm in ("고성(강원)", "양양", "대관령", "속초", "강릉", "통영", "울릉", "울진",
+               "진도", "여수", "완도", "신안", "제주", "고산", "서귀포", "성산"):
+        wind.setdefault(nm, 40)
+
+    for axis, table, key in (("적설", snow, "snow_cm"), ("풍속", wind, "wind_ms")):
+        assert set(table) == set(RDL), (
+            f"🔴 {axis} 별표의 지명 집합이 등재 172지역과 어긋난다 — "
+            f"별표에만 {sorted(set(table) - set(RDL))[:5]} · "
+            f"등재에만 {sorted(set(RDL) - set(table))[:5]}")
+        down = [(k, table[k], RDL[k][key]) for k in table if RDL[k][key] < table[k]]
+        assert not down, (
+            f"🔴 {axis}에서 등재값이 별표 구간보다 **낮아진 지역**이 있다: {down[:5]} — "
+            "개정은 상향이므로 하향은 전사 오류 신호다. 원인부터 찾아라")
+    assert sum(1 for k in snow if RDL[k]["snow_cm"] == snow[k] and snow[k] != 40) == 136
+    assert sum(1 for k in wind if RDL[k]["wind_ms"] == wind[k] and wind[k] != 40) == 148
 
 
 if __name__ == "__main__":
