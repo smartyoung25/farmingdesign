@@ -733,7 +733,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     #   [표 3-3-27] 수치 근거 후보 — 9축 인덱스 재탐색으로 찾았다)
     # 🔴163차: 152 → 154(`REGION_DESIGN_LOAD`의 고시 [별표]가 리포 안 구조검토서
     #   2건에 전재돼 있었다 — 172지역 전수 대조, 하향 0건)
-    assert a["counts"]["registry_constants"] == 54 and a["counts"]["source_refs"] == 154
+    # 🔴173차: 54/154 → 56/159(P1 감리 — 공사시방서 3종에서 전사한 검측 절차 2상수)
+    assert a["counts"]["registry_constants"] == 56 and a["counts"]["source_refs"] == 159
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

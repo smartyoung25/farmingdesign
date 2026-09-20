@@ -4755,6 +4755,140 @@ ELECTRICAL_PUMSEM_LUMP_WON_PER_HA = 250_000_000
 
 
 # ─────────────────────────────────────────────────────────────
+# 감리 G1: 검측·시운전·준공 (173차 신설 — P1)
+#   🔴 기준을 창작하지 않는다. 리포 안 **공사시방서 3종**(기후변화 대응 경주형
+#   연동하우스 김해농원·파파딸기, 과수 스마트팜)에서 전사했고, 각 단계에 그 문구가
+#   **몇 개 사본에서 확인됐는지(copies)**를 함께 적는다.
+#   ⚠️ 167차 피팅 결론: 「건설공사 품질관리 업무지침」의 품질시험계획 수립 대상은
+#   총공사비 1,000억 이상이라 **온실은 대상 밖**이다 — 그러므로 이 절차는
+#   **법정 의무의 대행이 아니라 계약문서(공사시방서)에 근거한 품질 보증**이다.
+# ─────────────────────────────────────────────────────────────
+INSPECTION_PROCEDURE_SPEC = (
+    {"clause": "1-11 제출물", "item": "제출물 계획서", "timing": "공사 계약 후",
+     "actor": "시공자 작성 → 감독자 승인", "copies": 3,
+     "action": "제출물의 목록·내용·제출시기를 기록한 제출물 계획서를 제출하여 "
+               "감독자의 승인을 받는다"},
+    {"clause": "1-10 공정계획", "item": "종합공정표·시공계획서", "timing": "공사 착수 전",
+     "actor": "시공자 작성 → 감독자 승인", "copies": 2,
+     "action": "관련 및 별도 공사를 포함한 공사 전반의 종합공정표와 시공계획서를 "
+               "작성하여 감독자의 승인을 받는다"},
+    {"clause": "1-13 재료", "item": "재료승인 요청서", "timing": "각 공사 착수 전",
+     "actor": "시공자 제출 → 감독자 승인", "copies": 3,
+     "action": "제조업자 시방서·시험성적표·표준 색상철·카탈로그·계산서·"
+               "자재유지관리 지침서 등을 첨부해 재료승인 요청서를 제출한다"},
+    {"clause": "1-13 재료", "item": "반입 재료 검사", "timing": "현장 반입 시",
+     "actor": "감독자 검사", "copies": 3,
+     "action": "현장에 반입된 모든 재료는 감독자의 검사를 받아 합격한 것을 사용한다. "
+               "다만 K.S규격품은 검사를 생략할 수 있다"},
+    {"clause": "1-14 품질 및 공사장 관리", "item": "공시체·시험편 채취", "timing": "시험 전",
+     "actor": "감독자 입회", "copies": 3,
+     "action": "감독자의 입회하에 채취하고 봉인하여 검인을 받고, 독립된 공인기관에서 "
+               "시험하되 그 시험성적서를 제출하여 승인을 받는다"},
+    {"clause": "1-14 품질 및 공사장 관리", "item": "재료시험 성적결과보고서",
+     "timing": "시험 후", "actor": "시공자 제출 → 감독자 승인", "copies": 3,
+     "action": "재료의 품질·규격·공법이 설계도서와 일치하도록 각종 시험을 실시하고 "
+               "성적결과보고서를 제출하여 승인을 받는다. 검사 또는 시험은 "
+               "한국표준규격을 표준으로 한다"},
+    {"clause": "1-16 공사의 준공 및 인수 인계", "item": "준공도",
+     "timing": "준공 검사원 제출 7일 전", "actor": "시공자 작성 → 감독자 검사", "copies": 2,
+     "action": "경미한 변경까지 포함한 준공도를 작성해 감독자의 검사를 받아야 준공으로 "
+               "인정한다. 제출 도면은 원도 A3 3부와 제반 공사사항을 저장한 USB 1개"},
+    {"clause": "1-16 공사의 준공 및 인수 인계", "item": "유지관리지침서·시운전",
+     "timing": "인수 인계 시", "actor": "시공자 작성 → 감독자 승인 → 입회 인계", "copies": 3,
+     "action": "유지관리지침서를 작성해 감독자의 승인을 받은 후 건물관리 운영 주체의 "
+               "입회하에 인수 인계하며, 시운전을 요하는 부분은 시공자 비용으로 시행한다"},
+    {"clause": "1-16 공사의 준공 및 인수 인계", "item": "사용검사 신청",
+     "timing": "준공 시", "actor": "건축주·설계자·감리자·시공자 날인", "copies": 2,
+     "action": "관련서류를 첨부하여 4자의 날인을 받아 사용검사를 신청한다. 감독자가 "
+               "시정 지시한 부분이 이행되지 않으면 준공으로 인정하지 않는다"},
+)
+
+# 시방서가 준공 제출 서류로 열거한 것(1-14·1-16). 값은 원문 열거 그대로다.
+COMPLETION_DOCSET_SPEC = ("각종 시험계획서", "각종 시험관계철", "준공도",
+                          "유지관리지침서", "사용검사 신청서")
+
+
+def inspection_checklist(work_type=None) -> dict:
+    """공종별 검측 체크리스트(결정론) — 판정·합격 여부 없음.
+
+    시방서 원문 절차(INSPECTION_PROCEDURE_SPEC)에 **엔진의 대조 지점**을 붙여
+    *"무엇을, 언제, 무엇과 맞춰 보는가"*까지만 낸다. 합격 판정은 감독자 몫이다.
+
+    work_type을 주면 warranty_period()로 **하자담보책임기간**을 함께 싣는다.
+    등록되지 않은 공종이면 warranty는 None이고 그 사실을 note에 적는다.
+    """
+    cross = [
+        {"point": "규격", "against": "select_specs() / SPEC_TABLE",
+         "what": "기둥 규격·연동 폭·서까래 간격이 등록 규격과 같은가"},
+        {"point": "피복·보온", "against": "cover_assembly_lookup() / COVER_ASSEMBLIES",
+         "what": "피복재 종류·층수가 조합표의 어느 키인가"},
+        {"point": "난방", "against": "heating_load() / verify_heating_vs_actual()",
+         "what": "설치 용량이 설계 최대난방부하와 자릿수까지 맞는가"},
+        {"point": "문서", "against": "doc_consistency_check()",
+         "what": "도면·시방서·BoQ·규격서 4축의 식별자·Rev가 일치하는가"},
+    ]
+    wp = warranty_period(work_type) if work_type else None
+    note = ("공사시방서 3종에서 전사한 절차다. 각 단계의 copies는 그 문구가 확인된 "
+            "사본 수다. 🔴판정하지 않는다 — 합격 여부는 감독자가 정한다. "
+            "품질시험계획 수립 대상(총공사비 1,000억 이상)이 아니므로 법정 의무의 "
+            "대행이 아니라 **계약문서 기반 품질 보증**이다")
+    if work_type and wp is None:
+        note += f" · ⚠️'{work_type}'은 WARRANTY_STATUTORY에 없어 하자기간을 싣지 못했다"
+    return {"work_type": work_type,
+            "steps": [dict(x) for x in INSPECTION_PROCEDURE_SPEC],
+            "engine_cross_checks": cross, "warranty": wp, "note": note}
+
+
+def commissioning_plan(equipment_names: list, acceptance_criteria: dict = None) -> dict:
+    """시운전 계획(결정론) — 판정 기준은 **주입**, 없으면 [확인요망]로 남긴다.
+
+    시방서 1-16: *"시운전을 요하는 부분에 대해서는 시공자 비용으로 이의없이 시행"*.
+    장비별 합격 기준은 원문에 없으므로 **만들지 않는다** — acceptance_criteria로
+    주입받고, 주입되지 않은 장비는 needs_criteria에 모아 드러낸다.
+    """
+    if not equipment_names:
+        raise ValueError("equipment_names가 비어 있다 — 시운전 대상 없이는 계획이 서지 않는다")
+    crit = acceptance_criteria or {}
+    rows, needs = [], []
+    for name in equipment_names:
+        c = crit.get(name)
+        if c is None:
+            needs.append(name)
+        rows.append({"equipment": name, "acceptance_criteria": c,
+                     "service_life_years": (EQUIPMENT_SERVICE_LIFE_REFERENCE.get(name) or {})
+                                           .get("years"),
+                     "status": "기준 주입됨" if c is not None else "[확인요망] 기준 미주입"})
+    cost_bearer = "시공자(시방서 1-16 — 시운전을 요하는 부분은 시공자 비용)"
+    return {"rows": rows, "needs_criteria": needs, "cost_bearer": cost_bearer,
+            "handover": "유지관리지침서 작성 → 감독자 승인 → 건물관리 운영 주체 입회하에 인수 인계",
+            "note": ("장비별 합격 기준은 시방서 원문에 없어 **주입 전용**이다. "
+                     "needs_criteria가 비지 않으면 그만큼 판정할 수 없다는 뜻이고, "
+                     "이 함수는 그 사실을 드러낼 뿐 채우지 않는다")}
+
+
+def completion_docset(doc_consistency_report=None) -> dict:
+    """준공 서류 체크리스트(결정론) — 시방서가 열거한 것만 낸다.
+
+    doc_consistency_report(doc_consistency_check()의 반환)를 주면 4축 정합 상태를
+    함께 싣는다. 준공 가부는 판정하지 않는다.
+    """
+    items = [{"item": n, "clause": "1-14·1-16 (공사시방서)"} for n in COMPLETION_DOCSET_SPEC]
+    detail = {"준공도": "원도 A3 3부 + 제반 공사사항 저장 USB 1개, 준공 검사원 제출 7일 전 작성",
+              "사용검사 신청서": "건축주·설계자·감리자·시공자 4자 날인"}
+    for it in items:
+        if it["item"] in detail:
+            it["detail"] = detail[it["item"]]
+    four_axis = None
+    if doc_consistency_report is not None:
+        four_axis = {"counts": dict(doc_consistency_report.counts),
+                     "n_rows": len(doc_consistency_report.rows)}
+    return {"items": items, "four_axis": four_axis,
+            "note": ("시방서 1-16: 감독자가 시정 지시한 부분의 시정조치가 이행되지 않으면 "
+                     "사용검사를 받았더라도 **공사준공으로 인정하지 않는다**. "
+                     "🔴이 함수는 서류 목록과 4축 상태를 낼 뿐 준공 가부를 판정하지 않는다")}
+
+
+# ─────────────────────────────────────────────────────────────
 # 컨설팅 대가 F0: 실비정액가산 산정 (172차 신설)
 #   산업통상자원부고시 「엔지니어링사업대가의 기준」의 **산식 구조**만 구현한다.
 #   🔴 요율·노임단가에 **기본값을 두지 않는다** — 고시는 범위(제경비 1.10~1.20 ·
