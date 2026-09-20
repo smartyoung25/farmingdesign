@@ -7983,6 +7983,93 @@ def test_168cha_benchmarks_are_transcribed_from_originals():
         "🔴 「기준은 있고 값은 없다」는 구분이 사라졌다")
 
 
+def test_169cha_critique_numbers_are_recomputed_not_asserted():
+    """169차 — 3×6 설계 비판의 **수치를 다시 계산한다**(서술을 믿지 않는다).
+
+    이 설계는 내가 만들었다(166차). 자기 검토는 편향되므로 주장 대신 측정으로 갔고,
+    그 측정이 **경계가 만든 값**이 아니어야 한다(159차 교훈 — 정규식이 만든 수를
+    보고하지 않는다). 그래서 가드가 **문서에서 다시 세어** 대조한다.
+
+    🔴 고정하는 것은 **측정 가능한 것**뿐이다 — 단계별 함수 수, 인용/미인용,
+    `[협의]` 칸 수, ★대기 건수. **개선 우선순위는 판단이라 고정하지 않는다.**
+    """
+    import os as _o, sys as _s, ast as _ast, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    crit = rd("서비스설계_3x6_비판적검토_20260920.md")
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    fee = rd("서비스설계_외부기준피팅_대가체계_20260920.md")
+    eng = rd("smartfarm_engine.py")
+
+    pub = {n.name for n in _ast.parse(eng).body
+           if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+           and not n.name.startswith("_")}
+
+    def names_in(seg):
+        got = set(_re.findall(r"`([a-z_][a-z0-9_]{3,})\(", seg))
+        got |= set(_re.findall(r"`([a-z_][a-z0-9_]{3,})`", seg))
+        return {g for g in got if g in pub}
+
+    # ── ① 단계별 함수 수를 **다시 센다** ─────────────────────────────
+    sec3 = design.split("## 3. 단계별 상세 설계")[1].split("## 4.")[0]
+    blocks = _re.split(r"### 3-\d\. ", sec3)[1:]
+    counts = [len(names_in(b)) for b in blocks]
+    assert counts == [14, 4, 2, 17, 6, 2], (
+        f"🔴 단계별 함수 수가 {counts}다 — 169차 실측은 [14, 4, 2, 17, 6, 2]이고 "
+        "비판 §0의 「69% 앞단 쏠림」이 이 수에 기댄다")
+    total = sum(counts)
+    front = counts[0] + counts[3]
+    back = counts[2] + counts[5]
+    assert total == 45 and front == 31 and back == 4, (
+        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 실측은 45/31/4다")
+    assert "31/45 (69%)" in crit and "4/45 (9%)" in crit
+
+    # ── ② 인용/미인용을 다시 센다 ────────────────────────────────────
+    head = design.split("## 7. 미구현 백로그")[0]
+    cited = names_in(head)
+    missing = sorted(pub - cited)
+    assert len(cited) == 44 and len(missing) == 9, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 실측은 44/9다: {missing}")
+    for fn in ("construction_company_list", "spec_crops", "cover_assembly_options",
+               "mean_wind", "transmission_share_pct"):
+        assert fn in missing, f"🔴 {fn}이 이제 설계서에 인용된다 — §7을 갱신하라"
+        assert fn in crit, f"🔴 비판 §7에서 {fn}이 사라졌다"
+
+    # ── ③ 흐름도가 D11을 빠뜨렸다는 지적이 **사실인가** ──────────────
+    gate = design.split("## 8. 단계 게이트")[1]
+    ds = set(_re.findall(r"D(\d+)", gate))
+    assert "11" not in ds, (
+        "🔴 흐름도에 D11이 들어왔다 — 비판 §5가 해소됐으니 그 절을 갱신하라")
+    assert gate.count("★") == 2, f"🔴 흐름도의 ★가 {gate.count('★')}개다 — 실측은 2다"
+    sec3full = design.split("## 3. 단계별 상세 설계")[1].split("## 4.")[0]
+    assert not _re.findall(r"\bD\d+\b", sec3full), (
+        "🔴 §3 단계 본문에 D번호가 들어왔다 — 비판 §5가 해소됐으니 갱신하라")
+
+    # ── ④ 과금 [협의] 칸 수를 다시 센다 ──────────────────────────────
+    t53 = fee.split("### 5-3.")[1].split("### 5-4.")[0]
+    assert t53.count("[협의]") == 5, (
+        f"🔴 과금표의 [협의]가 {t53.count('[협의]')}칸이다 — 실측은 5칸이고 "
+        "비판 §4의 「6단계 중 2단계만 근거 있음」이 이 수에 기댄다")
+
+    # ── ⑤ ★대기 건수를 대장에서 다시 센다 ───────────────────────────
+    led = rd("근거_결정대기대장_20260915.md")
+    d = {int(x) for x in _re.findall(r"\bD-(\d+)\b", led)}
+    sset = {int(x) for x in _re.findall(r"\bS-(\d+)\b", led)}
+    assert d == set(range(1, 16)) and sset == set(range(1, 5)), (
+        f"🔴 대장의 ★가 D-{sorted(d)} · S-{sorted(sset)}다 — 실측은 D-1~15 · S-1~4")
+    assert "D-1 ~ D-15 (15건)" in crit and "S-1 ~ S-4 (4건)" in crit
+
+    # ── ⑥ 한계를 적었는가(비판도 한계가 있다) ────────────────────────
+    for tok in ("함수 개수를 역량의 대리지표로 썼다", "고객 인터뷰가 없다",
+                "개선안을 적용하지 않았다", "외부 벤치마크와 비교하지 않았다"):
+        assert tok in crit, f"🔴 비판의 한계 표기 「{tok}」가 사라졌다"
+    assert "이 설계는 **내가 만들었다**" in crit, (
+        "🔴 자기 검토라는 편향 고지가 사라졌다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
