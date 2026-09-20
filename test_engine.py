@@ -7834,6 +7834,80 @@ def test_166cha_service_design_claims_are_measured():
     assert "기간·대가·과금 구조를 설계하지 않았다" in doc
 
 
+def test_167cha_external_fitting_stays_outside_the_engine():
+    """167차 — 외부에서 가져온 기준·요율이 **엔진 안으로 새지 않았는지** 본다.
+
+    사용자 요청은 *"글로벌/국내 전문 정보에서 가져와 피팅하고 적정 가격을 제안하라"*였다.
+    1절은 *"시세성 값은 조회하지 않는다 — 주입만 받는다"*이므로, 가져온 수치는
+    **문서의 참고 계층**에만 두고 **레지스트리·엔진 계산 경로에는 넣지 않았다**.
+
+    🔴 이 가드가 지키는 것은 **경계**다 — 문서가 무슨 값을 제안하든,
+    그 값이 `엔진데이터_레지스트리.json`이나 `smartfarm_engine.py`에
+    **나타나면 실패한다**.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("서비스설계_외부기준피팅_대가체계_20260920.md")
+    reg_raw = rd("엔진데이터_레지스트리.json")
+    eng_raw = rd("smartfarm_engine.py")
+
+    # ── ① 🔴 외부 요율·표준이 엔진/레지스트리로 새지 않았는가 ─────────
+    # 🔴 1차 설계가 숫자 토큰 "3266"을 그대로 써서 **금액 안의 우연한 일치**에 걸렸다
+    #    (131·134·137·164차 「세는 문자열」 계열). 구별되는 형태로 잡는다.
+    LEAK = ("제2024-217호", "제2023-580호", "제2025-311호", "EN 13031",
+            "KS X 3265", "KS X 3266", "110~120", "20~40", "0.5~2%", "5~10%")
+    for tok in LEAK:
+        assert tok not in reg_raw, (
+            f"🔴 외부 기준 「{tok}」이 레지스트리에 등재됐다 — 167차는 **참고 계층에만** "
+            "두기로 했다. 등재하려면 원문 확보 → 등재 → 드리프트 가드 절차를 밟아라")
+        assert tok not in eng_raw, (
+            f"🔴 외부 기준 「{tok}」이 엔진 소스에 들어왔다 — 시세성·외부 요율은 "
+            "**주입만** 받는다(1절)")
+        assert tok in doc, f"🔴 문서에서 외부 기준 「{tok}」 표기가 사라졌다"
+
+    # ── ② 이미 등재된 법정 요율은 **그대로 쓴다**(새로 가져오지 않았다) ──
+    reg = _j.loads(reg_raw)
+    sup = reg["constants"]["SUPERVISION_FEE_RATE_TABLE"]
+    assert sup["status"] == "법정기준" and len(sup["value"]) == 17, (
+        "🔴 감리 대가요율 17구간이 바뀌었다 — 167차는 이 표를 **건드리지 않았다**")
+    got = e.design_supervision_fee_reference(700_000_000)
+    assert got["요율_pct"]["제2종(보통)"] == 1.35, (
+        f"🔴 7억 제2종 요율이 {got['요율_pct']['제2종(보통)']}이다 — 167차 문서는 "
+        "1.35%·9,450,000원(직선보간)을 인쇄한다")
+    assert got["감리비_원"]["제2종(보통)"] == 9_450_000
+    assert "직선보간" in got["산정구간"]
+    # 🔴 같은 금액이 §5-2 표와 §5-3 표 **두 곳**에 인쇄된다 — 한 곳만 위조해도
+    #    잡히도록 **개수까지** 고정한다(162차 「같은 진단이 두 곳」의 반대 조치).
+    assert doc.count("9,450,000원") == 2, (
+        f"🔴 엔진이 낸 감리비 9,450,000원이 문서에 {doc.count(chr(34)+chr(34)) if False else doc.count('9,450,000원')}번 나온다 — "
+        "§5-2 요율표와 §5-3 과금표 두 곳이 같은 값을 써야 한다")
+    assert "직선보간" in doc
+
+    # ── ③ 판단성·시세성 경계를 문서가 스스로 적는가 ──────────────────
+    for tok in ("엔진에 등재하지 않았다", "실제 계약액은 협의", "[협의]",
+                "기계가 넘지 않는 지점"):
+        assert tok in doc, f"🔴 경계 표기 「{tok}」가 사라졌다"
+
+    # ── ④ 채우지 못한 것을 채웠다고 적지 않았는가 ────────────────────
+    assert "공사비요율 별표는" in doc and "수치 자체를 보지 못했다" in doc, (
+        "🔴 **별표 요율 수치를 확보하지 못했다**는 한계가 사라졌다 — "
+        "확보한 것은 제경비·기술료 조문뿐이다")
+    assert "[추정] 유지" in doc or "`[추정]` 유지" in doc, (
+        "🔴 `env_fitness` 가중치를 외부값으로 덮지 않았다는 표기가 사라졌다")
+    assert abs(e.env_fitness(1.0, 1.0, 1.0, 1.0) - 100.0) < 1e-9, (
+        "🔴 env_fitness 가중치 합이 1이 아니게 됐다 — 167차는 이 함수를 **건드리지 않았다**")
+
+    # ── ⑤ 아직 비어 있는 것을 비었다고 적는가 ────────────────────────
+    assert "지내력" in doc and "고객 제출물" in doc
+    assert "국내 **온실 전용 커미셔닝** 요율" in doc
+    assert "가격을 확정하지 않았다" in doc
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
