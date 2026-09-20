@@ -9343,12 +9343,13 @@ def test_181cha_package_layer_assembles_without_calculating():
         if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
         and not n.name.startswith("_")}
     codes = [x["code"] for x in cp.PACKAGE_SPEC]
-    assert len(codes) == 20 and len(set(codes)) == 20, (
-        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D20이어야 한다")
+    # 🔴182차 — ⑤운영(D21)·대가(D22)가 신설돼 20 → 22가 됐다.
+    assert len(codes) == 22 and len(set(codes)) == 22, (
+        f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D22여야 한다")
     cov = cp.coverage()
-    assert len(cov["declared"]) == 43, (
+    assert len(cov["declared"]) == 61, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
-        "181차 실측은 43종이다")
+        "182차 실측은 61종이다")
     ghost = sorted(f for f in cov["declared"] if f not in pub)
     assert not ghost, f"🔴 패키지가 없는 함수를 부른다: {ghost}"
     # 🔴 **선언만 하고 부르지 않으면 거짓말이다** — 호출처가 실제로 있는지 본다.
@@ -9372,7 +9373,7 @@ def test_181cha_package_layer_assembles_without_calculating():
     pkg = cp.build_package(cases[0])
     assert [x["code"] for x in pkg["items"]] == codes
     st = pkg["status_counts"]
-    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 6             and st.get("부분생성", 0) == 3 and st.get("링크", 0) == 3, (
+    assert st.get("생성", 0) == 8 and st.get("주입대기", 0) == 5             and st.get("부분생성", 0) == 6 and st.get("링크", 0) == 3, (
         f"🔴 상태 분포가 {st}다 — 주입 없이 서는 것과 못 서는 것이 **둘 다** 있어야 한다. "
         "전부 생성이면 어딘가에서 값을 **지어냈다는 뜻**이다")
 
@@ -9403,8 +9404,10 @@ def test_181cha_package_layer_assembles_without_calculating():
     assert d18["data"]["missing_inputs"], (
         "🔴 인허가 체크리스트의 `missing_inputs`가 비었다 — 용도지역은 지자체 확인 사항이다")
 
-    assert len(pkg["open_injections"]) == 17, (
-        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 181차 실측은 17종이고, "
+    # 🔴182차 — 연결이 늘면 **필요한 자료도 같이 드러난다**: 17 → 27종.
+    #    줄어드는 것이 좋은 수가 아니다.
+    assert len(pkg["open_injections"]) == 27, (
+        f"🔴 미해결 주입이 {len(pkg['open_injections'])}종이다 — 182차 실측은 27종이고, "
         "줄었다면 **주입 없이 값을 만든 곳이 있는지** 보라")
     assert set(cp.INJECTION_SLOTS) >= {n["slot"] for n in pkg["open_injections"]}
 
@@ -9445,14 +9448,14 @@ def test_181cha_package_layer_assembles_without_calculating():
         f"🔴 기존 산출물 4파일이 직접 부르는 함수가 {len(reached)}개다 — "
         "181차 시점 실측은 17개다(이 수가 늘었다면 배선이 바뀐 것이다)")
     together = reached.union(cov["declared"])
-    assert len(together) == 46, (
-        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 181차 실측은 **46 / 62**다"
-        "(패키지 이전은 17이었다)")
-    # 🔴 **아직 닿지 않는 16개를 「0」이라 적지 않는다** — 남은 공백이 얼마인지 센다.
+    assert len(together) == len(pub) == 62, (
+        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 182차 실측은 **62 / 62**다"
+        "(패키지 이전 17 · 181차 46)")
+    # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
     unreached = sorted(pub.difference(together))
-    assert len(unreached) == 16, (
-        f"🔴 산출물에 닿지 않는 공개 함수가 {len(unreached)}개다 — 181차 실측은 16개다: "
-        f"{unreached}")
+    assert not unreached, (
+        f"🔴 산출물에 닿지 않는 공개 함수가 다시 생겼다: {unreached} — "
+        "새 엔진 함수는 **카탈로그에 붙을 자리**가 함께 정해져야 한다")
     # 🔴 문자열 「consulting_package」는 **독스트링에도 나온다** — 그걸로 재면
     #    import를 갈아치워도 통과한다(뮤테이션 M8). import 문과 호출을 따로 본다.
     _bs = open(_o.path.join(repo, "build_site.py"), encoding="utf-8").read()
@@ -9465,12 +9468,31 @@ def test_181cha_package_layer_assembles_without_calculating():
     for frag in (f"**{len(reached)} → {len(together)} / {len(pub)}**",
                  f"| **{len(cov['declared'])}종** |",
                  f"| **{len(unreached)}개** |",
-                 f"주입 슬롯 | **{len(pkg['open_injections'])}종**"):
+                 f"| **{len(pkg['open_injections'])}종**"):
         assert frag in _doc, (
             f"🔴 설계서 §3-d가 실측과 다른 수를 적는다 — 찾지 못한 조각: {frag!r}")
     assert (f"생성 **{st['생성']}** · 부분생성 **{st['부분생성']}** · "
             f"링크 **{st['링크']}** · 주입대기 **{st['주입대기']}**") in _doc, (
         f"🔴 설계서의 상태 분포가 실측 {st}과 다르다")
+
+    # ── ⑩ 🔴 실명 열을 **산출물로 옮기지 않았는가**(182차) ───────────
+    import csv as _csv
+    _dev = _o.path.join(repo, "기자재DB", "장비정보.csv")
+    if _o.path.isfile(_dev):
+        with open(_dev, encoding="utf-8-sig", newline="") as _f:
+            _cols = next(_csv.reader(_f))
+        for _c in ("농장명/업체명", "농장주"):
+            assert _c in _cols, (
+                f"🔴 `장비정보.csv`에 「{_c}」 열이 없어졌다 — 이 가드의 전제가 바뀌었다")
+    # 🔴 검사 범위는 **`data` 페이로드**다 — `note`는 *"이 열을 옮기지 않았다"*고
+    #    설명하느라 그 이름을 쓴다(「세는 문자열을 서술에 쓰는」 계열의 반대편 함정:
+    #    서술까지 세면 설명문이 스스로를 실패시킨다).
+    _payload = _j.dumps([x["data"] for x in pkg["items"]], ensure_ascii=False,
+                        default=str)
+    for _c in ("농장주", "농장명/업체명", "계약 금액"):
+        assert _c not in _payload, (
+            f"🔴 패키지 **데이터**에 「{_c}」가 실렸다 — `장비정보.csv`를 행째로 옮기면 "
+            "**실명과 계약가가 산출물에 나간다**. 등재 수만 센다")
     assert "cpkg.build_package(" in _bs and "consulting_package_page(" in _bs, (
         "🔴 build_site가 패키지를 부르거나 렌더하지 않는다")
 

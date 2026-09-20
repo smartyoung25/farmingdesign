@@ -28,13 +28,18 @@ PACKAGE_SPEC = [
     {"code": "D1", "title": "입지 진단 카드", "stage": "①공종설계", "targets": ["부지"],
      "engine": ["siting_lookup", "siting_design_load", "design_outdoor_temp",
                 "heating_degree_hours", "monthly_mean_wind", "monthly_sunshine",
-                "mean_wind"]},
+                "mean_wind", "wind_correction_factor", "period_load_adjust_k"]},
     {"code": "D2", "title": "RFQ 사양서", "stage": "①공종설계", "targets": ["시설"],
-     "engine": ["select_specs", "spec_crops", "cover_assembly_options"]},
+     "engine": ["select_specs", "spec_crops", "cover_assembly_options",
+                "cover_assembly_lookup", "curtain_exposure_ratio",
+                "m2_to_py", "py_to_m2", "equipment_lookup",
+                "equipment_component_prices"]},
     {"code": "D3", "title": "설계 대안 비교표", "stage": "①공종설계", "targets": ["시설"],
      "engine": ["compare_design_options"]},
     {"code": "D4", "title": "문서 4축 정합 리포트", "stage": "②품질설계",
-     "targets": ["시설", "기자재"], "engine": ["doc_consistency_check"]},
+     "targets": ["시설", "기자재"],
+     "engine": ["doc_consistency_check", "transmission_share_pct",
+                "heating_load_components"]},
     {"code": "D5", "title": "견적 정합·업체 비교표", "stage": "④타당성검증",
      "targets": ["시설"], "engine": ["reconcile_quote", "compare_quotes",
                                     "generate_rfq_package", "construction_company_list",
@@ -49,7 +54,8 @@ PACKAGE_SPEC = [
                                     "benchmark_check", "production_kg", "finance"]},
     {"code": "D9", "title": "재무 시나리오", "stage": "④타당성검증", "targets": ["시설"],
      "engine": ["operating_breakeven", "max_investable_capex", "loan_amortization",
-                "dscr_schedule", "subsidy_application_checklist"]},
+                "dscr_schedule", "subsidy_application_checklist",
+                "npv", "irr", "cluster_economics"]},
     {"code": "D10", "title": "LCC·하자 관리표", "stage": "⑥사후관리",
      "targets": ["시설", "기자재"], "engine": ["warranty_period", "lcc_replacement_schedule"]},
     {"code": "D11", "title": "근거대장", "stage": "②품질설계", "targets": ["시설"],
@@ -72,6 +78,13 @@ PACKAGE_SPEC = [
      "engine": ["equipment_reconcile"]},
     {"code": "D20", "title": "내용연수 대조표", "stage": "⑥사후관리", "targets": ["기자재"],
      "engine": ["service_life_reference"]},
+    # 🔴182차 — ⑤운영에는 산출물이 **D8 링크뿐**이었고, 172차에 만든 과금 함수는
+    #   어느 산출물에도 붙어 있지 않았다. 두 칸을 채운다.
+    {"code": "D21", "title": "운영 진단표", "stage": "⑤운영", "targets": ["시설", "기자재"],
+     "engine": ["env_fitness", "yield_adjustment", "production_kg",
+                "opex_breakdown", "improvement_roi"]},
+    {"code": "D22", "title": "컨설팅 대가 산출", "stage": "④타당성검증", "targets": ["시설"],
+     "engine": ["consulting_fee_estimate", "design_supervision_fee_reference"]},
 ]
 
 # 주입 슬롯 — 이름과 성격을 밝혀 둔다(무엇이 없어서 못 세우는지 고객이 알아야 한다)
@@ -99,7 +112,27 @@ INJECTION_SLOTS = {
     "pumsem_probe": "품셈 단일 항목 조회(분류·품명·수량) — 설계 성과품",
     "rfq_form": "RFQ 기준 형식(연동·단동 등) — 🔴**판단성**이라 기계가 고르지 않는다",
     "quote_for_reconcile": "정합 검사할 견적 1건(카테고리별 금액·직접비·총액) — 시세성",
+    "has_thermal_screen": "보온커튼 유무(True/False) — 설계 조건",
+    "period_sunshine_h": "기간 일조시간(h) — 설계 조건. 🔴월별 표를 기계가 합치면 "
+                         "기간 정의를 임의로 정하는 것이 된다",
+    "cover_layers": "피복 층 구성(층 이름 tuple) — `COVER_ASSEMBLIES` 키",
+    "equipment_model": "구성품·표준가격을 조회할 장비 모델명",
+    "transmission_kcal_h": "관류열부하(kcal/h) — 설계 성과품. 🔴이 계층이 역산하면 "
+                           "그것이 병렬 계산이다",
+    "cashflows": "연차별 현금흐름 — NPV·IRR 재계산용(시나리오)",
+    "cluster": "단지화 조건(농가 수·공동 CAPEX·절감률 등) — 사업 설계 전제",
+    "env_ratios": "환경 적합도 4비율(광·온·습·CO₂) — 운영 실측",
+    "opex_items": "OPEX 항목별 금액 — 운영 실측",
+    "improvement": "개선 투자(연간 절감액·투자비) — 운영 실측",
+    "fee_inputs": "컨설팅 대가 산출 입력(등급별 인·일 · 노임단가 · 제경비율 · 기술료율) "
+                  "— 🔴노임은 **시세성**, 인·일은 **우리 원가(판단성)**다",
 }
+
+# 🔴 `장비정보.csv`에는 `농장명/업체명`·`농장주`·`계약 금액` 열이 있다 —
+#    조회 결과를 그대로 내보내면 **실명과 계약가가 산출물에 실린다**.
+#    패키지는 아래 열만 옮긴다(182차).
+_DEVICE_FIELDS = ("표준 장치명", "세부 장치명", "모델명", "제조국", "KC 인증여부")
+_DEVICE_DROP = ("농장명/업체명", "농장주", "계약 금액")
 
 _LINKED = {
     "D8": "SmartFarm_통합보고서_{case_id}.html",
@@ -161,8 +194,19 @@ def build_package(case: dict, injections: dict = None) -> dict:
             n = _need("winter_months")
             months = inj.get("winter_months")
             if months:
-                d["동절기 평균풍속"] = e.mean_wind(region, months)
+                mw = e.mean_wind(region, months)
+                d["동절기 평균풍속"] = mw
                 n = []
+                screen = inj.get("has_thermal_screen")
+                if mw is not None and screen is not None:
+                    d["풍속 보정계수"] = e.wind_correction_factor(mw, screen)
+                else:
+                    n = _need("has_thermal_screen")
+            sun = inj.get("period_sunshine_h")
+            if sun is not None:
+                d["기간부하 일조 보정 k"] = e.period_load_adjust_k(sun)
+            else:
+                n = n + _need("period_sunshine_h")
             miss = [k for k, v in d.items() if v is None]
             items.append(_item(spec, "생성", d, n,
                                "🔴 조회 실패 항목은 `None`으로 남긴다(추정하지 않는다): %s"
@@ -174,9 +218,37 @@ def build_package(case: dict, injections: dict = None) -> dict:
                  "하중 충족 후보": len(sel["candidates"]),
                  "형식별 최소사양": {f: s.name for f, s in sel["min_by_form"].items()},
                  "작목특화형 목록": e.spec_crops(),
-                 "피복조합 후보": len(e.cover_assembly_options())}
-            items.append(_item(spec, "생성", d, [],
-                               "🔴 사양 확정은 판단성 — 후보와 최소사양까지만 낸다"))
+                 "피복조합 후보": len(e.cover_assembly_options()),
+                 "면적(㎡→평→㎡ 왕복)": {"평": e.m2_to_py(inp.area_m2),
+                                  "㎡": e.py_to_m2(e.m2_to_py(inp.area_m2))},
+                 "표준 장치명별 등재 수": {}}
+            # 🔴 `장비정보.csv`는 `농장명/업체명`·`농장주`·`계약 금액`을 함께 담는다 —
+            #    **수만 센다**(행을 그대로 옮기면 실명과 계약가가 산출물에 실린다).
+            for dev in ("환경제어기", "양액기", "냉방기", "환풍기"):
+                d["표준 장치명별 등재 수"][dev] = len(e.equipment_lookup(dev))
+            n2 = []
+            layers = inj.get("cover_layers")
+            if layers:
+                asm = e.cover_assembly_lookup(tuple(layers))
+                d["피복조합 조회"] = (None if asm is None else
+                                {"층": list(asm.layers), "U": asm.u_w_m2k,
+                                 "열절감률(%)": asm.savings_pct, "표": asm.table})
+            else:
+                n2 = n2 + _need("cover_layers")
+            cur = inj.get("curtain") or case["input"].get("curtain")
+            if cur:
+                d["커튼 노출비율(fr)"] = e.curtain_exposure_ratio(cur)
+            else:
+                n2 = n2 + _need("curtain")
+            model = inj.get("equipment_model")
+            if model:
+                d["장비 구성품·표준가격"] = e.equipment_component_prices(model)
+            else:
+                n2 = n2 + _need("equipment_model")
+            items.append(_item(spec, "생성", d, n2,
+                               "🔴 사양 확정은 판단성 — 후보와 최소사양까지만 낸다. "
+                               "장비 조회는 **수만 센다** — 원문 CSV에 농장명·농장주·"
+                               "계약 금액이 함께 있어 행을 그대로 옮기지 않는다"))
 
         elif code == "D3":
             # 🔴 대안은 **형식별 최소사양**으로만 세운다 — 어느 것이 낫다고 하지 않는다.
@@ -203,14 +275,27 @@ def build_package(case: dict, injections: dict = None) -> dict:
                                    "형식별 최소사양을 나란히 놓는다 — 순위·추천 필드가 없다"))
 
         elif code == "D4":
-            rows = inj.get("doc_rows")
-            if not rows:
-                items.append(_item(spec, "주입대기", None, _need("doc_rows"),
-                                   "고객 문서가 와야 4축 정합을 볼 수 있다"))
+            d = {"원문 관류열부하 비율(%)": e.transmission_share_pct()}
+            n4 = []
+            tr = inj.get("transmission_kcal_h")
+            if tr is not None:
+                comp = e.heating_load_components(tr, inp.t_target, inp.t_min)
+                d["부하 3성분"] = {"관류": comp.transmission_kcal_h,
+                              "환기": comp.infiltration_kcal_h,
+                              "지중": comp.ground_kcal_h,
+                              "결손": comp.missing,
+                              "부분합": comp.partial_total_kcal_h}
             else:
+                n4 = n4 + _need("transmission_kcal_h")
+            rows = inj.get("doc_rows")
+            if rows:
                 rep = e.doc_consistency_check(rows)
-                items.append(_item(spec, "생성",
-                                   {"집계": rep.counts, "행": len(rep.rows)}, []))
+                d["4축 정합"] = {"집계": rep.counts, "행": len(rep.rows)}
+            else:
+                n4 = n4 + _need("doc_rows")
+            items.append(_item(spec, "생성" if not n4 else "부분생성", d, n4,
+                               "🔴 3성분 분해는 관류열부하를 **주입받는다** — 이 계층이 "
+                               "역산하면 그것이 병렬 계산이다. `missing`은 채우지 않는다"))
 
         elif code == "D5":
             # 🔴 견적 정합은 주입 대기지만, **대조의 기준선**은 지금 세울 수 있다 —
@@ -306,6 +391,17 @@ def build_package(case: dict, injections: dict = None) -> dict:
                     res["economics"]["revenue"], inp.opex, **tg)
             else:
                 needs.extend(_need("capex_targets"))
+            cf = inj.get("cashflows")
+            if cf:
+                d["시나리오 NPV"] = e.npv(0.05, cf)
+                d["시나리오 IRR"] = e.irr(cf)
+            else:
+                needs.extend(_need("cashflows"))
+            cl = inj.get("cluster")
+            if cl:
+                d["단지화 경제성"] = e.cluster_economics(**cl)
+            else:
+                needs.extend(_need("cluster"))
             items.append(_item(spec, "생성" if not needs else "부분생성", d, needs,
                                "🔴 금리·기간은 시세성, 목표치는 협의 — 주입이 없으면 "
                                "상환표·DSCR·상한 역산을 만들지 않는다. "
@@ -390,6 +486,49 @@ def build_package(case: dict, injections: dict = None) -> dict:
                 rows.append(e.service_life_reference(n))
             items.append(_item(spec, "생성", {"행": rows}, [],
                                "🔴 조달청·농진청[추정]·세법을 나란히 둘 뿐 고르지 않는다"))
+
+        elif code == "D21":
+            d = {"수율 조정(현 적합도)": e.yield_adjustment(inp.fitness_pct),
+                 "생산량(kg)": e.production_kg(inp.area_m2, inp.base_yield_kg_m2,
+                                            inp.fitness_pct),
+                 "OPEX 비목 체계(항목 수)": len(e.OPEX_ITEM_CATEGORIES)}
+            n21 = []
+            er = inj.get("env_ratios")
+            if er:
+                d["환경 적합도(%)"] = e.env_fitness(**er)
+            else:
+                n21 = n21 + _need("env_ratios")
+            oi = inj.get("opex_items")
+            if oi:
+                ob = e.opex_breakdown(oi, inp.opex)
+                d["OPEX 분해"] = {"항목": len(ob.items), "미분류": ob.unclassified,
+                               "합계": ob.total}
+            else:
+                n21 = n21 + _need("opex_items")
+            im = inj.get("improvement")
+            if im:
+                d["개선 투자 ROI"] = e.improvement_roi(**im)
+            else:
+                n21 = n21 + _need("improvement")
+            items.append(_item(spec, "생성" if not n21 else "부분생성", d, n21,
+                               "🔴 `env_fitness` 가중치는 `[추정]`이다(광 0.5·온 0.2·습 0.2·"
+                               "CO₂ 0.1) — 작목·생육단계 의존이라 외부 일반값으로 덮지 않았다. "
+                               "OPEX 잔차는 `unclassified`로 **남긴다**"))
+
+        elif code == "D22":
+            d = {"감리 대가 참고": e.design_supervision_fee_reference(
+                 inp.total_construction_cost)}
+            fi = inj.get("fee_inputs")
+            if fi:
+                d["실비정액가산 산출"] = e.consulting_fee_estimate(**fi)
+                items.append(_item(spec, "생성", d, [],
+                                   "🔴 `in_notice_range`는 **고시 범위와의 대조 결과**이지 "
+                                   "판정이 아니다"))
+            else:
+                items.append(_item(spec, "부분생성", d, _need("fee_inputs"),
+                                   "🔴 노임단가·요율에 **기본값을 두지 않는다** — 고시는 "
+                                   "범위만 정하고 그 안의 선택은 협의(시세성)다. "
+                                   "인·일은 우리 원가라 `[제안]`이다"))
 
         else:                                       # 카탈로그에 있으나 조립되지 않은 항목
             items.append(_item(spec, "미조립", None, [], "조립기가 없다"))
