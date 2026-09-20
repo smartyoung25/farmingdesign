@@ -7883,9 +7883,10 @@ def test_167cha_external_fitting_stays_outside_the_engine():
     assert "직선보간" in got["산정구간"]
     # 🔴 같은 금액이 §5-2 표와 §5-3 표 **두 곳**에 인쇄된다 — 한 곳만 위조해도
     #    잡히도록 **개수까지** 고정한다(162차 「같은 진단이 두 곳」의 반대 조치).
-    assert doc.count("9,450,000원") == 2, (
+    # 🔴168차 — §5-1b에 **두 체계 비교**(국토부 1.35% vs 산업부 1.66%)가 들어와 3회가 됐다
+    assert doc.count("9,450,000원") == 3, (
         f"🔴 엔진이 낸 감리비 9,450,000원이 문서에 {doc.count(chr(34)+chr(34)) if False else doc.count('9,450,000원')}번 나온다 — "
-        "§5-2 요율표와 §5-3 과금표 두 곳이 같은 값을 써야 한다")
+        "§5-1b 두 체계 비교 · §5-2 요율표 · §5-3 과금표 세 곳이 같은 값을 써야 한다")
     assert "직선보간" in doc
 
     # ── ③ 판단성·시세성 경계를 문서가 스스로 적는가 ──────────────────
@@ -7894,9 +7895,10 @@ def test_167cha_external_fitting_stays_outside_the_engine():
         assert tok in doc, f"🔴 경계 표기 「{tok}」가 사라졌다"
 
     # ── ④ 채우지 못한 것을 채웠다고 적지 않았는가 ────────────────────
-    assert "공사비요율 별표는" in doc and "수치 자체를 보지 못했다" in doc, (
-        "🔴 **별표 요율 수치를 확보하지 못했다**는 한계가 사라졌다 — "
-        "확보한 것은 제경비·기술료 조문뿐이다")
+    # 🔴168차 정정 — 별표는 **확보했다**. 남은 한계는 **조문 본문**이다.
+    assert "조문 본문은 여전히 웹 요약으로만 봤다" in doc, (
+        "🔴 남은 한계(조문 본문 미확인)가 사라졌다 — 168차가 확보한 것은 **별표**뿐이다")
+    assert "구간 내 보간 규정은 확인하지 않았다" in doc
     assert "[추정] 유지" in doc or "`[추정]` 유지" in doc, (
         "🔴 `env_fitness` 가중치를 외부값으로 덮지 않았다는 표기가 사라졌다")
     assert abs(e.env_fitness(1.0, 1.0, 1.0, 1.0) - 100.0) < 1e-9, (
@@ -7906,6 +7908,79 @@ def test_167cha_external_fitting_stays_outside_the_engine():
     assert "지내력" in doc and "고객 제출물" in doc
     assert "국내 **온실 전용 커미셔닝** 요율" in doc
     assert "가격을 확정하지 않았다" in doc
+
+
+def test_168cha_benchmarks_are_transcribed_from_originals():
+    """168차 — 확정하지 못했던 것을 **원문으로** 채웠는지 본다.
+
+    167차는 *"웹 페이지가 그렇게 적고 있다"*까지였다. 168차는 [별표1]을
+    **공식 PDF로 내려받아 파싱**했다 — 그 사본이 리포에 있고, 문서의 수치가
+    **그 PDF에서 실제로 읽히는지**를 여기서 다시 확인한다.
+
+    🔴 채운 것과 못 채운 것을 함께 고정한다 — `FR_TABLE`은 **대조군만 세웠고
+    값을 바꾸지 않았다**(★결정), 기간 근거는 **찾지 못했다**.
+    """
+    import os as _o, sys as _s, warnings as _w, pytest as _p
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("서비스설계_외부기준피팅_대가체계_20260920.md")
+    pdf_rel = "법령_엔지니어링대가기준_별표1_건설부문요율.pdf"
+    pdf = _o.path.join(repo, pdf_rel)
+
+    # ── ① 원문 사본이 리포에 실재하는가(167차엔 없었다) ───────────────
+    assert _o.path.isfile(pdf) and _o.path.getsize(pdf) > 10_000, (
+        f"🔴 [별표1] 원문 사본이 사라졌다({pdf_rel}) — 문서의 요율표가 다시 "
+        "「웹 요약」 수준으로 떨어진다")
+    assert pdf_rel in doc, "🔴 문서가 리포 사본을 가리키지 않는다"
+
+    # ── ② 🔴 문서의 수치가 **그 PDF에서 실제로 읽히는가** ─────────────
+    pdfplumber = _p.importorskip("pdfplumber")
+    with _w.catch_warnings():
+        _w.simplefilter("ignore")
+        with pdfplumber.open(pdf) as f:
+            txt = "".join((pg.extract_text() or "") for pg in f.pages)
+    for tok in ("[별표 1] 건설부문의 요율", "기본설계", "실시설계", "공사감리",
+                "3.78", "6.16", "1.66", "비상주", "농어업토목", "도로분야의 요율"):
+        assert tok in txt, f"🔴 원문 PDF에서 「{tok}」를 읽을 수 없다 — 사본이 바뀌었는가"
+        assert tok in doc or tok.replace(" ", "") in doc.replace(" ", ""), (
+            f"🔴 문서에서 「{tok}」가 사라졌다 — 원문에는 있다")
+
+    # ── ③ 적용 경로가 **원문 비고에서 왔다**는 것이 적혀 있는가 ───────
+    assert "요율표가 작성되지 않은 다른 분야는 **도로분야의 요율**을 적용한다" in doc, (
+        "🔴 비고5(온실 적용 경로)가 사라졌다 — 이것 없이는 도로 열을 쓰는 근거가 없다")
+    assert "농어업토목분야를 제외" in doc and "판단성" in doc, (
+        "🔴 비고1의 귀속 문제를 판단성으로 남긴 표기가 사라졌다")
+    # 7억 × 도로 요율 = 문서에 인쇄된 금액
+    assert abs(700_000_000 * 0.0378 - 26_460_000) < 1
+    assert abs(700_000_000 * 0.0616 - 43_120_000) < 1
+    assert abs(700_000_000 * 0.0166 - 11_620_000) < 1
+    for amt in ("26,460,000원", "43,120,000원", "11,620,000원"):
+        assert amt in doc, f"🔴 7억 대입 금액 {amt}이 문서에서 사라졌다"
+
+    # ── ④ 🔴 두 감리 체계가 **다르다는 사실**을 지웠는가 ──────────────
+    assert "1.66%(11,620,000원)" in doc and "1.35%\n(9,450,000원)" in doc.replace("\r", "") \
+        or ("1.66%(11,620,000원)" in doc and "9,450,000원" in doc), (
+        "🔴 국토부 [별표5]와 산업부 [별표1]의 감리 요율이 다르다는 대비가 사라졌다")
+    assert "어느 체계로 발주하는가가 먼저" in doc
+
+    # ── ⑤ FR_TABLE — **대조군만 세웠고 값은 그대로다** ────────────────
+    assert e.FR_TABLE == {"PO단일": 0.35, "다겹보온": 0.5,
+                          "이중커튼": 0.7, "2중커튼": 0.7}, (
+        "🔴 FR_TABLE 값이 바뀌었다 — 168차는 국제 벤치마크를 **대조군으로 세웠을 뿐**이고 "
+        "채택은 ★사용자 결정이다")
+    assert "제품 스펙 수준" in doc and "값은 바꾸지 않았다" in doc
+    assert "30~50" in doc, "🔴 국제 일반 범위(30~50%) 대조군이 사라졌다"
+
+    # ── ⑥ 못 채운 것을 채웠다고 적지 않았는가 ────────────────────────
+    assert "기간 8~10주의 근거를 찾지 못했다" in doc, (
+        "🔴 기간 근거를 **찾지 못했다**는 표기가 사라졌다 — [제안]으로 남아 있어야 한다")
+    assert "건설엔지니어링 대가(국토부고시 제2023-580호) 별표는 아직 미확보" in doc
+    assert "그 부지의 **지내력 값**" in doc, (
+        "🔴 「기준은 있고 값은 없다」는 구분이 사라졌다")
 
 
 if __name__ == "__main__":
