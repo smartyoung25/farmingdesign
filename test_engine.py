@@ -9789,6 +9789,109 @@ def test_185cha_business_plan_concept_applied_without_judging():
         "🔴 2단계 함수를 1단계 카드에 다시 끌어왔다 — 대응표가 흐려진다")
 
 
+def test_186cha_benchmark_sources_were_actually_opened():
+    """186차 — 기획서 §11 출처를 **실제로 열었는가**, 그리고 결과를 **줄이지 않았는가**.
+
+    🔴 185차가 *"벤치마킹 출처 URL 60여 건을 열어보지 않았다"*로 남긴 것을 닫았다.
+    전수를 열어 **73건 중 67건 200 · 6건 비-200**이었고, **라벨 하나가 다른 곳**
+    (한국스마트팜산업협회 오류 페이지)을 가리킨다.
+
+    ⚠️ **이 가드는 네트워크를 타지 않는다** — 응답 기록을 리포에 남겨 두고
+    **기록과 문서와 원본 docx**를 서로 대조한다. 테스트가 인터넷에 의존하면
+    남의 서버 사정으로 게이트가 흔들린다.
+
+    🔴 **`403`·`202`를 「없다」로 적지 않았는가**도 본다 — 봇 차단이지 부재가 아니다
+    (「온라인에 없다 ≠ 없다」 계열, 173·177차).
+    """
+    import os as _o, sys as _s, json as _j, re as _re, zipfile as _z
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("근거_벤치마킹출처_검증_20260921.md")
+    rec = _j.loads(rd("근거_벤치마킹출처_응답기록_20260921.json"))
+
+    # ── ① 원본 docx에서 URL을 **다시 뽑아** 수를 맞춘다 ─────────────
+    dx = _o.path.join(repo, "근거_사업기획서_투자검증설계보증플랫폼_20260921.docx")
+    assert _o.path.isfile(dx), "🔴 기획서 원본이 리포에 없다"
+    xml = _z.ZipFile(dx).read("word/document.xml").decode("utf-8")
+    paras = []
+    for m in _re.finditer(r"<w:p[ >].*?</w:p>", xml, _re.S):
+        t = "".join(_re.findall(r"<w:t[^>]*>(.*?)</w:t>", m.group(0), _re.S))
+        if t.strip():
+            # 🔴 docx XML은 URL의 `&`를 `&amp;`로 쓴다 — 풀지 않으면 2건이
+            #    기록과 어긋난다(파서 경계가 만든 차이).
+            paras.append(t.strip().replace("&amp;", "&"))
+    _LFC = chr(10)
+    tail = _LFC.join(paras)
+    tail = tail[tail.find("11. 부록"):]
+    urls = [m.group(2) for m in
+            (_re.search(r"^(.*?)\s*—\s*(https?://\S+)$", ln.strip())
+             for ln in tail.split(_LFC)) if m]
+    assert len(urls) == 73, (
+        f"🔴 기획서 §11의 URL이 {len(urls)}건이다 — 186차 실측은 73건이다. "
+        "기획서가 바뀌었다면 전수를 **다시 열어야** 한다")
+    assert len(rec) == len(urls) and {r["url"] for r in rec} == set(urls), (
+        "🔴 응답 기록과 기획서의 URL 집합이 다르다 — **다른 목록을 잰 것**이다")
+
+    # ── ② 기록·문서의 수가 **서로 맞는가** ──────────────────────────
+    ok = [r for r in rec if r["code"] == 200]
+    bad = [r for r in rec if r["code"] != 200]
+    assert (len(ok), len(bad)) == (67, 6), (
+        f"🔴 응답 기록이 200 {len(ok)} · 비-200 {len(bad)}다 — 186차 실측은 67/6이다")
+    for frag in (f"**60여 건이 아니라 {len(rec)}건**", f"**{len(ok)}건이 200**",
+                 f"**{len(bad)}건이 응답하지 않는다**",
+                 f"## 1. 전수 응답 ({len(rec)}건)",
+                 f"### 🔴 응답하지 않는 {len(bad)}건"):
+        assert frag in doc, f"🔴 검증 문서가 실측과 다른 수를 적는다: {frag!r}"
+    # 표가 전수를 담는가(라벨 전량이 본문에 있다)
+    missing = [r["label"] for r in rec if r["label"].replace("|", "｜") not in doc]
+    assert not missing, f"🔴 검증 문서에서 빠진 출처가 있다: {missing[:5]}"
+
+    # ── ③ 🔴 **봇 차단을 부재로 적지 않았는가** ─────────────────────
+    codes = {r["code"] for r in bad}
+    assert 403 in codes and 202 in codes and 404 in codes, (
+        f"🔴 비-200의 코드 구성이 {sorted(map(str, codes))}다 — 186차 실측은 "
+        "403·202·404·ERR이 섞여 있다")
+    assert "「없다」가 아니다" in doc and "봇 차단" in doc, (
+        "🔴 `403`·`202`가 **부재가 아니라 차단**이라는 구분이 사라졌다 — "
+        "「온라인에 없다 ≠ 없다」(173·177차)를 되돌리는 것이다")
+    assert "3건만 실제로 확보 불가" in doc, (
+        "🔴 실제로 못 연 것이 **3건뿐**이라는 구분이 사라졌다")
+
+    # ── ④ 라벨 불일치 1건을 **적었는가** ────────────────────────────
+    assert "한국스마트팜산업협회" in doc and "라벨이 다른 곳을 가리키는 것이 1건" in doc, (
+        "🔴 라벨 불일치(한국농식품정보과학회 → 다른 기관 오류 페이지) 기록이 사라졌다")
+    _kasfi = [r for r in rec if "농식품정보과학회" in r["label"]]
+    assert len(_kasfi) == 1 and "스마트팜산업협회" in _kasfi[0]["title"], (
+        "🔴 응답 기록에서 그 URL의 제목이 바뀌었다 — 문서의 주장 근거가 사라진다")
+
+    # ── ⑤ 🔴 **어긋난 2건을 이견으로 분리했는가** ───────────────────
+    assert "어긋나는 것 (2건)" in doc and "이견으로 분리한다" in doc
+    assert "six PQP test categories" in doc and "판본에 따라 다르다" in doc, (
+        "🔴 PVEL 항목 수가 **판본 차이**라는 정리가 사라졌다 — "
+        "기획서가 틀렸다고만 적으면 그것도 부정확하다")
+    assert "표제지(42KB)뿐" in doc, "🔴 NGMA URL이 표제지뿐이라는 실측이 사라졌다"
+    # 일치한 7건도 **수를 적었는가**
+    assert "핵심 9건 중 7건은 기획서 서술과 일치" in doc
+
+    # ── ⑥ 등급 체계가 준용할 **원문 문장**이 남아 있는가 ────────────
+    for q in ("< 2% power degradation", "leakage failure",
+              "top quartile for energy yield"):
+        assert q in doc, (
+            f"🔴 PVEL Top Performer 기준 원문 인용 {q!r}이 사라졌다 — "
+            "187차 등급 체계가 이 문장을 준용한다")
+
+    # ── ⑦ 보도 수치는 **여전히 엔진 밖인가** ────────────────────────
+    eng = rd("smartfarm_engine.py") + rd("엔진데이터_레지스트리.json")
+    for n in ("407건", "6,900억", "2,348억", "2,470억"):
+        assert n not in eng, (
+            f"🔴 「{n}」이 엔진·레지스트리에 들어왔다 — 제목에서 같은 수를 봤다고 "
+            "**1차 출처가 되는 것은 아니다**(국감 회의록·부처 자료가 1차다)")
+    assert "여전히 엔진에" in doc and "등재하지 않았다" in doc
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
