@@ -8014,39 +8014,71 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
         return {g for g in got if g in pub}
 
     # ── ① 단계별 함수 수를 **다시 센다** ─────────────────────────────
-    sec3 = design.split("## 3. 단계별 상세 설계")[1].split("## 4.")[0]
+    # 🔴170차 — §3-b(★ 매핑)는 **단계가 아니라 가로지르는 절**이다. 끊지 않으면
+    #    거기 적힌 `env_fitness`가 ⑥사후관리로 새어 들어간다(159차 「경계가 만든 수」).
+    sec3 = design.split("## 3. 단계별 상세 설계")[1].split("## 3-b.")[0]
     blocks = _re.split(r"### 3-\d\. ", sec3)[1:]
     counts = [len(names_in(b)) for b in blocks]
-    assert counts == [14, 4, 2, 17, 6, 2], (
-        f"🔴 단계별 함수 수가 {counts}다 — 169차 실측은 [14, 4, 2, 17, 6, 2]이고 "
-        "비판 §0의 「69% 앞단 쏠림」이 이 수에 기댄다")
+    assert counts == [17, 5, 2, 18, 6, 2], (
+        f"🔴 단계별 함수 수가 {counts}다 — 170차 실측은 [17, 5, 2, 18, 6, 2]다"
+        "(169차 [14,4,2,17,6,2]에 개선 ⑦의 5함수가 더해졌다)")
     total = sum(counts)
     front = counts[0] + counts[3]
     back = counts[2] + counts[5]
-    assert total == 45 and front == 31 and back == 4, (
-        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 실측은 45/31/4다")
-    assert "31/45 (69%)" in crit and "4/45 (9%)" in crit
+    assert total == 50 and front == 35 and back == 4, (
+        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 170차 실측은 50/35/4다")
+    # 🔴 핵심 — **개선 ⑦을 적용해도 쏠림 진단은 깨지지 않는다**(69→70% · 9→8%)
+    assert front / total > 0.65 and back / total < 0.12, (
+        f"🔴 쏠림이 해소됐다(앞단 {front/total:.0%} · 뒤 {back/total:.0%}) — "
+        "비판 §0을 갱신하라. 개선 ④⑤⑥ 없이 이 수가 움직였다면 원인부터 찾아라")
+    assert "31/45 (69%)" in crit and "4/45 (9%)" in crit, (
+        "🔴 169차 시점의 실측(31/45·4/45)이 사라졌다 — 그때의 기록이다")
+    assert "70%" in crit and "8%" in crit, (
+        "🔴 170차 재측정(앞단 70% · 뒤 8%) 기록이 비판 문서에 없다")
 
     # ── ② 인용/미인용을 다시 센다 ────────────────────────────────────
+    # 🔴170차 — 개선 ⑦을 적용해 5함수를 배치했다: 인용 44 → 49, 미인용 9 → 4.
+    #    남은 4개는 하위 유틸(`npv`·`irr`은 `finance()` 안에서 쓰인다)이라 배치 대상이 아니다.
     head = design.split("## 7. 미구현 백로그")[0]
     cited = names_in(head)
     missing = sorted(pub - cited)
-    assert len(cited) == 44 and len(missing) == 9, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 실측은 44/9다: {missing}")
+    assert len(cited) == 49 and len(missing) == 4, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 170차 실측은 49/4다: {missing}")
+    assert set(missing) == {"npv", "irr", "py_to_m2", "m2_to_py"}, (
+        f"🔴 남은 미인용이 {missing}다 — 170차가 남긴 것은 **하위 유틸 4개**뿐이다")
     for fn in ("construction_company_list", "spec_crops", "cover_assembly_options",
                "mean_wind", "transmission_share_pct"):
-        assert fn in missing, f"🔴 {fn}이 이제 설계서에 인용된다 — §7을 갱신하라"
+        assert fn in cited, f"🔴 {fn}이 설계서에서 다시 빠졌다 — 개선 ⑦이 되돌아갔다"
         assert fn in crit, f"🔴 비판 §7에서 {fn}이 사라졌다"
 
     # ── ③ 흐름도가 D11을 빠뜨렸다는 지적이 **사실인가** ──────────────
+    # 🔴170차 — 개선 ①③을 적용했다: 흐름도에 D11·D12가 관통 띠로 들어왔고,
+    #    §3 단계 본문마다 **산출물·★ 행**이 생겼다. 「없어야 한다」를 「있어야 한다」로 뒤집는다.
     gate = design.split("## 8. 단계 게이트")[1]
     ds = set(_re.findall(r"D(\d+)", gate))
-    assert "11" not in ds, (
-        "🔴 흐름도에 D11이 들어왔다 — 비판 §5가 해소됐으니 그 절을 갱신하라")
-    assert gate.count("★") == 2, f"🔴 흐름도의 ★가 {gate.count('★')}개다 — 실측은 2다"
+    assert {"11", "12"} <= ds, (
+        "🔴 흐름도에서 D11(근거대장)·D12(결정지원)가 사라졌다 — 두 개는 한 단계의 "
+        "산출물이 아니라 **전 단계를 관통하는 레이어**다")
+    assert gate.count("★") >= 8, (
+        f"🔴 흐름도의 ★가 {gate.count('★')}개다 — 170차는 **단계마다** 표시한다")
+    assert "★는 17곳이다" in gate, "🔴 ★ 총수(17곳) 표기가 사라졌다"
     sec3full = design.split("## 3. 단계별 상세 설계")[1].split("## 4.")[0]
-    assert not _re.findall(r"\bD\d+\b", sec3full), (
-        "🔴 §3 단계 본문에 D번호가 들어왔다 — 비판 §5가 해소됐으니 갱신하라")
+    assert len(_re.findall(r"\*\*D\d+", sec3full)) >= 6, (
+        "🔴 §3 단계 본문에서 산출물 D번호가 사라졌다 — 매핑이 다시 흐름도 한 곳에만 남는다")
+    # ★ 매핑 절이 서 있고, 합계가 대장 15건 + 167·168차 2건과 맞는가
+    stars = design.split("## 3-b.")[1].split("## 4.")[0]
+    for tok in ("D-1", "D-15", "FR_TABLE` 계열 채택", "감리 대가 체계 선택", "**17**"):
+        assert tok in stars, f"🔴 ★ 매핑에서 「{tok}」가 사라졌다"
+    # 귀속 규칙(개선 ②)이 커버리지 표 **앞**에 있는가
+    assert design.index("## 1-b. 대상 귀속 규칙") < design.index("## 2. 커버리지 매트릭스"), (
+        "🔴 귀속 규칙이 커버리지 표 뒤로 갔다 — 규칙은 집계보다 앞서야 한다")
+    for r in ("**R1.", "**R2.", "**R3.", "**R4."):
+        assert r in design, f"🔴 귀속 규칙 {r}이 사라졌다"
+    # D12(개선 ①)
+    assert "| **D12** |" in design and "④ 결정 로그" in design, (
+        "🔴 D12 결정 지원 패키지가 사라졌다")
+    assert "⬜ **신설 대상**" in design, (
+        "🔴 D12의 ④결정 로그가 **아직 없다**는 표기가 사라졌다 — ①②③만 기존 자산이다")
 
     # ── ④ 과금 [협의] 칸 수를 다시 센다 ──────────────────────────────
     t53 = fee.split("### 5-3.")[1].split("### 5-4.")[0]
