@@ -8025,8 +8025,11 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
            and not n.name.startswith("_")}
 
     def names_in(seg):
-        got = set(_re.findall(r"`([a-z_][a-z0-9_]{3,})\(", seg))
-        got |= set(_re.findall(r"`([a-z_][a-z0-9_]{3,})`", seg))
+        # 🔴180차 — 하한이 {3,}이라 **3글자 이름(`npv`·`irr`)을 볼 수 없었다**.
+        #    둘은 §3-4 재문 행에 166차부터 인용돼 있었는데 14개 차수 동안
+        #    「미인용」으로 보고됐다(「정규식 경계가 만든 수」 계열). {2,}로 고쳤다.
+        got = set(_re.findall(r"`([a-z_][a-z0-9_]{2,})\(", seg))
+        got |= set(_re.findall(r"`([a-z_][a-z0-9_]{2,})`", seg))
         return {g for g in got if g in pub}
 
     # ── ① 단계별 함수 수를 **다시 센다** ─────────────────────────────
@@ -8035,9 +8038,11 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     sec3 = design.split("## 3. 단계별 상세 설계")[1].split("## 3-b.")[0]
     blocks = _re.split(r"### 3-\d\. ", sec3)[1:]
     counts = [len(names_in(b)) for b in blocks]
-    assert counts == [18, 6, 9, 18, 6, 5], (
-        f"🔴 단계별 함수 수가 {counts}다 — 176차 실측은 [18, 6, 9, 18, 6, 5]다"
-        "(175차 [18,6,9,18,6,4]에 내용연수 대조 1함수가 더해졌다)")
+    # 🔴180차 — **자를 고쳤다**(3글자 이름을 못 보던 하한). ④타당성검증이 18 → 20이 된 것은
+    #    함수가 늘어서가 아니라 `npv()`·`irr()`가 **이제 보이기 때문**이다.
+    assert counts == [18, 6, 9, 20, 6, 5], (
+        f"🔴 단계별 함수 수가 {counts}다 — 180차 실측은 [18, 6, 9, 20, 6, 5]다"
+        "(176차 [18,6,9,18,6,5]에서 ④가 +2 — **정규식 하한 교정분**이다)")
     # 🔴173차 — ③감리의 9개 중 **4개는 다른 단계 소유의 「대조 지점」**이다
     #    (select_specs·cover_assembly_lookup·verify_heating_vs_actual·
     #     doc_consistency_check). 그대로 세면 감리 역량이 **4.5배로 부풀어 보인다** —
@@ -8053,8 +8058,9 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     total = sum(own)
     front = own[0] + own[3]
     back = own[2] + own[5]
-    assert total == 58 and front == 36 and back == 10, (
-        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 176차 실측은 58/36/10다")
+    # 🔴180차 — 자 교정분(+2)만 움직였다. 엔진 함수는 늘지 않았다.
+    assert total == 60 and front == 38 and back == 10, (
+        f"🔴 합계 {total} · 앞단 {front} · 감리+사후관리 {back} — 180차 실측은 60/38/10다")
     # 🔴 핵심 — **개선 ⑦을 적용해도 쏠림 진단은 깨지지 않는다**(69→70% · 9→8%)
     # 🔴 방향을 고정한다 — 뒤(감리+사후관리) 비중은 **170차 8%에서 올라가는 중**이다.
     #    줄어들면 기능이 빠진 것이므로 하한으로 잡는다(상한이 아니다).
@@ -8070,6 +8076,11 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
         "🔴 170차 재측정(앞단 70% · 뒤 8%) 기록이 비판 문서에 없다")
     assert "66%" in crit and "13%" in crit, (
         "🔴 173차 재측정(앞단 66% · 뒤 13%) 기록이 비판 문서에 없다")
+    assert "63%" in crit and "17%" in crit, (
+        "🔴 180차(교정된 자) 실측 63%/17%가 비판검토 문서에서 사라졌다")
+    assert "정규식 경계가 만든 수" in crit and "낡은 자로 잰 것이라" in crit, (
+        "🔴 **자가 바뀌었다는 경고**가 사라졌다 — 169~174차 값과 한 자리에 놓고 읽으면 "
+        "기능이 움직인 것으로 오독된다")
     assert "64%" in crit and "16%" in crit, (
         "🔴 174차 재측정(앞단 64% · 뒤 16%) 기록이 비판 문서에 없다")
 
@@ -8080,8 +8091,8 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 58 and len(missing) == 4, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 176차 실측은 58/4다: {missing}")
+    assert len(cited) == 62 and len(missing) == 0, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 180차 실측은 62/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
         "🔴 P2·P4 2함수가 설계서에서 빠졌다")
@@ -8094,8 +8105,12 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
         "🔴 P1 감리 3함수가 구현·인용에서 빠졌다 — 173차가 되돌아갔다")
     assert "consulting_fee_estimate" in cited, (
         "🔴 과금 산정기가 설계서에서 빠졌다 — 개선 ⑥이 되돌아갔다")
-    assert set(missing) == {"npv", "irr", "py_to_m2", "m2_to_py"}, (
-        f"🔴 남은 미인용이 {missing}다 — 170차가 남긴 것은 **하위 유틸 4개**뿐이다")
+    # 🔴180차 — 미인용 0이 됐다. `npv`·`irr`는 **원래 인용돼 있었고**(자가 못 봤다),
+    #    `m2_to_py`·`py_to_m2`는 180차 배정표가 **칸 밖**으로 명시하며 이름을 댔다.
+    assert not missing, f"🔴 미인용이 {missing}다 — 180차 실측은 0건이다"
+    for _f in ("npv", "irr", "m2_to_py", "py_to_m2"):
+        assert _f in cited, (
+            f"🔴 {_f}()이 설계서에서 사라졌다 — 180차에 미인용 0을 만든 근거다")
     for fn in ("construction_company_list", "spec_crops", "cover_assembly_options",
                "mean_wind", "transmission_share_pct"):
         assert fn in cited, f"🔴 {fn}이 설계서에서 다시 빠졌다 — 개선 ⑦이 되돌아갔다"
@@ -9065,7 +9080,9 @@ def test_179cha_living_matrix_is_recounted_from_its_own_table():
         "표를 고치고 문장을 안 고쳤거나 그 반대다")
 
     # ── ② 5단계 표를 **세어** 본문 집계와 맞춘다 ─────────────────────
-    seg5 = doc.split("### 🔴 171차")[1].split("### 🔴 179차")[0]
+    # 🔴180차 — ★ 넓은 읽기 채택으로 **살아 있는 표가 180차 절로 옮겨졌다**.
+    #    171차 절의 표는 이제 「171~179차 기록」이다.
+    seg5 = doc.split("### ✅ 180차")[1]
     c5 = _cells(seg5, ROWS)
     flat5 = [x for rh in ROWS for x in c5[rh]]
     GRADES = ("판정지원", "검증", "산출", "조회", "없음")
@@ -9073,8 +9090,8 @@ def test_179cha_living_matrix_is_recounted_from_its_own_table():
     cnt5 = [flat5.count(g) for g in GRADES]
     assert sum(cnt5) == 18
     m = _re.search(r"\*\*판정지원 (\d+) · 검증 (\d+) · 산출 (\d+) · 조회 (\d+) · 없음 (\d+)\.",
-                   doc)
-    assert m, "🔴 5단계 집계 문장을 찾을 수 없다"
+                   seg5)
+    assert m, "🔴 180차 절의 5단계 집계 문장을 찾을 수 없다"
     said5 = [int(x) for x in m.groups()]
     assert said5 == cnt5, (
         f"🔴 5단계 집계가 서술 {said5} vs 표 실측 {cnt5}로 어긋난다")
@@ -9082,11 +9099,12 @@ def test_179cha_living_matrix_is_recounted_from_its_own_table():
     # ── ③ 앵커 문서(171차 기록)와의 차이가 **정확히 한 칸**인가 ──────
     ca = _cells(anc.split("### 1-3.")[0], ROWS)
     diff = sorted((rh, i) for rh in ROWS for i in range(6) if ca[rh][i] != c5[rh][i])
-    assert diff == [("기자재", 2)], (
-        f"🔴 두 문서의 5단계 표가 {diff}에서 갈린다 — 179차 실측은 "
-        "**기자재 × 감리 한 칸**뿐이다(173차 ⬜ → 산출). 더 벌어졌다면 "
-        "어느 쪽이 낡았는지부터 보라")
-    assert ca["기자재"][2] == "없음" and c5["기자재"][2] == "산출"
+    # 🔴180차 — 좁은 읽기(171차 기록) vs 넓은 읽기(현행)의 차이는 **네 칸**이다:
+    #    감리 시설·기자재 + 사후관리 시설·기자재. 179차의 「한 칸」은 좁은 읽기끼리의
+    #    비교였고, ★ 채택으로 전제가 바뀌었다.
+    assert diff == [("기자재", 2), ("기자재", 5), ("시설", 2), ("시설", 5)], (
+        f"🔴 171차 기록본과 현행 표가 {diff}에서 갈린다 — 180차 실측은 **네 칸**이다")
+    assert ca["기자재"][2] == "없음" and c5["기자재"][2] == "판정지원"
 
     # ── ④ 설계서가 **현행이라 주장하는 수**를 다시 잰다 ───────────────
     tree = _ast.parse(rd("smartfarm_engine.py"))
@@ -9112,9 +9130,13 @@ def test_179cha_living_matrix_is_recounted_from_its_own_table():
         "🔴 S-3의 「절반만 풀렸다」 표기가 사라졌다 — 명칭은 확인됐고 코드는 아니다")
 
     # ── ⑥ 이견을 **답으로 바꾸지 않았는가** ──────────────────────────
-    assert doc.count("★ 어느 읽기를 택할지는 결정이다") == 1, (
-        "🔴 규칙 문구(반환 구조) vs 구현(데이터클래스 필드)의 이견이 사라졌다 — "
-        "넓게 읽으면 시설 감리가 판정지원으로 올라간다. 고르는 것은 사용자다")
+    # 🔴180차 — 이견이 **★ 결정으로 닫혔다**. 이견이 있었다는 기록과 그 귀결이
+    #    둘 다 남아 있어야 한다(둘 중 하나만 남으면 경위가 사라진다).
+    assert doc.count("★ 어느 읽기를 택할지는 결정이었다") == 1, (
+        "🔴 규칙 문구(반환 구조) vs 구현(데이터클래스 필드)의 **이견이 있었다는 기록**이 "
+        "사라졌다 — 180차 채택의 경위다")
+    assert "180차에 사용자가 넓은 읽기를 채택했다" in doc, (
+        "🔴 ★ 결정(넓은 읽기 채택)의 기록이 사라졌다")
     # 🔴 이견의 전제를 **8함수 전수 호출로** 잰다 — 서술을 믿지 않는다.
     #    1차 작성에서 인자를 잘못 줘 **호출 실패를 「rows 없음」으로 읽었다**(자기 정정).
     MARK = {"status", "checks", "overall_status", "rows", "counts", "missing"}
@@ -9140,11 +9162,135 @@ def test_179cha_living_matrix_is_recounted_from_its_own_table():
             marked.append(nm)
     assert sorted(marked) == ["commissioning_plan", "defect_tracking",
                               "equipment_reconcile", "maintenance_schedule"], (
-        f"🔴 판정 필드를 가진 함수가 {sorted(marked)}다 — 179차 실측은 4개다. "
-        "넓은 읽기에서 올라가는 칸 수가 달라졌으니 이견 절을 다시 쓰라")
-    assert "`rows`를 가진 것이" in doc and "4개**다" in doc \
-            and "판정지원 8 · 검증 0 · 산출 5" in doc, (
-        "🔴 넓은 읽기의 집계(판정지원 8 · 산출 5)가 문서에서 사라졌다")
+        f"🔴 신설 8함수 중 판정 필드를 가진 것이 {sorted(marked)}다 — 실측은 4개다")
+    assert "`rows`를 가진 것이" in doc and "4개**다" in doc, (
+        "🔴 179차가 이름을 댄 4함수 기록이 사라졌다")
+    assert "그중 일부**였다" in doc, (
+        "🔴 **179차의 4개는 전체가 아니었다**는 정정이 사라졌다 — 넓게 읽으면 "
+        "엔진 전수를 다시 재야 한다(180차)")
+
+
+def test_180cha_matrix_is_recomputed_from_the_assignment_table():
+    """180차 — ★ **넓은 읽기 채택**. 매트릭스를 배정표에서 **다시 계산한다**.
+
+    🔴 개정 규칙: 「판정지원」의 기계 근거는 **반환 구조**에 `status`·`checks`·
+    `overall_status`·`rows`·`counts`·`missing` 중 하나가 있는가다 —
+    **데이터클래스 필드와 `dict` 키를 함께** 센다(179차까지는 데이터클래스만 봤다).
+
+    🔴 179차가 이름을 댄 4함수는 **신설 8함수 안에서만** 센 것이었다. 엔진 공개 함수를
+    **AST로 전수** 재면 판정 필드 보유는 **15개**다 — `lcc_replacement_schedule`·
+    `loan_amortization`·`benchmark_check`처럼 **171차 이전 함수**가 포함된다.
+
+    ⚠️ **칸 배정은 판단이라 이 가드가 정하지 않는다** — 문서의 배정표를 읽는다.
+    가드가 고정하는 것은 **「배정 + 실측 → 등급」이 다시 계산되는가**뿐이고,
+    **양방향**으로 검사한다(있으면 판정지원 · 하나도 없으면 판정지원이 아니다).
+    """
+    import os as _o, sys as _s, re as _re, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    doc = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    seg = doc.split("### ✅ 180차")[1]
+    assert seg, "🔴 180차 절이 사라졌다"
+
+    # ── ① 엔진 전수 — 판정 필드 보유를 **AST로** 잰다 ────────────────
+    MARK = {"status", "checks", "overall_status", "rows", "counts", "missing"}
+    tree = _ast.parse(rd("smartfarm_engine.py"))
+    dcf = {n.name: {x.target.id for x in n.body if isinstance(x, _ast.AnnAssign)}
+           for n in tree.body if isinstance(n, _ast.ClassDef)}
+    pub = {}
+    for n in tree.body:
+        if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef)) \
+                and not n.name.startswith("_"):
+            keys = set()
+            for nd in _ast.walk(n):
+                if isinstance(nd, _ast.Return) and isinstance(nd.value, _ast.Dict):
+                    for k in nd.value.keys:
+                        if isinstance(k, _ast.Constant) and isinstance(k.value, str):
+                            keys.add(k.value)
+            ann = (_ast.unparse(n.returns).strip().strip("'\"")
+                   if n.returns is not None else "")
+            pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
+    marked = sorted(f for f in pub if pub[f])
+    assert len(pub) == 62, f"🔴 공개 함수가 {len(pub)}개다 — 180차 실측은 62다"
+    assert len(marked) == 15, (
+        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 180차 실측은 15다: {marked}")
+    for f in ("lcc_replacement_schedule", "loan_amortization", "benchmark_check",
+              "verify_heating_vs_actual", "consulting_fee_estimate"):
+        assert pub[f], (
+            f"🔴 {f}()가 판정 필드를 잃었다 — **179차의 4개가 전부가 아니었다**는 "
+            "180차 발견의 근거다")
+    assert f"가진 것이 **{len(marked)}개**다" in seg, (
+        f"🔴 문서가 전수 실측({len(marked)}개)을 적지 않는다")
+
+    # ── ② 배정표를 읽는다(판단은 문서 몫) ────────────────────────────
+    STAGES = ["공종설계", "품질설계", "감리", "타당성검증", "운영", "사후관리"]
+    ROWS = ["부지", "시설", "기자재"]
+    assign, said = {}, {}
+    for mm in _re.finditer(r"^\| \*\*(부지|시설|기자재) × (\S+?)\*\* \| (.*?) \| (.*?) \| (\S+?) \|$",
+                           seg, _re.M):
+        tgt, st, fns, _have, gr = mm.groups()
+        assert st in STAGES, f"🔴 배정표에 없는 단계: {st}"
+        assign[(tgt, st)] = _re.findall(r"`([a-z_][a-z0-9_]*)\(\)`", fns)
+        said[(tgt, st)] = gr
+    assert len(assign) == 18, f"🔴 배정표가 {len(assign)}행이다 — 3대상 × 6단계 = 18이어야 한다"
+
+    # ── ③ **양방향** — 있으면 판정지원, 없으면 판정지원이 아니다 ─────
+    for (tgt, st), fns in assign.items():
+        for f in fns:
+            assert f in pub, (
+                f"🔴 배정표의 `{f}()`가 엔진에 없다 — {tgt} × {st}")
+        has = [f for f in fns if pub[f]]
+        if has:
+            assert said[(tgt, st)] == "판정지원", (
+                f"🔴 {tgt} × {st}에 판정 필드를 가진 {has}가 배정됐는데 등급이 "
+                f"「{said[(tgt, st)]}」다 — 개정 규칙에서는 판정지원이다")
+        else:
+            assert said[(tgt, st)] != "판정지원", (
+                f"🔴 {tgt} × {st}에 판정 필드를 가진 함수가 하나도 없는데 "
+                "「판정지원」이다 — 근거 없이 등급이 올라갔다")
+        if not fns:
+            assert said[(tgt, st)] == "없음", (
+                f"🔴 {tgt} × {st}에 배정 함수가 0개인데 등급이 「{said[(tgt, st)]}」다")
+
+    # ── ④ 18칸 표·집계가 배정표에서 **다시 계산되는가** ──────────────
+    cells = {}
+    for rh in ROWS:
+        m = _re.search(r"^\|\s*\*\*%s\*\*\s*\|(.+)$" % rh, seg, _re.M)
+        assert m, f"🔴 180차 18칸 표에서 「{rh}」 행을 찾을 수 없다"
+        cols = [c.strip().strip("*").strip() for c in m.group(1).split("|") if c.strip()]
+        assert len(cols) == 6
+        cells[rh] = cols
+    for rh in ROWS:
+        for i, st in enumerate(STAGES):
+            assert cells[rh][i] == said[(rh, st)], (
+                f"🔴 {rh} × {st} — 18칸 표는 「{cells[rh][i]}」, 배정표는 "
+                f"「{said[(rh, st)]}」다. 한쪽만 고쳤다")
+    GRADES = ("판정지원", "검증", "산출", "조회", "없음")
+    cnt = [sum(1 for v in said.values() if v == g) for g in GRADES]
+    m = _re.search(r"\*\*판정지원 (\d+) · 검증 (\d+) · 산출 (\d+) · 조회 (\d+) · 없음 (\d+)\.",
+                   seg)
+    assert m and [int(x) for x in m.groups()] == cnt, (
+        f"🔴 180차 집계 문장이 배정표 재계산 {cnt}과 다르다")
+    assert cnt == [8, 0, 5, 2, 3], f"🔴 집계가 {cnt}다 — ★ 넓은 읽기 채택 후 실측은 [8,0,5,2,3]다"
+    assert sum(cnt) == 18
+
+    # ── ⑤ 넓혀도 **없는 것은 만들어지지 않았는가** ───────────────────
+    for st in ("감리", "운영", "사후관리"):
+        assert assign[("부지", st)] == [] and said[("부지", st)] == "없음", (
+            f"🔴 부지 × {st}이 「없음」이 아니게 됐다 — 규칙을 넓힌 것으로 "
+            "없던 함수가 생기지는 않는다. 실제 구현이 들어왔다면 7절과 공백 목록을 갱신하라")
+    assert "없는 것을 만들지 않는다" in seg, (
+        "🔴 「넓은 읽기는 있는 것을 다시 볼 뿐 없는 것을 만들지 않는다」가 사라졌다")
+
+    # ── ⑥ 칸 밖 함수가 **조용히 늘지 않았는가** ──────────────────────
+    outside = sorted(set(pub) - {f for fns in assign.values() for f in fns})
+    assert outside == ["consulting_fee_estimate", "m2_to_py", "py_to_m2"], (
+        f"🔴 3×6 칸에 배정되지 않은 함수가 {outside}다 — 180차 실측은 3개다"
+        "(단위 변환 2 + 과금 1). 새 함수가 배정 없이 들어왔는지 보라")
+    assert f"칸 밖 함수 {len(outside)}개" in seg
 
 
 if __name__ == "__main__":
