@@ -10716,6 +10716,105 @@ def test_192cha_presentation_layer_does_not_calculate():
     assert "칸 밖 함수 7개" in design
 
 
+def test_193cha_named_sources_were_actually_looked_for():
+    """193차 — 레지스트리가 **이름을 댄 파일**을 전수로 찾아본다.
+
+    🔴 132차 가드는 **백틱 안의 전체 경로**(`폴더/파일.csv`)만 본다. 그래서
+    경로 없이 **파일명만** 댄 인용은 **아무도 열어보지 않았다** —
+    `audit_traceability.py`도 `실측`·`부분실측` 계열만 사각으로 세므로
+    `참고기준`·`확인요망`의 인용은 그 집계에도 들어가지 않는다.
+
+    🔴 **자를 두 번 고쳤다**: ①처음엔 공백에서 끊겨 *파일명 꼬리*를 세었다
+    (`내역서.pdf`·`시범사업.xlsx` — 21종이 「없음」으로 나왔지만 **자가 만든 수**였다).
+    ②확장자 뒤 경계를 두지 않아 `chunking_lib_v2.hwp_extract_text()`라는
+    **함수 이름**을 파일로 읽었다. 고친 자로 84종 · 미확인 4종이다.
+
+    ⚠️ **남은 한계를 적는다**: 잘린 인용을 받아들이려고 **접미 일치**로 찾으므로
+    같은 꼬리를 가진 **다른 파일**과 구별하지 못한다. 「있다」는 *그 이름으로 끝나는
+    파일이 리포에 있다*는 뜻이지 *그 파일이다*라는 뜻이 아니다.
+    """
+    import os as _o, io as _io, json as _j, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    reg = _j.load(_io.open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
+                           encoding="utf-8"))
+
+    EXT = "(?:xlsx|xls|pdf|csv|hwp|jsonl|json|md|docx|txt)"
+    BAD = chr(34) + chr(39) + "`,()[]|<>·"
+    PAT = _re.compile("[0-9A-Za-z가-힣][^" + _re.escape(BAD) + "]{2,140}[.]"
+                      + EXT + "(?![0-9A-Za-z_])", _re.I)
+
+    have = []
+    for root, dirs, files in _o.walk(repo):
+        dirs[:] = [d for d in dirs
+                   if d not in (".git", "__pycache__", "node_modules")]
+        have.extend(f.lower() for f in files)
+
+    cited = {}
+    for key, ent in reg["constants"].items():
+        blob = " ".join(str(ent.get(f) or "")
+                        for f in ("desc", "source", "status_note", "note"))
+        blob = blob.replace(chr(10), " ")
+        for m in set(PAT.findall(blob)):
+            cited.setdefault(m.strip(), set()).add(key)
+
+    # 🔴 **없는 것은 「없다」고 적혀 있어야 한다.** 항목마다 그 사실이 적힌
+    #    자리를 함께 둔다 — 사유 없는 예외는 나중에 무엇이든 가리는 문이 된다.
+    ABSENT = {
+        "SmartFarm_엔진데이터.md":
+            ("HEATING_VERIFY_REF_KCAL_H_M2", "리포에 존재하지 않는다"),
+        "기자재정보_시공업체리스트_250117.xlsx":
+            ("EQUIPMENT_DB_META", "8개 시트 전량을 CSV로 변환해"),
+        "스마트팜_견적단계_정리_250418.xlsx":
+            ("SUBSIDY_APPLICATION_PROCEDURE", "이 xlsx는 리포에 없다"),
+        "온실 선정 및 비용 견적 프로그램.xlsx":
+            ("TOTAL_PYEONG_PRICE", "E:/이암허브/2025/스마트팜견적타당성/"),
+    }
+
+    missing, used = [], set()
+    for name, owners in sorted(cited.items()):
+        base = _o.path.basename(name.replace(chr(92), "/")).lower().strip()
+        if any(h == base or h.endswith(base) or base.endswith(h) for h in have):
+            continue
+        key = next((k for k in ABSENT if k.lower() in name.lower()), None)
+        if key is None:
+            missing.append("%s (%s)" % (name, ",".join(sorted(owners))))
+            continue
+        owner, frag = ABSENT[key]
+        used.add(key)
+        assert owner in owners, (
+            f"🔴 「{key}」를 인용하는 상수가 {sorted(owners)}로 바뀌었다 — "
+            f"부재를 적어 둔 곳은 {owner}다")
+        prose = " ".join(str(reg["constants"][owner].get(f) or "")
+                         for f in ("desc", "source", "status_note", "note"))
+        assert frag in prose, (
+            f"🔴 {owner}에서 「{key}」가 **리포에 없다는 표시**가 사라졌다 "
+            f"(찾던 문구: 「{frag}」) — 읽는 사람은 파일명을 보고 **열어볼 수 "
+            "있다고 믿는다. 없으면 없다고 적혀 있어야 한다")
+
+    assert not missing, (
+        "🔴 레지스트리가 이름을 댔는데 리포에서 찾을 수 없는 출처: "
+        + " / ".join(missing) + " — 132차 가드는 **경로가 붙은 인용**만 보므로 "
+        "이런 인용은 아무도 열어보지 않는다. 자료를 넣거나 **없다고 적으라**")
+    assert used == set(ABSENT), (
+        f"🔴 쓰이지 않는 부재 선언이 있다: {sorted(set(ABSENT) - used)} — "
+        "자료가 들어왔다면 선언을 지우고 ref를 붙이라")
+
+    assert len(cited) == 84, (
+        f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 193차 실측은 84종이다. "
+        "늘었다면 **새 인용이 실재하는지** 이 가드가 방금 확인한 것이고, "
+        "줄었다면 인용이 사라진 것이니 어느 쪽인지 적고 갱신하라")
+    assert len(ABSENT) == 4, "🔴 부재 선언이 4건이 아니다"
+
+    design = open(_o.path.join(repo, "서비스설계_컨설팅_3대상x6단계_20260920.md"),
+                  encoding="utf-8").read()
+    # 📌 `"접미 일치"`만 세면 **표 안의 같은 말**에 걸려 헛돈다(190·192차와 같은 유형).
+    for frag in ("**파일명 꼬리**를 셌다",
+                 "그 이름으로 끝나는 파일이 리포에 있다"):
+        assert frag in design, (
+            f"🔴 설계서에서 「{frag}」가 사라졌다 — **자를 두 번 고친 경위와 남은 "
+            "한계**가 없으면 84·4를 읽을 수 없다. 이 수는 **자에 딸린 수**다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
