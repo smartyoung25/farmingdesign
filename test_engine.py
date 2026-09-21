@@ -9679,7 +9679,11 @@ def test_184cha_source_names_masked_but_traceable():
 
     # ── ④ 🔴 산출물 전량에 실명·주소가 **0건인가** ───────────────────
     outs = sorted(_g.glob(_o.path.join(repo, "SmartFarm_*.html"))) +         [_o.path.join(repo, "index.html")]
-    assert len(outs) == 18, f"🔴 산출물이 {len(outs)}건이다 — 184차 실측은 18건이다"
+    assert len(outs) == 21, (
+        f"🔴 산출물이 {len(outs)}건이다 — 194차 실측은 21건이다"
+        "(184차 18건 + ★194차 **판정 부록 3건**: 판정을 본문에서 빼 케이스마다 "
+        "파일을 하나씩 더 낸다. 🔴부록도 **실명 0** 대상이다 — 새 파일이 "
+        "가려짐 검사를 **비켜 가면 안 된다**)")
     dirty = {}
     for p in outs:
         f = cdsp.audit(open(p, encoding="utf-8").read())
@@ -10813,6 +10817,94 @@ def test_193cha_named_sources_were_actually_looked_for():
         assert frag in design, (
             f"🔴 설계서에서 「{frag}」가 사라졌다 — **자를 두 번 고친 경위와 남은 "
             "한계**가 없으면 84·4를 읽을 수 없다. 이 수는 **자에 딸린 수**다")
+
+
+def test_194cha_judgments_live_in_an_appendix_not_the_body():
+    """194차 — **판정은 본문에서 빠져 부록에 있다**(★사용자 결정 2026-09-22).
+
+    🔴 189차 점검 4위: 등급·보상액이 **공유 산출물 본문**에 실리면 분쟁 시 증거로
+    읽힐 수 있다. 189차는 **고지로만** 대응했고, 190차가 *"해도 되는가"*를,
+    191차가 *"엔진 안에 둔다"*를 정했다. 남은 *"어디까지 내보내는가"*를
+    ★결정이 **부록 분리**로 정했다.
+
+    🔴 **지운 것이 아니다.** 부록은 그대로 나오고 떼어 보내거나 빼고 보낼 수 있다 —
+    그래서 이 가드는 **본문에 없는가**와 **부록에 있는가**를 **둘 다** 잰다.
+    한쪽만 보면 "지워서 통과"하는 길이 열린다.
+    """
+    import os as _o, sys as _s, glob as _g
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import consulting_package as cp
+    import case_display as cdsp
+    from cases import load_cases
+
+    rd = lambda p: open(p, encoding="utf-8").read()
+
+    # ── ① 무엇을 가르는지가 **선언**돼 있는가 ───────────────────────
+    assert cp.JUDGMENT_CODES == ("D25", "D26", "D27"), (
+        f"🔴 판정 산출물 선언이 {cp.JUDGMENT_CODES}로 바뀌었다 — ★결정이 가른 것은 "
+        "등급(D25)·지급 판정(D26)·기성(D27)이다")
+    pkg = cp.build_package([x for x in load_cases() if not x.get("partial")][0])
+    sp = cp.judgment_split(pkg["items"])
+    codes = [x["code"] for x in pkg["items"]]
+    assert len(sp["body"]) + len(sp["appendix"]) == len(codes), (
+        "🔴 가르는 과정에서 산출물이 늘거나 줄었다")
+    assert not ({x["code"] for x in sp["body"]}
+                & {x["code"] for x in sp["appendix"]}), (
+        "🔴 같은 산출물이 본문과 부록에 **둘 다** 있다")
+    assert [x["code"] for x in sp["appendix"]] == list(cp.JUDGMENT_CODES)
+
+    BODY = sorted(_g.glob(_o.path.join(repo, "SmartFarm_컨설팅패키지_*.html")))
+    APX = sorted(_g.glob(_o.path.join(repo, "SmartFarm_판정부록_*.html")))
+    assert len(BODY) == len(APX) == 3, (
+        f"🔴 본문 {len(BODY)}건 · 부록 {len(APX)}건이다 — 4축 케이스마다 **짝**이어야 "
+        "한다. 부록만 사라지면 판정이 **조용히 없어진 것**이다")
+
+    for p in BODY:
+        h = rd(p)
+        # ── ② 본문에 **판정 값**이 없는가 ───────────────────────────
+        for code in cp.JUDGMENT_CODES:
+            assert ("<td class='code'>%s</td>" % code) not in h, (
+                f"🔴 {_o.path.basename(p)} 본문에 {code} 행이 되살아났다 — "
+                "★결정은 판정을 **부록으로** 뺀 것이다")
+        assert chr(34) + "grade" + chr(34) not in h, (
+            f"🔴 {_o.path.basename(p)}에 등급 판정값이 실려 있다")
+        # ── ③ 본문만 받아 본 사람도 **어디에 있는지** 아는가 ────────
+        for frag in ("등급·지급 판정을 싣지 않는다", "판정 부록",
+                     "투자·보험·시공 판정이 아니다",
+                     "최종 판단은 사람과 계약이 한다"):
+            assert frag in h, (
+                f"🔴 {_o.path.basename(p)}에서 「{frag}」가 사라졌다 — 본문만 받아 본 "
+                "사람은 **판정이 어디 있고 그것이 무엇이 아닌지**를 알 수 없다")
+        href = "SmartFarm_판정부록_" + _o.path.basename(p).split("_")[-1]
+        assert href in h and _o.path.exists(_o.path.join(repo, href)), (
+            f"🔴 {_o.path.basename(p)}의 부록 링크가 없거나 **가리키는 파일이 없다**")
+
+    for p in APX:
+        h = rd(p)
+        # ── ④ 부록에 **실제로 실려 있는가** ─────────────────────────
+        for code in cp.JUDGMENT_CODES:
+            assert ("<td class='code'>%s</td>" % code) in h, (
+                f"🔴 {_o.path.basename(p)}에 {code}가 없다 — **빼는 것과 지우는 것은 "
+                "다르다**. 부록은 그대로 나와야 한다")
+        for frag in ("투자·보험·시공 판정이 아니다", "적용된 규칙과 근거 행",
+                     "최종 판단은 사람과 계약이 한다",
+                     "미검증 항목은 통과로 세지 않는다"):
+            assert frag in h, (
+                f"🔴 {_o.path.basename(p)}에서 「{frag}」가 사라졌다 — **무엇이 "
+                "아닌지**는 판정이 있는 쪽에 전문으로 실려야 한다")
+        # ── ⑤ 새 파일이 **가려짐 검사를 비켜 가지 않는가** ──────────
+        assert not cdsp.audit(h), (
+            f"🔴 {_o.path.basename(p)}에 실명이 있다 — 새로 낸 파일도 183·184차의 "
+            "실명 0 대상이다")
+
+    # ── ⑥ 경위가 남아 있는가 ────────────────────────────────────────
+    design = rd(_o.path.join(repo, "서비스설계_컨설팅_3대상x6단계_20260920.md"))
+    for frag in ("194차 — 판정을 부록으로 분리했다", "빼는 것이지 지우는 것이 아니다"):
+        assert frag in design, (
+            f"🔴 설계서에서 「{frag}」가 사라졌다 — 189차가 2위로 든 점검이 "
+            "**어떻게 닫혔는지**가 지워지면 다음 사람이 고지만 보고 또 같은 지적을 한다")
 
 
 if __name__ == "__main__":

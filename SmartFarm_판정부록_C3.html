@@ -1,0 +1,88 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>판정 부록 — C3</title><style>
+  :root{--bg:#f4f6f8;--card:#fff;--ink:#1a2330;--muted:#6b7787;--line:#e3e8ee;
+    --brand:#1f7a4d;--brand-soft:#e8f3ec;--ok:#1f7a4d;--warn:#b8860b;--bad:#c0392b;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Malgun Gothic",sans-serif;line-height:1.55;}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 20px 64px;}
+  header.top{background:var(--brand);color:#fff;border-radius:14px;padding:22px 26px;margin-bottom:22px;}
+  header.top h1{margin:0 0 6px;font-size:22px;}
+  header.top .sub{opacity:.9;font-size:14px;}
+  section.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:20px 24px;margin-bottom:18px;}
+  .axis{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--brand);
+    background:var(--brand-soft);padding:3px 10px;border-radius:20px;margin-bottom:12px;}
+  h2{font-size:17px;margin:0 0 14px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .badge{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;}
+  .badge.ok{color:var(--ok);background:#e8f3ec;}
+  .badge.warn{color:var(--warn);background:#fbf3dc;}
+  .badge.bad{color:var(--bad);background:#fbe6e3;}
+  .tag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap;}
+  .tag.실측{color:var(--ok);background:#e8f3ec;}
+  .tag.추정{color:var(--warn);background:#fbf3dc;}
+  .tag.확인요망{color:var(--bad);background:#fbe6e3;}
+  .tag.부분{color:var(--warn);background:#fbf3dc;}
+  .tag.부분실측{color:var(--warn);background:#fbf3dc;}
+  .tag.법정기준{color:#1b5aa0;background:#e6f0fb;}
+  .tag.공공기준{color:#1b5aa0;background:#e6f0fb;}
+  .tag.참고기준{color:#555;background:#efefea;}
+  .tag.미검증{color:#7a5cff;background:#efeaff;}
+  code{font-size:12px;background:#f2f5f8;padding:1px 5px;border-radius:5px;}
+  a.report-link{display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;
+    text-decoration:none;color:var(--ink);background:#fafbfc;}
+  a.report-link:hover{border-color:var(--brand);}
+  a.report-link .t{font-weight:600;}
+  a.report-link .d{color:var(--muted);font-size:13px;}
+  .note{font-size:12.5px;color:var(--muted);margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
+  .prov li{margin-bottom:4px;font-size:12.5px;color:var(--muted);}
+  .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;}
+  .row:last-child{border-bottom:0;}
+  .row .lbl{color:var(--muted);}
+  .row .val{font-variant-numeric:tabular-nums;font-weight:600;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:6px;}
+  .kpi{background:#fafbfc;border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .kpi.highlight{background:var(--brand-soft);border-color:#cfe6d8;}
+  .kpi-label{font-size:12.5px;color:var(--muted);}
+  .kpi-value{font-size:22px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;}
+
+table.pkg{width:100%;border-collapse:collapse;font-size:.9em}
+table.pkg td,table.pkg th{border-top:1px solid #e3e6ea;padding:7px 8px;vertical-align:top}
+table.pkg td.code{font-family:ui-monospace,monospace;white-space:nowrap;font-weight:700}
+table.pkg{table-layout:fixed}
+table.pkg td:nth-child(1){width:52px}
+table.pkg td:nth-child(2){width:40%}
+table.pkg td:nth-child(3){width:86px}
+table.pkg .meta{color:#667;font-size:.86em;margin-top:3px}
+table.pkg pre{white-space:pre-wrap;word-break:break-all;margin:0;font-size:.86em;color:#334}
+ul.needs{margin:6px 0 0 16px;padding:0;color:#7a4b00;font-size:.88em}
+.pill{display:inline-block;padding:2px 8px;border-radius:9px;font-size:.84em;white-space:nowrap}
+.pill.ok{background:#e6f5ea;color:#1c6b33}.pill.warn{background:#fff3d6;color:#8a5a00}
+.pill.need{background:#fdeaea;color:#a22}.pill.link{background:#e8eefb;color:#2c4d9b}
+
+.card.case{border-left:3px solid var(--brand)}
+.steps{display:grid;gap:8px;margin-top:6px}
+a.step{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:baseline;
+  padding:9px 12px;border:1px solid var(--line);border-radius:7px;text-decoration:none;
+  background:var(--card);color:inherit}
+a.step:hover{border-color:var(--brand);background:var(--brand-soft)}
+a.step .k{font-weight:700;color:var(--brand);white-space:nowrap}
+a.step .w{color:var(--muted);font-size:.9em}
+@media (max-width:560px){a.step{grid-template-columns:1fr}}
+</style></head>
+<body><div class="wrap">
+  <header class="top"><h1>판정 부록 — C3 — 토마토 / 필름 (신규, 2023)</h1>
+    <div class="sub">D25~D27 · 규칙 적용 결과 · 대조 자료는 <a href='SmartFarm_컨설팅패키지_C3.html'>컨설팅 패키지 본문</a>으로</div>
+    <div class="note warn" style="margin-top:12px">이 부록의 <b>등급·지급 판정은 명시된 규칙을 그대로 적용한 결과</b>이고, <b>투자·보험·시공 판정이 아니다</b>. 임계값을 바꾸면 결과가 바뀌며 각 항목에 <b>적용된 규칙과 근거 행</b>이 함께 실려 있다. <b>최종 판단은 사람과 계약이 한다.</b> <b>미검증 항목은 통과로 세지 않는다</b> — 등급과 함께 드러난다.</div></header>
+  <section class="card"><span class="axis">판정</span>
+    <h2>D25~D27 — 규칙을 적용한 결과</h2>
+    <table class="pkg"><thead><tr><th>#</th><th>산출물</th><th>상태</th><th>내용</th></tr></thead>
+    <tbody><tr><td class='code'>D25</td><td><b>K-SFID 검증 등급·인증서</b><div class='meta'>②품질설계 · 부지 / 시설 / 기자재</div><div class='meta'><code>ksfid_grade()</code> · <code>ksfid_number()</code> · <code>ksfid_validity()</code> · <code>select_specs()</code> · <code>verify_heating_vs_actual()</code> · <code>benchmark_check()</code> · <code>site_permit_checklist()</code> · <code>warranty_period()</code></div><div class='meta'>🔴 등급은 <b>검증 항목 통과 수 + 실격 사유</b>이지 <b>사업 평가가 아니다</b>. 임계값은 ★사용자 결정이고 <code>ksfid_thresholds</code>로 덮어쓰면 <b>등급이 바뀐다</b> — 반환의 <code>rule</code>이 그것을 드러낸다. 미검증 항목은 <b>통과로 세지 않는다</b></div><ul class='needs'><li><b>ksfid_seq</b> — K-SFID 일련번호(0~9999) — 발급 기관이 관리한다</li><li><b>ksfid_issued</b> — 인증 발급일(YYYY-MM-DD) — 유효기간의 기산점</li><li><b>doc_rows</b> — 도면·시방서·BoQ·규격서 식별자/Rev 행 — 고객 문서</li><li><b>quoted_models</b> — 견적에 적힌 기자재 모델명</li></ul></td><td><span class='pill warn'>부분생성</span></td><td><pre>{&quot;등급&quot;: {&quot;grade&quot;: &quot;C&quot;, &quot;reason&quot;: &quot;통과 4건 ≥ C 기준 4건&quot;, &quot;rows&quot;: [{&quot;key&quot;: &quot;design_load&quot;, &quot;title&quot;: &quot;설계하중 충족&quot;, &quot;basis&quot;: &quot;내재해형 규격 고시 제2025-108호 — 지역 설계하중 이상의 규격인가&quot;, &quot;disqualifying&quot;: true, &quot;state&quot;: &quot;통과&quot;}, {&quot;key&quot;: &quot;doc_consistency&quot;, &quot;title&quot;: &quot;문서 4축 정합&quot;, &quot;basis&quot;: &quot;도면·시방서·BoQ·규격서의 식별자·Rev 일치(결손 0)&quot;, &quot;disqualifying&quot;: true, &quot;state&quot;: &quot;미검증&quot;}, {&quot;key&quot;: &quot;heating_design&quot;, &quot;title&quot;: &quot;난방 설계 자릿수 검증&quot;, &quot;basis&quot;: &quot;verify_heating_vs_actual의 기준 대비 비율이 판정 구간 안인가&quot;, &quot;disqualifying&quot;: false, &quot;state&quot;: &quot;통과&quot;}, {&quot;key&quot;: &quot;cost_band&quot;, &quot;title&quot;: &quot;단위 공사비 밴드&quot;,…</pre></td></tr><tr><td class='code'>D26</td><td><b>성능보증 판정서</b><div class='meta'>⑥사후관리 · 시설 / 기자재</div><div class='meta'><code>performance_shortfall()</code> · <code>guarantee_assessment()</code> · <code>guarantee_fee()</code> · <code>production_kg()</code></div><div class='meta'>🔴 <b>손실액과 요율은 주입</b>이다 — 단가·시세를 엔진이 만들지 않는다. 🔴<b>가동률의 설계값은 엔진이 내지 않는다</b>(설계 전제라 주입). 면책·보상비율은 ★사용자 결정이고 <code>guarantee_rule</code>로 덮어쓰면 <b>지급 대상이 바뀐다</b>. 최종 지급은 보증 계약과 보험사 심사가 정한다</div><ul class='needs'><li><b>actual_yield_kg</b> — 준공 후 실측 수확량(kg) — 운영 실측</li><li><b>actual_energy</b> — 준공 후 실측 에너지 사용량 — 운영 실측</li><li><b>actual_uptime_pct</b> — 준공 후 실측 가동률(%) — 운영 실측</li><li><b>insured_value_won</b> — 보험가액(원) — 보상 합계의 상한. 보증 계약이 정한다</li><li><b>guarantee_fee_inputs</b> — 보증수수료 입력(보증금액·기본요율·운용요율·일수) — 🔴<b>요율은 시세성</b>이라 기본값을 두지 않는다</li></ul></td><td><span class='pill warn'>부분생성</span></td><td><pre>{&quot;설계값&quot;: {&quot;yield&quot;: 89435.5, &quot;energy&quot;: 9125.070272392639, &quot;uptime&quot;: null}, &quot;실측 주입&quot;: {&quot;yield&quot;: null, &quot;energy&quot;: null, &quot;uptime&quot;: null}, &quot;판정 가능한 항목&quot;: [], &quot;항목별 편차&quot;: {}}</pre></td></tr><tr><td class='code'>D27</td><td><b>기성 확인서</b><div class='meta'>③감리 · 시설</div><div class='meta'><code>progress_certification()</code></div><div class='meta'>계획이 없으면 기성률을 낼 수 없다</div><ul class='needs'><li><b>progress_plan</b> — 공종별 계획(금액 또는 물량) — 설계 성과품</li><li><b>progress_done</b> — 공종별 실적(같은 단위) — 현장 기성 자료</li></ul></td><td><span class='pill need'>주입대기</span></td><td><i>세우지 못했다</i></td></tr></tbody></table></section>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-09-22 08:04</div>
+</div></body></html>

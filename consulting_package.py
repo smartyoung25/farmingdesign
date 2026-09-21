@@ -234,6 +234,21 @@ def _item(spec: dict, status: str, data=None, needs=None, note: str = "") -> dic
             "status": status, "data": data, "needs": list(needs or []), "note": note}
 
 
+# ★사용자 결정 2026-09-22(194차) — **판정은 본문에서 뺀다.**
+#   189차 점검 4위: 등급·보상액이 **공유 산출물 본문**에 실리면 분쟁 시 증거로
+#   읽힐 수 있다. 190차가 *「해도 되는가」*를, 191차가 *「엔진 안에 둔다」*를
+#   정했고, 남은 *「어디까지 내보내는가」*를 이 결정이 정한다 —
+#   **대조 자료(본문)와 규칙 적용 결과(부록)를 물리적으로 가른다.**
+#   🔴 지우는 것이 아니다. 부록은 그대로 나오고, 떼어 보내거나 빼고 보낼 수 있다.
+JUDGMENT_CODES: tuple = ("D25", "D26", "D27")
+
+
+def judgment_split(items: list) -> dict:
+    """산출물을 **본문 / 판정 부록**으로 가른다(계산하지 않는다 — 분류뿐이다)."""
+    return {"body": [x for x in items if x["code"] not in JUDGMENT_CODES],
+            "appendix": [x for x in items if x["code"] in JUDGMENT_CODES]}
+
+
 def build_package(case: dict, injections: dict = None) -> dict:
     """케이스 1건 → D1~D20 패키지(결정론).
 

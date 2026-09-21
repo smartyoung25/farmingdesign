@@ -886,17 +886,12 @@ def quotes_comparison_page(data: dict, rfq, cmp) -> str:
     return _page(data["title"], body)
 
 
-def consulting_package_page(case: dict, pkg: dict) -> str:
-    """D1~D20 컨설팅 패키지 1장 (181차 신설).
-
-    🔴 이 함수는 **계산하지 않는다** — `consulting_package.build_package()`가 낸 것을
-    표로 옮길 뿐이다. 주입이 없어 서지 못한 산출물은 **빈칸이 아니라 「무엇이 없는지」**로
-    적는다(자료 요청서가 곧 산출물이다).
-    """
+def _pkg_rows(items: list) -> list:
+    """산출물 표의 행을 만든다(194차 — 본문과 부록이 **같은 표**를 쓴다)."""
     BADGE = {"생성": "ok", "부분생성": "warn", "주입대기": "need",
              "링크": "link", "미조립": "need"}
     rows = []
-    for it in pkg["items"]:
+    for it in items:
         need_html = ""
         if it["needs"]:
             lis = "".join(f"<li><b>{esc(n['slot'])}</b> — {md(n['why'])}</li>"
@@ -907,9 +902,6 @@ def consulting_package_page(case: dict, pkg: dict) -> str:
         if data is None:
             shown = "<i>세우지 못했다</i>"
         else:
-            # 🔴 덤프에도 엔진 `note`의 **굵게**가 섞여 들어온다 — 148차 가드는
-            #    코드 스팬 예외 없이 리터럴 별표를 센다. `md_cut()`은 자른 뒤
-            #    **짝이 깨진 마커까지 버리는** 전용 헬퍼라 그대로 쓴다.
             shown = ("<pre>"
                      + md_cut(json.dumps(data, ensure_ascii=False, default=str), 520)
                      + "</pre>")
@@ -922,27 +914,67 @@ def consulting_package_page(case: dict, pkg: dict) -> str:
             f"<td><span class='pill {BADGE.get(it['status'], 'need')}'>"
             f"{esc(it['status'])}</span></td>"
             f"<td>{shown}</td></tr>")
+    return rows
 
+
+def judgment_appendix_page(case: dict, pkg: dict, body_href: str = "") -> str:
+    """194차(★사용자 결정) — **판정 부록**. 등급·지급·기성만 모은다.
+
+    🔴 본문에서 **빼낸 것이지 지운 것이 아니다.** 떼어 보내거나 빼고 보낼 수 있게
+    파일을 가른 것이고, **무엇이 아닌지**는 판정이 있는 이 쪽에 **전문**으로 싣는다.
+    """
+    items = cpkg.judgment_split(pkg["items"])["appendix"]
+    NOTICE = ("이 부록의 <b>등급·지급 판정은 명시된 규칙을 그대로 적용한 결과</b>이고, "
+              "<b>투자·보험·시공 판정이 아니다</b>. 임계값을 바꾸면 결과가 바뀌며 "
+              "각 항목에 <b>적용된 규칙과 근거 행</b>이 함께 실려 있다. "
+              "<b>최종 판단은 사람과 계약이 한다.</b> "
+              "<b>미검증 항목은 통과로 세지 않는다</b> — 등급과 함께 드러난다.")
+    back = (f"<a href='{esc(body_href)}'>컨설팅 패키지 본문</a>으로" if body_href
+            else "본문으로")
+    body = f"""
+  <header class="top"><h1>판정 부록 — {esc(pkg['title'])}</h1>
+    <div class="sub">D25~D27 · 규칙 적용 결과 · 대조 자료는 {back}</div>
+    <div class="note warn" style="margin-top:12px">{NOTICE}</div></header>
+  <section class="card"><span class="axis">판정</span>
+    <h2>D25~D27 — 규칙을 적용한 결과</h2>
+    <table class="pkg"><thead><tr><th>#</th><th>산출물</th><th>상태</th><th>내용</th></tr></thead>
+    <tbody>{''.join(_pkg_rows(items))}</tbody></table></section>"""
+    return _page(f"판정 부록 — {case['case_id']}", body)
+
+
+def consulting_package_page(case: dict, pkg: dict,
+                            appendix_href: str = "") -> str:
+    """D1~D20 컨설팅 패키지 1장 (181차 신설).
+
+    🔴 이 함수는 **계산하지 않는다** — `consulting_package.build_package()`가 낸 것을
+    표로 옮길 뿐이다. 주입이 없어 서지 못한 산출물은 **빈칸이 아니라 「무엇이 없는지」**로
+    적는다(자료 요청서가 곧 산출물이다).
+    """
+    rows = _pkg_rows(cpkg.judgment_split(pkg["items"])["body"])
     cnt = pkg["status_counts"]
     tally = " · ".join(f"{esc(k)} <b>{v}</b>" for k, v in sorted(cnt.items()))
     slots = "".join(f"<li><b>{esc(n['slot'])}</b> — {md(n['why'])}</li>"
                     for n in pkg["open_injections"])
-    # 🔴189차 — 등급·지급 판정이 이 페이지에 실린다. **무엇이 아닌지**를 함께 싣는다.
-    #   점검에서 나온 지적: 판정이 공유 산출물에 실리면 **분쟁 시 증거로 읽힐 수 있다**.
-    NOTICE = ("이 문서의 <b>등급·지급 판정은 명시된 규칙을 그대로 적용한 결과</b>이고, "
-              "<b>투자·보험·시공 판정이 아니다</b>. 임계값을 바꾸면 결과가 바뀌며 "
-              "각 항목에 <b>적용된 규칙과 근거 행</b>이 함께 실려 있다. "
+    # 🔴194차(★사용자 결정) — **판정은 이 문서에 싣지 않는다.** 189차가 든 이유는
+    #   그대로다: 판정이 공유 산출물에 실리면 **분쟁 시 증거로 읽힐 수 있다**.
+    #   189차는 고지로만 대응했고, 194차는 **구조로** 옮겼다 — 본문은 **대조 자료**,
+    #   부록은 **규칙 적용 결과**다. 고지 문구는 **양쪽에 둔다** — 본문만 받아 본
+    #   사람도 *「판정이 어디에 있고 그것이 무엇이 아닌지」*를 알아야 한다.
+    NOTICE = (f"이 문서에는 <b>등급·지급 판정을 싣지 않는다</b> — 판정은 "
+              f"<a href='{esc(appendix_href)}'>판정 부록</a>에 따로 있다. "
+              "부록의 등급·지급 판정은 <b>명시된 규칙을 그대로 적용한 결과</b>이고, "
+              "<b>투자·보험·시공 판정이 아니다</b>. "
               "<b>최종 판단은 사람과 계약이 한다.</b>")
     body = f"""
   <header class="top"><h1>컨설팅 패키지 — {esc(pkg['title'])}</h1>
-    <div class="sub">D1~D27 · {tally}</div>
+    <div class="sub">D1~D24 본문 · D25~D27은 판정 부록 · {tally}</div>
     <div class="note warn" style="margin-top:12px">{NOTICE}</div></header>
   <section class="card"><span class="axis">자료 요청서</span>
     <h2>아직 주입되지 않은 것 {len(pkg['open_injections'])}종</h2>
     <p>{md(pkg['note'])}</p>
     <ul class='needs'>{slots}</ul></section>
   <section class="card"><span class="axis">산출물</span>
-    <h2>D1~D20</h2>
+    <h2>D1~D24 — 대조 자료</h2>
     <table class="pkg"><thead><tr><th>#</th><th>산출물</th><th>상태</th><th>내용</th></tr></thead>
     <tbody>{''.join(rows)}</tbody></table></section>"""
     return _page(f"컨설팅 패키지 — {case['case_id']}", body)
@@ -950,7 +982,8 @@ def consulting_package_page(case: dict, pkg: dict) -> str:
 
 _MENU_KINDS = (
     ("통합보고서", "먼저 볼 것 — 4축 요약과 경영자 요약"),
-    ("컨설팅 패키지", "D1~D22 산출물 + 무엇이 더 필요한지"),
+    ("컨설팅 패키지", "D1~D24 대조 자료 + 무엇이 더 필요한지"),
+    ("판정 부록", "D25~D27 규칙 적용 결과 — 본문과 분리(★194차)"),
     ("4축 리포트", "계산 상세 — 진단·설계·시공·경제성"),
     ("부분 케이스", "시공축만 — 실측 공사비·규격(4축 미산출)"),
 )
@@ -1066,10 +1099,16 @@ def main():
         # 🔴181차 — D1~D20 패키지. 주입이 없는 산출물은 **자료 요청서로** 나온다.
         pkg = cpkg.build_package(c)
         pfn = f"SmartFarm_컨설팅패키지_{al['code']}.html"
-        _emit(pfn, consulting_package_page(c, pkg))
+        afn = f"SmartFarm_판정부록_{al['code']}.html"
+        _emit(pfn, consulting_package_page(c, pkg, appendix_href=afn))
         _n_open = len(pkg["open_injections"])
         links.append({"href": pfn, "title": f"{al['title']} — 컨설팅 패키지",
-                      "desc": f"D1~D22 산출물 + 자료 요청서 {_n_open}종 (판정 없음)",
+                      "desc": f"D1~D24 대조 자료 + 자료 요청서 {_n_open}종 (판정 없음)",
+                      "group": "케이스", "code": al["code"]})
+        # 🔴194차(★사용자 결정) — 판정은 **부록으로 분리**한다.
+        _emit(afn, judgment_appendix_page(c, pkg, body_href=pfn))
+        links.append({"href": afn, "title": f"{al['title']} — 판정 부록",
+                      "desc": "D25~D27 등급·지급·기성 — 규칙 적용 결과(본문과 분리)",
                       "group": "케이스", "code": al["code"]})
         n_pkg += 1
 
