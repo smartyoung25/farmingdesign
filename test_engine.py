@@ -10424,6 +10424,122 @@ def test_190cha_rule1_proviso_is_pinned_and_actually_held():
         "*「남은 모순은 사용자 몫」*만 남으면 읽는 사람이 현재 상태를 오해한다")
 
 
+def test_191cha_engine_is_not_split_and_the_boundary_is_measured():
+    """191차 — **엔진을 분리하지 않는다**(★사용자 결정 2026-09-22).
+
+    🔴 189차 자기 점검이 5위로 든 *"엔진이 판정 계층을 품었다 — 구조 변경"*은
+    **처방이 철회됐다**. 쪼개면 판정 모듈이 엔진을 되부르거나 설계값을 복제해
+    **제2의 계산 출처**가 된다 — 1절 첫 줄이 금하는 바로 그것이다.
+
+    🔴 **문구만 보면 이 가드도 헛돈다.** 분리하지 않는 대신 지키기로 한
+    경계를 **AST로 센다**: 계산 → 판정 **0건** · 판정 → 계산 **0건** ·
+    잇는 일은 **조립 계층**이 한다. 정의가 엔진 밖으로 복제됐는지도 본다.
+    """
+    import os as _o, sys as _s, ast as _ast, glob as _g
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    cm = rd("CLAUDE.md")
+
+    JUDGE = ("ksfid_grade", "ksfid_number", "ksfid_validity",
+             "performance_shortfall", "guarantee_assessment",
+             "guarantee_fee", "progress_certification")
+    RULES = ("KSFID_CHECK_SPEC", "KSFID_GRADE_RULE",
+             "PERF_GUARANTEE_SPEC", "PERF_GUARANTEE_RULE")
+
+    # ── ① ★결정과 **그 이유**가 규칙 문서에 있는가 ──────────────────
+    assert "엔진(smartfarm_engine.py)이 유일한 계산 출처다" in cm, (
+        "🔴 1절 첫 줄이 사라졌다 — **분리하지 않는 이유가 이 문장**이다")
+    assert "엔진 분리 금지(★사용자 결정 2026-09-22, 191차)" in cm, (
+        "🔴 ★결정이 사라졌다 — 없으면 다음 세션이 189차 점검 5위(*「엔진이 판정 "
+        "계층을 품었다」*)만 읽고 **쪼개는 것을 개선으로 착각**한다")
+    for why in ("설계값을 복제해 제2의 계산 출처가 된다",
+                "경계는 파일이 아니라 호출 방향으로 지킨다"):
+        assert why in cm, (
+            f"🔴 분리하지 않는 이유 「{why}」가 사라졌다 — 결정만 남고 이유가 "
+            "없으면 다음 사람이 같은 제안을 다시 한다. 📌`제2의 계산 출처`만 세면 "
+            "**문서청킹 줄의 같은 표현**에 걸려 헛돈다(190차 M3과 같은 유형) — "
+            "구절 전체로 센다")
+
+    # ── ② 정의가 **엔진 한 곳**뿐인가(그림자 모듈·복제 금지) ────────
+    for p in sorted(_g.glob(_o.path.join(repo, "*.py"))):
+        if _o.path.basename(p) == "smartfarm_engine.py":
+            continue
+        try:
+            mod = _ast.parse(open(p, encoding="utf-8").read())
+        except SyntaxError:
+            continue
+        for n in mod.body:
+            nm = getattr(n, "name", None)
+            if isinstance(n, _ast.Assign):
+                nm = next((t.id for t in n.targets
+                           if isinstance(t, _ast.Name)), None)
+            elif isinstance(n, _ast.AnnAssign) and isinstance(n.target, _ast.Name):
+                nm = n.target.id
+            assert nm not in JUDGE + RULES, (
+                f"🔴 {_o.path.basename(p)}가 「{nm}」을 **따로 정의**한다 — "
+                "엔진을 쪼갰거나 복제한 것이고, 둘 다 **제2의 계산 출처**다")
+
+    # ── ③ 🔴 경계를 **호출 방향**으로 잰다(0건 / 0건) ───────────────
+    tree = _ast.parse(rd("smartfarm_engine.py"))
+    fns = {n.name: n for n in tree.body if isinstance(n, _ast.FunctionDef)}
+    for j in JUDGE:
+        assert j in fns, f"🔴 판정 함수 {j}()이 엔진에서 사라졌다"
+    calc = set(fns) - set(JUDGE)
+    for name, node in fns.items():
+        called = {c.func.id for c in _ast.walk(node)
+                  if isinstance(c, _ast.Call) and isinstance(c.func, _ast.Name)}
+        if name in JUDGE:
+            bad = sorted(called & calc)
+            assert not bad, (
+                f"🔴 판정 함수 {name}()이 계산 함수 {bad}를 부른다 — 판정 입력은 "
+                "**인자로 주입**돼야 한다. 엔진이 스스로 설계값을 집어오면 "
+                "다음은 **임계값도 스스로 고른다**(1절 단서가 금한 것)")
+        else:
+            bad = sorted(called & set(JUDGE))
+            assert not bad, (
+                f"🔴 계산 함수 {name}()이 판정 함수 {bad}를 부른다 — 판정이 "
+                "**계산 결과에 섞여 들어간다**. 파일을 쪼개지 않는 대신 "
+                "지키기로 한 방향이다")
+
+    # ── ④ 잇는 일은 **조립 계층**이 하는가(188차) ───────────────────
+    cps = rd("consulting_package.py")
+    assert "import smartfarm_engine as e" in cps, "🔴 조립 계층의 엔진 단일 경로가 끊겼다"
+    attr = {}
+    for c in _ast.walk(_ast.parse(cps)):
+        if not isinstance(c, _ast.Call):
+            continue
+        if isinstance(c.func, _ast.Name):
+            assert c.func.id not in JUDGE, (
+                f"🔴 조립 계층이 「{c.func.id}」을 **엔진을 거치지 않고** 부른다 — "
+                "판정이 엔진 밖으로 새어 나갔다")
+        elif isinstance(c.func, _ast.Attribute):
+            attr.setdefault(c.func.attr, set()).add(
+                getattr(c.func.value, "id", "?"))
+    for fn in ("ksfid_grade", "performance_shortfall", "guarantee_assessment",
+               "progress_certification", "heating_load", "production_kg"):
+        assert attr.get(fn) == {"e"}, (
+            f"🔴 조립 계층에서 {fn}() 호출이 사라졌거나 엔진 별칭이 아닌 곳을 "
+            "거친다 — **계산값을 판정에 넣는 일은 조립 계층의 몫**이다(188차)")
+    dfs = " ".join(i["design_from"] for i in e.PERF_GUARANTEE_SPEC)
+    for fn in ("production_kg", "heating_load"):
+        assert fn in dfs and hasattr(e, fn), (
+            f"🔴 `design_from`이 더 이상 {fn}()을 지목하지 않는다 — 이 지목은 "
+            "**주석이 아니라 계약**이다: *「조립 계층이 가져다 넣으라」*는 뜻이고, "
+            "그래서 판정 함수가 스스로 부르지 않아도 된다")
+
+    # ── ⑤ 경위가 남아 있는가(189차 처방 → 191차 철회) ───────────────
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    for frag in ("191차 — 엔진은 분리하지 않는다", "계산 → 판정", "판정 → 계산",
+                 "조립 계층"):
+        assert frag in design, (
+            f"🔴 설계서에서 「{frag}」가 사라졌다 — **분리하지 않기로 한 대신 "
+            "무엇으로 경계를 지키는지**가 지워지면 결정이 방치로 읽힌다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
