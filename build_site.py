@@ -351,6 +351,7 @@ def scenario_rows(case: dict, inp) -> list[dict]:
 def _sensitivity_snapshot(inp) -> list[dict]:
     """판매단가·수확량 ±10% 스냅샷 — 새 데이터 없이 기존 production_kg()/finance()를
     다른 인자로 다시 호출할 뿐이다(케이스 스키마·엔진 레지스트리 변경 없음)."""
+    import dataclasses   # 파일 관례 — `_scenario_rows`도 함수 안에서 부른다
     scenarios = [
         ("기준", inp.price_won_per_kg, inp.base_yield_kg_m2),
         ("판매단가 +10%", inp.price_won_per_kg * 1.1, inp.base_yield_kg_m2),
@@ -360,12 +361,14 @@ def _sensitivity_snapshot(inp) -> list[dict]:
     ]
     rows = []
     for label, price, base_yield in scenarios:
-        prod = e.production_kg(inp.area_m2, base_yield, inp.fitness_pct)
-        revenue = prod * price
-        fin = e.finance(revenue, inp.opex, inp.total_construction_cost,
-                        subsidy_rate=inp.subsidy_rate)
-        rows.append({"label": label, "revenue": revenue, "roi": fin.roi,
-                     "payback": fin.payback_years})
+        # 🔴 192차 — 바로 위 `_scenario_rows`가 이미 하던 방식으로 맞춘다:
+        #   입력만 바꿔 **같은 단일 경로**(`rr.compute`)를 다시 부른다. 종전엔 이
+        #   루프만 `prod * price`로 **매출 산식을 복제**하고 `finance()`를 직접
+        #   불렀다 — 같은 파일 안에 올바른 방식과 복제가 나란히 있었다.
+        ec = rr.compute(dataclasses.replace(
+            inp, price_won_per_kg=price, base_yield_kg_m2=base_yield))["economics"]
+        rows.append({"label": label, "revenue": ec["revenue"], "roi": ec["roi"],
+                     "payback": ec["payback"]})
     return rows
 
 
@@ -377,9 +380,12 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     스키마·엔진 레지스트리는 건드리지 않는다(2026-07-21 사용자 확인 범위)."""
     m, d, h, c, ec = res["meta"], res["design"], res["heating"], res["construction"], res["economics"]
     capex = c["total"]
-    subsidy_won = capex * ec["subsidy_rate"]
-    self_funded_won = capex - subsidy_won
-    cash_flow = ec["operating_profit"] + ec["depreciation"]
+    # 🔴 192차 — 셋 다 **엔진이 내는 값**을 받는다(`finance()`가 속으로 쓰던 양).
+    #   종전엔 여기서 다시 곱하고 빼고 더했다 — 파일 머리글의 *"계산은 전적으로
+    #   smartfarm_engine 에 위임"*이 지켜지지 않던 자리다.
+    subsidy_won = ec["subsidy_won"]
+    self_funded_won = ec["self_funded_won"]
+    cash_flow = ec["operating_cash_flow"]
     be = e.operating_breakeven(ec["opex"], ec["price"])
     flags = _prov_flags(case)
 

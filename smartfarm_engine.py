@@ -5727,6 +5727,16 @@ def production_kg(area_m2: float, base_yield_kg_m2: float, fitness_pct: float) -
     return area_m2 * base_yield_kg_m2 * (1 + yield_adjustment(fitness_pct))
 
 
+def revenue_won(production_kg_value: float, price_won_per_kg: float) -> float:
+    """연매출 = 생산량(kg) × 판매단가(원/kg).
+
+    🔴 **산식이 짧다고 표시 계층에 둘 이유가 되지 않는다**(192차). 종전엔 이 한 줄이
+    `render_report.compute`와 `build_site._sensitivity_snapshot` **두 곳에 복제**돼
+    있었다 — 1절이 금하는 **병렬 계산기**다. 단가는 **시세성**이라 주입만 받는다.
+    """
+    return production_kg_value * price_won_per_kg
+
+
 # ─────────────────────────────────────────────────────────────
 # 경제성 OPEX: 항목 분해 (2026-07-16 제안값 → 2026-07-21 확정, Step3/P0-d 완료)
 #   원문 CSV 확보 완료: 농촌진흥청 「농산물소득분석 조사입력항목코드_20201015」
@@ -6052,6 +6062,12 @@ class FinanceResult:
     npv: Optional[float] = None
     irr: Optional[float] = None
     real_roi_after_subsidy: Optional[float] = None
+    # 192차 — 아래 셋은 **이미 이 함수가 속으로 쓰던 양**이다. 값을 새로 만드는 것이
+    #   아니라 **밖에서 다시 만들지 않게** 내보내는 것이다(1절 — 병렬 계산기 금지).
+    #   기존 필드 뒤에 기본값과 함께 붙여 위치 인자 호출을 깨지 않는다.
+    subsidy_won: Optional[float] = None
+    self_funded_won: Optional[float] = None
+    operating_cash_flow: Optional[float] = None
 
 
 # 재무 기본 파라미터(FINANCE_DEFAULTS) — 71차 항목별 성격 분리(사용자 결정 "근거 연결 + 성격 분리")
@@ -6088,14 +6104,20 @@ def finance(revenue: float, opex: float, capex: float,
     roi = op / capex if capex else 0.0
     payback = capex / op if op > 0 else None
     # 간이 현금흐름: t0=-capex, 이후 영업이익+감가(현금 유출 아님) 근사
-    cfs = [-capex] + [op + dep] * years
+    ocf = op + dep
+    cfs = [-capex] + [ocf] * years
     n = npv(discount_rate, cfs)
     r = irr(cfs)
+    # 🔴 192차 — 자부담은 **이 식 하나**가 정본이다. 종전엔 표시 계층이
+    #   `capex - capex*rate`로 따로 만들어 **같은 양을 두 식이 냈다**(부동소수점에서
+    #   갈릴 수 있다). 보조금은 차액으로 내어 **보조 + 자부담 == capex**를 보장한다.
+    self_funded = capex * (1 - subsidy_rate)
+    subsidy = capex - self_funded
     real_roi = None
     if subsidy_rate > 0 and op > 0:
-        self_cost = capex * (1 - subsidy_rate)
-        real_roi = op / self_cost if self_cost else None
-    return FinanceResult(revenue, opex, dep, op, roi, payback, n, r, real_roi)
+        real_roi = op / self_funded if self_funded else None
+    return FinanceResult(revenue, opex, dep, op, roi, payback, n, r, real_roi,
+                         subsidy, self_funded, ocf)
 
 
 # ─────────────────────────────────────────────────────────────

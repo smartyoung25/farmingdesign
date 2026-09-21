@@ -7786,8 +7786,10 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴174차 — P3 사후관리 2함수가 신설돼 57 → 59가 됐다
     # 🔴175차 — P2·P4 2함수가 신설돼 59 → 61이 됐다
     # 🔴176차 — service_life_reference()가 신설돼 61 → 62가 됐다
-    assert len(pub) == 69 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 188차 실측은 69·30이다. "
+    # 🔴192차 — revenue_won()이 신설돼 69 → 70이 됐다(표시 계층 두 곳에 복제돼
+    #    있던 매출 산식을 엔진으로 올린 것이다 — 새 기능이 아니라 **회수**다)
+    assert len(pub) == 70 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 192차 실측은 70·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -8097,8 +8099,8 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 69 and len(missing) == 0, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 188차 실측은 69/0이다: {missing}")
+    assert len(cited) == 70 and len(missing) == 0, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 192차 실측은 70/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
         "🔴 P2·P4 2함수가 설계서에서 빠졌다")
@@ -9222,7 +9224,7 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    if n.returns is not None else "")
             pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
     marked = sorted(f for f in pub if pub[f])
-    assert len(pub) == 69, f"🔴 공개 함수가 {len(pub)}개다 — 188차 실측은 69다"
+    assert len(pub) == 70, f"🔴 공개 함수가 {len(pub)}개다 — 192차 실측은 70다"
     # 🔴187차 — ★ 등급 부여로 `ksfid_grade`가 신설돼 15 → 16이 됐다.
     # 🔴188차 — `guarantee_assessment`·`progress_certification`이 신설돼 16 → 18.
     assert len(marked) == 18, (
@@ -9301,7 +9303,8 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
     # ── ⑥ 칸 밖 함수가 **조용히 늘지 않았는가** ──────────────────────
     outside = sorted(set(pub) - {f for fns in assign.values() for f in fns})
     assert outside == ["consulting_fee_estimate", "guarantee_fee", "ksfid_number",
-                       "ksfid_validity", "m2_to_py", "py_to_m2"], (
+                       "ksfid_validity", "m2_to_py", "py_to_m2",
+                       "revenue_won"], (
         f"🔴 3×6 칸에 배정되지 않은 함수가 {outside}다 — 188차 실측은 6개다"
         "(단위 변환 2 + 과금·수수료 2 + **발급 사무 2**). 새 함수가 배정 없이 "
         "들어왔는지 보라")
@@ -9460,12 +9463,14 @@ def test_181cha_package_layer_assembles_without_calculating():
         for fn in pub:
             if (fn + "(") in b:
                 reached.add(fn)
-    assert len(reached) == 17, (
+    assert len(reached) == 18, (
         f"🔴 기존 산출물 4파일이 직접 부르는 함수가 {len(reached)}개다 — "
-        "181차 시점 실측은 17개다(이 수가 늘었다면 배선이 바뀐 것이다)")
+        "192차 실측은 18개다(181차 17 + `revenue_won` — 🔴**늘어난 이유가 중요하다**: "
+        "표시 계층이 **산식을 복제하던 것을 엔진 호출로 바꾼** 것이지 배선이 헐거워진 "
+        "것이 아니다)")
     together = reached.union(cov["declared"])
-    assert len(together) == len(pub) == 69, (
-        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 188차 실측은 **69 / 69**다"
+    assert len(together) == len(pub) == 70, (
+        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 192차 실측은 **70 / 70**다"
         "(패키지 이전 17 · 181차 46 · 182차 62 · 187차 65 · 🔴188차 성능보증 4함수)")
     # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
     unreached = sorted(pub.difference(together))
@@ -10538,6 +10543,177 @@ def test_191cha_engine_is_not_split_and_the_boundary_is_measured():
         assert frag in design, (
             f"🔴 설계서에서 「{frag}」가 사라졌다 — **분리하지 않기로 한 대신 "
             "무엇으로 경계를 지키는지**가 지워지면 결정이 방치로 읽힌다")
+
+
+def test_192cha_presentation_layer_does_not_calculate():
+    """192차 — **앱 계층 산술**을 처음으로 잰다(1절이 명시적으로 금한 것).
+
+    🔴 181차 가드는 `consulting_package.py`만 봤다. 그 사이 `build_site.py`는
+    머리글에 *"계산은 전적으로 smartfarm_engine 에 위임"*이라 적어 두고
+    **보조금·자부담·영업현금흐름·매출**을 스스로 만들고 있었다 —
+    `finance()`가 **속으로 이미 쓰던 양**을 밖에서 다른 식으로 다시 만든 것이라
+    부동소수점에서 갈릴 수 있었다.
+
+    🔴 **자의 한계를 적어 둔다**: 이 규칙은 *오른쪽이 숫자 상수인 연산*을 지나친다
+    (`ec['roi']*100`·`npv/1e8` 같은 **표시 환산**을 허용하기 위해서다).
+    그래서 `inp.price_won_per_kg * 1.1` 같은 **시나리오 폭**은 잡히지 않는다 —
+    잡힌다고 적지 않는다(159차 교훈).
+    """
+    import os as _o, sys as _s, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import render_report as rr
+    from cases import load_cases, case_to_input
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+
+    # ── ① 생성기가 스스로 한 약속이 살아 있는가 ─────────────────────
+    bs = rd("build_site.py")
+    assert "계산은 전적으로 smartfarm_engine 에 위임" in bs, (
+        "🔴 `build_site.py` 머리글의 약속이 사라졌다 — 192차가 고친 것은 **약속을 "
+        "지키게 만든 것**이다. 약속을 지우는 것은 반대 방향의 해결이다")
+
+    # ── ② 표시 계층에 **도메인 산술 0**인가 ─────────────────────────
+    TOK = ("revenue", "capex", "opex", "subsidy", "profit", "deprec", "price",
+           "production", "prod", "yield", "roi", "payback", "npv", "irr",
+           "cash_flow", "won", "cost", "total")
+    OPS = (_ast.Mult, _ast.Div, _ast.FloorDiv, _ast.Pow, _ast.Sub, _ast.Add)
+    # 🔴 예외는 **항목마다 사유**를 단다. 한 줄로 전부 열 수 있는 스위치를 만들지
+    #    않기 위해서다(189차 ④ — 고정 수를 한 곳에 모으면 오히려 약해진다).
+    ALLOW = {
+        ("build_site.py", "raw_sum - total"):
+            "전사 대사의 **차이 표시** — 어떤 산출물 수치도 이것으로 만들어지지 않는다",
+        ("build_site.py", "cat_sum - total"):
+            "같은 대사의 둘째 항 — 표시 전용",
+        ("build_site.py", "mb.unclassified/mb.total"):
+            "미분류 **비율 표시** — 분자·분모가 같은 엔진 반환 객체의 필드다",
+    }
+    for _k, _why in ALLOW.items():
+        assert _why.strip(), (
+            f"🔴 예외 {_k}에 **사유가 없다** — 사유 없는 예외는 조용한 문이다")
+    used = set()
+    found = {}
+    for f in ("build_site.py", "render_report.py", "webapp.py", "app.py",
+              "cases.py", "case_display.py"):
+        src = rd(f)
+        for n in _ast.walk(_ast.parse(src)):
+            if not (isinstance(n, _ast.BinOp) and isinstance(n.op, OPS)):
+                continue
+            seg = (_ast.get_source_segment(src, n) or "").replace(chr(10), " ")
+            if not any(t in seg.lower() for t in TOK):
+                continue
+            if isinstance(n.right, _ast.Constant) and isinstance(
+                    n.right.value, (int, float)) and not isinstance(
+                    n.right.value, bool):
+                continue          # 숫자 상수 배율·환산 = 표시 포맷팅
+            def _leaves(x):
+                # 🔴 `+`는 문자열 이어붙이기에도 쓰인다. 다만 **말단까지** 봐야 한다 —
+                #    f-string 연쇄는 피연산자가 또 `BinOp`·`IfExp`라 한 겹만 보면 놓친다.
+                #    `ec['operating_profit'] + ec['depreciation']`의 문자열은 **첨자 키**라
+                #    말단이 `Subscript`이므로 여기에 걸리지 않는다(제외되면 안 되는 쪽이다).
+                if isinstance(x, _ast.BinOp):
+                    yield from _leaves(x.left)
+                    yield from _leaves(x.right)
+                elif isinstance(x, _ast.IfExp):
+                    yield from _leaves(x.body)
+                    yield from _leaves(x.orelse)
+                else:
+                    yield x
+            if isinstance(n.op, _ast.Add) and any(
+                    isinstance(x, _ast.JoinedStr)
+                    or (isinstance(x, _ast.Constant) and isinstance(x.value, str))
+                    for x in _leaves(n)):
+                continue          # 문자열 이어붙이기
+            key = next((k for k in ALLOW if k[0] == f and k[1] in seg), None)
+            if key:
+                used.add(key)
+                continue
+            found.setdefault(f, []).append("%d: %s" % (n.lineno, seg[:90]))
+    assert not found, (
+        f"🔴 표시 계층이 도메인 값을 계산한다: {found} — 1절은 **앱 계층 산술**을 "
+        "금한다(표시 포맷팅만 허용). 엔진에 올리고 여기서는 **받아 쓰라**")
+    assert used == set(ALLOW), (
+        f"🔴 쓰이지 않는 예외가 있다: {sorted(set(ALLOW) - used)} — **아무것도 "
+        "가리지 않는 예외**는 나중에 무엇이든 가릴 수 있는 문이 된다. 지우라")
+
+    # ── ③ 엔진이 내는 세 양을 **밖에서 다시 만들지 않는가** ──────────
+    # 🔴 **입력 둘을 쓴다.** 하나로는 뮤테이션이 빠져나갔다(M7) — 부동소수점은
+    #    입력에 따라 우연히 맞아떨어진다. 각 입력이 **무엇을 갈라내는지** 적는다.
+    #      (7억, 0.3)      — `capex - capex*r` 와 `capex*(1-r)`가 다른 수다
+    #      (10.1억, 0.2)   — `capex*r + capex*(1-r)`가 capex와 다른 수다
+    #                        (실제 리포 수치다 — 논산딸기 `known_total`)
+    PAIRS = ((700_000_000.0, 0.3), (1_010_337_181.0, 0.2))
+    assert 700_000_000.0 - 700_000_000.0 * 0.3 != 700_000_000.0 * (1 - 0.3)
+    assert (1_010_337_181.0 * 0.2 + 1_010_337_181.0 * 0.8
+            != 1_010_337_181.0), (
+        "🔴 두 입력이 더 이상 식을 갈라내지 못한다 — 가드가 **아무것도 재지 않게** "
+        "된다. 갈리는 입력으로 바꾸라")
+    for CAPEX, RATE in PAIRS:
+        fr = e.finance(1_000_000_000.0, 300_000_000.0, CAPEX, subsidy_rate=RATE)
+        for fld in ("subsidy_won", "self_funded_won", "operating_cash_flow"):
+            assert getattr(fr, fld) is not None, (
+                f"🔴 `finance()`가 {fld}를 내지 않는다 — 내지 않으면 표시 계층이 "
+                "**다시 만들 수밖에 없다**. 192차가 연 통로다")
+        assert fr.self_funded_won == CAPEX * (1 - RATE), (
+            f"🔴 자부담이 정본 식과 다르다(capex={CAPEX}, rate={RATE}) — "
+            "`finance()`가 속으로 실질ROI에 쓰는 바로 그 식이어야 한다")
+        assert fr.subsidy_won + fr.self_funded_won == CAPEX, (
+            f"🔴 보조금 + 자부담이 CAPEX와 어긋난다(capex={CAPEX}, rate={RATE}) — "
+            "보조금을 **차액**으로 내는 이유가 이 항등식이다")
+        assert fr.operating_cash_flow == fr.operating_profit + fr.depreciation
+
+    # ── ④ 매출 산식이 **한 곳**뿐인가 ───────────────────────────────
+    assert e.revenue_won(120.0, 5.0) == 600.0
+
+    # 📌 **문자열로 세지 않는다.** 1차 작성에서 이 검사가 *"`prod * price`를 지웠다"*고
+    #    적은 **내 주석에 걸렸다** — 182·185·190차와 같은 계열의 **네 번째**다.
+    #    설명은 그 말을 쓸 수밖에 없으므로, 재는 쪽이 **AST로** 가야 한다.
+    def _fn(path, name):
+        node = [x for x in _ast.walk(_ast.parse(rd(path)))
+                if isinstance(x, _ast.FunctionDef) and x.name == name]
+        assert node, f"🔴 {path}의 {name}()이 사라졌다"
+        return node[0]
+
+    for path, name, must_call in (("build_site.py", "_sensitivity_snapshot",
+                                   "rr.compute"),
+                                  ("render_report.py", "compute",
+                                   "e.revenue_won")):
+        fn = _fn(path, name)
+        bad = [_ast.unparse(x) for x in _ast.walk(fn)
+               if isinstance(x, _ast.BinOp) and isinstance(x.op, _ast.Mult)
+               and not isinstance(x.right, _ast.Constant)]
+        assert not bad, (
+            f"🔴 {path}의 {name}()이 {bad}를 곱한다 — 매출 산식이 되살아났다. "
+            "같은 식이 두 곳에 있으면 **한쪽만 고쳐지는 날**이 온다")
+        calls = {_ast.unparse(x.func) for x in _ast.walk(fn)
+                 if isinstance(x, _ast.Call)}
+        assert must_call in calls, (
+            f"🔴 {name}()이 `{must_call}`을 부르지 않는다 — 단일 경로를 거치지 "
+            "않으면 어디선가 **다시 만들고 있다는 뜻**이다")
+
+    # ── ⑤ 값은 바뀌지 않았는가(케이스 전수 항등식) ──────────────────
+    n_checked = 0
+    for case in load_cases():
+        if case.get("partial"):
+            continue
+        ec = rr.compute(case_to_input(case))["economics"]
+        capex = case_to_input(case).total_construction_cost
+        assert ec["subsidy_won"] + ec["self_funded_won"] == capex, (
+            f"🔴 {case['case_id']}에서 보조 + 자부담 != CAPEX다")
+        assert ec["operating_cash_flow"] == (
+            ec["operating_profit"] + ec["depreciation"])
+        assert ec["revenue"] == e.revenue_won(ec["production_kg"], ec["price"])
+        n_checked += 1
+    assert n_checked == 3, f"🔴 4축 케이스가 {n_checked}건이다 — 실측은 3건이다"
+
+    # ── ⑥ 경위가 남아 있는가 ────────────────────────────────────────
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    assert "신기능이 아니라 회수" in design, (
+        "🔴 설계서에서 **`revenue_won()`이 왜 늘었는지**가 사라졌다 — 함수 수가 "
+        "69 → 70으로 늘어난 것을 **기능이 늘었다**고 읽으면 측정이 오독된다")
+    assert "칸 밖 함수 7개" in design
 
 
 if __name__ == "__main__":

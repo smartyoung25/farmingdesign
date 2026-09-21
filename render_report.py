@@ -39,7 +39,7 @@ def compute(inp: FarmInput) -> dict:
 
     # ── 경제성: 생산·매출·손익·투자지표
     prod = e.production_kg(inp.area_m2, inp.base_yield_kg_m2, inp.fitness_pct)
-    revenue = prod * inp.price_won_per_kg
+    revenue = e.revenue_won(prod, inp.price_won_per_kg)
     fin = e.finance(revenue, inp.opex, inp.total_construction_cost,
                     subsidy_rate=inp.subsidy_rate)
 
@@ -88,6 +88,11 @@ def compute(inp: FarmInput) -> dict:
             "irr": fin.irr,
             "subsidy_rate": inp.subsidy_rate,
             "real_roi": fin.real_roi_after_subsidy,
+            # 192차 — 엔진이 내는 값을 그대로 싣는다. 종전엔 build_site가
+            #   `capex*rate`·`capex-보조`·`영업이익+감가`로 **다시 만들었다**.
+            "subsidy_won": fin.subsidy_won,
+            "self_funded_won": fin.self_funded_won,
+            "operating_cash_flow": fin.operating_cash_flow,
         },
         "input_echo": {k: (val.value if hasattr(val, "value") else val)
                        for k, val in asdict(inp).items()},
