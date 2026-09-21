@@ -10282,7 +10282,9 @@ def test_189cha_self_check_findings_do_not_come_back():
 
     # ── ④ 🔴 **CLAUDE.md와의 모순이 기록돼 있는가**(사용자 결정 대기) ──
     cm = rd("CLAUDE.md")
-    if "판정·추천 자동화 금지" in cm:
+    # 🔴190차 — 1절에 **★결정 단서**가 달려 모순이 닫혔다. 단서가 없는 동안에만
+    #   *"모순을 적어 두라"*를 요구한다(단서가 지워지면 이 요구가 되살아난다).
+    if "판정·추천 자동화 금지" in cm and "단서(★사용자 결정" not in cm:
         assert "`CLAUDE.md` 1절의 *「판정·추천 자동화 금지」*가" in design, (
             "🔴 `CLAUDE.md` 1절이 **판정 금지를 그대로 말하는데** 설계서가 그 모순을 "
             "적지 않는다. 엔진에는 `ksfid_grade`·`guarantee_assessment`가 있다 — "
@@ -10295,6 +10297,131 @@ def test_189cha_self_check_findings_do_not_come_back():
     assert "단일 원본화" in led and "한 줄 수정으로 전부 통과" in led, (
         "🔴 *「고정 수를 한 곳으로 모으자」*는 처방을 **철회한 이유**가 사라졌다 — "
         "모으면 **한 줄 수정으로 전부 통과**시킬 수 있어 오히려 약해진다")
+
+
+def test_190cha_rule1_proviso_is_pinned_and_actually_held():
+    """190차 — 1절 금지 문구의 **★결정 단서**를 고정하고, 네 조건을 실제로 잰다.
+
+    🔴 189차가 *"CLAUDE.md 1절과 엔진이 모순"*으로 남긴 것을 사용자가 닫았다 —
+    **금지는 유지하고 예외의 조건을 명시**하는 방식이다.
+
+    🔴 **문구가 있는지만 보면 이 가드는 헛돈다.** 단서가 내건 네 조건을
+    **엔진에서 직접** 확인한다: ①status 「결정」 등재 ②결정론 ③항목별 근거 행
+    ④임계값 주입 가능 + 적용 규칙 노출. 그리고 **여전히 금지된 것**도 함께 본다.
+    """
+    import os as _o, sys as _s, json as _j, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import consulting_package as cp
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    cm = rd("CLAUDE.md")
+
+    # ── ① 금지는 **남아 있고** 단서가 붙었는가 ──────────────────────
+    assert "판정·추천 자동화 금지" in cm, (
+        "🔴 1절의 금지 문구 자체가 사라졌다 — 단서는 **금지를 유지한 채** 예외를 "
+        "여는 것이지 금지를 지우는 것이 아니다")
+    assert "단서(★사용자 결정 2026-09-21, 190차)" in cm, (
+        "🔴 1절의 ★결정 단서가 사라졌다 — 단서가 없으면 엔진의 등급·판정 함수가 "
+        "다시 **1절 위반**이 된다(189차가 남긴 모순으로 되돌아간다)")
+    for cond in ("status 「결정」으로 등재", "같은 입력이면", "항목별 근거 행",
+                 "주입으로 덮어쓸 수 있고", "적용된 규칙",
+                 "미검증을 통과로 세지 않는다"):
+        assert cond in cm, f"🔴 단서의 조건 「{cond}」가 사라졌다"
+    # 🔴 `"추천"`만 세면 **금지 문구 자체**(「판정·추천 자동화 금지」)에 걸려 헛돈다
+    #    — 뮤테이션 M3이 그렇게 빠져나갔다(「무딘 토큰」 계열). 구절 전체로 잰다.
+    for still in ("투자·보험·시공 판정", "업체·작목·부지 **추천**",
+                  "임계값을 엔진이 고르는 것"):
+        assert still in cm, (
+            f"🔴 **여전히 금지**되는 것에서 「{still}」이 빠졌다 — 단서가 "
+            "금지 전체를 여는 것으로 읽힌다")
+
+    # ── ② 조건①: 규칙이 status 「결정」으로 **등재**돼 있는가 ────────
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    RULES = ("KSFID_CHECK_SPEC", "KSFID_GRADE_RULE",
+             "PERF_GUARANTEE_SPEC", "PERF_GUARANTEE_RULE")
+    for k in RULES:
+        ent = reg["constants"][k]
+        assert ent["status"] == "결정", (
+            f"🔴 {k}의 status가 {ent['status']!r}다 — 단서 조건①은 "
+            "**status 「결정」 등재**다")
+        assert ent.get("source_refs"), f"🔴 {k}에 출처가 없다"
+    assert "결정" in reg["status_legend"], "🔴 status_legend에서 「결정」이 사라졌다"
+
+    # ── ③ 조건②: 결정론 — 난수·시각 의존이 **0인가** ────────────────
+    src = rd("smartfarm_engine.py")
+    tree = _ast.parse(src)
+    JUDGES = ("ksfid_grade", "guarantee_assessment", "performance_shortfall",
+              "progress_certification")
+    for fn in JUDGES:
+        node = [n for n in tree.body if getattr(n, "name", None) == fn]
+        assert node, f"🔴 판정 함수 {fn}()이 사라졌다"
+        names = {m.id for m in _ast.walk(node[0]) if isinstance(m, _ast.Name)}
+        attrs = {m.attr for m in _ast.walk(node[0]) if isinstance(m, _ast.Attribute)}
+        bad = (names | attrs) & {"random", "uuid", "now", "today", "time"}
+        assert not bad, (
+            f"🔴 {fn}()에 {sorted(bad)}가 들어왔다 — 단서 조건②는 "
+            "**같은 입력이면 같은 결과**다")
+    full = {c["key"]: True for c in e.KSFID_CHECK_SPEC}
+    assert e.ksfid_grade(full)["grade"] == e.ksfid_grade(full)["grade"] == "A"
+
+    # ── ④ 조건③: **항목별 근거 행**을 내는가 ────────────────────────
+    g = e.ksfid_grade(full)
+    assert len(g["rows"]) == len(e.KSFID_CHECK_SPEC) and all(
+        r.get("basis") for r in g["rows"]), (
+        "🔴 등급이 항목별 근거 행을 내지 않는다 — 단서 조건③이다")
+    ga = e.guarantee_assessment(
+        [{"key": "yield", "design": 100.0, "actual": 90.0, "loss_won": 1}], 10)
+    assert ga["rows"] and all(r.get("basis") for r in ga["rows"]), (
+        "🔴 지급 판정이 항목별 근거 행을 내지 않는다")
+
+    # ── ⑤ 조건④: 임계값 주입 + **적용 규칙 노출**인가 ───────────────
+    tight = e.ksfid_grade(full, {"min_pass": {"A": 99}})
+    assert tight["grade"] != "A" and tight["rule"]["min_pass"]["A"] == 99, (
+        "🔴 임계값을 주입해도 결과가 그대로이거나 적용 규칙이 드러나지 않는다 — "
+        "단서 조건④다")
+    loose = e.guarantee_assessment(
+        [{"key": "yield", "design": 100.0, "actual": 92.0}], 1,
+        {"tolerance_pct": 10.0})
+    assert loose["claimable"] == [] and loose["rule"]["tolerance_pct"] == 10.0
+
+    # ── ⑥ 「미검증을 통과로 세지 않는다」가 실제로 성립하는가 ────────
+    un = dict(full)
+    un[e.KSFID_CHECK_SPEC[0]["key"]] = None
+    u = e.ksfid_grade(un)
+    assert u["unchecked"] and u["n_passed"] == len(full) - 1 and not u["complete"], (
+        "🔴 미검증을 통과로 셌다 — 단서가 명시한 조건이다")
+
+    # ── ⑦ 🔴 **여전히 금지된 것**이 지켜지는가 ──────────────────────
+    from cases import load_cases
+    pkg = cp.build_package([x for x in load_cases() if not x.get("partial")][0])
+    # 🔴 `note`는 *"추천·투자의견은 없다"*고 **설명하느라** 그 말을 쓴다 — 세 번째
+    #    같은 함정(182·185·190차)이라 이번엔 **설명 필드를 걷어내고** 센다.
+    def _strip_notes(v):
+        if isinstance(v, dict):
+            return {k: _strip_notes(x) for k, x in v.items()
+                    if k not in ("note", "basis", "sources", "why", "desc")}
+        if isinstance(v, list):
+            return [_strip_notes(x) for x in v]
+        return v
+
+    payload = _j.dumps(_strip_notes([x["data"] for x in pkg["items"]]),
+                       ensure_ascii=False, default=str)
+    for bad in ("투자의견", "recommended", "rank", "추천합니다", "보험료", "수수료율"):
+        assert bad not in payload, (
+            f"🔴 산출물 데이터에 「{bad}」가 생겼다 — 단서는 **투자·보험·시공 판정과 "
+            "추천**을 여전히 금한다")
+    for p in sorted(__import__("glob").glob(
+            _o.path.join(repo, "SmartFarm_컨설팅패키지_*.html"))):
+        assert "투자·보험·시공 판정이 아니다" in open(p, encoding="utf-8").read()
+
+    # ── ⑧ 경위가 남아 있는가(189차 기록 → 190차 해소) ───────────────
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    assert "190차" in design and "단서" in design, (
+        "🔴 설계서에 **1절 단서로 모순이 닫혔다**는 기록이 없다 — 189차가 적은 "
+        "*「남은 모순은 사용자 몫」*만 남으면 읽는 사람이 현재 상태를 오해한다")
 
 
 if __name__ == "__main__":
