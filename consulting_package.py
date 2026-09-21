@@ -779,8 +779,12 @@ def build_package(case: dict, injections: dict = None) -> dict:
     return {"case_id": case["case_id"], "title": case["title"],
             "items": items, "status_counts": by_status,
             "open_injections": needs_all,
-            "note": ("🔴 이 패키지는 **판정하지 않는다**. 주입이 없는 칸은 비어 있는 채로 "
-                     "드러나고, 시세성·판단성 값은 고객이 준 것만 쓴다")}
+            "note": ("🔴 **189차 정정** — 181차의 *「이 패키지는 판정하지 않는다」*는 "
+                     "187·188차에 **등급·지급 판정이 들어와 더 이상 참이 아니다**. "
+                     "지금 참인 것: **주입이 없는 칸은 비어 있는 채로 드러나고**, "
+                     "**시세성·판단성 값은 고객이 준 것만 쓰며**, 판정하는 칸"
+                     "(`D25`·`D26`)은 **명시된 규칙을 그대로 적용한 결과**와 "
+                     "**항목별 근거 행**을 함께 낸다. 투자·보험·시공 판정은 하지 않는다")}
 
 
 def coverage() -> dict:

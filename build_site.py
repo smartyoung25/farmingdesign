@@ -921,9 +921,16 @@ def consulting_package_page(case: dict, pkg: dict) -> str:
     tally = " · ".join(f"{esc(k)} <b>{v}</b>" for k, v in sorted(cnt.items()))
     slots = "".join(f"<li><b>{esc(n['slot'])}</b> — {md(n['why'])}</li>"
                     for n in pkg["open_injections"])
+    # 🔴189차 — 등급·지급 판정이 이 페이지에 실린다. **무엇이 아닌지**를 함께 싣는다.
+    #   점검에서 나온 지적: 판정이 공유 산출물에 실리면 **분쟁 시 증거로 읽힐 수 있다**.
+    NOTICE = ("이 문서의 <b>등급·지급 판정은 명시된 규칙을 그대로 적용한 결과</b>이고, "
+              "<b>투자·보험·시공 판정이 아니다</b>. 임계값을 바꾸면 결과가 바뀌며 "
+              "각 항목에 <b>적용된 규칙과 근거 행</b>이 함께 실려 있다. "
+              "<b>최종 판단은 사람과 계약이 한다.</b>")
     body = f"""
   <header class="top"><h1>컨설팅 패키지 — {esc(pkg['title'])}</h1>
-    <div class="sub">D1~D20 · {tally}</div></header>
+    <div class="sub">D1~D27 · {tally}</div>
+    <div class="note warn" style="margin-top:12px">{NOTICE}</div></header>
   <section class="card"><span class="axis">자료 요청서</span>
     <h2>아직 주입되지 않은 것 {len(pkg['open_injections'])}종</h2>
     <p>{md(pkg['note'])}</p>

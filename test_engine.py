@@ -10201,6 +10201,102 @@ def test_188cha_guarantee_judges_only_what_the_rule_and_injection_allow():
     assert f26["data"]["항목별 편차"], "🔴 편차 행이 없다"
 
 
+def test_189cha_self_check_findings_do_not_come_back():
+    """189차 — **점검이 찾은 오류 셋**이 되돌아오지 않는가.
+
+    🔴 ①**값의 출처를 실제보다 약하게 적었다**: `max_cover_ratio` 0.95와
+    `claim_days` 30은 **186차에 원문에서 확인한 값**인데 188차가 셋을 뭉뚱그려
+    *"벤치마크에서 유도한 값이 아니라 프로젝트 결정"*이라 적었다.
+    **없는 근거를 만드는 것과 방향만 반대인 오류**다 — 출처가 있는데 없다고 적으면
+    추적성이 스스로 약해진다. **임의인 것은 `tolerance_pct` 하나뿐**이다.
+
+    🔴 ②**판정이 공유 산출물에 실리는데 무엇이 아닌지가 없었다**.
+
+    🔴 ③**낡은 주장이 남아 있었다**: 181차의 *"이 패키지는 판정하지 않는다"*와
+    185차의 *"등급을 매기지 않는다 / 판정하지 않는다"*가 187·188차 뒤에도 그대로였다.
+    **지우지 않고 취소선으로** 남겨 경위를 보존한다 —
+    *"왜 갑자기 판정하게 됐는가"*를 답할 수 있어야 한다.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import consulting_package as cp
+
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    ver = rd("근거_벤치마킹출처_검증_20260921.md")
+
+    # ── ① 벤치마크에서 온 값과 임의인 값이 **갈라져 적혀 있는가** ────
+    rule = e.PERF_GUARANTEE_RULE
+    assert rule["max_cover_ratio"] == 0.95 and rule["claim_days"] == 30, (
+        f"🔴 보상비율·지급 기한이 {rule['max_cover_ratio']}·{rule['claim_days']}다 — "
+        "186차 원문 확인값은 0.95·30이다. 바꿨다면 **더 이상 원문 채택이 아니므로** "
+        "출처 서술도 함께 고쳐야 한다")
+    for q in ("up to 95%", "within 30 days"):
+        assert q in ver, f"🔴 186차 검증 문서에서 원문 인용 {q!r}이 사라졌다"
+    src = reg["constants"]["PERF_GUARANTEE_RULE"]["source"]
+    assert "186차에 원문에서 확인한 값" in src, (
+        "🔴 보상비율·지급 기한이 **원문에서 온 값**이라는 기록이 사라졌다")
+    assert "`tolerance_pct` 5.0만 임의" in src, (
+        "🔴 **임의인 것은 면책 하나뿐**이라는 구분이 사라졌다 — 셋을 뭉뚱그리면 "
+        "188차의 오류로 되돌아간다")
+    assert "출처가 있는 값을 없다고 적으면" in src, (
+        "🔴 이 오류가 **어떤 종류인지**(없는 근거를 만드는 것과 방향만 반대) 적은 "
+        "문장이 사라졌다")
+    led = rd("작업지시서.md")
+    assert "~~**면책 5%·보상비율 0.95·지급 기한 30일은 벤치마크에서 유도한 값이 아니라" in led, (
+        "🔴 작업지시서의 **취소선 정정**이 사라졌다 — 틀린 서술을 지우면 경위가 없어진다")
+
+    # ── ② 판정이 실리는 페이지에 **무엇이 아닌지**가 있는가 ─────────
+    import glob as _g
+    pages = sorted(_g.glob(_o.path.join(repo, "SmartFarm_컨설팅패키지_*.html")))
+    assert len(pages) == 3, f"🔴 컨설팅 패키지 페이지가 {len(pages)}건이다"
+    for p in pages:
+        h = open(p, encoding="utf-8").read()
+        for frag in ("투자·보험·시공 판정이 아니다", "최종 판단은 사람과 계약이 한다"):
+            assert frag in h, (
+                f"🔴 {_o.path.basename(p)}에 「{frag}」 고지가 없다 — 등급·지급 판정이 "
+                "실리는 문서라 **무엇이 아닌지**를 함께 실어야 한다")
+    bs = rd("build_site.py")
+    assert "NOTICE" in bs and "분쟁 시 증거로 읽힐 수 있다" in bs, (
+        "🔴 고지를 넣은 이유가 생성기에서 사라졌다")
+
+    # ── ③ 🔴 **낡은 주장이 되살아나지 않는가** ──────────────────────
+    from cases import load_cases
+    pkg = cp.build_package([x for x in load_cases() if not x.get("partial")][0])
+    note = pkg["note"]
+    assert "이 패키지는 **판정하지 않는다**" not in note, (
+        "🔴 *「이 패키지는 판정하지 않는다」*가 되살아났다 — 187·188차에 등급·지급 "
+        "판정이 들어와 **더 이상 참이 아니다**")
+    for frag in ("189차 정정", "더 이상 참이 아니다", "투자·보험·시공 판정은 하지 않는다"):
+        assert frag in note, f"🔴 패키지 note에서 「{frag}」가 사라졌다"
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    assert "~~K-SFID 등급 부여 → **등급을 매기지 않는다**~~" in design, (
+        "🔴 185차 주장의 **취소선**이 사라졌다 — 지우면 *「왜 갑자기 판정하게 됐는가」*를 "
+        "답할 수 없다")
+    assert "이 문장들을 지우지 않고 취소선으로 남긴다" in design
+    assert "5/5 항목" in design, (
+        "🔴 §0-c의 3단계가 여전히 **2/5 항목**이라 적혀 있다 — 188차에 5/5가 됐다")
+
+    # ── ④ 🔴 **CLAUDE.md와의 모순이 기록돼 있는가**(사용자 결정 대기) ──
+    cm = rd("CLAUDE.md")
+    if "판정·추천 자동화 금지" in cm:
+        assert "`CLAUDE.md` 1절의 *「판정·추천 자동화 금지」*가" in design, (
+            "🔴 `CLAUDE.md` 1절이 **판정 금지를 그대로 말하는데** 설계서가 그 모순을 "
+            "적지 않는다. 엔진에는 `ksfid_grade`·`guarantee_assessment`가 있다 — "
+            "**새 세션은 1절만 읽고 시작한다**. 규칙을 고칠지는 **사용자 결정**이고, "
+            "결정 전까지 이 모순은 **적혀 있어야** 한다")
+        for fn in ("ksfid_grade", "guarantee_assessment"):
+            assert hasattr(e, fn), f"🔴 {fn}()이 사라졌다 — 모순 기록의 전제가 바뀐다"
+
+    # ── ⑤ 점검에서 **철회한 처방**이 기록됐는가 ─────────────────────
+    assert "단일 원본화" in led and "한 줄 수정으로 전부 통과" in led, (
+        "🔴 *「고정 수를 한 곳으로 모으자」*는 처방을 **철회한 이유**가 사라졌다 — "
+        "모으면 **한 줄 수정으로 전부 통과**시킬 수 있어 오히려 약해진다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
