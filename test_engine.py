@@ -10907,6 +10907,91 @@ def test_194cha_judgments_live_in_an_appendix_not_the_body():
             "**어떻게 닫혔는지**가 지워지면 다음 사람이 고지만 보고 또 같은 지적을 한다")
 
 
+def test_195cha_self_check_ledger_matches_reality():
+    """195차 — 189차 **자기 점검 5항목**을 문서로 고정하고 **상태를 기계로 대조**한다.
+
+    🔴 점검 응답은 **대화 안에만** 있었다 — 다음 세션은 읽지 못한다. 세션 기록에서
+    꺼내 대장으로 옮기고 **6위 이하가 없음을 세어서** 적었다.
+
+    🔴 **대장은 서술이다. 서술을 믿지 않는다** — 「닫혔다」고 적은 항목은 그 근거가
+    **리포에 실재하는지** 여기서 확인한다. 적기만 하고 실제로는 되돌아가 있으면
+    대장이 오히려 사람을 속인다(189차 ③ *낡은 주장*과 같은 계열).
+    """
+    import os as _o, sys as _s, io as _io, json as _j, re as _re, glob as _g
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    rd = lambda n: _io.open(_o.path.join(repo, n), encoding="utf-8").read()
+    led = rd("근거_자기점검대장_20260922.md")
+
+    # ── ① 다섯 항목이 **정확히 다섯**인가 ───────────────────────────
+    ranks = _re.findall(r"\|\s*\*\*([1-9])위\*\*\s*\|", led)
+    assert ranks == ["1", "2", "3", "4", "5"], (
+        f"🔴 대장의 순위 행이 {ranks}다 — 189차 점검은 **1~5위 다섯 개**다. "
+        "늘었다면 **어디서 온 항목인지** 적고, 줄었다면 왜 지웠는지 적으라")
+    assert "6위 이하는 없다" in led and "세어서 없는 것" in led, (
+        "🔴 **6위 이하가 없다는 기록**이 사라졌다 — 「안 적었다」와 「세어서 없다」는 "
+        "다르다. 이 문장이 없으면 다음 사람이 백로그를 다시 뒤진다")
+
+    # ── ② 🔴 「닫혔다」의 근거가 **리포에 실재하는가** ───────────────
+    cm = rd("CLAUDE.md")
+    assert "단서(★사용자 결정 2026-09-21, 190차)" in cm, (
+        "🔴 대장은 1위를 **닫혔다**고 적는데 `CLAUDE.md`의 ★단서가 없다")
+    assert "엔진 분리 금지(★사용자 결정 2026-09-22, 191차)" in cm, (
+        "🔴 대장은 5위를 **정해졌다**고 적는데 비분리 ★결정이 `CLAUDE.md`에 없다")
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+    assert "186차에 원문에서 확인한 값" in (
+        reg["constants"]["PERF_GUARANTEE_RULE"]["source"]), (
+        "🔴 대장은 2위를 **닫혔다**고 적는데 출처 구분이 레지스트리에서 사라졌다")
+    apx = sorted(_g.glob(_o.path.join(repo, "SmartFarm_판정부록_*.html")))
+    body = sorted(_g.glob(_o.path.join(repo, "SmartFarm_컨설팅패키지_*.html")))
+    assert len(apx) == 3 and len(body) == 3, (
+        f"🔴 대장은 4위를 **닫혔다**고 적는데 부록 {len(apx)}건 · 본문 {len(body)}건이다")
+    for p in body:
+        assert "<td class='code'>D25</td>" not in rd(_o.path.basename(p)), (
+            "🔴 대장은 4위를 **닫혔다**고 적는데 판정이 본문으로 되돌아왔다")
+
+    # ── ③ 3위는 **열린 채**라고 적혀 있는가(닫았다고 하지 않는다) ────
+    # 🔴 **행마다** 그 항목이 어떻게 닫혔는지가 적혀 있어야 한다. 「닫혔다」만 있고
+    #    **무엇으로** 닫혔는지가 없으면, 실제와 다른 경위가 적혀도 아무도 모른다.
+    WAY = {"1": "★단서", "2": "취소선 정정", "3": "열린 채 관리",
+           "4": "부록 분리", "5": "분리하지 않는다"}
+    for rk, kw in WAY.items():
+        row = _re.search(r"\|\s*\*\*%s위\*\*\s*\|(.+)" % rk, led)
+        assert row, f"🔴 대장에서 {rk}위 행이 사라졌다"
+        assert kw in row.group(1), (
+            f"🔴 {rk}위 행이 「{kw}」를 말하지 않는다 — **무엇으로 닫혔는지**가 "
+            "행에 없으면 실제와 다른 경위가 적혀도 드러나지 않는다")
+    led_ji = rd("작업지시서.md")
+    assert "한 줄 수정으로 전부 통과" in led_ji, (
+        "🔴 처방을 **철회한 이유**가 작업지시서에서 사라졌다 — 이유가 없으면 "
+        "다음 사람이 같은 처방을 다시 낸다")
+
+    # ── ④ 대장의 뮤테이션 성적이 **작업지시서와 일치하는가** ─────────
+    #    🔴 같은 수를 두 문서가 각자 적으면 갈라진다(179차 교훈).
+    for cha, score in (("189", "8/8"), ("190", "9/9"), ("191", "11/11"),
+                       ("192", "11/11"), ("193", "10/10"), ("194", "9/9")):
+        blk = _re.search(r"\*\*2026-09-2[12] %s차\*\*(.{0,12000}?)"
+                         r"(?=- \*\*2026-09|\Z)" % cha, led_ji, _re.S)
+        assert blk, f"🔴 작업지시서에 {cha}차 기록이 없다"
+        got = set(_re.findall(r"뮤테이션 \*{0,2}(\d+/\d+)", blk.group(1)))
+        assert score in got, (
+            f"🔴 {cha}차 뮤테이션 성적이 작업지시서에는 {sorted(got)}인데 대장은 "
+            f"{score}라 적는다 — **두 문서가 갈라졌다**")
+        # 📌 `score in led`로 세면 **다른 차수 행의 같은 수**에 걸려 헛돈다
+        #    (190·192·193차와 같은 유형 — **다섯 번째**다). 행 안에서 센다.
+        row = _re.search(r"^\|\s*%s\s*\|(.+)$" % cha, led, _re.M)
+        assert row, f"🔴 대장에 {cha}차 행이 없다"
+        assert score in row.group(1), (
+            f"🔴 대장의 {cha}차 행이 뮤테이션 {score}를 말하지 않는다 — "
+            f"작업지시서는 {score}다. **두 문서가 갈라졌다**")
+
+    # ── ⑤ 자의 한계를 적었는가 ──────────────────────────────────────
+    assert "추종과 정당한 갱신을 구별하지 못한다" in led, (
+        "🔴 **삭제 줄 수라는 자의 한계**가 사라졌다 — 192차의 10줄은 엔진이 커져 "
+        "고정 수를 올린 것이다. 수만 보고 판단하게 두면 안 된다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
