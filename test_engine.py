@@ -11393,6 +11393,103 @@ def test_199cha_entry_form_and_input_schema_do_not_drift():
     assert "199차 — 열어 둔 자리에 입구가 없었다" in design
 
 
+def test_200cha_tests_are_not_deleted_or_skipped_into_passing():
+    """200차 — 1절 *"테스트를 지우거나 skip으로 바꿔 통과시키지 않는다"*를 **기계가 잰다**.
+
+    🔴 이 조항만은 **아무도 재지 않았다**. 1절 여섯 줄 중 다섯은 가드가 붙었는데
+    (병렬 계산기·근거 없는 값·시세성 주입·판정 단서·회귀 벤치마크), 이 한 줄은
+    *"내가 그러지 않았다"*는 말에 기대 왔다. **말은 측정이 아니다.**
+
+    🔴 **세는 방향이 다르다.** 테스트 수는 **하한**으로 잰다 — 늘면 아무 일도 없고
+    **줄면 실패**한다. 195차가 3위로 남긴 *"가드가 실측 추종으로 기운다"*와 반대다:
+    추종은 **바뀐 값을 따라가는 것**이고, 하한은 **따라가지 않는 것**이다.
+
+    🔴 **skip은 두 종류다.** 환경·자료가 없어 **못 도는 것**과, 실패를 **덮으려고
+    끄는 것**. 앞은 사유와 함께 등재하고, 뒤는 **0이어야 한다**.
+    """
+    import os as _o, io as _io, ast as _ast, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    # ── ① 1절의 그 줄이 살아 있는가 ─────────────────────────────────
+    cm = rd("CLAUDE.md")
+    assert "테스트를 지우거나 skip으로 바꿔 통과시키지 않는다" in cm, (
+        "🔴 1절에서 이 조항이 사라졌다 — 이 가드가 지키려는 문장 자체다")
+
+    # ── ② 테스트가 **줄지 않았는가**(하한) ──────────────────────────
+    FLOOR = {"test_cases.py": 46, "test_chunking_v2.py": 33,
+             "test_engine.py": 287, "test_registry.py": 28,
+             "test_webapp.py": 24}
+    counts, marks, skips, ios = {}, [], [], {}
+    for f in sorted(FLOOR):
+        src = rd(f)
+        tree = _ast.parse(src)
+        counts[f] = len([n for n in _ast.walk(tree)
+                         if isinstance(n, _ast.FunctionDef)
+                         and n.name.startswith("test_")])
+        # 📌 **정규식으로 세지 않는다.** 1차 작성에서 이 검사가 **제 오류 메시지에
+        #    걸렸다** — 무엇을 금하는지 설명하느라 그 표식을 그대로 썼다
+        #    (182·185·190·192·193·198차와 같은 계열 — **일곱 번째**).
+        #    데코레이터는 **AST로** 본다.
+        for _n in _ast.walk(tree):
+            if not isinstance(_n, _ast.FunctionDef):
+                continue
+            for _d in _n.decorator_list:
+                _t = _d.func if isinstance(_d, _ast.Call) else _d
+                _nm = _ast.unparse(_t).split(".")[-1]
+                if _nm in ("skip", "skipif", "xfail"):
+                    marks.append((f, _n.name, _nm))
+        skips += [(f, m.strip()) for m in _re.findall(
+            r'pytest\.skip\(\s*("[^"]{4,80}"|' + chr(39) + r'[^' + chr(39)
+            + r']{4,80}' + chr(39) + r')', src)]
+        ios[f] = sorted(set(_re.findall(
+            r'importorskip\(\s*["' + chr(39) + r']([A-Za-z_][A-Za-z0-9_.]*)',
+            src)))
+    low = {f: (counts[f], FLOOR[f]) for f in FLOOR if counts[f] < FLOOR[f]}
+    assert not low, (
+        f"🔴 테스트가 줄었다(지금/하한): {low} — 1절은 **지우지 말라**고 한다. "
+        "합치거나 이름을 바꿨다면 **왜 줄었는지 적고** 하한을 낮추라. "
+        "늘어난 것은 갱신할 필요가 없다 — 이 수는 **하한**이지 실측이 아니다")
+    assert sum(counts.values()) >= sum(FLOOR.values()), (
+        f"🔴 테스트 총수가 {sum(counts.values())}다 — 200차 하한은 "
+        f"{sum(FLOOR.values())}다")
+
+    # ── ③ **덮으려고 끄는 skip**이 0인가 ────────────────────────────
+    assert not marks, (
+        f"🔴 `@pytest.mark.skip/skipif/xfail`이 생겼다: {marks} — 실패를 **끄는** "
+        "표식이다. 환경 때문에 못 돈다면 **함수 안에서 사유와 함께** "
+        "`pytest.skip(...)`을 쓰라(그쪽은 등재한다)")
+
+    # ── ④ 환경 skip은 **사유와 함께 등재**돼 있는가 ─────────────────
+    #    🔴 목록만 두면 문이 된다 — **사유에 무엇이 없어서인지**가 있어야 한다.
+    REASON = ("미보유", "없음")
+    assert len(skips) == 6, (
+        f"🔴 환경 skip이 {len(skips)}건이다 — 200차 실측은 6건이다"
+        f"(원문 PDF 1 · 말뭉치 2 · 시스템 폰트 3): {skips}. 늘었다면 **무엇이 "
+        "없어서 못 도는지**를 적고 이 수를 갱신하라. 줄었다면 자료가 들어온 것이니 "
+        "그 skip을 **지우고** 갱신하라")
+    for f, txt in skips:
+        assert any(r in txt for r in REASON), (
+            f"🔴 {f}의 skip 사유가 **무엇이 없어서인지** 말하지 않는다: {txt} — "
+            "사유 없는 skip은 **실패를 끄는 것과 구별되지 않는다**")
+
+    # ── ⑤ 의존성 skip 경로가 **조용히 늘지 않았는가** ───────────────
+    IOS = {"test_cases.py": ["openpyxl", "pdfplumber", "xlrd"],
+           "test_chunking_v2.py": ["winocr"],
+           "test_engine.py": ["build_document_chunks_full_v2", "fontTools",
+                              "olefile", "openpyxl", "pdfplumber", "pypdf"],
+           "test_registry.py": [],
+           "test_webapp.py": ["fastapi"]}
+    assert ios == IOS, (
+        f"🔴 `importorskip` 목록이 바뀌었다: {ios} — 새 의존성은 **조용한 skip 경로**를 "
+        "만든다(그 환경에서 가드가 돌지 않는다). 늘렸다면 작업지시서 2절의 skip 수와 "
+        "함께 갱신하라")
+
+    # ── ⑥ 경위가 남아 있는가 ────────────────────────────────────────
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    assert "200차 — 1절의 마지막 한 줄" in design
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
