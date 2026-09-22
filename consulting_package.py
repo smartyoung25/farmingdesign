@@ -474,15 +474,26 @@ def build_package(case: dict, injections: dict = None) -> dict:
                 d["DSCR"] = e.dscr_schedule(res["economics"]["revenue"], inp.opex, loan)
             else:
                 needs.extend(_need("loan"))
+            # 🔴202차 — 재무 가정은 **케이스가 정한 것**을 쓴다. 종전엔 이 둘이
+            #   엔진 기본값·리터럴로 갔고, 케이스가 할인율을 주입해도 **D9만 따로
+            #   0.05로** 계산돼 **같은 리포트 안에 두 할인율이 공존**할 수 있었다.
+            _asm = res["economics"]["assumptions"]
+            _av = _asm["values"]
+            d["가정"] = {"값": dict(_av), "주입": dict(_asm["injected"]),
+                       "note": ("D9의 NPV·상한 역산은 **4축 리포트와 같은 가정**을 "
+                                "쓴다. `주입`이 거짓인 항목은 **엔진 기본값**이다")}
             tg = inj.get("capex_targets")
             if tg:
                 d["CAPEX 상한 역산"] = e.max_investable_capex(
-                    res["economics"]["revenue"], inp.opex, **tg)
+                    res["economics"]["revenue"], inp.opex,
+                    useful_life=_av["useful_life"],
+                    discount_rate=_av["discount_rate"],
+                    years=_av["years"], **tg)
             else:
                 needs.extend(_need("capex_targets"))
             cf = inj.get("cashflows")
             if cf:
-                d["시나리오 NPV"] = e.npv(0.05, cf)
+                d["시나리오 NPV"] = e.npv(_av["discount_rate"], cf)
                 d["시나리오 IRR"] = e.irr(cf)
             else:
                 needs.extend(_need("cashflows"))

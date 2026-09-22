@@ -11585,6 +11585,116 @@ def test_201cha_mutation_run_is_required_not_customary():
         "만든 것뿐이고, 경향 자체를 닫은 것이 아니다")
 
 
+def test_202cha_assembly_layer_uses_the_case_assumptions():
+    """202차 — 조립 계층이 **케이스가 정한 재무 가정**을 쓰는가.
+
+    🔴 `D9`는 `e.npv(0.05, cf)`로 **할인율을 리터럴로** 넘기고 있었다.
+    197차가 주입 자리를 열고 199차가 입구를 이었는데, **케이스가 할인율을 주입해도
+    D9만 따로 0.05로** 계산됐다 — **같은 리포트 안에 두 할인율이 공존**할 수 있었다.
+    `max_investable_capex()`도 세 가정을 넘기지 않아 **엔진 기본값**으로 돌았다.
+
+    🔴 **문구로 재지 않는다.** 합성 케이스에 **실제로 주입해** ①D9의 가정 표기가
+    따라오는가 ②시나리오 NPV가 **다른 수**가 되는가를 잰다 —
+    리터럴이 남아 있으면 ②가 움직이지 않는다.
+    """
+    import os as _o, sys as _s, io as _io, ast as _ast, copy as _copy
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import consulting_package as cp
+    from cases import load_cases
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    # ── ① 조립 계층에 **재무 가정 리터럴**이 없는가 ─────────────────
+    #    🔴 예외는 **사유와 함께** 둔다 — 목록만 두면 문이 된다.
+    EXC = {"lcc_replacement_schedule":
+           "20년 지평은 **시세성 가정이 아니라 구조 선택**이다 — 회귀 앵커 A6가 "
+           "교체 연도 구조를 그 지평 위에서 고정한다"}
+    FIN = {"npv", "irr", "finance", "max_investable_capex", "dscr_schedule",
+           "cluster_economics", "lcc_replacement_schedule"}
+    src = rd("consulting_package.py")
+    bad, used = [], set()
+    for n in _ast.walk(_ast.parse(src)):
+        if not isinstance(n, _ast.Call):
+            continue
+        nm = (n.func.attr if isinstance(n.func, _ast.Attribute)
+              else getattr(n.func, "id", ""))
+        if nm not in FIN:
+            continue
+        lits = [a.value for a in n.args
+                if isinstance(a, _ast.Constant)
+                and isinstance(a.value, (int, float))
+                and not isinstance(a.value, bool)]
+        if not lits:
+            continue
+        if nm in EXC:
+            used.add(nm)
+            continue
+        bad.append((nm, n.lineno, lits))
+    assert not bad, (
+        f"🔴 조립 계층이 재무 인자를 **리터럴로** 넘긴다: {bad} — 케이스가 주입해도 "
+        "이 자리만 따로 돌아 **같은 리포트 안에 두 값이 공존**한다. "
+        "`res[\"economics\"][\"assumptions\"]`에서 받아 쓰라")
+    assert used == set(EXC), (
+        f"🔴 쓰이지 않는 예외가 있다: {sorted(set(EXC) - used)} — 리터럴이 사라졌다면 "
+        "예외도 지우라")
+
+    # ── ② D9가 **가정을 함께 싣는가** ───────────────────────────────
+    case = [x for x in load_cases() if not x.get("partial")][0]
+    CF = [-100.0, 30.0, 30.0, 30.0, 30.0]
+    INJ = {"cashflows": list(CF), "capex_targets": {"target_irr": 0.08}}
+    pkg = cp.build_package(case, injections=dict(INJ))
+    d9 = [x for x in pkg["items"] if x["code"] == "D9"][0]["data"]
+    assert "가정" in d9, (
+        "🔴 D9에 **가정 표기**가 없다 — NPV·상한 역산이 무엇 위에 섰는지 "
+        "패키지만 받아 본 사람은 알 수 없다(196차가 리포트 6면에 실은 것과 같은 이유)")
+    assert d9["가정"]["값"] == dict(e.FINANCE_DEFAULTS)
+    assert d9["가정"]["주입"] == {k: False for k in e.FINANCE_DEFAULTS}
+
+    # ── ③ 🔴 **주입하면 따라 바뀌는가**(리터럴이면 안 움직인다) ─────
+    inj_case = _copy.deepcopy(case)
+    inj_case["input"]["discount_rate"] = 0.03
+    pkg2 = cp.build_package(inj_case, injections=dict(INJ))
+    d9b = [x for x in pkg2["items"] if x["code"] == "D9"][0]["data"]
+    assert d9b["가정"]["값"]["discount_rate"] == 0.03, (
+        f"🔴 주입했는데 D9의 가정이 {d9b['가정']['값']['discount_rate']}다")
+    assert d9b["가정"]["주입"]["discount_rate"] is True
+    assert d9b["가정"]["주입"]["years"] is False, (
+        "🔴 하나만 주입했는데 **나머지까지 주입으로** 적었다")
+    assert d9["시나리오 NPV"] != d9b["시나리오 NPV"], (
+        f"🔴 할인율을 0.05 → 0.03으로 주입해도 시나리오 NPV가 그대로다"
+        f"({d9['시나리오 NPV']}) — **리터럴이 되살아났다**")
+    assert d9b["시나리오 NPV"] == e.npv(0.03, CF), (
+        "🔴 D9의 NPV가 **주입된 할인율로 계산되지 않았다**")
+
+    # ── 🔴 **상한 역산도 가정을 받는가**(뮤테이션 M2가 지나간 길) ───
+    #    📌 이 경로는 `capex_targets` 주입이 있어야 돈다 — 그것을 밟지 않으면
+    #    가드는 **아무것도 재지 않는다**(1차 작성이 그랬다).
+    #    ⚠️ 세 가정 중 **평가기간만** 상한을 움직인다(목표 IRR 제약이라
+    #    할인율·내용연수는 결과에 들어가지 않는다) — 그래서 그것으로 잰다.
+    yr_case = _copy.deepcopy(case)
+    yr_case["input"]["evaluation_years"] = 20
+    d9c = [x for x in cp.build_package(yr_case, injections=dict(INJ))["items"]
+           if x["code"] == "D9"][0]["data"]
+    assert "CAPEX 상한 역산" in d9 and "CAPEX 상한 역산" in d9c, (
+        "🔴 `capex_targets`를 주입했는데 **상한 역산이 서지 않았다**")
+    assert d9c["CAPEX 상한 역산"] != d9["CAPEX 상한 역산"], (
+        "🔴 평가기간을 20년으로 주입해도 **CAPEX 상한이 그대로다** — "
+        "`max_investable_capex()`에 가정이 **전달되지 않는다**(엔진 기본값으로 돈다)")
+
+    # ── ④ 기존 케이스는 **여전히 미주입**인가(수치 불변의 근거) ─────
+    for c in load_cases():
+        if c.get("partial"):
+            continue
+        assert "discount_rate" not in c["input"], (
+            f"🔴 {c['case_id']}가 할인율을 주입한다 — 202차는 **잇기만** 했고 값은 "
+            "넣지 않았다")
+
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    assert "202차 — 같은 리포트 안에 두 할인율" in design
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
