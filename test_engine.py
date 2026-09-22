@@ -11207,6 +11207,97 @@ def test_197cha_finance_assumptions_can_actually_be_injected():
             "값은 넣지 않았다**. 넣으려면 근거와 함께 별도 차수로 하라")
 
 
+def test_198cha_code_pointers_to_documents_resolve():
+    """198차 — **코드가 사람에게 읽으라고 가리키는 문서**가 실재하는가.
+
+    🔴 193차는 **레지스트리 서술**의 인용만 봤다. 오류 메시지·주석이 가리키는
+    문서는 **아무도 열어보지 않았다** — `기입양식.md`를 가리키는 자리가 **3곳**
+    있었는데 리포에 그 이름의 파일은 **없다**(실제는 `시나리오_가정값_기입양식.md`·
+    `financing_실조건_기입양식.md`). 사용자는 그 메시지를 보고 없는 문서를 찾는다.
+
+    🔴 **193차의 자를 그대로 쓰면 이것을 놓친다.** 그쪽은 잘린 인용을 받아들이려고
+    **접미 일치**로 찾는데, `시나리오_가정값_기입양식.md`가 `기입양식.md`로 끝나므로
+    **틀린 이름이 통과한다**. 코드 인용은 **잘리지 않으므로 완전 일치**가 맞는 자다.
+
+    🔴 **자를 세 번 고쳤다**: ①확장자 아무거나 훑으니 **테스트 픽스처와 서술 꼬리**가
+    섞여 49종이 「없음」으로 나왔다 ②`(`를 이름에 넣으니 `되고(CLAUDE.md` 같은 **조각**이
+    생겼다 ③`.md` 뒤 경계에 `(`를 막지 않아 `bsmod.md(...)`라는 **모듈 속성 접근**을
+    파일로 읽었다. 고친 자로 **44종 인용 · 미확인 1종**(공시된 부재)이다.
+    **49를 보고하지 않는다**(159차 교훈).
+    """
+    import os as _o, io as _io, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(p, encoding="utf-8").read()
+
+    PAT = _re.compile("[0-9A-Za-z가-힣][0-9A-Za-z가-힣_" + chr(92) + "-.]{2,120}"
+                      + chr(92) + ".md(?![0-9A-Za-z_(])")
+    have = set()
+    for root, dirs, files in _o.walk(repo):
+        dirs[:] = [d for d in dirs
+                   if d not in (".git", "__pycache__", "node_modules")]
+        have.update(f.lower() for f in files if f.lower().endswith(".md"))
+
+    # 🔴 대상은 **사용자에게 보여지는 코드**다 — 테스트 파일은 제외한다.
+    #    📌 1차 작성에서 이 가드가 **제 설명문에 걸렸다**: 틀린 이름을 설명하느라
+    #    그 이름을 썼다(182·185·190·192·193차와 같은 계열 — **여섯 번째**).
+    #    테스트의 서술은 **사용자가 따라갈 지시가 아니므로** 범위 밖이 맞다.
+    cited = {}
+    for f in sorted(_o.listdir(repo)):
+        if not f.endswith(".py") or f.startswith("test_"):
+            continue
+        for m in set(PAT.findall(rd(_o.path.join(repo, f)))):
+            cited.setdefault(m, set()).add(f)
+
+    # 🔴 예외는 **무엇으로 대신 확인되는지**를 함께 둔다(192·196차 패턴).
+    EXC = {
+        "SmartFarm_엔진데이터.md": ("smartfarm_engine.py", "리포에 존재하지 않는다"),
+    }
+    missing, used = [], set()
+    for name, owners in sorted(cited.items()):
+        if name.lower() in have:
+            continue
+        if name not in EXC:
+            missing.append("%s (%s)" % (name, ",".join(sorted(owners))))
+            continue
+        owner, frag = EXC[name]
+        used.add(name)
+        assert owner in owners, (
+            f"🔴 「{name}」를 가리키는 곳이 {sorted(owners)}로 바뀌었다 — "
+            f"예외를 둔 자리는 {owner}다")
+        assert frag in rd(_o.path.join(repo, owner)), (
+            f"🔴 {owner}에서 「{name}」 예외의 근거(「{frag}」)가 사라졌다")
+
+    assert not missing, (
+        "🔴 코드가 가리키는 문서가 리포에 없다: " + " / ".join(missing) +
+        " — 사용자는 이 메시지를 보고 **없는 문서를 찾는다**. 이름을 고치거나 "
+        "문서를 넣으라")
+    assert used == set(EXC), (
+        f"🔴 쓰이지 않는 예외가 있다: {sorted(set(EXC) - used)} — 인용이 사라졌다면 "
+        "예외도 지우라")
+    assert len(cited) == 44, (
+        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종이다. "
+        "늘었다면 **새 인용이 실재하는지** 방금 확인한 것이고, 줄었다면 인용이 "
+        "사라진 것이니 어느 쪽인지 적고 갱신하라")
+
+    # ── 🔴 틀린 이름이 **되살아나지 않는가**(접미 일치로는 못 잡는다) ──
+    for f, want in (("build_site.py", "시나리오_가정값_기입양식.md 1절"),
+                    ("시나리오_미리보기.py", "시나리오_가정값_기입양식.md 1절"),
+                    ("financing_미리보기.py", "financing_실조건_기입양식.md 1절")):
+        body = rd(_o.path.join(repo, f))
+        assert want in body, f"🔴 {f}가 더 이상 「{want}」를 가리키지 않는다"
+        assert "(기입양식.md" not in body and "— 기입양식.md" not in body, (
+            f"🔴 {f}에 **없는 이름** `기입양식.md`가 되살아났다")
+
+    # ── 지목한 **절이 그 문서에 실재하는가** ────────────────────────
+    for doc in ("시나리오_가정값_기입양식.md", "financing_실조건_기입양식.md"):
+        assert "## 1." in rd(_o.path.join(repo, doc)), (
+            f"🔴 {doc}에 **1절이 없다** — 이름을 고쳐도 **가리키는 절이 없으면** "
+            "사용자는 또 헤맨다")
+
+    design = rd(_o.path.join(repo, "서비스설계_컨설팅_3대상x6단계_20260920.md"))
+    assert "198차 — 접미 일치가 틀린 이름을 통과시켰다" in design
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

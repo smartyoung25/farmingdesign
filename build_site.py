@@ -339,7 +339,8 @@ def scenario_rows(case: dict, inp) -> list[dict]:
         if bad:
             raise ValueError(
                 f"시나리오 '{s.get('name')}'에 허용되지 않는 가정 필드 {sorted(bad)} — "
-                f"화이트리스트: {sorted(SCENARIO_ALLOWED_FIELDS)}(기입양식.md 1절)")
+                f"화이트리스트: {sorted(SCENARIO_ALLOWED_FIELDS)}"
+                f"(시나리오_가정값_기입양식.md 1절)")
         if not (s.get("note") or "").strip():
             raise ValueError(f"시나리오 '{s.get('name')}'에 근거(note)가 없다 — 가정값은 근거 필수")
         mod = dataclasses.replace(inp, **s["assumptions"])

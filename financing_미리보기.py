@@ -24,7 +24,7 @@ def main():
         data = json.load(f)
     fin = data.get("financing")
     if fin is None:
-        print(f"'{sys.argv[1]}'에 최상위 financing 블록이 없다 — 기입양식.md 1절 스키마 참고")
+        print(f"'{sys.argv[1]}'에 최상위 financing 블록이 없다 — financing_실조건_기입양식.md 1절 스키마 참고")
         return 1
 
     am = e.loan_amortization(fin["loan_principal_won"], fin["annual_rate_pct"],

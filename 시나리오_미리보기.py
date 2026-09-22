@@ -29,7 +29,7 @@ def main():
         with open(sys.argv[1], encoding="utf-8") as f:
             case = dict(case, scenarios=json.load(f)["scenarios"])
     if not case.get("scenarios"):
-        print("scenarios 블록이 없다 — 기입양식.md 1절 스키마 참고")
+        print("scenarios 블록이 없다 — 시나리오_가정값_기입양식.md 1절 스키마 참고")
         return 1
     if case.get("partial"):
         print("부분 케이스는 4축 계산이 없어 시나리오 미리보기 대상이 아니다")
