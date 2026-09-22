@@ -11298,6 +11298,101 @@ def test_198cha_code_pointers_to_documents_resolve():
     assert "198차 — 접미 일치가 틀린 이름을 통과시켰다" in design
 
 
+def test_199cha_entry_form_and_input_schema_do_not_drift():
+    """199차 — **기입 폼이 아는 필드**와 `FarmInput`이 **갈라지지 않는가**.
+
+    🔴 197차가 `FarmInput`에 세 칸을 늘렸는데 **아무 가드도 울지 않았다** —
+    웹 마법사는 그것을 몰랐고, 열어 둔 주입 자리는 **JSON을 직접 고치는 사람만**
+    쓸 수 있었다. 같은 스키마를 **두 곳이 각자 아는** 구조다(192차와 같은 계열).
+
+    🔴 **폼에 칸이 있는 것만으로는 부족하다.** 빈칸을 **넣지 않는지**까지 잰다 —
+    비워 둔 것을 기본값으로 채워 넣으면 산출물의 *"주입되지 않았다"*가 **거짓**이
+    되고, **비운 것과 기본값을 적어 넣은 것이 구별되지 않는다**.
+    """
+    import os as _o, sys as _s, io as _io, re as _re, dataclasses as _dc
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    from run_report import FarmInput
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    fields = {f.name for f in _dc.fields(FarmInput)}
+    src = rd("webapp.py")
+    i = src.index("def _parse_newcase_form")
+    j = src.index("def _newcase_compute_or_400")
+    parser = src[i:j]
+    # 📌 **정규식으로 세지 않는다.** 1차 작성에서 `[a-z_]+`가 **숫자를 못 받아**
+    #    `area_m2`를 놓쳤고, `inp[_k] = ...`처럼 **변수로 넣는 칸**도 보이지 않았다
+    #    (141차 *「파서를 쓰지 말았어야 했다」*와 같은 계열). 파서 함수의
+    #    **문자열 상수를 AST로** 꺼내 쓴다.
+    import ast as _ast2
+    _tree = _ast2.parse(parser.rstrip() + chr(10))
+    filled = {n.value for n in _ast2.walk(_tree)
+              if isinstance(n, _ast2.Constant) and isinstance(n.value, str)}
+
+    # 🔴 폼이 **일부러** 다루지 않는 것은 사유와 함께 둔다(192·196차 패턴).
+    EXC = {
+        "business_type": "폼이 문자열로 직접 담는다(열거형 변환은 cases.py)",
+        "cover": "〃",
+        "crop": "〃",
+        "region": "필수 검증을 따로 거쳐 담는다",
+    }
+    missing = sorted(fields - filled - set(EXC))
+    assert not missing, (
+        f"🔴 `FarmInput`에는 있는데 기입 폼이 채우지 않는 필드: {missing} — "
+        "스키마가 **두 곳에서 갈라졌다**. 폼에 칸을 내거나, **왜 내지 않는지**를 "
+        "예외에 사유와 함께 적으라(197차엔 이 가드가 없어 세 칸이 조용히 빠졌다)")
+    for k in EXC:
+        assert k in fields, f"🔴 예외 {k}가 `FarmInput`에 없다 — 예외를 지우라"
+
+    # ── 🔴 197차가 연 세 칸이 **폼에도 실제로 있는가** ──────────────
+    html = rd(_o.path.join("webapp_templates", "entry_newcase.html"))
+    for k in ("discount_rate", "evaluation_years", "useful_life"):
+        assert ('name="%s"' % k) in html, (
+            f"🔴 기입 폼에 {k} 칸이 없다 — 주입 자리를 열어 두고 **입구를 만들지 "
+            "않으면** JSON을 직접 고치는 사람만 쓸 수 있다")
+    assert "비우면 엔진 기본값" in html and "주입 전용" in html, (
+        "🔴 폼에서 **비우면 어떻게 되는지**가 사라졌다 — 기본값이 있다는 사실을 "
+        "모르면 빈칸을 **값이 없는 것**으로 읽는다")
+
+    # ── 🔴 빈칸을 **넣지 않는가**(비운 것과 적어 넣은 것은 다르다) ──
+    assert 'if (form.get(_k) or "").strip():' in parser, (
+        "🔴 빈칸 걸러내기가 사라졌다 — 비워 둔 칸을 기본값으로 채워 넣으면 "
+        "산출물의 *「주입되지 않았다」*가 **거짓**이 된다")
+
+    class _F(dict):
+        def get(self, k, d=None):
+            return dict.get(self, k, d)
+
+    import webapp as _w
+    base = {"case_id": "testdrift", "region": "충남", "crop": "토마토",
+            "cover": "유리", "business_type": "신규", "area_m2": "1000",
+            "surface_area_m2": "1800", "t_target": "20", "t_min": "-12",
+            "fr": "0.7", "base_yield_kg_m2": "40", "price_won_per_kg": "3500",
+            "fitness_pct": "90", "opex": "100000000",
+            "total_construction_cost": "700000000", "subsidy_rate": "0.5",
+            "snow_cm": "30", "wind_ms": "30", "load_status": "확인요망",
+            "load_source": "가드 합성 입력"}
+    for f in _w.WIZARD_PROV_FIELDS:
+        base["prov_%s_status" % f] = "확인요망"
+        base["prov_%s_source" % f] = "가드 합성 입력"
+    empty = _w._parse_newcase_form(_F(base))["input"]
+    for k in ("discount_rate", "evaluation_years", "useful_life"):
+        assert k not in empty, (
+            f"🔴 빈칸인데 {k}가 케이스에 들어갔다 — **비운 것과 기본값을 적어 넣은 "
+            "것이 구별되지 않는다**")
+    got = _w._parse_newcase_form(_F(dict(base, discount_rate="0.03",
+                                         evaluation_years="20")))["input"]
+    assert got["discount_rate"] == 0.03 and got["evaluation_years"] == 20, (
+        f"🔴 주입한 값이 케이스에 그대로 들어가지 않는다: "
+        f"{got.get('discount_rate')} · {got.get('evaluation_years')}")
+    assert "useful_life" not in got, (
+        "🔴 **하나만 채웠는데 나머지까지** 들어갔다 — 키별로 갈라야 한다")
+
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    assert "199차 — 열어 둔 자리에 입구가 없었다" in design
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

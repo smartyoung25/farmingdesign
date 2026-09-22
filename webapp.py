@@ -339,6 +339,14 @@ def _parse_newcase_form(form) -> dict:
         "total_construction_cost": _form_float(form, "total_construction_cost", required=True, as_int=True),
         "subsidy_rate": _form_float(form, "subsidy_rate", required=True),
     }
+    # 🔴199차 — 197차가 연 **재무 가정 주입 자리**를 기입 폼까지 잇는다.
+    #   ⚠️ **빈칸은 넣지 않는다** — 넣으면 「주입되지 않았다」가 거짓이 되고,
+    #   비우는 것과 기본값을 적어 넣는 것은 **산출물에서 다르게 읽힌다**.
+    for _k, _as_int in (("discount_rate", False), ("evaluation_years", True),
+                        ("useful_life", True)):
+        if (form.get(_k) or "").strip():
+            inp[_k] = _form_float(form, _k, required=True, as_int=_as_int)
+
     prov = {}
     lookup = None
     if form.get("use_lookup") == "1":
