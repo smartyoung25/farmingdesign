@@ -9655,7 +9655,10 @@ def test_184cha_source_names_masked_but_traceable():
         longer = [x for x in M if x != short and short in x]
         for lg in longer:
             assert len(short) < len(lg)
-            assert M[short] == M[lg] or True   # 코드는 달라도 된다(다른 실체)
+            # 🔴201차 — 여기 있던 `assert M[short] == M[lg] or True`를 지웠다.
+            #   `or True`가 붙어 **항상 통과**했다 — 무엇도 재지 않는 단언이다.
+            #   뜻은 주석으로 충분하다: **코드는 달라도 된다**(다른 실체이므로).
+            #   실제 검사는 바로 아래 「긴 이름부터 바꾸는가」가 한다.
         # 긴 이름부터 바꾸는지 직접 확인한다
         for lg in longer:
             assert cdsp.scrub(lg) == M[lg], (
@@ -11488,6 +11491,98 @@ def test_200cha_tests_are_not_deleted_or_skipped_into_passing():
     # ── ⑥ 경위가 남아 있는가 ────────────────────────────────────────
     design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
     assert "200차 — 1절의 마지막 한 줄" in design
+
+
+def test_201cha_mutation_run_is_required_not_customary():
+    """201차 — **매 차수 뮤테이션**을 관례에서 **요구**로 바꾼다(점검 3위 대응).
+
+    🔴 3위(*"가드가 실측 추종으로 기운다"*)의 대응책은 189차 이래 *"분산 + 매 차수
+    뮤테이션"*이었다. 그런데 **뮤테이션은 관례일 뿐 아무도 강제하지 않았다** —
+    한 차수만 빠뜨려도 그 차수의 가드가 **헛도는지 아무도 모른다**.
+
+    🔴 **닫지 않는다.** 3위는 *경향*이고 경향은 닫히지 않는다. 201차가 한 것은
+    **대응책을 기계가 요구하게** 만든 것뿐이다.
+
+    ⚠️ **못 재는 것을 적어 둔다**: 이 가드는 *"적혀 있는가"*를 잴 뿐
+    *"돌렸는가"*를 재지 못한다. 적어 놓고 안 돌리면 잡히지 않는다.
+    """
+    import os as _o, io as _io, ast as _ast, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    # ── ① 최신 5개 차수가 **뮤테이션을 기록했는가** ─────────────────
+    led = rd("작업지시서.md")
+    body = led[led.index("## 갱신 이력"):]
+    blocks = _re.split(r"(?=^- \*\*2026-\d\d-\d\d \d+차\*\*)", body,
+                       flags=_re.M)[1:]
+    assert len(blocks) >= 5, f"🔴 갱신 이력 항목이 {len(blocks)}개다"
+    for b in blocks[:5]:
+        cha = _re.match(r"- \*\*2026-\d\d-\d\d (\d+)차\*\*", b).group(1)
+        got = _re.findall(r"뮤테이션 \*{0,2}(\d+)/(\d+)", b)
+        assert got, (
+            f"🔴 {cha}차 기록에 **뮤테이션 성적이 없다** — 매 차수 뮤테이션은 "
+            "점검 3위의 대응책이다. 빠뜨리면 그 차수의 가드가 **헛도는지 아무도 "
+            "모른다**. 돌리고 적으라")
+        for a, t in got:
+            assert a == t, (
+                f"🔴 {cha}차 뮤테이션이 {a}/{t}다 — **빠져나간 것이 남은 채** "
+                "차수가 닫혔다. 조이고 다시 재라")
+
+    # ── ② 고정 수가 **헐거워지지 않았는가**(하한) ───────────────────
+    FLOOR = 190
+    pinned = 0
+    for f in sorted(_o.listdir(repo)):
+        if not (f.startswith("test_") and f.endswith(".py")):
+            continue
+        for n in _ast.walk(_ast.parse(rd(f))):
+            if not isinstance(n, _ast.Assert):
+                continue
+            for c in _ast.walk(n.test):
+                if not (isinstance(c, _ast.Compare)
+                        and isinstance(c.left, _ast.Call)
+                        and getattr(c.left.func, "id", "") == "len"):
+                    continue
+                pinned += sum(
+                    1 for x in c.comparators
+                    if isinstance(x, _ast.Constant) and isinstance(x.value, int))
+    assert pinned >= FLOOR, (
+        f"🔴 수를 고정한 단언이 {pinned}곳이다 — 201차 하한은 {FLOOR}곳이다. "
+        "줄었다면 **고정이 헐거워진 것**이니 왜 뺐는지 적고 하한을 낮추라. "
+        "늘어난 것은 갱신할 필요가 없다")
+
+    # ── 🔴 **개수만 세면 무력화를 놓친다.** `assert 1 or len(x) == 4`는 고정 수를
+    #    그대로 둔 채 단언을 **헛돌게** 만든다(뮤테이션 M8이 그 길이었다).
+    #    상수 참을 `or`로 붙인 단언은 **항상 통과**하므로 0이어야 한다.
+    vacuous = []
+    for f in sorted(_o.listdir(repo)):
+        if not (f.startswith("test_") and f.endswith(".py")):
+            continue
+        for n in _ast.walk(_ast.parse(rd(f))):
+            if not (isinstance(n, _ast.Assert)
+                    and isinstance(n.test, _ast.BoolOp)
+                    and isinstance(n.test.op, _ast.Or)):
+                continue
+            for v in n.test.values:
+                if isinstance(v, _ast.Constant) and v.value:
+                    vacuous.append((f, n.lineno))
+    assert not vacuous, (
+        f"🔴 **항상 통과하는 단언**이 있다: {vacuous} — 상수 참을 `or`로 붙이면 "
+        "고정 수는 그대로인데 **아무것도 재지 않는다**. 1절은 *「테스트를 지우거나 "
+        "skip으로 바꿔 통과시키지 않는다」*고 한다 — 이것도 같은 일이다")
+
+    # ── ③ 대장이 **재측정과 한계**를 적고 있는가 ────────────────────
+    ledger = rd("근거_자기점검대장_20260922.md")
+    for frag in ("3위 재측정 2", "이유 없이 따라간 것은 0줄",
+                 "두 수를 한 자리에 놓고 읽지 말 것",
+                 "경향은 닫히지 않는다",
+                 "적혀 있는가", "돌렸는가"):
+        assert frag in ledger, (
+            f"🔴 대장에서 「{frag}」가 사라졌다 — **재측정의 근거와 한계**가 없으면 "
+            "다음 사람이 이 수를 **닫힌 것으로** 읽는다")
+    m = _re.search(r"\|\s*\*\*3위\*\*\s*\|(.+)", ledger)
+    assert m and "열린 채 관리" in m.group(1), (
+        "🔴 3위가 **닫힘**으로 바뀌었다 — 201차가 한 것은 **대응책을 기계가 요구하게** "
+        "만든 것뿐이고, 경향 자체를 닫은 것이 아니다")
 
 
 if __name__ == "__main__":
