@@ -388,7 +388,7 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
     cash_flow = ec["operating_cash_flow"]
     be = e.operating_breakeven(ec["opex"], ec["price"])
     flags = _prov_flags(case)
-    _a = ec["assumptions"]["values"]   # 196차 — 가정을 표에서 읽어 쓴다
+    _assum = rr.assumption_html(ec)   # 197차 — 표기는 render_report 한 곳에서 만든다
 
     # ── 표지 + 경영자 요약 ──
     flags_html = "".join(
@@ -412,9 +412,7 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
       <div class="kpi highlight"><div class="kpi-label">NPV(10y·5%) · IRR</div>
         <div class="kpi-value">{ec['npv']/1e8:,.2f}억 · {f"{ec['irr']*100:.1f}%" if ec['irr'] is not None else ">100%"}</div></div>
     </div>
-    <div class="note warn" style="margin-top:10px">
-      🔴 <b>할인율 {_a["discount_rate"]:.0%} · 평가기간 {_a["years"]}년 · 감가상각 내용연수 {_a["useful_life"]}년은 주입되지 않은 엔진 기본값</b>이다 — 케이스에 이 셋을 주입하는 자리가 없다. <b>NPV·IRR은 이 셋이 바뀌면 함께 바뀐다</b>(엔진 실측: 할인율 0.05→0.03이면 NPV 427,042,081 → 545,256,258, 평가기간 10→20년이면 IRR 16.2% → 20.3%). 할인율은 <b>시세성</b>이라 1절상 주입 전용이고, 평가기간은 관행, 내용연수는 법정 범위의 <b>하한</b>이다.
-    </div>
+    <div class="note warn" style="margin-top:10px">{_assum}</div>
     <p class="note">손익분기 매출 {be.breakeven_revenue_won:,.0f}원(=연간 OPEX) · 손익분기 생산량 {be.breakeven_kg:,.0f}kg —
       CAPEX 회수(Payback)와 별개로 '그 해 매출이 운영비를 커버하는 지점'만 본다.</p>
     <h2 style="margin-top:16px">확인 필요 항목 ({len(flags)}건)</h2>

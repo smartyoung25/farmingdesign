@@ -40,8 +40,13 @@ def compute(inp: FarmInput) -> dict:
     # ── 경제성: 생산·매출·손익·투자지표
     prod = e.production_kg(inp.area_m2, inp.base_yield_kg_m2, inp.fitness_pct)
     revenue = e.revenue_won(prod, inp.price_won_per_kg)
+    # 🔴197차 — **주입된 것만** 넘긴다. 주지 않은 것은 엔진 기본값이 쓰이고,
+    #   무엇이 주입됐는지는 아래 `assumptions.injected`가 키별로 드러낸다.
+    _asm = {"useful_life": inp.useful_life, "discount_rate": inp.discount_rate,
+            "years": inp.evaluation_years}
     fin = e.finance(revenue, inp.opex, inp.total_construction_cost,
-                    subsidy_rate=inp.subsidy_rate)
+                    subsidy_rate=inp.subsidy_rate,
+                    **{k: v for k, v in _asm.items() if v is not None})
 
     return {
         "meta": {
@@ -97,11 +102,14 @@ def compute(inp: FarmInput) -> dict:
             #   주입하는 자리가 없어 **엔진 기본값이 그대로 쓰인다** — 그 사실을
             #   산출물이 말하지 않으면 읽는 사람은 **확정값으로 읽는다**.
             "assumptions": {
-                "values": dict(e.FINANCE_DEFAULTS),
-                "injected": False,
-                "note": ("할인율·평가기간·감가상각 내용연수는 **주입되지 않았다** — "
-                         "엔진 기본값이다. 할인율은 **시세성**이라 1절상 주입 전용이고, "
-                         "평가기간은 관행, 내용연수는 범위의 하한이다. "
+                "values": {k: (_asm[k] if _asm[k] is not None
+                               else e.FINANCE_DEFAULTS[k])
+                           for k in e.FINANCE_DEFAULTS},
+                # 🔴197차 — **키별 진실**이다. 종전엔 `False` 하나였는데, 주입 자리가
+                #   열린 지금은 *「무엇이 주입됐고 무엇이 기본값인가」*를 가려야 한다.
+                "injected": {k: _asm[k] is not None for k in e.FINANCE_DEFAULTS},
+                "note": ("할인율은 **시세성**이라 1절상 주입 전용이고, 평가기간은 관행, "
+                         "내용연수는 법정 범위의 하한이다. "
                          "**NPV·IRR은 이 셋이 바뀌면 함께 바뀐다.**"),
             },
         },
@@ -113,6 +121,30 @@ def compute(inp: FarmInput) -> dict:
 # ─────────────────────────────────────────────────────────────
 # 2) 렌더: 결과 dict → 자체완결형 HTML (계산 로직 없음)
 # ─────────────────────────────────────────────────────────────
+_ASSUM_LABEL = {"discount_rate": "할인율", "years": "평가기간",
+                "useful_life": "감가상각 내용연수"}
+
+
+def assumption_html(ec: dict) -> str:
+    """197차 — NPV가 선 세 가정을 **주입/기본값까지** 한 줄로 낸다.
+
+    🔴 표기를 **두 곳에서 따로 쓰지 않는다** — 통합보고서와 4축 리포트가 이 함수를
+    함께 쓴다. 문구가 갈라지면 한쪽만 고쳐지는 날이 온다(192차 교훈).
+    """
+    a, inj = ec["assumptions"]["values"], ec["assumptions"]["injected"]
+    fmt = {"discount_rate": lambda v: f"{v:.0%}",
+           "years": lambda v: f"{v}년", "useful_life": lambda v: f"{v}년"}
+    parts = []
+    for k in ("discount_rate", "years", "useful_life"):
+        tag = "주입" if inj[k] else "주입되지 않은 엔진 기본값"
+        parts.append(f"{_ASSUM_LABEL[k]} <b>{fmt[k](a[k])}</b>[{tag}]")
+    tail = ("" if all(inj.values()) else
+            " 엔진 실측: 할인율 0.05→0.03이면 NPV 427,042,081 → 545,256,258, "
+            "평가기간 10→20년이면 IRR 16.2% → 20.3%.")
+    return ("🔴 <b>NPV·IRR은 세 가정 위에 선다</b> — " + " · ".join(parts) + "."
+            + tail + " " + ec["assumptions"]["note"].replace("**", ""))
+
+
 def _won(x) -> str:
     return f"{x:,.0f}원" if x is not None else "N/A"
 
@@ -135,7 +167,7 @@ def render_html(res: dict) -> str:
     h = res["heating"]
     c = res["construction"]
     ec = res["economics"]
-    _a = ec["assumptions"]["values"]   # 196차 — 가정을 표에서 읽어 쓴다
+    _assum = assumption_html(ec)   # 197차 — 표기는 한 곳에서 만든다
     esc = html.escape
 
     forms_rows = "".join(
@@ -278,9 +310,7 @@ def render_html(res: dict) -> str:
         <div class="kpi-value">{_pct(ec['irr'])}</div></div>
       {real_roi_block}
     </div>
-    <div class="note warn" style="margin-top:10px">
-      🔴 <b>할인율 {_a["discount_rate"]:.0%} · 평가기간 {_a["years"]}년 · 감가상각 내용연수 {_a["useful_life"]}년은 주입되지 않은 엔진 기본값</b>이다 — 케이스에 이 셋을 주입하는 자리가 없다. <b>NPV·IRR은 이 셋이 바뀌면 함께 바뀐다</b>(엔진 실측: 할인율 0.05→0.03이면 NPV 427,042,081 → 545,256,258, 평가기간 10→20년이면 IRR 16.2% → 20.3%). 할인율은 <b>시세성</b>이라 1절상 주입 전용이고, 평가기간은 관행, 내용연수는 법정 범위의 <b>하한</b>이다.
-    </div>
+    <div class="note warn" style="margin-top:10px">{_assum}</div>
   </section>
 
   <div class="note">

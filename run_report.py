@@ -6,6 +6,7 @@ SmartFarm 4축 리포트 실행 스크립트
 """
 import smartfarm_engine as e
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -27,6 +28,15 @@ class FarmInput:
     opex: float
     total_construction_cost: float
     subsidy_rate: float = 0.0
+    # 🔴197차 — **주입할 자리를 연다.** 1절은 시세성 값을 *「인자로 주입만 받는다」*고
+    #   하는데, 재무 세 가정은 **주입할 방법이 없었다**(엔진을 고쳐야 바뀌었다).
+    #   196차가 산출물에 *「주입되지 않았다」*고 적어 두었으니 읽는 사람은 **주입하면
+    #   된다고 생각한다** — 그 간극을 메운다.
+    #   ⚠️ 기본은 `None`이고 그때는 `FINANCE_DEFAULTS`가 쓰인다 — **기존 케이스 3건은
+    #   이 키를 두지 않으므로 산출물 수치는 한 자리도 바뀌지 않는다.**
+    discount_rate: Optional[float] = None      # ⚠️시세성(금리 연동) — 주입 전용
+    useful_life: Optional[int] = None          # 감가상각 내용연수(판단성)
+    evaluation_years: Optional[int] = None     # NPV·IRR 평가기간(관행)
 
 
 def build_report(inp: FarmInput) -> str:

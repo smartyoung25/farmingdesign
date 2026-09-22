@@ -11091,7 +11091,10 @@ def test_196cha_registry_names_exist_and_assumptions_are_disclosed():
     ec = rr.compute(case_to_input(
         [x for x in load_cases() if not x.get("partial")][0]))["economics"]
     assert ec["assumptions"]["values"] == e.FINANCE_DEFAULTS
-    assert ec["assumptions"]["injected"] is False
+    # 🔴197차에 주입 자리가 열려 `injected`가 **키별 진실**이 됐다. 오늘의 실측은
+    #   셋 다 **미주입**이고, 주입이 들어오면 표기가 따라 바뀌는지는 197차 가드가 잰다.
+    assert ec["assumptions"]["injected"] == {k: False for k in e.FINANCE_DEFAULTS}, (
+        f"🔴 미주입 케이스인데 injected가 {ec['assumptions']['injected']}다")
     pages = (sorted(_g.glob(_o.path.join(repo, "SmartFarm_리포트_*.html")))
              + sorted(_g.glob(_o.path.join(repo, "SmartFarm_통합보고서_*.html"))))
     assert len(pages) == 6, f"🔴 NPV가 실리는 페이지가 {len(pages)}건이다 — 실측은 6이다"
@@ -11100,8 +11103,12 @@ def test_196cha_registry_names_exist_and_assumptions_are_disclosed():
         assert "주입되지 않은 엔진 기본값" in h, (
             f"🔴 {_o.path.basename(p)}에 **가정 표기**가 없다 — NPV·IRR이 실리는데 "
             "그 수가 무엇 위에 섰는지 말하지 않으면 **확정값으로 읽힌다**")
-        assert "할인율 5%" in h and "평가기간 10년" in h and "내용연수 15년" in h, (
-            f"🔴 {_o.path.basename(p)}의 가정 표기에서 값이 빠졌다")
+        for frag in ("할인율 <b>5%</b>[주입되지 않은 엔진 기본값]",
+                     "평가기간 <b>10년</b>[주입되지 않은 엔진 기본값]",
+                     "감가상각 내용연수 <b>15년</b>[주입되지 않은 엔진 기본값]"):
+            assert frag in h, (
+                f"🔴 {_o.path.basename(p)}의 가정 표기에서 「{frag}」가 빠졌다 — "
+                "값과 **주입 여부**가 함께 있어야 한다(197차에 자리가 열렸다)")
 
     # ── ⑦ 경위가 남아 있는가 ────────────────────────────────────────
     assert "**상수로 승격**했다(105차 선례)" in (
@@ -11110,6 +11117,94 @@ def test_196cha_registry_names_exist_and_assumptions_are_disclosed():
         "다음 사람이 다시 서명 리터럴로 되돌린다")
     design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
     assert "196차 — 등재명이 엔진에 없었다" in design
+
+
+def test_197cha_finance_assumptions_can_actually_be_injected():
+    """197차 — 재무 세 가정을 **주입할 수 있는가**, 그리고 표기가 따라 바뀌는가.
+
+    🔴 1절은 시세성 값을 *"인자로 주입만 받는다"*고 하는데, 할인율·평가기간·
+    내용연수는 **주입할 자리가 없었다** — 바꾸려면 엔진을 고쳐야 했다.
+    196차가 산출물에 *"주입되지 않았다"*고 적어 두었으니 읽는 사람은
+    **주입하면 된다고 생각한다**. 그 간극을 메운 것이 197차다.
+
+    🔴 **문구만 보면 헛돈다.** 합성 입력으로 **실제로 주입해 보고**
+    ①엔진에 전달되어 결과가 바뀌는가 ②표기가 `[주입]`으로 바뀌는가
+    ③주지 않은 것은 여전히 기본값이라 말하는가를 **함께** 잰다.
+    """
+    import os as _o, sys as _s, dataclasses as _dc
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import render_report as rr
+    from cases import load_cases, case_to_input
+
+    inp = case_to_input([x for x in load_cases() if not x.get("partial")][0])
+
+    # ── ① 자리가 있는가 ─────────────────────────────────────────────
+    names = {f.name for f in _dc.fields(inp)}
+    for k in ("discount_rate", "useful_life", "evaluation_years"):
+        assert k in names, (
+            f"🔴 `FarmInput`에 {k} 주입 자리가 없다 — 1절이 *「주입만 받는다」*고 "
+            "하는 값을 **주입할 방법이 없으면** 규칙이 실행되지 않는다")
+        assert getattr(inp, k) is None, (
+            f"🔴 {k}의 기본이 None이 아니다 — 기본값은 **엔진이** 갖는다"
+            "(`FINANCE_DEFAULTS`). 두 곳이 기본값을 가지면 또 갈라진다")
+
+    # ── ② 주입하면 **결과가 바뀌는가**(엔진까지 닿는가) ──────────────
+    base = rr.compute(inp)["economics"]
+    low = rr.compute(_dc.replace(inp, discount_rate=0.03))["economics"]
+    assert base["npv"] != low["npv"], (
+        "🔴 할인율을 주입해도 NPV가 그대로다 — 자리만 있고 **엔진에 닿지 않는다**")
+    assert base["roi"] == low["roi"], (
+        "🔴 할인율이 ROI를 움직였다 — 엔진 주석의 실측은 **NPV·IRR만** 움직인다는 "
+        "것이다. 움직였다면 계산 경로가 바뀐 것이니 멈추고 원인부터 찾으라")
+    yrs = rr.compute(_dc.replace(inp, evaluation_years=20))["economics"]
+    assert yrs["irr"] != base["irr"], "🔴 평가기간을 주입해도 IRR이 그대로다"
+    life = rr.compute(_dc.replace(inp, useful_life=20))["economics"]
+    assert life["roi"] != base["roi"], (
+        "🔴 내용연수를 주입해도 ROI가 그대로다 — 엔진 주석은 이것만 회귀 3지표를 "
+        "움직인다고 적는다")
+
+    # ── ③ **주지 않은 것은 여전히 기본값**이라 말하는가 ─────────────
+    a = low["assumptions"]
+    assert a["values"]["discount_rate"] == 0.03, "🔴 주입값이 표에 반영되지 않는다"
+    assert a["values"]["years"] == e.FINANCE_DEFAULTS["years"]
+    assert a["injected"] == {"useful_life": False, "discount_rate": True,
+                             "years": False}, (
+        f"🔴 injected가 {a['injected']}다 — **키별 진실**이어야 한다. 하나를 "
+        "주입했다고 셋 다 주입으로 적으면 **거짓말이 된다**")
+
+    # ── ④ 표기가 따라 바뀌는가(한 곳에서 만들어 두 면이 같이 쓴다) ──
+    html_base = rr.assumption_html(base)
+    html_low = rr.assumption_html(low)
+    assert "할인율 <b>5%</b>[주입되지 않은 엔진 기본값]" in html_base
+    assert "할인율 <b>3%</b>[주입]" in html_low, (
+        f"🔴 주입했는데 표기가 그대로다: {html_low[:120]}")
+    assert "평가기간 <b>10년</b>[주입되지 않은 엔진 기본값]" in html_low, (
+        "🔴 주입하지 않은 항목까지 **주입으로 적었다**")
+    bs = open(_o.path.join(repo, "build_site.py"), encoding="utf-8").read()
+    assert "rr.assumption_html(ec)" in bs, (
+        "🔴 통합보고서가 **제 문구를 따로** 만든다 — 두 곳에서 쓰면 한쪽만 고쳐지는 "
+        "날이 온다(192차 교훈). 표기는 `render_report`가 한 곳에서 만든다")
+
+    # ── ⑤ 셋 다 주입되면 **민감도 문구는 빠진다**(쓸모가 없다) ───────
+    allin = rr.compute(_dc.replace(inp, discount_rate=0.03, useful_life=20,
+                                   evaluation_years=20))["economics"]
+    h = rr.assumption_html(allin)
+    assert "[주입되지 않은" not in h and "427,042,081" not in h, (
+        "🔴 셋 다 주입됐는데 여전히 **기본값 민감도**를 설명한다 — 읽는 사람이 "
+        "자기 값이 아닌 수를 보게 된다")
+
+    # ── ⑥ 기존 케이스는 **하나도 주입하지 않는다**(수치 불변의 근거) ─
+    for c in load_cases():
+        if c.get("partial"):
+            continue
+        got = {k: v for k, v in c["input"].items()
+               if k in ("discount_rate", "useful_life", "evaluation_years")}
+        assert not got, (
+            f"🔴 {c['case_id']}가 재무 가정을 주입한다: {got} — 197차는 **자리만 열었고 "
+            "값은 넣지 않았다**. 넣으려면 근거와 함께 별도 차수로 하라")
 
 
 if __name__ == "__main__":
