@@ -6089,9 +6089,23 @@ class FinanceResult:
 #      · discount_rate·years는 ROI·Payback·실질ROI에 **영향 0**이고 NPV·IRR만 움직인다
 #        (dr 0.05→0.03 시 NPV 427,042,081→545,256,258 / years 10→20 시 IRR 16.2%→20.3%).
 #      상세: 근거_미검증상수_재조사_20260819.md
+#
+# 🔴 196차 — **이름을 실재하게 만든다**(105차 선례). 레지스트리는 `FINANCE_DEFAULTS`를
+#   **상수로 등재**하고 있었는데 엔진에는 **그 이름이 없었다** — 세 값이 `finance()`·
+#   `max_investable_capex()`의 **기본인자 리터럴로만** 있었다. 이름이 없으면
+#   근거대장이 가리키는 값을 **아무도 대조할 수 없다**(등재명 65개 중 6개가 그랬다).
+#   ⚠️ **값은 바꾸지 않는다** — 서명의 리터럴을 여기로 옮길 뿐이고 결과는 동일하다.
+FINANCE_DEFAULTS: dict = {
+    "useful_life": 15,      # 법인세법 [별표5] 제3호 범위 15~25의 **하한**(판단성)
+    "discount_rate": 0.05,  # ⚠️ **시세성** — 1절상 주입 전용. 중립 출발점일 뿐이다
+    "years": 10,            # 평가기간 **관행**(판단성) — 법정 근거가 없다
+}
+
+
 def finance(revenue: float, opex: float, capex: float,
-            useful_life: int = 15, discount_rate: float = 0.05,
-            years: int = 10, subsidy_rate: float = 0.0,
+            useful_life: int = FINANCE_DEFAULTS["useful_life"],
+            discount_rate: float = FINANCE_DEFAULTS["discount_rate"],
+            years: int = FINANCE_DEFAULTS["years"], subsidy_rate: float = 0.0,
             land_cost: float = 0.0) -> FinanceResult:
     """land_cost(2026-07-16 추가, 기본 0 — 기존 호출 결과 불변): capex에 포함된
     부지 매입비(CAPEX_MAJOR_CATEGORIES의 13번). 토지는 감가상각 대상이 아니므로
@@ -6277,9 +6291,9 @@ def max_investable_capex(revenue: float, opex: float,
                          loan_grace_years: int = 0,
                          loan_method: str = "원리금균등",
                          current_capex_won: Optional[float] = None,
-                         useful_life: int = 15,
-                         discount_rate: float = 0.05,
-                         years: int = 10,
+                         useful_life: int = FINANCE_DEFAULTS["useful_life"],
+                         discount_rate: float = FINANCE_DEFAULTS["discount_rate"],
+                         years: int = FINANCE_DEFAULTS["years"],
                          land_cost: float = 0.0) -> MaxCapexResult:
     """지정한 재무 제약을 전부 만족하는 **CAPEX 상한**을 역산한다.
 

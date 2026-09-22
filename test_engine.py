@@ -10992,6 +10992,126 @@ def test_195cha_self_check_ledger_matches_reality():
         "고정 수를 올린 것이다. 수만 보고 판단하게 두면 안 된다")
 
 
+def test_196cha_registry_names_exist_and_assumptions_are_disclosed():
+    """196차 — 레지스트리 **등재명이 엔진에 실재하는가**, 그리고 NPV가 선 **가정**을
+    산출물이 말하는가.
+
+    🔴 `FINANCE_DEFAULTS`는 레지스트리에 **상수로 등재**돼 있었는데 엔진에는
+    **그 이름이 없었다** — 세 값이 `finance()`의 **기본인자 리터럴로만** 있었다.
+    이름이 없으면 근거대장이 가리키는 값을 **아무도 대조할 수 없다**(105차와 같은 계열).
+    등재명 65개 중 **6개**가 그랬고, 196차에 하나를 **상수로 승격**해 5개가 됐다.
+
+    🔴 **남은 5개는 설계된 예외다.** 목록만 두면 그것이 문이 되므로
+    **예외마다 무엇으로 대신 확인되는지**를 함께 재서, 대신할 것이 사라지면 실패한다.
+
+    🔴 그리고 **NPV·IRR은 세 가정 위에 선다.** 케이스 어디에도 이 셋을 주입하는
+    자리가 없어 **엔진 기본값이 그대로 쓰인다** — 산출물이 그 사실을 말하지 않으면
+    읽는 사람은 **확정값으로 읽는다**.
+    """
+    import os as _o, sys as _s, io as _io, json as _j, ast as _ast, glob as _g
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import render_report as rr
+    from cases import load_cases, case_to_input
+
+    rd = lambda n: _io.open(_o.path.join(repo, n), encoding="utf-8").read()
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))
+
+    # ── ① 등재명이 엔진에 실재하는가 ────────────────────────────────
+    #    예외마다 **무엇으로 대신 확인되는지**를 함께 둔다(192차 ALLOW 패턴).
+    EXC = {
+        "ACTUALS_COUNT": "ACTUALS의 건수 — 세어지는 값이라 이름이 따로 없다",
+        "SPEC_COUNT": "SPEC_TABLE의 종수 — 세어지는 값이다",
+        "OVERHEAD_RATES": "데이터클래스 `OverheadRates`로 있다(이름 형태가 다르다)",
+        "ENV_WEIGHTS": "`env_fitness()` **안의 상수**다 — 레지스트리가 그렇게 적는다",
+        "EQUIPMENT_DB_META": "값이 `기자재DB/` CSV에 있다 — 모듈 상수가 아니다",
+    }
+    absent = sorted(k for k in reg["constants"] if not hasattr(e, k))
+    assert absent == sorted(EXC), (
+        f"🔴 엔진에 이름이 없는 등재 상수가 {absent}다 — 선언한 예외는 {sorted(EXC)}다. "
+        "늘었다면 **근거대장이 대조할 수 없는 값**을 가리키고 있다는 뜻이고, "
+        "줄었다면 예외 선언을 지우라")
+    assert hasattr(e, "FINANCE_DEFAULTS"), (
+        "🔴 `FINANCE_DEFAULTS`가 다시 사라졌다 — 196차가 **상수로 승격**한 이름이다")
+
+    # ── ② 예외가 **대신 확인되는가**(목록만 믿지 않는다) ─────────────
+    assert len(e.ACTUALS) > 0 and len(e.SPEC_TABLE) > 0, (
+        "🔴 `ACTUALS`·`SPEC_TABLE`이 없으면 두 `_COUNT` 예외가 가리킬 것이 없다")
+    assert hasattr(e, "OverheadRates"), (
+        "🔴 `OverheadRates` 데이터클래스가 사라졌다 — `OVERHEAD_RATES` 예외의 근거다")
+    src = rd("smartfarm_engine.py")
+    fn = [n for n in _ast.parse(src).body
+          if isinstance(n, _ast.FunctionDef) and n.name == "env_fitness"]
+    assert fn and "0.5" in (_ast.get_source_segment(src, fn[0]) or ""), (
+        "🔴 `env_fitness()` 안의 가중치가 사라졌다 — `ENV_WEIGHTS` 예외의 근거다")
+    assert _o.path.isdir(_o.path.join(repo, "기자재DB")), (
+        "🔴 `기자재DB/`가 없다 — `EQUIPMENT_DB_META` 예외의 근거다")
+
+    # ── ③ 값은 바뀌지 않았는가(승격은 이동이지 변경이 아니다) ───────
+    assert e.FINANCE_DEFAULTS == {"useful_life": 15, "discount_rate": 0.05,
+                                  "years": 10}, (
+        f"🔴 `FINANCE_DEFAULTS`가 {e.FINANCE_DEFAULTS}다 — 196차는 **리터럴을 옮겼을 뿐**"
+        "이고 값은 15 · 0.05 · 10이다. 바꾸려면 회귀 벤치마크 재설정이 선행이다")
+    a = e.finance(1_000_000_000.0, 300_000_000.0, 700_000_000.0)
+    b = e.finance(1_000_000_000.0, 300_000_000.0, 700_000_000.0,
+                  useful_life=15, discount_rate=0.05, years=10)
+    assert (a.roi, a.payback_years, a.npv, a.irr) == (b.roi, b.payback_years,
+                                                      b.npv, b.irr), (
+        "🔴 기본값 호출과 명시 호출의 결과가 다르다 — 승격이 값을 움직였다")
+
+    # ── ④ 기본값이 **상수에서 오는가**(리터럴로 되돌아가면 실패) ─────
+    for name in ("finance", "max_investable_capex"):
+        node = [n for n in _ast.parse(src).body
+                if isinstance(n, _ast.FunctionDef) and n.name == name]
+        assert node, f"🔴 {name}()이 사라졌다"
+        dflt = " ".join(_ast.unparse(d) for d in node[0].args.defaults)
+        for k in ("useful_life", "discount_rate", "years"):
+            assert ("FINANCE_DEFAULTS[%s%s%s]" % (chr(39), k, chr(39))) in dflt                 or ('FINANCE_DEFAULTS["%s"]' % k) in dflt, (
+                f"🔴 {name}()의 {k} 기본값이 **다시 리터럴**이 됐다 — 그러면 "
+                "레지스트리가 가리키는 이름과 실제 쓰이는 값이 **또 갈라진다**")
+
+    # ── ⑤ 케이스가 세 값을 주입하지 않는가(0건이어야 표기가 참이다) ──
+    inj = []
+    for p in sorted(_g.glob(_o.path.join(repo, "cases", "*.json"))):
+        try:
+            c = _j.loads(open(p, encoding="utf-8").read() or "{}")
+        except ValueError:
+            continue
+        blob = _j.dumps(c, ensure_ascii=False)
+        for k in ("discount_rate", "useful_life", "evaluation_years"):
+            if k in blob:
+                inj.append((_o.path.basename(p), k))
+    assert not inj, (
+        f"🔴 케이스가 재무 가정을 주입하기 시작했다: {inj} — 산출물의 "
+        "*「주입되지 않은 엔진 기본값」* 표기가 **거짓이 된다**. 표기를 고치라")
+
+    # ── ⑥ 산출물이 그 사실을 말하는가 ───────────────────────────────
+    ec = rr.compute(case_to_input(
+        [x for x in load_cases() if not x.get("partial")][0]))["economics"]
+    assert ec["assumptions"]["values"] == e.FINANCE_DEFAULTS
+    assert ec["assumptions"]["injected"] is False
+    pages = (sorted(_g.glob(_o.path.join(repo, "SmartFarm_리포트_*.html")))
+             + sorted(_g.glob(_o.path.join(repo, "SmartFarm_통합보고서_*.html"))))
+    assert len(pages) == 6, f"🔴 NPV가 실리는 페이지가 {len(pages)}건이다 — 실측은 6이다"
+    for p in pages:
+        h = open(p, encoding="utf-8").read()
+        assert "주입되지 않은 엔진 기본값" in h, (
+            f"🔴 {_o.path.basename(p)}에 **가정 표기**가 없다 — NPV·IRR이 실리는데 "
+            "그 수가 무엇 위에 섰는지 말하지 않으면 **확정값으로 읽힌다**")
+        assert "할인율 5%" in h and "평가기간 10년" in h and "내용연수 15년" in h, (
+            f"🔴 {_o.path.basename(p)}의 가정 표기에서 값이 빠졌다")
+
+    # ── ⑦ 경위가 남아 있는가 ────────────────────────────────────────
+    assert "**상수로 승격**했다(105차 선례)" in (
+        reg["constants"]["FINANCE_DEFAULTS"]["source"]), (
+        "🔴 레지스트리에서 **승격 경위**가 사라졌다 — 왜 이름이 생겼는지 모르면 "
+        "다음 사람이 다시 서명 리터럴로 되돌린다")
+    design = rd("서비스설계_컨설팅_3대상x6단계_20260920.md")
+    assert "196차 — 등재명이 엔진에 없었다" in design
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

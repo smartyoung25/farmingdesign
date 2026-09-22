@@ -93,6 +93,17 @@ def compute(inp: FarmInput) -> dict:
             "subsidy_won": fin.subsidy_won,
             "self_funded_won": fin.self_funded_won,
             "operating_cash_flow": fin.operating_cash_flow,
+            # 🔴196차 — NPV·IRR은 **세 가정 위에 선다**. 케이스 어디에도 이 셋을
+            #   주입하는 자리가 없어 **엔진 기본값이 그대로 쓰인다** — 그 사실을
+            #   산출물이 말하지 않으면 읽는 사람은 **확정값으로 읽는다**.
+            "assumptions": {
+                "values": dict(e.FINANCE_DEFAULTS),
+                "injected": False,
+                "note": ("할인율·평가기간·감가상각 내용연수는 **주입되지 않았다** — "
+                         "엔진 기본값이다. 할인율은 **시세성**이라 1절상 주입 전용이고, "
+                         "평가기간은 관행, 내용연수는 범위의 하한이다. "
+                         "**NPV·IRR은 이 셋이 바뀌면 함께 바뀐다.**"),
+            },
         },
         "input_echo": {k: (val.value if hasattr(val, "value") else val)
                        for k, val in asdict(inp).items()},
@@ -124,6 +135,7 @@ def render_html(res: dict) -> str:
     h = res["heating"]
     c = res["construction"]
     ec = res["economics"]
+    _a = ec["assumptions"]["values"]   # 196차 — 가정을 표에서 읽어 쓴다
     esc = html.escape
 
     forms_rows = "".join(
@@ -265,6 +277,9 @@ def render_html(res: dict) -> str:
       <div class="kpi"><div class="kpi-label">IRR</div>
         <div class="kpi-value">{_pct(ec['irr'])}</div></div>
       {real_roi_block}
+    </div>
+    <div class="note warn" style="margin-top:10px">
+      🔴 <b>할인율 {_a["discount_rate"]:.0%} · 평가기간 {_a["years"]}년 · 감가상각 내용연수 {_a["useful_life"]}년은 주입되지 않은 엔진 기본값</b>이다 — 케이스에 이 셋을 주입하는 자리가 없다. <b>NPV·IRR은 이 셋이 바뀌면 함께 바뀐다</b>(엔진 실측: 할인율 0.05→0.03이면 NPV 427,042,081 → 545,256,258, 평가기간 10→20년이면 IRR 16.2% → 20.3%). 할인율은 <b>시세성</b>이라 1절상 주입 전용이고, 평가기간은 관행, 내용연수는 법정 범위의 <b>하한</b>이다.
     </div>
   </section>
 
