@@ -11695,6 +11695,123 @@ def test_202cha_assembly_layer_uses_the_case_assumptions():
     assert "202차 — 같은 리포트 안에 두 할인율" in design
 
 
+def test_203cha_readme_points_only_at_what_runs():
+    """203차 — **착수 문서가 실재하는 것만** 가리키는가.
+
+    🔴 인수인계 문서는 **이미 있었다**. 그런데 그것이 안내하는
+    `pip install flask` → `python app.py`는 **지금 돌지 않는다** —
+    `app.py`는 2026-07-17 이후 한 번도 고치지 않은 구버전이고 `flask`는 깔려 있지도
+    않다. **문서가 있는 것과 따라 할 수 있는 것은 다르다.**
+
+    🔴 **`README.md`도 곧 썩는다.** 그래서 여기 적은 주장을 **실제로 잰다**:
+    지목한 파일이 실재하는가 · *"핵심 경로는 외부 의존 0"*이 참인가 ·
+    `requirements.txt`가 **실제 import와 일치**하는가.
+
+    ⚠️ **버전은 재지 않는다** — 기계마다 달라 가드가 **환경 의존**이 된다.
+    이름 집합만 본다.
+    """
+    import os as _o, io as _io, ast as _ast, re as _re, sys as _sys
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    readme = rd("README.md")
+    reqs = rd("requirements.txt")
+
+    # ── ① README가 지목한 파일이 **실재하는가**(완전 일치 — 198차 자) ──
+    PAT = _re.compile("[0-9A-Za-z가-힣][0-9A-Za-z가-힣_" + chr(92)
+                      + "-.]{2,120}" + chr(92) + ".(?:py|md|txt|html)"
+                      + "(?![0-9A-Za-z_(])")
+    have = set()
+    for root, dirs, files in _o.walk(repo):
+        dirs[:] = [d for d in dirs
+                   if d not in (".git", "__pycache__", "node_modules")]
+        have.update(f.lower() for f in files)
+    cited = {m for m in PAT.findall(readme) if "*" not in m}
+    missing = sorted(c for c in cited if c.lower() not in have)
+    assert not missing, (
+        f"🔴 README가 없는 파일을 가리킨다: {missing} — 인수인계 문서가 낡아서 생긴 "
+        "일이 바로 이것이다(`app.py` 경로). 이름을 고치거나 파일을 넣으라")
+    assert len(cited) >= 12, (
+        f"🔴 README가 가리키는 파일이 {len(cited)}종뿐이다 — 착수 문서가 "
+        "**어디를 보라고 말하지 않는다**")
+
+    # ── ② 🔴 *"핵심 경로는 외부 의존 0"*이 **참인가** ────────────────
+    std = set(_sys.stdlib_module_names)
+
+    def _ext(entry):
+        seen, out, stack = set(), set(), [entry]
+        while stack:
+            m = stack.pop()
+            if m in seen:
+                continue
+            seen.add(m)
+            try:
+                src = rd(m + ".py")
+            except OSError:
+                continue
+            for n in _ast.walk(_ast.parse(src)):
+                names = []
+                if isinstance(n, _ast.Import):
+                    names = [a.name.split(".")[0] for a in n.names]
+                elif isinstance(n, _ast.ImportFrom) and n.level == 0 and n.module:
+                    names = [n.module.split(".")[0]]
+                for x in names:
+                    if x in std:
+                        continue
+                    if _o.path.exists(_o.path.join(repo, x + ".py")):
+                        stack.append(x)
+                    else:
+                        out.add(x)
+        return out
+
+    for entry in ("build_site", "audit_traceability"):
+        got = sorted(_ext(entry))
+        assert not got, (
+            f"🔴 `{entry}.py`가 외부 패키지 {got}를 쓴다 — README는 *「pip install 없이 "
+            "산출물이 나온다」*고 적는다. **주장이 거짓이 됐다**: 문서를 고치거나 "
+            "의존을 걷으라")
+    assert "pip install`이 필요 없다" in readme or "pip install` 없이" in readme, (
+        "🔴 README에서 **핵심 경로가 외부 의존 0이라는 사실**이 사라졌다 — "
+        "인수인계에서 가장 먼저 알아야 할 것이다")
+
+    # ── ③ `requirements.txt`가 **실제 import와 일치하는가** ─────────
+    PIPNAME = {"PIL": "pillow", "docx": "python-docx", "fontTools": "fonttools"}
+    EXC = {"flask": "`app.py`(구버전 Flask 웹앱)만 쓴다 — 현행 경로가 아니다"}
+    used = set()
+    for f in sorted(_o.listdir(repo)):
+        if f.endswith(".py"):
+            used |= _ext(f[:-3])
+    listed = {ln.split("==")[0].strip().lower()
+              for ln in reqs.split(chr(10))
+              if ln.strip() and not ln.strip().startswith("#")}
+    gap, used_exc = [], set()
+    for m in sorted(used):
+        if m in EXC:
+            used_exc.add(m)
+            continue
+        if PIPNAME.get(m, m).lower() not in listed:
+            gap.append(m)
+    assert not gap, (
+        f"🔴 코드가 쓰는데 `requirements.txt`에 없는 패키지: {gap} — 새 기계에서 "
+        "**그 테스트가 조용히 skip**되거나 실행이 깨진다")
+    assert used_exc == set(EXC), (
+        f"🔴 쓰이지 않는 제외 선언이 있다: {sorted(set(EXC) - used_exc)}")
+    for m in EXC:
+        assert m in reqs, (
+            f"🔴 `requirements.txt`에서 「{m}」 제외 선언이 통째로 사라졌다")
+        for frag in ("구버전", "webapp.py"):
+            assert frag in reqs, (
+                f"🔴 `requirements.txt`에서 「{m}」을 **왜 넣지 않았는지**(「{frag}」)가 "
+                "사라졌다 — 사유 없는 제외는 **빠뜨린 것과 구별되지 않는다**")
+
+    # ── ④ 낡은 경로가 **다시 권해지지 않는가** ──────────────────────
+    assert "app.py`는 현행 경로가 아니다" in readme, (
+        "🔴 README에서 **`app.py`가 현행이 아니라는 경고**가 사라졌다")
+    hand = rd("인수인계_스마트팜에이전트.md")
+    assert "이 문서는 낡았다" in hand and "README.md`를 볼 것" in hand, (
+        "🔴 인수인계 문서의 **낡음 표시**가 사라졌다 — 그 문서를 먼저 집는 사람이 "
+        "**2026-07 경로**로 간다. 지우지 말고 표시해 둘 것")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
