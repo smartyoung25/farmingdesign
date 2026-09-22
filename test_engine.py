@@ -3764,6 +3764,9 @@ def test_123cha_redteam24_corrections_are_recorded():
         "픽스처 상단의 사용자 결정 주석이 사라졌다 — 112차 ③")
 
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
+    # 🔴204차 — 차수 로그를 `차수로그.md`로 분리했다. 이 가드가 찾는 것은
+    #   **기록이 남아 있는가**이므로 **둘을 합쳐** 본다(착수점 + 이력).
+    order += open(_o.path.join(repo, "차수로그.md"), encoding="utf-8").read()
     assert "다음 이동에도 재발하지 않는다" not in order, (
         "2절 스냅샷에 폐기된 초안(ROOT 기준)이 되살아났다 — 24회차 F2")
     assert "드라이브를 또 옮기면 이 4곳이 다시 깨진다" in order, (
@@ -4164,6 +4167,9 @@ def test_128cha_pdf_guards_skip_instead_of_silently_passing(monkeypatch):
     import os as _o
     repo = _o.path.dirname(_o.path.abspath(__file__))
     order = open(_o.path.join(repo, "작업지시서.md"), encoding="utf-8").read()
+    # 🔴204차 — 차수 로그를 `차수로그.md`로 분리했다. 이 가드가 찾는 것은
+    #   **기록이 남아 있는가**이므로 **둘을 합쳐** 본다(착수점 + 이력).
+    order += open(_o.path.join(repo, "차수로그.md"), encoding="utf-8").read()
     assert "303 passed + 5 skipped" in order, (
         "2절 스냅샷에 **폰트·의존성 부재 시 기대치**가 없다 — 다른 기계에서 게이트를 "
         "돌린 사람이 숫자 불일치로 멈추거나, 반대로 skip을 정상으로 오인한다")
@@ -10257,7 +10263,8 @@ def test_189cha_self_check_findings_do_not_come_back():
     assert "출처가 있는 값을 없다고 적으면" in src, (
         "🔴 이 오류가 **어떤 종류인지**(없는 근거를 만드는 것과 방향만 반대) 적은 "
         "문장이 사라졌다")
-    led = rd("작업지시서.md")
+    # 🔴204차 — 이력은 `차수로그.md`로 옮겼다. **기록의 존재**를 보므로 둘을 합친다.
+    led = rd("작업지시서.md") + rd("차수로그.md")
     assert "~~**면책 5%·보상비율 0.95·지급 기한 30일은 벤치마크에서 유도한 값이 아니라" in led, (
         "🔴 작업지시서의 **취소선 정정**이 사라졌다 — 틀린 서술을 지우면 경위가 없어진다")
 
@@ -10965,7 +10972,8 @@ def test_195cha_self_check_ledger_matches_reality():
         assert kw in row.group(1), (
             f"🔴 {rk}위 행이 「{kw}」를 말하지 않는다 — **무엇으로 닫혔는지**가 "
             "행에 없으면 실제와 다른 경위가 적혀도 드러나지 않는다")
-    led_ji = rd("작업지시서.md")
+    # 🔴204차 — 차수 블록은 `차수로그.md`에 있다(착수점에는 두지 않는다).
+    led_ji = rd("차수로그.md")
     assert "한 줄 수정으로 전부 통과" in led_ji, (
         "🔴 처방을 **철회한 이유**가 작업지시서에서 사라졌다 — 이유가 없으면 "
         "다음 사람이 같은 처방을 다시 낸다")
@@ -11511,7 +11519,9 @@ def test_201cha_mutation_run_is_required_not_customary():
     rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
 
     # ── ① 최신 5개 차수가 **뮤테이션을 기록했는가** ─────────────────
-    led = rd("작업지시서.md")
+    # 🔴204차 — 차수 블록은 `차수로그.md`에 있다. 착수점에는 **포인터만** 있어
+    #   그쪽에서 세면 항목이 0개가 된다.
+    led = rd("차수로그.md")
     body = led[led.index("## 갱신 이력"):]
     blocks = _re.split(r"(?=^- \*\*2026-\d\d-\d\d \d+차\*\*)", body,
                        flags=_re.M)[1:]
@@ -11810,6 +11820,75 @@ def test_203cha_readme_points_only_at_what_runs():
     assert "이 문서는 낡았다" in hand and "README.md`를 볼 것" in hand, (
         "🔴 인수인계 문서의 **낡음 표시**가 사라졌다 — 그 문서를 먼저 집는 사람이 "
         "**2026-07 경로**로 간다. 지우지 말고 표시해 둘 것")
+
+
+def test_204cha_split_ledger_stays_single_sourced():
+    """204차 — 착수점과 **차수 로그**가 갈라지지 않는가.
+
+    🔴 `작업지시서.md`는 **970KB 중 799KB(82퍼센트)**가 차수 로그였다 — 매 세션이
+    **규칙 한 줄을 읽으려고 로그 전체를 읽었다**. 로그를 `차수로그.md`로 옮겼다.
+
+    🔴 **분할은 복제가 되기 쉽다.** 항목이 두 곳에 있으면 한쪽만 고쳐지는 날이
+    온다(179차 — 같은 집계가 두 문서에 있었고 값이 달랐다). 그래서
+    ①착수점에 **차수 항목 0건** ②번호 **중복 0 · 빠짐 0** ③**최신 차수가 두 곳에서
+    일치** ④착수점이 **다시 불어나지 않는가**를 잰다.
+    """
+    import os as _o, io as _io, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    ji, lg = rd("작업지시서.md"), rd("차수로그.md")
+    ENT = r"^- \*\*(\d{4}-\d\d-\d\d) (\d+)차\*\*"
+
+    # ── ① 로그가 **두 곳에 있지 않은가** ────────────────────────────
+    in_ji = _re.findall(ENT, ji, _re.M)
+    assert not in_ji, (
+        f"🔴 착수점에 차수 항목이 {len(in_ji)}건 있다 — 이력은 `차수로그.md` **한 곳**이다. "
+        "두 곳에 있으면 **한쪽만 고쳐지는 날**이 온다(179차 교훈)")
+    ent = _re.findall(ENT, lg, _re.M)
+    assert len(ent) >= 173, (
+        f"🔴 차수 로그 항목이 {len(ent)}건이다 — 204차 분리 시점 실측은 173건이다. "
+        "줄었다면 **이력이 사라진 것**이니 왜 지웠는지 적고 하한을 낮추라")
+
+    # ── ② 번호가 **중복·빠짐 없이** 이어지는가 ──────────────────────
+    nums = [int(n) for _, n in ent]
+    assert len(nums) == len(set(nums)), (
+        f"🔴 차수 번호가 중복된다: "
+        f"{sorted(n for n in set(nums) if nums.count(n) > 1)}")
+    gaps = sorted(set(range(min(nums), max(nums) + 1)) - set(nums))
+    assert not gaps, (
+        f"🔴 차수 번호가 빠졌다: {gaps} — 분할·편집 중 **항목이 유실됐다**는 뜻이다")
+    # ⚠️ **순서는 요구하지 않는다** — 153차↔154차가 실제로 역전돼 있고(둘 다
+    #    2026-09-19) 기록 당시의 순서다. 고치면 **내용을 바꾸는 것**이라 그대로 둔다.
+    assert "순서 역전이 1건" in lg, (
+        "🔴 로그 머리에서 **순서 역전 1건**이라는 실측 기록이 사라졌다 — 적어 두지 "
+        "않으면 다음 사람이 **유실로 오인**한다")
+
+    # ── ③ 🔴 **최신 차수가 두 곳에서 일치하는가** ───────────────────
+    head = _re.search(r"최종 갱신: (\d{4}-\d\d-\d\d) (\d+)차", ji)
+    assert head, "🔴 착수점 머리의 「최종 갱신」 줄을 찾을 수 없다"
+    assert int(head.group(2)) == max(nums), (
+        f"🔴 착수점은 {head.group(2)}차라 적고 로그의 최신은 {max(nums)}차다 — "
+        "**두 문서가 갈라졌다**. 차수를 닫을 때 둘 다 갱신하라")
+    ptr = _re.search(r"최신 차수\*\*: \*\*(\d+)차", ji)
+    assert ptr and int(ptr.group(1)) == max(nums), (
+        f"🔴 착수점의 포인터가 가리키는 최신 차수가 로그와 다르다")
+
+    # ── ④ 착수점이 **다시 불어나지 않는가**(상한) ───────────────────
+    CAP = 300
+    kb = len(ji.encode("utf-8")) // 1024
+    assert kb <= CAP, (
+        f"🔴 착수점이 {kb}KB다 — 상한은 {CAP}KB다(분리 직후 171KB). "
+        "로그가 **다시 섞였거나** 본문이 로그처럼 자라고 있다")
+
+    # ── ⑤ 포인터와 관례가 **실재하는 곳**을 가리키는가 ──────────────
+    assert "`차수로그.md`" in ji, "🔴 착수점에 로그 포인터가 없다"
+    assert _o.path.exists(_o.path.join(repo, "차수로그.md"))
+    cm = rd("CLAUDE.md")
+    assert "차수로그.md" in cm and "갱신 이력" in cm, (
+        "🔴 `CLAUDE.md` 작업 관례가 여전히 **옛 자리**를 가리킨다 — 다음 차수가 "
+        "착수점에 항목을 적어 **분할이 되돌아간다**")
+    assert "차수로그.md" in rd("README.md"), (
+        "🔴 README 문서 지도에서 `차수로그.md`가 빠졌다")
 
 
 if __name__ == "__main__":
