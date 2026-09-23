@@ -11295,8 +11295,10 @@ def test_198cha_code_pointers_to_documents_resolve():
     assert used == set(EXC), (
         f"🔴 쓰이지 않는 예외가 있다: {sorted(set(EXC) - used)} — 인용이 사라졌다면 "
         "예외도 지우라")
-    assert len(cited) == 44, (
-        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종이다. "
+    # 🔴211차 — `gen_ia.py`가 `IA_20260924.md`를 인용해 44→45가 됐다.
+    #    실재 확인함(이 가드의 앞 절이 파일 존재를 이미 잰다).
+    assert len(cited) == 45, (
+        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종 · 211차에 45종이 됐다. "
         "늘었다면 **새 인용이 실재하는지** 방금 확인한 것이고, 줄었다면 인용이 "
         "사라진 것이니 어느 쪽인지 적고 갱신하라")
 

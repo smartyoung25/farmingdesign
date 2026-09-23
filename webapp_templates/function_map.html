@@ -1,0 +1,55 @@
+{% extends "_base.html" %}
+{% set active = "functions" %}
+{% block title %}기능 지도{% endblock %}
+{% block main %}
+  <style>
+    .fn { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:16px 18px; margin-bottom:12px; }
+    .fn > h2 { font-size:15px; font-weight:500; margin-bottom:2px; }
+    .fn > h2 .id { font-family:ui-monospace,Consolas,monospace; font-size:12px;
+                   color:var(--green); margin-right:8px; }
+    .fn > .d { font-size:12.5px; color:var(--sub); margin-bottom:12px; }
+    .dgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr)); gap:8px; }
+    .d1 { border:1px solid var(--line); border-radius:9px; padding:9px 12px; }
+    .d1 .c { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; color:var(--green); }
+    .d1 .t { font-size:13px; font-weight:500; }
+    .d1 .w { font-size:11.5px; color:var(--sub); line-height:1.45; margin-top:3px; }
+    .d1 .s { font-size:11px; color:var(--mut); margin-top:3px; }
+    .gap { border:1px dashed #D9B9B9; background:#FDF6F6; border-radius:9px; padding:9px 12px; }
+    .gap .t { font-size:13px; font-weight:500; color:#791F1F; }
+    .gap .w { font-size:11.5px; color:#8A4A4A; line-height:1.45; margin-top:3px; }
+    .cnt { float:right; font-size:12px; color:var(--mut); font-weight:400; }
+  </style>
+  <div class="top"><h1>기능 지도</h1>
+    <div class="actions"><a class="btn" href="/">케이스</a></div></div>
+  <div class="subtitle">벤치마킹 문서의 기능 축으로 산출물 {{ ix.total }}종을 묶었다 —
+    <b>분류이지 판정이 아니다</b>(순위·등급·추천 없음)</div>
+  <div class="banner">출처: {{ ix.source }}</div>
+
+  {% for r in ix.rows %}
+  <div class="fn" id="{{ r.fn }}">
+    <h2><span class="id">{{ r.fn }}</span>{{ r.name }}
+      <span class="cnt">산출물 {{ r.docs | length }}종{% if r.gaps %} · 없는 것 {{ r.gaps | length }}건{% endif %}</span></h2>
+    <div class="d">{{ r.desc }}</div>
+    <div class="dgrid">
+      {% for i in r.docs %}
+      <div class="d1"><span class="c">{{ i.code }}</span>
+        <span class="t">{{ i.title }}</span>
+        <div class="w">{{ i.why }}</div>
+        <div class="s">{{ i.stage }}{% if i.engine %} · 엔진 {{ i.engine | length }}함수{% endif %}</div>
+      </div>
+      {% endfor %}
+      {% for g in r.gaps %}
+      <div class="gap"><div class="t">{{ g.name }} — 없다</div><div class="w">{{ g.why }}</div></div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <h3 style="font-size:13px; color:var(--sub); font-weight:500; margin:18px 0 8px">
+    케이스별로 보기</h3>
+  <div class="actions" style="flex-wrap:wrap">
+    {% for c in cards %}<a class="btn" href="/case/{{ c.code }}">{{ c.title }}</a>{% endfor %}
+  </div>
+  <p class="note">{{ ix.note }} · 기능 배정은 consulting_package.FUNCTION_OF_CODE가 쥔다(이 화면은 표시만) · 밴드·요율은 판단성·시세성이라 가져오지 않았다 · 판정·추천 없음</p>
+{% endblock %}

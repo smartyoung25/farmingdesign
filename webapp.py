@@ -31,10 +31,20 @@ import cases as C
 import render_report as rr
 import smartfarm_engine as e
 import build_site as bs
+import consulting_package as cpkg
 
 ROOT = Path(__file__).parent
 app = FastAPI(title="스마트팜 컨설팅 콘솔", docs_url=None, redoc_url=None)
 templates = Jinja2Templates(directory=str(ROOT / "webapp_templates"))
+
+
+def _nav_functions() -> list:
+    """사이드바 기능 메뉴 — 이름·순서는 `consulting_package`가 쥔다(211차)."""
+    return [{"fn": f, "name": n, "desc": d}
+            for f, n, d in cpkg.BENCHMARK_FUNCTIONS]
+
+
+templates.env.globals["nav_functions"] = _nav_functions
 
 # 근거 칩 status → 색 클래스 (레지스트리 status_legend 계열과 1:1, 미지 status는 회색)
 CHIP_CLASS = [("실측", "chip-measured"), ("법정", "chip-statutory"), ("공공기준", "chip-statutory"),
@@ -133,6 +143,28 @@ def health():
             "engine": "smartfarm_engine(단일 계산 출처)", "note": "수치 검증은 pytest가 담당"}
 
 
+# ── 7단계(211차): 기능 지도 — 벤치마킹 3기능으로 메뉴를 세운다 ──────────
+#   사용자 지시(2026-09-24): 벤치마킹 문서의 **주요 기능**으로 IA를 세우고 메뉴·
+#   네비게이션을 만들라.
+#   🔴 **실측이 축을 정했다**: 리포는 이미 `stage` 6단계를 코드에 쥐고 있는데
+#      벤치마킹 3기능과 **1:1이 아니라 교차**한다(F2 시방이 ①·②·⑥에 흩어진다).
+#      그래서 기능은 `consulting_package.FUNCTION_OF_CODE`가 **D코드마다 직접**
+#      쥐고, 이 계층은 **그것을 그대로 보여 주기만** 한다(제2의 분류 금지).
+#   ⚠️ **없는 것을 메뉴에 올리지 않는다** — 벤치마킹이 이름을 대지만 리포에 없는
+#      7건은 `FUNCTION_GAPS`로 **「없음」이라고** 낸다(209차 계약).
+#   🔴 **밴드·요율은 가져오지 않았다** — 판단성·시세성이다(1절 불변 원칙).
+
+@app.get("/functions")
+def function_map(request: Request):
+    ix = cpkg.function_index()
+    cases = [c for c in C.load_cases() if not c.get("partial")]
+    return templates.TemplateResponse(request, "function_map.html", {
+        "ix": ix,
+        "cards": [{"code": cdsp.code(c), "title": cdsp.alias(c)["title"]}
+                  for c in cases],
+    })
+
+
 # ── 6단계(210차): 케이스 상세 — 산출물이 콘솔에서 닿는다 ────────────────
 #   🔴 **실측이 결함을 정했다**: 산출물 **21건 중 9건**이 콘솔 어디에서도 닿지
 #      않았다 — 케이스당 **4축 리포트 · 컨설팅 패키지 · 판정 부록**(3종 × 3케이스).
@@ -186,8 +218,18 @@ def case_detail(request: Request, display_code: str):
                ("NPV", f"{ec['npv']/100000000:,.2f}억"),
                ("실질ROI", f"{ec['real_roi']*100:.1f}%" if ec["real_roi"] else "—")]
         assum = rr.assumption_html(ec)
+    funcs = None
+    if not case.get("partial"):
+        pkg = cpkg.build_package(case)
+        have = {x["code"]: x for x in pkg["items"]}
+        ix = cpkg.function_index()
+        funcs = [{"fn": r["fn"], "name": r["name"], "desc": r["desc"],
+                  "docs": [{"code": i["code"], "title": i["title"],
+                            "status": (have.get(i["code"]) or {}).get("status", "")}
+                           for i in r["docs"]],
+                  "gaps": r["gaps"]} for r in ix["rows"]]
     return templates.TemplateResponse(request, "case_detail.html", {
-        "case": case, "alias": al, "outputs": _case_outputs(case),
+        "case": case, "alias": al, "outputs": _case_outputs(case), "funcs": funcs,
         "chips": chips, "kpi": kpi, "assum": assum,
         "n_sets": len((case.get("scenarios") or {}).get("sets", [])),
         "has_fin": bool(case.get("financing")),

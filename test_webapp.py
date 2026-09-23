@@ -672,6 +672,151 @@ def test_210cha_every_output_is_reachable_from_the_console():
             "나열만 한다(1절 불변 원칙)")
 
 
+def test_211cha_ia_menu_matches_the_code():
+    """211차 — **IA·메뉴가 코드와 같은 것을 말하는가**(사용자 지시: 벤치마킹 IA).
+
+    🔴 **실측이 축을 정했다**: 리포는 이미 `PACKAGE_SPEC.stage` **6단계**를 코드에
+    쥐고 있는데 벤치마킹 3기능과 **1:1이 아니라 교차**한다 — F2 시방이
+    D2(①공종설계)·D19(②품질설계)·D20(⑥사후관리)에 **흩어져 있다**. 그래서 기능은
+    `FUNCTION_OF_CODE`가 **D코드마다 직접** 쥔다(단계에서 유도하면 틀린다).
+
+    🔴 **가져오지 않은 것을 잰다**: 밴드(Basic/Standard/Premium)와 요율은
+    **판단성·시세성**이라 두고 왔다 — 화면·문서에 스며들면 1절 위반이다.
+
+    ⚠️ **없는 것을 있는 척하지 않는다**: 벤치마킹이 이름을 대지만 리포에 없는 7건은
+    「없다」로 낸다(209차 계약).
+    """
+    import re as _re
+    import consulting_package as _cp
+
+    ix = _cp.function_index()
+
+    # ── ① 27건이 **하나도 빠짐없이** 배정됐는가 ─────────────────────
+    spec_codes = sorted(x["code"] for x in _cp.PACKAGE_SPEC)
+    mapped = sorted(_cp.FUNCTION_OF_CODE)
+    assert mapped == spec_codes, (
+        f"🔴 배정과 산출물 목록이 다르다 — 빠짐 {sorted(set(spec_codes) - set(mapped))} · "
+        f"군더더기 {sorted(set(mapped) - set(spec_codes))}. D코드가 늘면 **배정도 늘려야** "
+        "한다(늘지 않으면 새 산출물이 메뉴에서 사라진다)")
+    assert ix["total"] == len(spec_codes)
+    fns = {f for f, _n, _d in _cp.BENCHMARK_FUNCTIONS}
+    for code, (fn, why) in _cp.FUNCTION_OF_CODE.items():
+        assert fn in fns, f"🔴 {code}가 없는 기능 {fn!r}에 배정됐다"
+        assert why.strip(), (
+            f"🔴 {code}에 **왜 이 기능인가**가 비었다 — 분류도 근거를 단다")
+
+    # ── ② 🔴 **판정이 아니라 분류인가**(순위·등급·추천 금지) ─────────
+    for r in ix["rows"]:
+        assert "rank" not in r and "score" not in r and "grade" not in r, (
+            f"🔴 기능 축이 {r['fn']}에 순위·점수를 달았다 — 분류는 **줄 세우지 않는다**")
+    html = client.get("/functions").text
+    #   📌 **무딘 토큰, 열 번째다.** `"추천"`만 세면 화면의 **선언문 세 줄**에 걸린다
+    #      (210차와 같은 유형). 선언문은 **있어야 하는 것**이므로 하나하나 확인한 뒤
+    #      **그 줄만 들어내고** 나머지를 잰다 — 하나라도 없으면 실패한다.
+    DECLS = ("순위·등급·추천 없음",
+             "순위·등급·추천을 만들지 않는다",
+             "판정·추천 없음")
+    body = html
+    for d in DECLS:
+        assert d in body, (
+            f"🔴 기능 지도에서 선언 「{d}」이 사라졌다 — 이 축이 **분류이지 판정이 "
+            "아니라는 것**은 화면에 적혀 있어야 읽는 사람이 안다")
+        body = body.replace(d, "")
+    for w in ("추천", "권장", "최적", "1순위", "우선순위", "등급이 높"):
+        assert w not in body, f"🔴 기능 지도에 판정·추천 어휘 「{w}」가 들어왔다"
+
+    # ── ③ 🔴 **밴드·요율이 스며들지 않았는가**(판단성·시세성) ────────
+    #   📌 벤치마킹 문서의 밴드 이름과 요율은 **가져오지 않기로** 한 것이다.
+    #      코드·화면·IA 문서 어디에도 값으로 들어오면 안 된다. 다만 *「두고 왔다」*고
+    #      적은 문장은 **있어야 하므로** 그 줄만 들어내고 잰다(210차 교훈: 선언문이
+    #      제 가드에 걸린다 — 무딘 토큰 아홉 번째였다).
+    ia = _io_read("IA_20260924.md")
+    KEPT = "| 두고 온 것 |"
+    kept_line = [ln for ln in ia.split(chr(10)) if ln.startswith(KEPT)]
+    assert len(kept_line) == 1, (
+        "🔴 IA 문서에서 **무엇을 두고 왔는지** 적은 줄이 사라졌다")
+    scan = {"IA 문서": ia.replace(kept_line[0], ""),
+            "기능 지도": body,
+            "조립 계층": _io_read("consulting_package.py")}
+    src_cp = scan["조립 계층"]
+    keep = [ln for ln in src_cp.split(chr(10))
+            if "Basic/Standard/Premium" in ln or "1.5~3%" in ln]
+    for ln in keep:
+        scan["조립 계층"] = scan["조립 계층"].replace(ln, "")
+    for where, text in scan.items():
+        for token in ("Basic", "Standard·", "Premium", "1.5~3", "3~5%",
+                      "$29", "€490", "€1,980"):
+            assert token not in text, (
+                f"🔴 {where}에 벤치마킹 **밴드·요율** 「{token}」이 들어왔다 — "
+                "밴드는 판단성이고 요율은 시세성이다(1절: 조회하지 않는다 · "
+                "판정·추천 자동화 금지). 기능 축만 가져오기로 한 것이다")
+
+    # ── ④ ⚠️ **없는 것을 없다고 내는가** ───────────────────────────
+    assert ix["gap_count"] == len(_cp.FUNCTION_GAPS) >= 1
+    for fn, name, why in _cp.FUNCTION_GAPS:
+        assert fn in fns, f"🔴 미구축 {name!r}이 없는 기능 {fn!r}에 달렸다"
+        assert name in html, (
+            f"🔴 기능 지도가 미구축 「{name}」을 감췄다 — 벤치마킹이 이름을 대는데 "
+            "우리에게 없다는 사실은 **메뉴에 보여야** 한다")
+        assert why.strip(), f"🔴 미구축 「{name}」에 사유가 없다"
+    assert html.count("— 없다") == len(_cp.FUNCTION_GAPS), (
+        f"🔴 「없다」 표시가 {html.count('— 없다')}개다 — {len(_cp.FUNCTION_GAPS)}개여야 한다")
+
+    #   🔴 **가드가 목록을 되읽기만 하면 하나 지워도 통과한다**(211차 뮤테이션 M2가
+    #      그랬다 — 자기 점검 3위 「가드의 실측 추종」과 같은 유형). 그래서 기준을
+    #      **밖**에 둔다: 아래는 벤치마킹 문서 **정의문에서 그대로 따온** 낱말이고,
+    #      각각은 ①엔진이 구현했거나 ②미구축으로 **이름이 걸려 있어야** 한다.
+    #      둘 다 아니면 **조용히 사라진 것**이다.
+    eng0 = _io_read("smartfarm_engine.py")
+    ACCOUNTED = {          # 엔진 원문 낱말 → 미구축 목록에 걸릴 이름
+        "KCS": "KCS 형식 시방",
+        "수의계약": "수의계약 한도 판정",
+        "나라장터": "나라장터 등록 지원",
+        "하자이행보증": "하자이행보증 2%·1년",
+        "공급사": "적격 공급사 풀",
+    }
+    gap_names = {g[1] for g in _cp.FUNCTION_GAPS}
+    for token, gap_name in ACCOUNTED.items():
+        n = eng0.count(token)
+        if n == 0:
+            assert gap_name in gap_names, (
+                f"🔴 엔진에 「{token}」이 **0회**인데 미구축 목록에서 「{gap_name}」이 "
+                "사라졌다 — 벤치마킹이 이름 대는 기능을 **조용히 감춘 것**이다")
+            assert gap_name in html, f"🔴 화면이 「{gap_name}」을 내지 않는다"
+        else:
+            assert gap_name not in gap_names, (
+                f"🔴 엔진에 「{token}」이 {n}회 있는데 아직 「{gap_name}」이 "
+                "미구축이라고 적혀 있다 — 구현됐으면 목록에서 내려야 한다")
+
+    # ── ⑤ 🔴 **문서가 코드와 같은 것을 말하는가**(썩으면 실패) ───────
+    for r in ix["rows"]:
+        head = "### %s %s" % (r["fn"], r["name"])
+        assert head in ia, f"🔴 IA 문서에 {head!r} 절이 없다 — `python gen_ia.py`로 다시 낼 것"
+        for d in r["docs"]:
+            row = "| %s | %s |" % (d["code"], d["title"])
+            assert row in ia, (
+                f"🔴 IA 문서의 {r['fn']} 표에 {d['code']} {d['title']} 행이 없다 — "
+                "문서가 **썩었다**. 손으로 고치지 말고 `python gen_ia.py`")
+    # 엔진 원문 실측이 문서에 그대로 실렸는가
+    eng = _io_read("smartfarm_engine.py")
+    for tok in ("수의계약", "나라장터", "내재해"):
+        assert ("| `%s` | **%d**회 |" % (tok, eng.count(tok))) in ia, (
+            f"🔴 IA 문서의 「{tok}」 실측이 지금 엔진과 다르다 — 다시 낼 것")
+
+    # ── ⑥ 메뉴가 **전 화면**에 서 있는가(네비게이션) ────────────────
+    import case_display as _cd2
+    from cases import load_cases as _lc2
+    for p in (["/", "/functions", "/entry", "/entry/newcase", "/entry/quotes"]
+              + ["/case/" + _cd2.code(x) for x in _lc2()]):
+        h = client.get(p).text
+        assert 'href="/functions"' in h, f"🔴 {p}에 기능 지도 메뉴가 없다"
+        for f, name, _d in _cp.BENCHMARK_FUNCTIONS:
+            if f == "F0":
+                continue
+            assert ('href="/functions#%s"' % f) in h, (
+                f"🔴 {p}의 사이드바에 기능 {f}({name}) 항목이 없다 — 네비게이션은 "
+                "**전 화면 공통**이어야 한다")
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),
