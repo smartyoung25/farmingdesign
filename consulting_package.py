@@ -77,7 +77,7 @@ PACKAGE_SPEC = [
     {"code": "D19", "title": "기자재 대조표", "stage": "②품질설계", "targets": ["기자재"],
      "engine": ["equipment_reconcile"]},
     {"code": "D20", "title": "내용연수 대조표", "stage": "⑥사후관리", "targets": ["기자재"],
-     "engine": ["service_life_reference"]},
+     "engine": ["service_life_reference", "service_life_index"]},
     # 🔴182차 — ⑤운영에는 산출물이 **D8 링크뿐**이었고, 172차에 만든 과금 함수는
     #   어느 산출물에도 붙어 있지 않았다. 두 칸을 채운다.
     {"code": "D21", "title": "운영 진단표", "stage": "⑤운영", "targets": ["시설", "기자재"],
@@ -584,7 +584,14 @@ def build_package(case: dict, injections: dict = None) -> dict:
             rows = []
             for n in names:
                 rows.append(e.service_life_reference(n))
-            items.append(_item(spec, "생성", {"행": rows}, [],
+            # 🔴208차(★②) — 품목 셋만 보면 **두 표가 어떻게 갈라져 있는지**를
+            #   알 수 없다. 합집합 요약을 함께 낸다 — **값이 아니라 조회 경로**를
+            #   합친 결과다. `이름이 스치는 쌍`은 **잇지 않은 것**을 드러낸다.
+            ix = e.service_life_index()
+            items.append(_item(spec, "생성",
+                               {"행": rows, "두 표 합집합": ix["counts"],
+                                "이름이 스치는 쌍(잇지 않음)": ix["near_pairs"],
+                                "통합 주석": ix["note"]}, [],
                                "🔴 조달청·농진청[추정]·세법을 나란히 둘 뿐 고르지 않는다"))
 
         elif code == "D21":

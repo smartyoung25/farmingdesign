@@ -5881,9 +5881,13 @@ def test_146cha_redteam27_corrections_hold():
     eng_src = open(_o.path.join(repo, "smartfarm_engine.py"),
                    encoding="utf-8", newline="").read().replace(chr(13) + chr(10), "\n")
     stars = [i for i, ln in enumerate(eng_src.split("\n"), 1) if "★" in ln]
-    assert len(stars) == 30, (
-        f"엔진의 ★ 줄이 {len(stars)}개다 — 188차 전수는 30개다. "
-        "새 ★가 생겼다면 **대장에 먼저 올려라**(대장 §5-3)")
+    # 🔴208차 — ★② 결정으로 한 줄 늘었다(30 → 31). 🔴**대장에 올리지 않았다**:
+    #   대장은 규칙 §5-4가 말하듯 **대기 목록**인데 이 ★는 **방금 닫힌 결정**이다.
+    #   대기로 올리면 릴리스 문서의 *「★대기 17」*이 **거짓이 된다** →
+    #   결정 기록은 `근거_내용연수_농진청세법_3출처대조_20260920.md`에 남겼다.
+    assert len(stars) == 31, (
+        f"엔진의 ★ 줄이 {len(stars)}개다 — 208차 전수는 31개다. "
+        "새 ★가 **대기**면 대장에 올리고(대장 §5-3), **결정**이면 근거 문서에 적으라")
 
     # ── [12] 스냅샷의 skip 수가 앞뒤로 맞는가 ──────────────────────────
     wi = rd("작업지시서.md")
@@ -7794,8 +7798,10 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴176차 — service_life_reference()가 신설돼 61 → 62가 됐다
     # 🔴192차 — revenue_won()이 신설돼 69 → 70이 됐다(표시 계층 두 곳에 복제돼
     #    있던 매출 산식을 엔진으로 올린 것이다 — 새 기능이 아니라 **회수**다)
-    assert len(pub) == 70 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 192차 실측은 70·30이다. "
+    # 🔴208차 — ★②로 service_life_index()가 신설돼 70 → 71이 됐다
+    #    (두 내용연수 표의 **조회 경로**를 합친 것이고 **값은 한 자리도 바꾸지 않았다**)
+    assert len(pub) == 71 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 208차 실측은 71·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -8105,8 +8111,8 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 70 and len(missing) == 0, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 192차 실측은 70/0이다: {missing}")
+    assert len(cited) == 71 and len(missing) == 0, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 208차 실측은 71/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
         "🔴 P2·P4 2함수가 설계서에서 빠졌다")
@@ -9230,11 +9236,15 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    if n.returns is not None else "")
             pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
     marked = sorted(f for f in pub if pub[f])
-    assert len(pub) == 70, f"🔴 공개 함수가 {len(pub)}개다 — 192차 실측은 70다"
+    assert len(pub) == 71, f"🔴 공개 함수가 {len(pub)}개다 — 208차 실측은 71다"
     # 🔴187차 — ★ 등급 부여로 `ksfid_grade`가 신설돼 15 → 16이 됐다.
     # 🔴188차 — `guarantee_assessment`·`progress_certification`이 신설돼 16 → 18.
-    assert len(marked) == 18, (
-        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 188차 실측은 18이다: {marked}")
+    # 🔴208차 — ★②의 `service_life_index()`가 `rows`·`counts`를 내므로 18 → 19다.
+    #    📌 **자를 피하려고 키 이름을 바꾸지 않았다** — 그 함수는 실제로 *드러내고
+    #    멈추는* 쪽이고, 규칙이 그것을 판정지원이라 부른다. 칸은 움직이지 않는다
+    #    (기자재 × 사후관리는 이미 판정지원이었다).
+    assert len(marked) == 19, (
+        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 208차 실측은 19다: {marked}")
     for f in ("lcc_replacement_schedule", "loan_amortization", "benchmark_check",
               "verify_heating_vs_actual", "consulting_fee_estimate"):
         assert pub[f], (
@@ -9372,9 +9382,9 @@ def test_181cha_package_layer_assembles_without_calculating():
     assert len(codes) == 27 and len(set(codes)) == 27, (
         f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D27이어야 한다")
     cov = cp.coverage()
-    assert len(cov["declared"]) == 68, (
+    assert len(cov["declared"]) == 69, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
-        "188차 실측은 68종이다")
+        "208차 실측은 69종이다(★②로 `service_life_index`가 D20에 붙었다)")
     ghost = sorted(f for f in cov["declared"] if f not in pub)
     assert not ghost, f"🔴 패키지가 없는 함수를 부른다: {ghost}"
     # 🔴 **선언만 하고 부르지 않으면 거짓말이다** — 호출처가 실제로 있는지 본다.
@@ -9475,8 +9485,8 @@ def test_181cha_package_layer_assembles_without_calculating():
         "표시 계층이 **산식을 복제하던 것을 엔진 호출로 바꾼** 것이지 배선이 헐거워진 "
         "것이 아니다)")
     together = reached.union(cov["declared"])
-    assert len(together) == len(pub) == 70, (
-        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 192차 실측은 **70 / 70**다"
+    assert len(together) == len(pub) == 71, (
+        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 208차 실측은 **71 / 71**다"
         "(패키지 이전 17 · 181차 46 · 182차 62 · 187차 65 · 🔴188차 성능보증 4함수)")
     # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
     unreached = sorted(pub.difference(together))
@@ -12049,8 +12059,11 @@ def test_207cha_release_note_numbers_are_measured():
         assert frag in rel, (
             f"🔴 릴리스 문서의 「{label}」가 실측({value})과 다르다 — 찾던 표기 "
             f"{frag!r}. **문서가 썩었다**: 리포가 바뀌면 여기 수치도 고쳐야 한다")
-    assert "6,501줄" in rel or "%d줄" % (rd("smartfarm_engine.py").count(chr(10)) + 1) in rel, (
-        "🔴 엔진 줄 수가 실측과 다르다")
+    # 📌 쉼표 표기(6,551)와 순수 숫자(6551)를 **둘 다** 받는다 — 1차 작성이
+    #    순수 숫자만 봐서 문서의 쉼표 표기를 놓쳤다.
+    _ln = rd("smartfarm_engine.py").count(chr(10)) + 1
+    assert ("%d줄" % _ln) in rel or (format(_ln, ",") + "줄") in rel, (
+        f"🔴 릴리스 문서의 엔진 줄 수가 실측({_ln})과 다르다")
 
     # ── ② 🔴 **닫힌 척하지 않는가**(백로그를 대장에서 읽어 대조) ────
     stars = rd("근거_결정대기대장_20260915.md").count("★")
@@ -12095,6 +12108,90 @@ def test_207cha_release_note_numbers_are_measured():
         assert frag in rel, (
             f"🔴 릴리스 문서에서 「{frag}」가 사라졌다 — **이후에 손대는 법**이 "
             "없으면 동결이 곧 방치가 된다")
+
+
+def test_208cha_service_life_merge_joins_paths_not_values():
+    """208차 — ★② **두 내용연수 표 통합**이 **경로만** 합쳤는가.
+
+    🔴 통합은 **값을 합치는 일로 오해되기 쉽다.** 177차가 농진청 원문을 확보하고도
+    **값을 등재하지 않은 이유**가 그대로 남아 있다(141쪽 스캔본 · OCR 잡음이
+    등재값이 될 위험). 그래서 합친 것은 **조회 경로**다.
+
+    🔴 **실측이 통합의 성격을 정했다**: 조달청 35 · 농진청 67인데 **겹치는 키는
+    `분무기` 하나뿐**(101키 중 1)이다 — 두 표는 값이 충돌하는 관계가 아니라
+    **서로 다른 품목을 덮는 두 조회처**였다.
+
+    🔴 **이름이 스치는 쌍은 잇지 않는다.** 같은 물건인지는 **판단성**이고,
+    177차가 이미 겪었다(원문엔 단독 `분무기`가 없고 동력 9 · 인력 5로 갈린다).
+    """
+    import os as _o, sys as _s, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import smartfarm_engine as e
+    import consulting_package as cp
+    from cases import load_cases
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    # ── ① 두 표 **자체**는 그대로인가(통합이 표를 건드리지 않았다) ──
+    A, B = e.EQUIPMENT_SERVICE_LIFE_REFERENCE, e.EQUIPMENT_SERVICE_LIFE_AGRI
+    assert len(A) == 35 and len(B) == 67, (
+        f"🔴 두 표가 {len(A)}·{len(B)}다 — 208차 실측은 35·67이다. **통합은 표를 "
+        "건드리지 않는다**(값 확정은 원문 쪽을 사람이 봐야 한다)")
+    assert sorted(set(A) & set(B)) == ["분무기"], (
+        f"🔴 겹치는 키가 {sorted(set(A) & set(B))}다 — 실측은 `분무기` 하나뿐이고, "
+        "그 사실이 **통합의 성격**(값 충돌이 아니라 조회처 둘)을 정했다")
+
+    ix = e.service_life_index()
+    c = ix["counts"]
+    assert c == {"total": 101, "조달청": 34, "농진청": 66, "둘 다": 1,
+                 "이견": 54, "이름이 스치는 쌍": 3}, (
+        f"🔴 합집합 집계가 {c}다 — 208차 실측과 다르다")
+
+    # ── ② 🔴 **값이 갈라지지 않는가**(같은 것을 두 곳이 만들지 않는다) ─
+    for r in ix["rows"]:
+        base = e.service_life_reference(r["name"])
+        for k in ("procurement_years", "rda_years", "tax_years",
+                  "disagreement", "asset_type"):
+            assert r[k] == base[k], (
+                f"🔴 `{r['name']}`의 `{k}`가 인덱스와 단건 조회에서 다르다 — "
+                "인덱스는 `service_life_reference()`를 **그대로 불러** 만들어야 "
+                "한다(192차 교훈: 같은 것을 두 곳이 만들면 갈라진다)")
+
+    # ── ③ 🔴 **이름이 스치는 쌍을 잇지 않았는가** ───────────────────
+    assert ix["near_pairs"] == [("냉난방기", "농업용냉난방기"),
+                                ("분무기", "분무기용 자재"),
+                                ("분무기", "살분무기")], (
+        f"🔴 스치는 쌍이 {ix['near_pairs']}다 — 실측은 3쌍이다")
+    by = {r["name"]: r for r in ix["rows"]}
+    assert by["냉난방기"]["rda_years"] is None, (
+        "🔴 `냉난방기`가 `농업용냉난방기`의 값을 **끌어왔다** — 이름이 스친다고 "
+        "이으면 그것은 **판정**이다(177차: 원문엔 단독 `분무기`가 없다)")
+    assert by["농업용냉난방기"]["procurement_years"] is None, (
+        "🔴 `농업용냉난방기`가 `냉난방기`의 조달청 값을 끌어왔다")
+    assert by["냉난방기"]["near_names"] == ["농업용냉난방기"], (
+        "🔴 스치는 이름을 **드러내지도** 않는다 — 잇지 않되 보이게는 해야 한다")
+
+    # ── ④ 산출물에 **합집합 요약**이 닿는가(181차 계약) ─────────────
+    pkg = cp.build_package([x for x in load_cases() if not x.get("partial")][0])
+    d20 = [x for x in pkg["items"] if x["code"] == "D20"][0]
+    assert "service_life_index" in d20["engine"], (
+        "🔴 D20이 `service_life_index`를 이름으로 대지 않는다")
+    assert d20["data"]["두 표 합집합"] == c, (
+        "🔴 D20의 합집합 요약이 엔진과 다르다")
+    assert d20["data"]["이름이 스치는 쌍(잇지 않음)"] == ix["near_pairs"]
+
+    # ── ⑤ 경위가 남아 있는가(★결정은 기록으로만 되돌릴 수 있다) ─────
+    ev = rd("근거_내용연수_농진청세법_3출처대조_20260920.md")
+    for frag in ("~~**두 표를 통합하지 않았다**",
+                 "★② 결정됨(★사용자 결정 2026-09-23, 208차)",
+                 "합친 것은 경로이지 값이 아니다",
+                 "잇지 않았다"):
+        assert frag in ev, (
+            f"🔴 근거 문서에서 「{frag}」가 사라졌다 — 176차의 *「통합하지 않았다」*를 "
+            "**지우지 않고 취소선으로** 남겨야 *「왜 갑자기 통합했는가」*를 답할 수 있다")
+    assert "rda_years`는 여전히" in ev and "[추정]" in ev, (
+        "🔴 **값은 여전히 추정**이라는 사실이 사라졌다 — 통합이 값을 확정한 것으로 읽힌다")
 
 
 if __name__ == "__main__":

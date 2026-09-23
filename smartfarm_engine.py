@@ -5354,6 +5354,56 @@ def service_life_reference(name: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# ★② 두 내용연수 표 통합 (★사용자 결정 2026-09-23, 208차)
+#   🔴 **합치는 것은 조회 경로이지 값이 아니다.** 177차가 농진청 원문(141쪽 스캔본)을
+#      확보했지만 **값은 등재하지 않았다**(OCR 잡음이 등재값이 될 위험) — 그 상태는
+#      그대로다. 값을 합치려면 **원문 쪽을 사람이 봐야** 한다.
+#   🔴 **실측이 통합의 성격을 정했다**: 조달청 35 · 농진청 67인데 **겹치는 키는
+#      `분무기` 하나뿐**이다(101키 중 1). 즉 두 표는 **값이 충돌하는 관계가 아니라
+#      서로 다른 품목을 덮는 두 조회처**였다 — 통합이 풀 문제는 *「어느 값이 맞나」*가
+#      아니라 *「어디를 봐야 하나」*다.
+#   ⚠️ **이름이 스치는 쌍은 잇지 않는다**: `냉난방기`↔`농업용냉난방기` ·
+#      `분무기`↔`살분무기` · `분무기`↔`분무기용 자재`. 같은 물건인지는 **판단성**이고
+#      177차가 이미 겪었다(원문엔 단독 `분무기`가 없고 동력 9·인력 5로 갈린다 →
+#      *「고를 문제가 아니라 어떤 분무기인가를 먼저 정할 문제」*). **드러내되 잇지 않는다.**
+#   📌 값은 `service_life_reference()`를 **그대로 불러** 만든다 — 같은 것을 두 곳이
+#      만들면 갈라진다(192차 교훈).
+# ─────────────────────────────────────────────────────────────
+def service_life_index() -> dict:
+    """내용연수 두 표를 **한 곳에서** 본다(결정론 · 판정 없음).
+
+    반환: `rows`(합집합 키마다 3출처 + 어느 표에 있는지 + 이름이 스치는 키),
+    `counts`, `near_pairs`(**잇지 않은** 쌍), `note`.
+    """
+    pg, ag = EQUIPMENT_SERVICE_LIFE_REFERENCE, EQUIPMENT_SERVICE_LIFE_AGRI
+    near_pairs = sorted(
+        (a, b) for a in pg for b in ag
+        if a != b and (a in b or b in a))
+    rows = []
+    for name in sorted(set(pg) | set(ag)):
+        r = dict(service_life_reference(name))
+        r["only_in"] = ("둘 다" if name in pg and name in ag
+                        else ("조달청" if name in pg else "농진청"))
+        r["near_names"] = sorted(
+            {b for a, b in near_pairs if a == name}
+            | {a for a, b in near_pairs if b == name})
+        rows.append(r)
+    counts = {"total": len(rows),
+              "조달청": sum(1 for r in rows if r["only_in"] == "조달청"),
+              "농진청": sum(1 for r in rows if r["only_in"] == "농진청"),
+              "둘 다": sum(1 for r in rows if r["only_in"] == "둘 다"),
+              "이견": sum(1 for r in rows if r["disagreement"]),
+              "이름이 스치는 쌍": len(near_pairs)}
+    return {"rows": rows, "counts": counts, "near_pairs": near_pairs,
+            "note": ("🔴**합친 것은 조회 경로이지 값이 아니다.** 겹치는 키는 "
+                     "`분무기` 하나뿐이고, 두 표는 **서로 다른 품목**을 덮는다. "
+                     "이름이 스치는 쌍은 **잇지 않았다** — 같은 물건인지는 "
+                     "**판단성**이다(177차: 원문엔 단독 `분무기`가 없다). "
+                     "`rda_years`는 여전히 **[추정]**이고, 값 확정은 **원문 쪽을 "
+                     "사람이 봐야** 한다")}
+
+
+# ─────────────────────────────────────────────────────────────
 # 부지 전단 G3: 인허가·제출물 (175차 신설 — P2)
 #   🔴 공사시방서 「관공서, 기타민원에 대한 인허가 수속 및 협의」 절에서 전사했다.
 #   ⚠️**비용 부담이 사본마다 다르다** — 본문에 섞지 않고 **이견으로 분리**한다
