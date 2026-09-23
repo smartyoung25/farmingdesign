@@ -12004,6 +12004,99 @@ def test_205cha_evidence_map_matches_the_repo():
         "**가는 길을 적지 않으면** 아무도 못 찾는다")
 
 
+def test_207cha_release_note_numbers_are_measured():
+    """207차 — **v1.0 릴리스 문서**의 수치가 실측과 맞는가.
+
+    🔴 릴리스 문서는 *"무엇이 되고 무엇이 열려 있는지"*를 밖으로 말하는 문서다.
+    **서술이라 가장 빨리 썩는다** — 인수인계 문서가 그랬다(203차: `python app.py`).
+    그래서 §1의 수치를 **전부 다시 세어** 대조하고, 백로그 수는 **대장에서** 읽는다.
+
+    🔴 **닫힌 척하지 않는다**: ★대기·확인요망·열린 점검 항목이 **0이 아니라는 것**까지
+    문서가 말해야 한다 — 0으로 적으면 실패한다.
+    """
+    import os as _o, sys as _s, io as _io, ast as _ast, json as _j
+    import glob as _g, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    REL = "릴리스_v1.0_20260923.md"
+    rel = rd(REL)
+
+    # ── ① 엔진·레지스트리·케이스·산출물·근거를 **다시 센다** ────────
+    tree = _ast.parse(rd("smartfarm_engine.py"))
+    pub = len([n for n in tree.body if isinstance(n, _ast.FunctionDef)
+               and not n.name.startswith("_")])
+    cls = len([n for n in tree.body if isinstance(n, _ast.ClassDef)])
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))["constants"]
+    refs = sum(len(v.get("source_refs") or []) for v in reg.values())
+    from cases import load_cases
+    cs = load_cases()
+    outs = len(_g.glob(_o.path.join(repo, "SmartFarm_*.html"))) + 1
+    geun = len([f for f in _o.listdir(repo)
+                if f.startswith("근거_") and f.endswith(".md")])
+
+    FACTS = [("엔진 공개 함수", pub, "**%d**" % pub),
+             ("데이터클래스", cls, "**%d**" % cls),
+             ("레지스트리 상수", len(reg), "**%d**" % len(reg)),
+             ("source_refs", refs, "**%d**" % refs),
+             ("4축 케이스", sum(1 for c in cs if not c.get("partial")), None),
+             ("산출물 HTML", outs, "**%d건**" % outs),
+             ("근거 문서", geun, "**%d건**" % geun)]
+    for label, value, frag in FACTS:
+        if frag is None:
+            continue
+        assert frag in rel, (
+            f"🔴 릴리스 문서의 「{label}」가 실측({value})과 다르다 — 찾던 표기 "
+            f"{frag!r}. **문서가 썩었다**: 리포가 바뀌면 여기 수치도 고쳐야 한다")
+    assert "6,501줄" in rel or "%d줄" % (rd("smartfarm_engine.py").count(chr(10)) + 1) in rel, (
+        "🔴 엔진 줄 수가 실측과 다르다")
+
+    # ── ② 🔴 **닫힌 척하지 않는가**(백로그를 대장에서 읽어 대조) ────
+    stars = rd("근거_결정대기대장_20260915.md").count("★")
+    need = rd("근거_확인요망대장_20260915.md").count("★")
+    assert stars > 0 and need > 0, (
+        "🔴 대장에서 ★ 표시가 사라졌다 — 백로그를 셀 근거가 없어진다")
+    assert "**%d**" % stars in rel, (
+        f"🔴 릴리스 문서의 ★대기 수가 대장 실측({stars})과 다르다")
+    assert "**%d**" % need in rel, (
+        f"🔴 릴리스 문서의 확인요망 수가 대장 실측({need})과 다르다")
+    ledger = rd("근거_자기점검대장_20260922.md")
+    m = _re.search(r"\|\s*\*\*3위\*\*\s*\|(.+)", ledger)
+    assert m and "열린 채 관리" in m.group(1), (
+        "🔴 점검 3위가 닫힘으로 바뀌었는데 릴리스 문서는 **열린 채**라 적는다")
+    assert "열려 있는 것" in rel and "닫힌 척하는 것이 가장 나쁘다" in rel, (
+        "🔴 릴리스 문서에서 **백로그를 세어 넘긴다는 선언**이 사라졌다")
+
+    # ── ③ 보증 범위를 **좁게** 말하는가 ─────────────────────────────
+    for frag in ("값의 옳음은 보증하지 않는다",
+                 "원채원 원문이 리포에 없다",
+                 "주입되지 않은\n   엔진 기본값", "원문 범위 밖"):
+        f = frag.replace("\n", chr(10))
+        assert f in rel, (
+            f"🔴 릴리스 문서에서 「{f[:24]}…」가 사라졌다 — **보증하지 않는 것**을 "
+            "적지 않으면 읽는 사람은 전부 보증된다고 읽는다")
+
+    # ── ④ 「하지 않는 것」이 1절과 어긋나지 않는가 ──────────────────
+    cm = rd("CLAUDE.md")
+    assert "판정·추천 자동화 금지" in cm and "판정·추천을 자동화하지 않는다" in rel
+    assert "투자·보험·시공 판정" in cm and "투자·보험·시공 판정은 하지 않는다" in rel, (
+        "🔴 릴리스 문서와 1절의 **여전히 금지되는 것**이 어긋난다")
+
+    # ── ⑤ 가는 길이 적혀 있는가 ─────────────────────────────────────
+    assert REL in rd("README.md"), (
+        "🔴 README에서 릴리스 문서가 빠졌다 — 범위를 동결해 두고 **가는 길을 적지 "
+        "않으면** 아무도 못 찾는다")
+    # 📌 파일명만 세면 §1의 목록에 걸려 헛돈다(190·192·193·201차와 같은 유형 —
+    #    **여덟 번째**). *「어떻게 손대는가」*를 말하는 **구절 전체**로 센다.
+    for frag in ("`차수로그.md` 맨 위에",
+                 "`근거지도_20260923.md`에 올려야",
+                 "테스트 수는 **하한**이다"):
+        assert frag in rel, (
+            f"🔴 릴리스 문서에서 「{frag}」가 사라졌다 — **이후에 손대는 법**이 "
+            "없으면 동결이 곧 방치가 된다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
