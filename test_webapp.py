@@ -343,3 +343,74 @@ def test_scenario_preview_and_save_match_engine(tmp_cases):
     assert saved["scenarios"]["sets"][-1]["name"] == "Best(테스트)"
     rows = bs.scenario_rows(saved, C.case_to_input(saved))
     assert rows[-1]["name"] == "Best(테스트)"  # Base + 기존 세트(50차 Best/Worst) 뒤에 append
+
+def test_206cha_entry_form_asks_each_value_once():
+    """206차 — 기입 폼이 **같은 값을 두 번 묻지 않는가**(실사용 관통이 찾은 것).
+
+    🔴 근거 표가 `prov_fields` **전부**에 값 칸을 냈는데 그중 다섯
+    (`area_m2`·`surface_area_m2`·`t_target`·`fr`·`fitness_pct`)은
+    **설계·운영 절에도 같은 `name`으로** 있었다. 같은 이름이 둘이면 서버는 하나만
+    읽는다 — 206차 관통 시험에서 **뒤엣것이 이겼고**, 설계 절에 적은 3,000㎡가
+    **9,999로 조용히 덮였다**.
+
+    🔴 199차 가드는 *"필드가 폼에 있는가"*만 봤다 — **중복은 보지 않았다**.
+    그래서 여기서는 **렌더된 HTML을 직접 세고**, 관통으로 **저장값까지** 확인한다.
+    """
+    import re as _re
+
+    html = client.get("/entry/newcase").text
+    names = _re.findall(r'<(?:input|select)[^>]*name="([^"]+)"', html)
+    dup = sorted({n for n in names if names.count(n) > 1})
+    assert not dup, (
+        f"🔴 기입 폼에 같은 이름이 두 번 있다: {dup} — 사용자가 두 곳에 **다른 값**을 "
+        "적을 수 있고 서버는 하나만 읽는다. **앞에 적은 값이 조용히 버려진다**")
+
+    # ── 값은 한 곳에서만 받고, 나머지는 **근거만** 받는가 ───────────
+    for f in webapp.WIZARD_PROV_VALUE_FIELDS:
+        assert ('name="%s"' % f) in html, (
+            f"🔴 `{f}`의 값 칸이 사라졌다 — 이 다섯은 **근거 표에서만** 값을 받는다")
+    echo = [f for f in webapp.WIZARD_PROV_FIELDS
+            if f not in webapp.WIZARD_PROV_VALUE_FIELDS]
+    assert len(echo) == 5, f"🔴 근거만 받는 필드가 {len(echo)}개다 — 실측은 5다"
+    assert html.count("위 절에서 기입") == len(echo), (
+        f"🔴 근거 표의 「위 절에서 기입」 표시가 {html.count('위 절에서 기입')}개다 — "
+        f"{len(echo)}개여야 한다. 표시가 없으면 **왜 값 칸이 없는지** 알 수 없다")
+    for f in echo:
+        assert len(_re.findall(r'name="%s"' % f, html)) == 1, (
+            f"🔴 `{f}`의 값 칸이 {len(_re.findall(chr(39) + f + chr(39), html))}개다")
+
+    # ── 🔴 **관통**: 설계 절 값이 저장까지 살아 오는가 ───────────────
+    import os as _o, json as _j, io as _io
+    form = {"case_id": "guard206tmp", "title": "206차 가드 합성",
+            "as_of": "2026-09", "business_type": "신규", "region": "충남 논산",
+            "snow_cm": "30", "wind_ms": "30", "load_status": "확인요망",
+            "load_source": "206차 가드 — 합성 입력", "cover": "필름",
+            "area_m2": "3000", "surface_area_m2": "5400", "t_target": "18",
+            "t_min": "-12", "fr": "0.5", "crop": "딸기", "fitness_pct": "92",
+            "base_yield_kg_m2": "6.5", "price_won_per_kg": "12000",
+            "opex": "180000000", "total_construction_cost": "900000000",
+            "subsidy_rate": "0.5", "discount_rate": "0.03",
+            "evaluation_years": "", "useful_life": ""}
+    for f in webapp.WIZARD_PROV_FIELDS:
+        form["prov_%s_status" % f] = "확인요망"
+        form["prov_%s_source" % f] = "206차 가드 — 합성 입력"
+    assert client.post("/entry/newcase/preview", data=form).status_code == 200
+    path = _o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)),
+                        "cases", "guard206tmp.json")
+    try:
+        assert client.post("/entry/newcase/save", data=form).status_code == 200
+        saved = _j.load(_io.open(path, encoding="utf-8"))["input"]
+        for k, want in (("area_m2", 3000.0), ("surface_area_m2", 5400.0),
+                        ("t_target", 18.0), ("fr", 0.5),
+                        ("fitness_pct", 92.0)):
+            assert saved[k] == want, (
+                f"🔴 설계 절에 적은 `{k}`={want}가 {saved[k]}로 저장됐다 — "
+                "**다른 칸이 덮었다**(206차가 고친 바로 그 결함이다)")
+        assert saved.get("discount_rate") == 0.03, "🔴 주입한 할인율이 살아오지 않았다"
+        for k in ("evaluation_years", "useful_life"):
+            assert k not in saved, (
+                f"🔴 빈칸인 `{k}`가 저장됐다 — 199차 계약(빈칸은 넣지 않는다) 위반")
+    finally:
+        if _o.path.exists(path):
+            _o.remove(path)
+

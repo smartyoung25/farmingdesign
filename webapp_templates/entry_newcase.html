@@ -59,7 +59,7 @@
         {% for f in prov_fields %}
         <tr>
           <td style="font-size:12.5px"><code>{{ f }}</code></td>
-          <td><input type="text" name="{{ f }}" value="{{ v.get(f,'') }}"></td>
+          {% if f in prov_value_fields %}<td><input type="text" name="{{ f }}" value="{{ v.get(f,'') }}"></td>{% else %}<td style="color:#888; font-size:12px">위 절에서 기입</td>{% endif %}{# 🔴206차 — 같은 name을 두 번 내면 앞에 적은 값이 조용히 버려진다 #}
           <td><select name="prov_{{ f }}_status">
             {% for s in statuses %}<option value="{{ s }}" {% if v.get('prov_' + f + '_status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
           </select></td>

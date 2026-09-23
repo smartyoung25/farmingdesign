@@ -309,6 +309,14 @@ WIZARD_ALLOWED_STATUS = ("추정", "확인요망")
 #   계산 참여자가 아니라 이 계층이 참조하지 않는다는 원칙이 테스트로 고정돼 있다.
 #   한쪽만 넓히면 마법사로 만든 새 케이스가 생성 즉시 감사 갭을 낸다.
 #   설계하중(snow_cm·wind_ms)은 고시 조회 경로가 provenance를 자동 생성하므로 여기엔 없다.
+# 🔴206차 — **값을 두 번 묻지 않는다.** 근거 표가 모든 prov 필드에 값 칸을 내는데
+#   그중 다섯(area_m2·surface_area_m2·t_target·fr·fitness_pct)은 **설계·운영 절에도
+#   같은 `name`으로 있었다**. 같은 이름이 둘이면 서버는 하나만 읽고(뒤엣것이 이겼다)
+#   **앞에 적은 값이 조용히 버려진다** — 206차 관통 시험에서 실제로 그랬다.
+#   → 아래 목록의 필드만 근거 표에서 **값**을 받고, 나머지는 **근거만** 받는다.
+WIZARD_PROV_VALUE_FIELDS = ("base_yield_kg_m2", "price_won_per_kg", "opex",
+                            "total_construction_cost", "subsidy_rate")
+
 WIZARD_PROV_FIELDS = ("base_yield_kg_m2", "price_won_per_kg", "opex",
                       "total_construction_cost", "subsidy_rate",
                       "area_m2", "surface_area_m2", "fr", "t_target", "fitness_pct")
@@ -404,6 +412,7 @@ def newcase_form(request: Request):
     return templates.TemplateResponse(request, "entry_newcase.html", {
         "form_vals": {}, "result": None, "statuses": WIZARD_ALLOWED_STATUS,
         "prov_fields": WIZARD_PROV_FIELDS,
+        "prov_value_fields": WIZARD_PROV_VALUE_FIELDS,
     })
 
 
@@ -415,6 +424,7 @@ async def newcase_preview(request: Request):
     return templates.TemplateResponse(request, "entry_newcase.html", {
         "form_vals": dict(form), "result": {"case": case, "res": res, "bench": bench},
         "statuses": WIZARD_ALLOWED_STATUS, "prov_fields": WIZARD_PROV_FIELDS,
+        "prov_value_fields": WIZARD_PROV_VALUE_FIELDS,
     })
 
 
