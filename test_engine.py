@@ -11891,6 +11891,119 @@ def test_204cha_split_ledger_stays_single_sourced():
         "🔴 README 문서 지도에서 `차수로그.md`가 빠졌다")
 
 
+def test_205cha_evidence_map_matches_the_repo():
+    """205차 — **근거 74건 지도**가 실제와 맞는가.
+
+    🔴 `근거_*.md`가 74건 평평하게 쌓여 **무엇을 언제 보는지** 알 수 없었다.
+    지도를 만들되, **지도는 서술이라 썩는다** — 그래서 네 가지를 **실제로 잰다**:
+    ①74건을 **전부** 담았는가(새 문서가 생기면 실패) ②**분류 규칙을 다시 적용**하면
+    같은 계열이 나오는가 ③「묶이는 상수」가 **레지스트리와 일치**하는가
+    ④한 줄 설명이 **문서의 제목 그대로**인가(*내가 요약하지 않았다*는 주장).
+
+    ⚠️ **지도가 못 하는 것**: 문서의 **내용이 맞는지**는 재지 않는다 —
+    *"어디를 보라"*까지다.
+    """
+    import os as _o, io as _io, json as _j, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    MAP = "근거지도_20260923.md"
+    m = rd(MAP)
+
+    disk = sorted(f for f in _o.listdir(repo)
+                  if f.startswith("근거_") and f.endswith(".md") and f != MAP)
+    # ── ① 74건을 **전부** 담았는가 ──────────────────────────────────
+    listed = _re.findall(r"^\| `(근거_[^`]+\.md)` \|", m, _re.M)
+    assert len(listed) == len(set(listed)), (
+        f"🔴 지도에 같은 문서가 두 번 있다: "
+        f"{sorted(x for x in set(listed) if listed.count(x) > 1)}")
+    missing = sorted(set(disk) - set(listed))
+    ghost = sorted(set(listed) - set(disk))
+    assert not missing, (
+        f"🔴 지도에 없는 근거 문서: {missing} — 새로 쓴 문서는 **지도에 올려야** "
+        "한다. 올리지 않으면 74건이 다시 평평해진다")
+    assert not ghost, (
+        f"🔴 지도가 없는 문서를 가리킨다: {ghost}")
+    assert len(disk) >= 74, (
+        f"🔴 근거 문서가 {len(disk)}건이다 — 205차 하한은 74건이다. 줄었다면 "
+        "**조사 기록이 사라진 것**이니 왜 지웠는지 적고 하한을 낮추라")
+
+    # ── ② 🔴 **분류 규칙을 다시 적용**해 대조한다 ───────────────────
+    #    규칙의 원본은 **지도 문서**다(토큰 표). 가드가 그것을 읽어 재분류한다 —
+    #    규칙을 바꾸면 지도도 함께 바뀌어야 통과한다.
+    rules = []
+    for line in m.split(chr(10)):
+        mm = _re.match(r"^\| \*\*([^*]+)\*\* \| (`.+`) \|$", line)
+        if mm and "`" in mm.group(2):
+            rules.append((mm.group(1).strip(),
+                          tuple(_re.findall(r"`([^`]+)`", mm.group(2)))))
+    assert len(rules) >= 7, (
+        f"🔴 지도에서 분류 규칙 표를 찾지 못했다(계열 {len(rules)}개) — 규칙이 "
+        "없으면 계열은 **사람이 고른 것**이 되고 재현되지 않는다")
+
+    def _bucket(name):
+        for label, keys in rules:
+            if any(k in name for k in keys):
+                return label
+        return "기타"
+
+    cur, placed = None, {}
+    for line in m.split(chr(10)):
+        h = _re.match(r"^## (.+?) \(\d+건\)$", line)
+        if h:
+            cur = h.group(1).strip()
+            continue
+        f = _re.match(r"^\| `(근거_[^`]+\.md)` \|", line)
+        if f and cur:
+            placed[f.group(1)] = cur
+    wrong = {f: (placed[f], _bucket(f)) for f in placed
+             if placed[f] != _bucket(f)}
+    assert not wrong, (
+        f"🔴 규칙을 다시 적용하니 계열이 다르다(지도/규칙): {wrong} — 지도가 "
+        "**규칙과 어긋났다**. 규칙을 고쳤다면 지도를 다시 만들라")
+    assert set(placed) == set(disk), (
+        f"🔴 계열에 담기지 않은 문서가 있다: {sorted(set(disk) - set(placed))}")
+
+    # ── ③ 「묶이는 상수」가 **레지스트리와 일치하는가** ──────────────
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))["constants"]
+    blob = {k: _j.dumps(v, ensure_ascii=False) for k, v in reg.items()}
+    for line in m.split(chr(10)):
+        row = _re.match(r"^\| `(근거_[^`]+\.md)` \| (.*?) \| (.*?) \|$", line)
+        if not row:
+            continue
+        f, _title, cols = row.group(1), row.group(2), row.group(3)
+        shown = set(_re.findall(r"`([A-Z_][A-Z0-9_]*)`", cols))
+        real = {k for k, b in blob.items() if f in b}
+        assert shown == real, (
+            f"🔴 `{f}`에 묶인 상수가 지도는 {sorted(shown)}, 레지스트리는 "
+            f"{sorted(real)}다 — **두 곳이 갈라졌다**")
+
+    # ── ④ 한 줄 설명이 **문서의 제목 그대로**인가 ───────────────────
+    n_checked = 0
+    for line in m.split(chr(10)):
+        row = _re.match(r"^\| `(근거_[^`]+\.md)` \| (.*?) \| (.*?) \|$", line)
+        if not row:
+            continue
+        f, title = row.group(1), row.group(2).strip()
+        if title == "—":
+            continue
+        body = rd(f)
+        head = next((ln[2:].strip() for ln in body.split(chr(10))
+                     if ln.startswith("# ")), "")
+        assert head.startswith(title[:30]) or title.startswith(head[:30]), (
+            f"🔴 `{f}`의 한 줄이 문서 제목과 다르다 — 지도는 **제목을 그대로 옮긴 "
+            f"것**이라 적는다(지도: {title[:40]!r} / 문서: {head[:40]!r})")
+        n_checked += 1
+    assert n_checked >= 70, f"🔴 제목을 대조한 문서가 {n_checked}건뿐이다"
+
+    # ── ⑤ 경위와 한계가 적혀 있는가 ─────────────────────────────────
+    for frag in ("고아는 없다", "규칙을 **한 번 넓혔다**",
+                 "내가 요약하지 않았다", "내용이 맞는지**는 재지 않는다"):
+        assert frag in m, f"🔴 지도에서 「{frag}」가 사라졌다"
+    assert MAP in rd("README.md"), (
+        "🔴 README 문서 지도에서 근거 지도가 빠졌다 — 지도를 만들어 두고 "
+        "**가는 길을 적지 않으면** 아무도 못 찾는다")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
