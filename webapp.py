@@ -59,7 +59,7 @@ def _case_card(case: dict) -> dict:
             "meta": f"{inp.get('crop', '—')} · {inp.get('area_m2', '—')}㎡ · {case.get('partial')}",
             "kpi": f"총공사비 {inp.get('total_construction_cost', 0):,}원 · 4축 미산출(부분 케이스)",
             "chip": "참고", "chip_class": "chip-ref",
-            "href": f"/pages/SmartFarm_부분케이스_{cdsp.code(case)}.html",
+            "href": f"/case/{cdsp.code(case)}",
         }
     inp = C.case_to_input(case)
     ec = rr.compute(inp)["economics"]
@@ -71,7 +71,7 @@ def _case_card(case: dict) -> dict:
         "meta": f"{case['input'].get('crop')} · {case['input'].get('region')} · {case['input'].get('area_m2'):,}㎡",
         "kpi": f"ROI {ec['roi']*100:.1f}% · Payback {payback}",
         "chip": status, "chip_class": chip_class(status),
-        "href": f"/pages/SmartFarm_통합보고서_{cdsp.code(case)}.html",
+        "href": f"/case/{cdsp.code(case)}",
     }
 
 
@@ -133,18 +133,87 @@ def health():
             "engine": "smartfarm_engine(단일 계산 출처)", "note": "수치 검증은 pytest가 담당"}
 
 
+# ── 6단계(210차): 케이스 상세 — 산출물이 콘솔에서 닿는다 ────────────────
+#   🔴 **실측이 결함을 정했다**: 산출물 **21건 중 9건**이 콘솔 어디에서도 닿지
+#      않았다 — 케이스당 **4축 리포트 · 컨설팅 패키지 · 판정 부록**(3종 × 3케이스).
+#      카드는 **통합보고서 하나만** 가리켰고, 나머지는 정적 `index.html`로 나가야
+#      보였다. *「사이드바 링크가 모자라다」*와 *「케이스 상세가 없다」*는 같은
+#      구멍 하나였다.
+#   📌 **파일명을 여기서 짓지 않는다** — `build_site.case_output_files()`가 유일한
+#      출처다(종전엔 이 파일의 f-string이 **두 번째 출처**였다). 보는 순서와
+#      *「왜 보는가」*도 `build_site._MENU_KINDS`에서 그대로 가져온다.
+#   ⚠️ 없는 파일을 **있는 척하지 않는다** — 아직 생성 안 된 산출물은 링크 대신
+#      *「재생성 필요」*로 낸다(209차 계약: 되돌릴 수 없는 것을 되돌린 척 않기).
+
+_WHY_BY_KIND = {k: why for k, why in bs._MENU_KINDS}
+
+
+def _case_outputs(case: dict) -> list:
+    """케이스 산출물 목록 — 이름·순서·사유 전부 build_site에서 온다."""
+    files = bs.case_output_files(case)
+    rows = []
+    for kind, why in bs._MENU_KINDS:          # 보는 순서는 build_site가 쥔다
+        fn = files.get(kind)
+        if not fn:
+            continue
+        rows.append({"kind": kind, "why": why, "file": fn,
+                     "href": f"/pages/{fn}", "exists": (ROOT / fn).is_file()})
+    return rows
+
+
+@app.get("/case/{display_code}")
+def case_detail(request: Request, display_code: str):
+    # 🔴 URL은 **표시 코드**다(C1·C4…) — 실명 `case_id`를 URL에 싣지 않는다
+    #    (183·184차 계약. 210차에 실명으로 열 뻔했고 183차 가드가 잡았다).
+    case = cdsp.by_code(display_code, C.load_cases())
+    if case is None:
+        raise HTTPException(404, detail=f"케이스 {display_code} 없음")
+    al = cdsp.alias(case)
+    prov = case.get("provenance", {})
+    # 🔴 출처 문자열에는 **실명이 들어 있다**(농가·기관 이름). 지우면 출처가
+    #    사라지므로 183·184차 방식대로 `scrub`으로 **코드로 치환**한다 —
+    #    파일명·시트·행·연도 같은 비-실명 부분은 그대로 남아 대조가 가능하다.
+    chips = [{"field": f, "status": (prov.get(f) or {}).get("status", ""),
+              "cls": chip_class((prov.get(f) or {}).get("status", "")),
+              "source": cdsp.scrub((prov.get(f) or {}).get("source", ""))}
+             for f in sorted(prov)]
+    kpi, assum = None, None
+    if not case.get("partial"):
+        res = rr.compute(C.case_to_input(case))   # 표시 전용(앱 내 재계산 없음)
+        ec = res["economics"]
+        kpi = [("ROI", f"{ec['roi']*100:.1f}%"),
+               ("Payback", f"{ec['payback']:.1f}년" if ec["payback"] else "산출불가"),
+               ("NPV", f"{ec['npv']/100000000:,.2f}억"),
+               ("실질ROI", f"{ec['real_roi']*100:.1f}%" if ec["real_roi"] else "—")]
+        assum = rr.assumption_html(ec)
+    return templates.TemplateResponse(request, "case_detail.html", {
+        "case": case, "alias": al, "outputs": _case_outputs(case),
+        "chips": chips, "kpi": kpi, "assum": assum,
+        "n_sets": len((case.get("scenarios") or {}).get("sets", [])),
+        "has_fin": bool(case.get("financing")),
+    })
+
+
 # ── 2단계(33차): 기입 워크플로 — financing·시나리오 웹폼 ─────────────────
 # 원칙: 검증·계산은 전부 엔진 계층(loan_amortization·scenario_rows)에 위임하고,
 # 앱은 폼 파싱과 저장만 한다. 근거(note) 없는 저장은 거부(시세성·판단성 주입 원칙).
 # 저장 대상은 케이스 JSON(git 추적) — 커밋은 사람이 한다(과제 단위 커밋 절차 유지).
 
-def _full_case_or_404(case_id: str) -> dict:
-    for c in C.load_cases():
-        if c["case_id"] == case_id:
-            if c.get("partial"):
-                raise HTTPException(400, detail="부분 케이스에는 기입할 수 없다(4축 미산출)")
-            return c
-    raise HTTPException(404, detail=f"케이스 {case_id} 없음")
+def _full_case_or_404(display_code: str) -> dict:
+    """표시 코드(C1·C2…)로 4축 케이스를 찾는다.
+
+    🔴210차 — 종전엔 **실명 `case_id`로 받았다**. 그래서 `/entry` 허브와 기입
+    화면의 URL에 `wonchaewon`·`chuncheon`·`uminjae`가 그대로 실렸다(33차부터).
+    183차 가드는 **홈만** 훑어서 못 봤다 — 210차에 가드를 기입 화면까지 넓히자
+    드러났다. 계약은 *「실명을 사용자가 보는 표면에 싣지 않는다」*이고 **URL도
+    그 표면**이다.
+    """
+    c = cdsp.by_code(display_code, C.load_cases())
+    if c is None:
+        raise HTTPException(404, detail=f"케이스 {display_code} 없음")
+    if c.get("partial"):
+        raise HTTPException(400, detail="부분 케이스에는 기입할 수 없다(4축 미산출)")
+    return c
 
 
 def _save_case(case: dict) -> None:
@@ -177,18 +246,19 @@ def _form_float(form, key, *, required=False, as_int=False):
 def entry_hub(request: Request):
     cs = [c for c in C.load_cases() if not c.get("partial")]
     rows = [{
-        "case_id": c["case_id"], "title": cdsp.alias(c)["title"],
+        "code": cdsp.code(c), "title": cdsp.alias(c)["title"],
         "fin": bool(c.get("financing")),
         "n_sets": len((c.get("scenarios") or {}).get("sets", [])),
     } for c in cs]
     return templates.TemplateResponse(request, "entry_hub.html", {"rows": rows})
 
 
-@app.get("/entry/financing/{case_id}")
-def financing_form(request: Request, case_id: str):
-    case = _full_case_or_404(case_id)
+@app.get("/entry/financing/{display_code}")
+def financing_form(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
     return templates.TemplateResponse(request, "entry_financing.html", {
-        "case": case, "fin": case.get("financing") or {}, "preview": None, "form_vals": None,
+        "case": case, "alias": cdsp.alias(case),
+        "fin": case.get("financing") or {}, "preview": None, "form_vals": None,
     })
 
 
@@ -214,20 +284,21 @@ def _amortize_or_400(fin: dict):
         raise HTTPException(400, detail=str(ex))
 
 
-@app.post("/entry/financing/{case_id}/preview")
-async def financing_preview(request: Request, case_id: str):
-    case = _full_case_or_404(case_id)
+@app.post("/entry/financing/{display_code}/preview")
+async def financing_preview(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
     form = await request.form()
     fin = _parse_financing(form)
     am = _amortize_or_400(fin)
     return templates.TemplateResponse(request, "entry_financing.html", {
-        "case": case, "fin": fin, "preview": am, "form_vals": fin,
+        "case": case, "alias": cdsp.alias(case),
+        "fin": fin, "preview": am, "form_vals": fin,
     })
 
 
-@app.post("/entry/financing/{case_id}/save")
-async def financing_save(request: Request, case_id: str):
-    case = _full_case_or_404(case_id)
+@app.post("/entry/financing/{display_code}/save")
+async def financing_save(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
     form = await request.form()
     fin = _parse_financing(form)
     if not fin["note"]:
@@ -235,14 +306,15 @@ async def financing_save(request: Request, case_id: str):
     _amortize_or_400(fin)  # 엔진 검증 통과분만 저장
     case["financing"] = fin
     _save_case(case)
-    return RedirectResponse(f"/entry/financing/{case_id}?saved=1", status_code=303)
+    return RedirectResponse(f"/entry/financing/{display_code}?saved=1", status_code=303)
 
 
-@app.get("/entry/scenario/{case_id}")
-def scenario_form(request: Request, case_id: str):
-    case = _full_case_or_404(case_id)
+@app.get("/entry/scenario/{display_code}")
+def scenario_form(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
     return templates.TemplateResponse(request, "entry_scenario.html", {
-        "case": case, "sets": (case.get("scenarios") or {}).get("sets", []),
+        "case": case, "alias": cdsp.alias(case),
+        "sets": (case.get("scenarios") or {}).get("sets", []),
         "fields": sorted(bs.SCENARIO_ALLOWED_FIELDS), "preview": None, "form_vals": None,
         "error": None,
     })
@@ -272,29 +344,30 @@ def _scenario_rows_or_400(case: dict, new_set: dict) -> list:
     return rows, trial
 
 
-@app.post("/entry/scenario/{case_id}/preview")
-async def scenario_preview(request: Request, case_id: str):
-    case = _full_case_or_404(case_id)
+@app.post("/entry/scenario/{display_code}/preview")
+async def scenario_preview(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
     form = await request.form()
     new_set = _parse_scenario_set(form)
     rows, _ = _scenario_rows_or_400(case, new_set)
     return templates.TemplateResponse(request, "entry_scenario.html", {
-        "case": case, "sets": (case.get("scenarios") or {}).get("sets", []),
+        "case": case, "alias": cdsp.alias(case),
+        "sets": (case.get("scenarios") or {}).get("sets", []),
         "fields": sorted(bs.SCENARIO_ALLOWED_FIELDS), "preview": rows, "form_vals": new_set,
         "error": None,
     })
 
 
-@app.post("/entry/scenario/{case_id}/save")
-async def scenario_save(request: Request, case_id: str):
-    case = _full_case_or_404(case_id)
+@app.post("/entry/scenario/{display_code}/save")
+async def scenario_save(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
     form = await request.form()
     new_set = _parse_scenario_set(form)
     if not new_set["assumptions"]:
         raise HTTPException(400, detail="변경 필드가 하나도 없다 — 화이트리스트 필드 중 최소 1개 기입")
     _, trial = _scenario_rows_or_400(case, new_set)  # 검증 통과분만 저장
     _save_case(trial)
-    return RedirectResponse(f"/entry/scenario/{case_id}?saved=1", status_code=303)
+    return RedirectResponse(f"/entry/scenario/{display_code}?saved=1", status_code=303)
 
 
 # ── 3단계(35차): 케이스 입력 마법사 ─────────────────────────────────────
@@ -693,11 +766,13 @@ def _entry_error_page(path: str, form):
             case = _full_case_or_404(m.group(2))
             if m.group(1) == "financing":
                 return "entry_financing.html", {
-                    "case": case, "fin": case.get("financing") or {}, "preview": None,
+                    "case": case, "alias": cdsp.alias(case),
+                    "fin": case.get("financing") or {}, "preview": None,
                     "form_vals": {k: (form.get(k) or "") for k in _FIN_FORM_KEYS},
                 }
             return "entry_scenario.html", {
-                "case": case, "sets": (case.get("scenarios") or {}).get("sets", []),
+                "case": case, "alias": cdsp.alias(case),
+        "sets": (case.get("scenarios") or {}).get("sets", []),
                 "fields": sorted(bs.SCENARIO_ALLOWED_FIELDS), "preview": None,
                 "form_vals": {
                     "name": form.get("name") or "",

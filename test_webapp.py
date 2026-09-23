@@ -63,11 +63,19 @@ def test_pages_whitelist_and_traversal_guard():
 def test_partial_case_links_to_partial_page():
     r = client.get("/")
     # 🔴183차 — 파일명도 표시 코드다. 실명이 URL에 남으면 가린 의미가 없다.
-    assert "SmartFarm_부분케이스_C4.html" in r.text
-    assert "SmartFarm_부분케이스_C5.html" in r.text
-    assert "SmartFarm_통합보고서_C2.html" in r.text
-    for old in ("yonggyun", "mulhyangki", "wonchaewon"):
-        assert old not in r.text, f"🔴 내부 식별자 {old}가 링크에 남았다"
+    # 🔴210차 — 카드는 이제 **케이스 상세**로 간다. 계약(실명을 URL에 싣지 않는다)은
+    #    그대로이고 **경로만 옮겼다**: 홈 → `/case/C4` → 부분케이스 산출물.
+    assert '"/case/C4"' in r.text, "🔴 홈 카드가 표시 코드로 상세를 열지 않는다"
+    assert "SmartFarm_부분케이스_C4.html" in client.get("/case/C4").text
+    assert '"/case/C5"' in r.text and '"/case/C2"' in r.text
+    assert "SmartFarm_부분케이스_C5.html" in client.get("/case/C5").text
+    assert "SmartFarm_통합보고서_C2.html" in client.get("/case/C2").text
+    # 🔴 실명은 **홈에도 상세에도** 없어야 한다 — 210차가 라우트를 열면서 하마터면
+    #    `/case/wonchaewon`으로 실명을 URL에 실을 뻔했고, 183차 가드가 잡았다.
+    for page in [r.text] + [client.get("/case/" + k).text
+                            for k in ("C1", "C2", "C3", "C4", "C5")]:
+        for old in ("yonggyun", "mulhyangki", "wonchaewon", "chuncheon", "uminjae"):
+            assert old not in page, f"🔴 내부 식별자 {old}가 화면에 남았다"
 
 
 def test_health():
@@ -106,7 +114,7 @@ def test_financing_preview_matches_engine():
     form = {"loan_principal_won": "300000000", "annual_rate_pct": "1.5",
             "term_years": "25", "grace_years": "5", "method": "원리금균등",
             "note": "합성 예시(테스트)"}
-    r = client.post("/entry/financing/wonchaewon/preview", data=form)
+    r = client.post("/entry/financing/C2/preview", data=form)
     assert r.status_code == 200
     am = e.loan_amortization(300_000_000, 1.5, 25, 5, "원리금균등")
     assert f"{am['총이자']:,.0f}" in r.text  # 상환표 수치 = 엔진 반환값 그대로
@@ -117,16 +125,16 @@ def test_financing_engine_validation_surfaces():
     # 거치 ≥ 전체기간은 엔진 ValueError → 400으로 그대로 노출(제2 검증기 없음)
     form = {"loan_principal_won": "1000000", "annual_rate_pct": "2",
             "term_years": "5", "grace_years": "5", "method": "원리금균등", "note": "x"}
-    r = client.post("/entry/financing/wonchaewon/preview", data=form)
+    r = client.post("/entry/financing/C2/preview", data=form)
     assert r.status_code == 400
 
 
 def test_financing_save_requires_note_and_writes_case(tmp_cases):
     form = {"loan_principal_won": "100000000", "annual_rate_pct": "0",
             "term_years": "5", "grace_years": "", "method": "원리금균등", "note": ""}
-    assert client.post("/entry/financing/wonchaewon/save", data=form).status_code == 400  # 출처 없음
+    assert client.post("/entry/financing/C2/save", data=form).status_code == 400  # 출처 없음
     form["note"] = "테스트 약정서(합성) — 출처 형식 예시"
-    r = client.post("/entry/financing/wonchaewon/save", data=form, follow_redirects=False)
+    r = client.post("/entry/financing/C2/save", data=form, follow_redirects=False)
     assert r.status_code == 303
     saved = json.loads((tmp_cases / "wonchaewon.json").read_text(encoding="utf-8"))
     assert saved["financing"]["loan_principal_won"] == 100_000_000
@@ -137,10 +145,10 @@ def test_financing_save_requires_note_and_writes_case(tmp_cases):
 
 def test_scenario_whitelist_rejected_via_engine():
     form = {"name": "불량", "note": "x", "area_m2": "9999"}  # 물리 입력은 화이트리스트 밖
-    r = client.post("/entry/scenario/wonchaewon/preview", data=form)
+    r = client.post("/entry/scenario/C2/preview", data=form)
     assert r.status_code == 400 or "허용되지 않는" not in r.text  # 폼에 없는 필드는 무시됨
     # 화이트리스트 필드가 하나도 없으면 저장 거부
-    r2 = client.post("/entry/scenario/wonchaewon/save", data={"name": "빈세트", "note": "x"})
+    r2 = client.post("/entry/scenario/C2/save", data={"name": "빈세트", "note": "x"})
     assert r2.status_code == 400
 
 
@@ -326,7 +334,7 @@ def test_scenario_preview_and_save_match_engine(tmp_cases):
     import render_report as rr
     form = {"name": "Best(테스트)", "price_won_per_kg": "2936",
             "note": "농진청 소득자료집 2024판 p46 시설토마토(수경) 2024 농가수취단가(테스트 기입)"}
-    r = client.post("/entry/scenario/wonchaewon/preview", data=form)
+    r = client.post("/entry/scenario/C2/preview", data=form)
     assert r.status_code == 200
     # 미리보기 ROI = 엔진 재계산값
     case = {c["case_id"]: c for c in C.load_cases()}["wonchaewon"]
@@ -335,7 +343,7 @@ def test_scenario_preview_and_save_match_engine(tmp_cases):
     ec = rr.compute(dataclasses.replace(inp, price_won_per_kg=2936))["economics"]
     assert f"{ec['roi']*100:.1f}%" in r.text
     # 저장 → 세트가 케이스에 추가되고 scenario_rows가 그대로 소비 가능
-    rs = client.post("/entry/scenario/wonchaewon/save", data=form, follow_redirects=False)
+    rs = client.post("/entry/scenario/C2/save", data=form, follow_redirects=False)
     assert rs.status_code == 303
     saved = json.loads((tmp_cases / "wonchaewon.json").read_text(encoding="utf-8"))
     # 50차부터 실케이스에 기본 세트(Best/Worst)가 실존 — 웹 추가분은 마지막에 append된다
@@ -458,7 +466,7 @@ def test_209cha_rejection_keeps_the_form():
         #   (209차에 실제로 이 가드가 먼저 그렇게 틀렸다). 같은 이스케이프로 잰다.
         from markupsafe import escape as _esc
         engine_says = str(_esc(str(ex)))
-    r = client.post("/entry/financing/wonchaewon/preview", data={
+    r = client.post("/entry/financing/C2/preview", data={
         "loan_principal_won": "300000000", "annual_rate_pct": "1.5",
         "term_years": "5", "grace_years": "9", "method": "원리금균등",
         "note": "209차 가드 — 합성 입력"})
@@ -471,7 +479,7 @@ def test_209cha_rejection_keeps_the_form():
         "🔴 financing 거부가 원금·근거를 버렸다")
 
     # ── ③ 시나리오·견적비교도 같은 계약인가 ────────────────────────
-    r = client.post("/entry/scenario/wonchaewon/save",
+    r = client.post("/entry/scenario/C2/save",
                     data={"name": "209가드", "price_won_per_kg": "3100", "note": ""})
     assert r.status_code == 400 and "209가드" in r.text and 'value="3100"' in r.text, (
         "🔴 시나리오 거부가 세트 이름·가정값을 버렸다")
@@ -484,7 +492,7 @@ def test_209cha_rejection_keeps_the_form():
 
     # ── ④ 🔴 **클라이언트 검증을 늘리지 않았는가**(제2 검증기 금지) ──
     for path in ("/entry/newcase", "/entry/quotes/edit",
-                 "/entry/financing/wonchaewon", "/entry/scenario/wonchaewon"):
+                 "/entry/financing/C2", "/entry/scenario/C2"):
         html = client.get(path).text
         # 🔴 이 자리에 `\b`를 쓰려다 **백스페이스 문자가 박혔다**
         #   (209차 뮤테이션 M5가 잡았다 — 가드가 **한 번도 발화할 수 없었다**).
@@ -537,6 +545,131 @@ def test_209cha_rejection_keeps_the_form():
     home = _io_read("webapp_templates/console_home.html")
     assert "minmax(min(340px,100%),1fr)" in home, (
         "🔴 카드 그리드가 칸보다 넓어질 수 있다 — `min(340px,100%)`로 막아야 한다")
+
+
+def test_210cha_every_output_is_reachable_from_the_console():
+    """210차 — **산출물이 콘솔에서 닿는가**(하나도 빠짐없이).
+
+    🔴 **실측이 결함을 정했다**: 산출물 **21건 중 9건**이 콘솔 어디에서도 닿지
+    않았다 — 케이스당 **4축 리포트 · 컨설팅 패키지 · 판정 부록**(3종 × 4축 3건).
+    카드는 **통합보고서 하나만** 가리켰다. *「사이드바 링크가 모자라다」*와
+    *「케이스 상세가 없다」*는 **같은 구멍 하나**였다.
+
+    🔴 **왜 그랬나**: 파일명을 짓는 곳이 **둘**이었다 — `build_site.build()`의
+    지역 변수와 `webapp.py`의 f-string. 둘이면 갈라지고, 실제로 갈라져 있었다.
+    → `build_site.case_output_files()`를 **유일한 출처**로 두고 양쪽이 부른다.
+
+    📌 이 가드는 **수를 고정하지 않는다**(21을 박으면 산출물이 늘 때 거짓 실패한다).
+    대신 **사각이 0인가**를 잰다 — 새 산출물이 생기면 자동으로 발화한다.
+    """
+    import re as _re, os as _o, glob as _g
+    import build_site as _bs
+    from cases import load_cases as _lc
+
+    repo = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    outputs = sorted([_o.path.basename(p)
+                      for p in _g.glob(_o.path.join(repo, "SmartFarm_*.html"))]
+                     + ["index.html"])
+    assert len(outputs) >= 21, (
+        f"🔴 산출물이 {len(outputs)}건이다 — 210차 실측은 21건이고 **하한**이다. "
+        "줄었다면 build_site가 덜 돈 것이다(게이트 순서: build_site → pytest)")
+
+    cs = _lc()
+    pages = ["/", "/entry", "/entry/newcase", "/entry/quotes"]
+    import case_display as _cd
+    pages += ["/case/" + _cd.code(x) for x in cs]   # URL도 표시 코드다
+    seen = set()
+    for p in pages:
+        r = client.get(p)
+        assert r.status_code == 200, f"🔴 {p}가 {r.status_code}다"
+        seen |= set(_re.findall(r'href="/pages/([^"]+)"', r.text))
+
+    gap = [n for n in outputs if n not in seen]
+    assert not gap, (
+        f"🔴 콘솔에서 **닿지 않는 산출물** {len(gap)}건: {gap} — 만들어 놓고 "
+        "**보여 주지 않는 산출물**은 없는 것과 같다(210차 전에 9건이 그랬다)")
+    broken = sorted(n for n in seen if n not in outputs)
+    assert not broken, (
+        f"🔴 콘솔이 **없는 파일**을 가리킨다: {broken} — 링크는 있는데 파일이 없다")
+
+    # ── 🔴 이름을 **두 곳에서 짓지 않는가** ────────────────────────
+    src = _io_read("webapp.py")
+    assert 'f"SmartFarm_' not in src, (
+        "🔴 `webapp.py`가 산출물 파일명을 **직접 짓는다** — 이름의 출처는 "
+        "`build_site.case_output_files()` 하나여야 한다. 둘이면 갈라지고, "
+        "210차 전에 실제로 갈라져 케이스당 3종이 사각이 됐다")
+    for case in cs:
+        files = _bs.case_output_files(case)
+        kinds = [k for k, _w in _bs._MENU_KINDS if k in files]
+        assert len(kinds) == len(files), (
+            f"🔴 `{case['case_id']}`의 산출물 갈래가 `_MENU_KINDS`에 없다: "
+            f"{sorted(set(files) - set(kinds))} — 보는 순서를 잃는다")
+        html = client.get("/case/" + _cd.code(case)).text
+        for kind, fn in files.items():
+            assert fn in html, (
+                f"🔴 상세 화면이 `{case['case_id']}`의 「{kind}」({fn})를 내지 않는다")
+
+    # ── ⚠️ 없는 파일을 **있는 척하지 않는가** ──────────────────────
+    import smartfarm_engine as _e  # noqa: F401  (경로 확인용 import 아님)
+    case0 = [x for x in cs if not x.get("partial")][0]
+    fn = _bs.case_output_files(case0)["판정 부록"]
+    p = _o.path.join(repo, fn)
+    body = _io_read(fn)
+    _o.rename(p, p + ".210bak")
+    try:
+        html = client.get("/case/" + _cd.code(case0)).text
+        assert "아직 없다" in html and "엔진 재계산" in html, (
+            "🔴 생성되지 않은 산출물을 **링크로 내놨다** — 눌러도 404다. "
+            "없는 것은 **없다고** 말해야 한다(209차 계약)")
+        assert ('href="/pages/%s"' % fn) not in html, (
+            f"🔴 없는 파일 {fn}을 아직 링크한다")
+    finally:
+        _o.rename(p + ".210bak", p)
+    assert _io_read(fn) == body, "🔴 가드가 산출물을 바꿔 놓았다"
+
+    # ── 🔴 실명이 **콘솔 어디에도** 남지 않는가(183·184차 계약을 전 화면으로) ─
+    #   210차에 케이스 상세를 열면서 하마터면 `/case/wonchaewon`으로 **URL에 실명을
+    #   실을 뻔했다** — 183차 가드가 잡았다. 가드를 기입 화면까지 넓히자 `/entry`
+    #   허브·기입 폼이 **33차부터 실명을 URL에 싣고 있었다**는 것이 드러났다
+    #   (183차 가드는 **홈만** 훑었다). 그래서 이제 **전 화면**을 훑는다.
+    EXC = {"/entry/quotes/edit":
+           "전사 편집기는 **전사 대상 자체**를 보여 준다 — 업체명은 편집할 데이터이지 "
+           "산출물이 아니다(`test_quotes_edit_prefills_real_data`가 그것을 요구한다)"}
+    sweep = ["/", "/entry", "/entry/newcase", "/entry/quotes", "/entry/quotes/edit"]
+    sweep += ["/case/" + _cd.code(x) for x in cs]
+    sweep += ["/entry/%s/%s" % (k, _cd.code(x))
+              for k in ("financing", "scenario")
+              for x in cs if not x.get("partial")]
+    used_exc = set()
+    for p in sweep:
+        r = client.get(p)
+        assert r.status_code == 200, f"🔴 {p}가 {r.status_code}다"
+        left = _cd.audit(r.text)
+        if p in EXC:
+            used_exc.add(p)
+            continue
+        assert not left, (
+            f"🔴 {p}에 실명·내부 식별자가 남았다: {left} — **URL도 화면도** 사용자가 "
+            "보고 복사해 나르는 표면이다(183·184차 계약)")
+    assert used_exc == set(EXC), (
+        f"🔴 쓰이지 않은 예외가 있다: {sorted(set(EXC) - used_exc)} — 예외는 "
+        "**실제로 걸릴 때만** 둔다(192차 교훈: 안 쓰인 예외는 사유가 검사되지 않는다)")
+
+    # ── 판정·추천 어휘가 상세 화면에 들어오지 않았는가 ─────────────
+    #   📌 **또 무딘 토큰이었다(아홉 번째)**: `"추천"`만 세니 화면 맨 아래의
+    #      선언문 *「판정·추천 없음」* 자체에 걸렸다(182·185·190·192·193·198·
+    #      200·207차와 같은 유형). 선언문은 **있어야 하는 것**이므로 지우지 않고,
+    #      **그 문장만 들어낸 뒤** 나머지를 잰다.
+    html = client.get("/case/" + _cd.code(case0)).text
+    DECL = "판정·추천 없음"
+    assert DECL in html, (
+        f"🔴 케이스 상세에서 「{DECL}」 선언이 사라졌다 — 콘솔이 나열만 한다는 "
+        "약속은 **화면에 적혀 있어야** 읽는 사람이 안다")
+    body = html.replace(DECL, "")
+    for w in ("추천", "권장", "최적", "1순위", "우선순위"):
+        assert w not in body, (
+            f"🔴 케이스 상세에 판정·추천 어휘 「{w}」가 들어왔다 — 콘솔은 "
+            "나열만 한다(1절 불변 원칙)")
 
 
 def _io_read(rel):

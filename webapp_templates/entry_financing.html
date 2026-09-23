@@ -1,14 +1,14 @@
 {% extends "_base.html" %}
 {% set active = "entry" %}
-{% block title %}financing 기입 — {{ case.case_id }}{% endblock %}
+{% block title %}financing 기입 — {{ alias.code }}{% endblock %}
 {% block main %}
   {% set v = form_vals or fin %}
-  <div class="top"><h1>① financing 실조건 기입 — {{ case.title }}</h1></div>
+  <div class="top"><h1>① financing 실조건 기입 — {{ alias.title }}</h1></div>
   <div class="subtitle">약정서·공고문의 실제 값만 기입한다(가공값 금지) — 검증·상환표 계산은 엔진 loan_amortization이 수행</div>
   {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — 케이스 JSON에 financing 블록 기록. 통합보고서 반영은 "엔진 재계산" 실행</div>{% endif %}
   <div class="split">
     <div class="card pane">
-      <form method="post" action="/entry/financing/{{ case.case_id }}/preview" id="finform">
+      <form method="post" action="/entry/financing/{{ alias.code }}/preview" id="finform">
         <label>대출 원금 (loan_principal_won, 원) <span class="req">*</span></label>
         <input type="text" name="loan_principal_won" value="{{ v.loan_principal_won or '' }}" placeholder="예: 300000000">
         <label>연 이율 (annual_rate_pct, %) <span class="req">*</span></label>
@@ -27,7 +27,7 @@
         <div class="hint">저장 시 note가 비어 있으면 거부된다 — 출처 없는 실조건 저장 금지</div>
         <div style="display:flex; gap:8px; margin-top:14px">
           <button type="submit">엔진 미리보기 (저장 안 함)</button>
-          <button type="submit" class="btn-primary" formaction="/entry/financing/{{ case.case_id }}/save">케이스에 반영 (근거 포함 저장)</button>
+          <button type="submit" class="btn-primary" formaction="/entry/financing/{{ alias.code }}/save">케이스에 반영 (근거 포함 저장)</button>
         </div>
       </form>
     </div>

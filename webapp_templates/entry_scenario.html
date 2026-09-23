@@ -1,14 +1,14 @@
 {% extends "_base.html" %}
 {% set active = "entry" %}
-{% block title %}시나리오 기입 — {{ case.case_id }}{% endblock %}
+{% block title %}시나리오 기입 — {{ alias.code }}{% endblock %}
 {% block main %}
   {% set v = form_vals or {"name": "", "assumptions": {}, "note": ""} %}
-  <div class="top"><h1>④ 시나리오 가정 채택 — {{ case.title }}</h1></div>
+  <div class="top"><h1>④ 시나리오 가정 채택 — {{ alias.title }}</h1></div>
   <div class="subtitle">화이트리스트 필드만 허용(물리·구조 입력은 다른 케이스) · 근거 필수 · 검증과 재계산은 전부 build_site.scenario_rows(엔진)</div>
   {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — scenarios.sets에 세트 추가. 통합보고서 다단 표 반영은 "엔진 재계산" 실행</div>{% endif %}
   <div class="split">
     <div class="card pane">
-      <form method="post" action="/entry/scenario/{{ case.case_id }}/preview">
+      <form method="post" action="/entry/scenario/{{ alias.code }}/preview">
         <label>세트 이름 <span class="req">*</span></label>
         <input type="text" name="name" value="{{ v.name }}" placeholder="예: Best / Worst / 수경통계-보수적">
         {% for f in fields %}
@@ -20,7 +20,7 @@
         <div class="hint">근거팩: 시나리오_가정값_근거팩_토마토.md (2019~2024 전국 + 강원·충남 지역표) — 어느 값을 쓸지는 컨설턴트 판단</div>
         <div style="display:flex; gap:8px; margin-top:14px">
           <button type="submit">엔진 미리보기 (저장 안 함)</button>
-          <button type="submit" class="btn-primary" formaction="/entry/scenario/{{ case.case_id }}/save">케이스에 반영 (세트 추가)</button>
+          <button type="submit" class="btn-primary" formaction="/entry/scenario/{{ alias.code }}/save">케이스에 반영 (세트 추가)</button>
         </div>
       </form>
     </div>

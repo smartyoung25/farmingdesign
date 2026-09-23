@@ -145,6 +145,22 @@ def code(case: dict) -> str:
     return alias(case)["code"]
 
 
+def by_code(display_code: str, cases: list) -> dict | None:
+    """표시 코드 → 케이스(없으면 None).
+
+    🔴 210차 — 콘솔이 케이스 상세 URL을 열면서 **`/case/<실명 case_id>`**를 쓸
+    뻔했다. 183·184차가 막은 것은 *「산출물에 실명을 싣지 않는다」*인데 **URL도
+    사용자가 보고 복사해 나르는 표면**이다 — 183차 가드(`audit`)가 실제로 잡았다.
+    그래서 라우트는 **표시 코드**로 받고, 여기서 되돌린다.
+    ⚠️ 내부 데이터(`case_id`)는 그대로다 — 이 함수는 **표시 계층의 역방향**일 뿐이다.
+    """
+    want = (display_code or "").strip().upper()
+    for c in cases:
+        if code(c).upper() == want:
+            return c
+    return None
+
+
 def scrub(text: str) -> str:
     """산출물 문자열에서 케이스 실명·내부 식별자를 **표시 코드로 바꾼다**.
 

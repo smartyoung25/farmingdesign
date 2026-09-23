@@ -1,0 +1,73 @@
+{% extends "_base.html" %}
+{% set active = "cases" %}
+{% block title %}{{ alias.title }}{% endblock %}
+{% block main %}
+  <style>
+    .out { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr)); gap:10px; }
+    a.step { display:block; text-decoration:none; color:inherit; background:var(--card);
+             border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+    a.step:hover { border-color:#B4B2A9; }
+    .step .k { display:block; font-size:14px; font-weight:500; margin-bottom:4px; }
+    .step .w { display:block; font-size:12px; color:var(--sub); line-height:1.45; }
+    .step.gone { opacity:.55; }
+    .step.gone .k { color:var(--sub); }
+    .kpi { display:flex; flex-wrap:wrap; gap:18px 28px; }
+    .kpi div { min-width:96px; }
+    .kpi .lab { font-size:11px; color:var(--mut); }
+    .kpi .val { font-size:18px; font-weight:500; color:var(--green); font-variant-numeric:tabular-nums; }
+    .provrow td { font-size:12px; }
+  </style>
+  <div class="top">
+    <h1>{{ alias.title }}</h1>
+    <div class="actions">
+      <a class="btn" href="/">← 케이스</a>
+      <a class="btn" href="/entry/financing/{{ alias.code }}">financing 기입{% if has_fin %} ✓{% endif %}</a>
+      <a class="btn" href="/entry/scenario/{{ alias.code }}">시나리오 기입{% if n_sets %} ({{ n_sets }}){% endif %}</a>
+    </div>
+  </div>
+  <div class="subtitle">
+    {{ case.input.get("crop", "—") }} · {{ case.input.get("region", "—") }} ·
+    {{ "{:,}".format(case.input.get("area_m2")) if case.input.get("area_m2") else "—" }}㎡
+    {%- if case.partial %} · 부분 케이스({{ case.partial }}) — 4축 미산출{% endif %}
+  </div>
+
+  {% if kpi %}
+  <div class="card" style="margin-bottom:12px">
+    <div class="kpi">
+      {% for lab, val in kpi %}<div><div class="lab">{{ lab }}</div><div class="val">{{ val }}</div></div>{% endfor %}
+    </div>
+    <p class="note">요청 시점 엔진 실계산(render_report.compute) — 이 화면은 표시만 한다. {{ assum | safe }}</p>
+  </div>
+  {% endif %}
+
+  <h3 style="font-size:13px; color:var(--sub); font-weight:500; margin:16px 0 8px">
+    산출물 {{ outputs | length }}종 — 보는 순서대로</h3>
+  <div class="out">
+    {% for o in outputs %}
+    {% if o.exists %}
+    <a class="step" href="{{ o.href }}"><span class="k">{{ o.kind }}</span><span class="w">{{ o.why }}</span></a>
+    {% else %}
+    <div class="step gone"><span class="k">{{ o.kind }} — 아직 없다</span>
+      <span class="w">{{ o.file }}가 생성되지 않았다. 케이스 목록의 "엔진 재계산"을 실행할 것.</span></div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  {% if chips %}
+  <h3 style="font-size:13px; color:var(--sub); font-weight:500; margin:18px 0 8px">
+    근거 {{ chips | length }}건 — 케이스 JSON의 provenance 그대로</h3>
+  <div class="card" style="padding:6px 12px">
+    <table>
+      <thead><tr><th style="width:190px">필드</th><th style="width:96px">status</th><th>출처</th></tr></thead>
+      <tbody>
+      {% for c in chips %}
+      <tr class="provrow"><td>{{ c.field }}</td>
+        <td><span class="chip {{ c.cls }}">{{ c.status or "—" }}</span></td>
+        <td>{{ c.source or "—" }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <p class="note">파일명·보는 순서·"왜 보는가"는 전부 build_site(case_output_files·_MENU_KINDS)에서 온다 — 이 화면이 이름을 따로 짓지 않는다. 판정·추천 없음.</p>
+{% endblock %}

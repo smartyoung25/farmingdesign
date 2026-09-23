@@ -12,9 +12,9 @@
       <tr>
         <td style="font-weight:500">{{ r.title }}</td>
         <td>{% if r.fin %}<span class="chip chip-measured">기입됨</span>{% else %}<span class="chip chip-est">대기</span>{% endif %}
-            <a class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" href="/entry/financing/{{ r.case_id }}">폼 열기</a></td>
+            <a class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" href="/entry/financing/{{ r.code }}">폼 열기</a></td>
         <td>{% if r.n_sets %}<span class="chip chip-measured">{{ r.n_sets }}세트</span>{% else %}<span class="chip chip-est">0세트</span>{% endif %}
-            <a class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" href="/entry/scenario/{{ r.case_id }}">폼 열기</a></td>
+            <a class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" href="/entry/scenario/{{ r.code }}">폼 열기</a></td>
         <td><span class="chip chip-ref">문서 절차</span> <span style="font-size:12px;color:var(--mut)">리모델링_진단값_수집명세서.md로 수집 후 별도 승격</span></td>
       </tr>
       {% endfor %}

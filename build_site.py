@@ -983,6 +983,29 @@ def consulting_package_page(case: dict, pkg: dict,
     return _page(f"컨설팅 패키지 — {case['case_id']}", body)
 
 
+# ─────────────────────────────────────────────────────────────
+# 210차 — 케이스 1건의 산출물 **파일명은 여기서만 짓는다**.
+#   🔴 종전엔 `build()` 안의 지역 변수(`fn`·`pfn`·`afn`·`crn`)와 `webapp.py`의
+#      f-string **두 곳**이 같은 이름을 각각 지었다. 두 곳이면 갈라진다 —
+#      실제로 콘솔은 케이스당 **통합보고서 하나만** 알고 있었고, 나머지 3종
+#      (4축 리포트·컨설팅 패키지·판정 부록)은 **콘솔 어디에서도 닿지 않았다**
+#      (210차 실측: 산출물 21건 중 **9건이 사각**).
+#   📌 키는 `_MENU_KINDS`의 갈래 이름과 **같은 문자열**이다 — 보는 순서와
+#      *「왜 보는가」*는 `_MENU_KINDS`가 쥐고, 이 함수는 **이름만** 짓는다.
+# ─────────────────────────────────────────────────────────────
+def case_output_files(case: dict) -> dict:
+    """케이스 1건 → {갈래: 파일명}. 판정·계산 없음(이름만 짓는다)."""
+    code = cdsp.alias(case)["code"]
+    if case.get("partial"):
+        return {"부분 케이스": f"SmartFarm_부분케이스_{code}.html"}
+    return {
+        "통합보고서": f"SmartFarm_통합보고서_{code}.html",
+        "컨설팅 패키지": f"SmartFarm_컨설팅패키지_{code}.html",
+        "판정 부록": f"SmartFarm_판정부록_{code}.html",
+        "4축 리포트": f"SmartFarm_리포트_{code}.html",
+    }
+
+
 _MENU_KINDS = (
     ("통합보고서", "먼저 볼 것 — 4축 요약과 경영자 요약"),
     ("컨설팅 패키지", "D1~D24 대조 자료 + 무엇이 더 필요한지"),
@@ -1081,7 +1104,7 @@ def main():
         #   내부 `case_id`는 그대로 쓰고 **표시 계층에서만** 코드로 바꾼다.
         al = cdsp.alias(c)
         if c.get("partial"):
-            fn = f"SmartFarm_부분케이스_{al['code']}.html"
+            fn = case_output_files(c)["부분 케이스"]
             _emit(fn, partial_construction_page(c))
             links.append({"href": fn, "title": f"{al['title']} — 부분 케이스",
                           "desc": "시공축만 — 실측 공사비·규격(4축 미산출)",
@@ -1090,7 +1113,8 @@ def main():
             continue
         inp = case_to_input(c)
         res = rr.compute(inp)
-        fn = f"SmartFarm_리포트_{al['code']}.html"
+        _files = case_output_files(c)
+        fn = _files["4축 리포트"]
         _emit(fn, rr.render_html(res))
         computed.append({"case": c, "res": res})
         ec = res["economics"]
@@ -1101,8 +1125,8 @@ def main():
 
         # 🔴181차 — D1~D20 패키지. 주입이 없는 산출물은 **자료 요청서로** 나온다.
         pkg = cpkg.build_package(c)
-        pfn = f"SmartFarm_컨설팅패키지_{al['code']}.html"
-        afn = f"SmartFarm_판정부록_{al['code']}.html"
+        pfn = _files["컨설팅 패키지"]
+        afn = _files["판정 부록"]
         _emit(pfn, consulting_package_page(c, pkg, appendix_href=afn))
         _n_open = len(pkg["open_injections"])
         links.append({"href": pfn, "title": f"{al['title']} — 컨설팅 패키지",
@@ -1115,7 +1139,7 @@ def main():
                       "group": "케이스", "code": al["code"]})
         n_pkg += 1
 
-        crn = f"SmartFarm_통합보고서_{al['code']}.html"
+        crn = _files["통합보고서"]
         _emit(crn, consulting_report_page(c, res, inp))
         links.append({"href": crn, "title": f"{al['title']} — 통합보고서",
                       "desc": "입지·설계·운영·경제성 4섹션 + 경영자요약",
