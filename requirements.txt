@@ -19,6 +19,13 @@ fastapi==0.141.1
 uvicorn==0.52.3
 jinja2==3.1.6
 python-multipart==0.0.32
+#   🔴209차 — fastapi·jinja2의 **전이 의존이지만 코드가 이름을 직접 부른다**:
+#     `webapp.py`가 `starlette.exceptions.HTTPException`을 잡아 거부를 화면으로 내고
+#     (fastapi 쪽만 잡으면 라우트 미매칭 404가 JSON으로 샌다),
+#     `test_webapp.py`가 `markupsafe.escape`로 **엔진 문장이 그대로 실렸는지**를 잰다.
+#     이름을 직접 부르는 순간 전이 의존이 아니라 **선언할 의존**이다.
+starlette==1.6.0
+markupsafe==3.0.3
 #
 # ── 원문 파서(청킹 · 근거 대조 · 품셈 추출) ─────────────────────
 #   없으면 해당 테스트가 **조용히 skip**된다(pytest.importorskip).

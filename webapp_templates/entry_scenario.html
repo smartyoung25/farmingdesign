@@ -6,8 +6,8 @@
   <div class="top"><h1>④ 시나리오 가정 채택 — {{ case.title }}</h1></div>
   <div class="subtitle">화이트리스트 필드만 허용(물리·구조 입력은 다른 케이스) · 근거 필수 · 검증과 재계산은 전부 build_site.scenario_rows(엔진)</div>
   {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — scenarios.sets에 세트 추가. 통합보고서 다단 표 반영은 "엔진 재계산" 실행</div>{% endif %}
-  <div style="display:flex; gap:14px; align-items:flex-start">
-    <div class="card" style="width:420px; flex-shrink:0">
+  <div class="split">
+    <div class="card pane">
       <form method="post" action="/entry/scenario/{{ case.case_id }}/preview">
         <label>세트 이름 <span class="req">*</span></label>
         <input type="text" name="name" value="{{ v.name }}" placeholder="예: Best / Worst / 수경통계-보수적">
@@ -24,7 +24,7 @@
         </div>
       </form>
     </div>
-    <div style="flex:1; min-width:0">
+    <div class="out">
       {% if sets %}
       <div class="card" style="margin-bottom:12px">
         <div style="font-weight:500; margin-bottom:6px">기존 세트 {{ sets | length }}건</div>

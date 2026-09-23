@@ -4,7 +4,7 @@
 {% block foot %}근거대장 상수 {{ n_constants }}건 · 계산은 전부 엔진(smartfarm_engine){% endblock %}
 {% block main %}
   <style>
-    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; margin-bottom:12px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr)); gap:12px; margin-bottom:12px; }
     a.card { text-decoration:none; color:inherit; display:block; }
     a.card:hover { border-color:#B4B2A9; }
     .card h2 { font-size:15px; font-weight:500; margin-bottom:6px; }

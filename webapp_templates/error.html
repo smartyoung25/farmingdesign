@@ -1,0 +1,18 @@
+{% extends "_base.html" %}
+{% block title %}거부됨 — {{ status }}{% endblock %}
+{% block main %}
+  <div class="top"><h1>기입이 거부됐다 ({{ status }})</h1></div>
+  <div class="subtitle">이 화면은 <b>되돌릴 수 없는 거부</b>다 — 폼으로 되돌릴 수 있는 거부는 기입 화면에 그대로 남는다</div>
+  <div class="card">
+    <div style="font-size:12px; color:var(--mut)">요청</div>
+    <div style="font-family:ui-monospace,Consolas,monospace; font-size:13px; margin-bottom:12px">{{ path }}</div>
+    <div style="font-size:12px; color:var(--mut)">거부 사유 — 검증한 쪽이 낸 말 그대로</div>
+    <div style="font-size:14px; line-height:1.55">{{ detail }}</div>
+  </div>
+  <div style="display:flex; gap:8px; margin-top:14px">
+    <a class="btn" href="javascript:history.back()">뒤로</a>
+    <a class="btn" href="/entry">기입 워크플로</a>
+    <a class="btn btn-primary" href="/">케이스</a>
+  </div>
+  <p class="note">앱은 이 문장을 <b>고쳐 말하지 않는다</b> — 고쳐 말하는 순간 제2 검증기가 된다(1절 불변 원칙). 상태 코드도 그대로 낸다.</p>
+{% endblock %}

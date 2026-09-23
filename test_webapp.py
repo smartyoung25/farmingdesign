@@ -414,3 +414,132 @@ def test_206cha_entry_form_asks_each_value_once():
         if _o.path.exists(path):
             _o.remove(path)
 
+
+def test_209cha_rejection_keeps_the_form():
+    """209차 — **거부가 기입을 버리지 않는가**(UI 완성의 첫 조건).
+
+    🔴 **실측이 범위를 정했다**: 마법사 폼은 **47칸**인데 브라우저 `required`는
+    **0개**다 — 검증을 한 곳(서버·엔진)에서만 하려고 일부러 그렇게 뒀다
+    (**제2 검증기 금지**). 그런데 그 거부가 `application/json`으로 나가서
+    **47칸이 통째로 사라졌다**. `HTTPException` 발생 지점 **26곳**이 전부 같은 결말.
+
+    🔴 **없던 기능이 아니라 빠진 경로였다** — 템플릿은 이미 `form_vals`로 값을
+    되받을 줄 안다. **오류 경로만 그 길을 쓰지 않았다**(206차가 찾은 결함과 같은 계열).
+
+    📌 **고친 것은 표시 계층뿐이다.** 그래서 이 가드는 ①값이 살아오는가 ②메시지가
+    **엔진이 낸 말 그대로**인가 ③상태 코드가 그대로인가 ④**클라이언트 검증이
+    늘지 않았는가**를 잰다 — ④가 무너지면 고친 것이 아니라 **검증기를 하나 더
+    만든 것**이다.
+    """
+    import re as _re
+    import smartfarm_engine as _e
+
+    # ── ① 마법사: 거부가 HTML이고 제출값이 살아오는가 ──────────────
+    typed = {"case_id": "BADID", "region": "충남 논산", "crop": "딸기",
+             "area_m2": "3000", "t_target": "18", "opex": "123456789"}
+    r = client.post("/entry/newcase/preview", data=typed)
+    assert r.status_code == 400, f"🔴 상태 코드가 {r.status_code}다 — 400이어야 한다"
+    assert r.headers["content-type"].startswith("text/html"), (
+        f"🔴 거부가 {r.headers['content-type']}로 나간다 — 폼으로 되돌리려면 화면이어야 "
+        "한다(종전엔 application/json이라 47칸이 통째로 사라졌다)")
+    for k, v in typed.items():
+        assert ('name="%s" value="%s"' % (k, v)) in r.text, (
+            f"🔴 거부 뒤 `{k}`={v!r}가 폼에 없다 — **기입한 값을 버렸다**. "
+            "템플릿은 `form_vals`로 되받을 줄 아는데 오류 경로가 그 길을 안 쓴 것이다")
+    assert 'class="banner err"' in r.text, "🔴 거부 사유를 화면에 띄우지 않는다"
+
+    # ── ② 🔴 메시지가 **엔진이 낸 말 그대로**인가(앱이 고쳐 말하면 제2 검증기다) ─
+    try:
+        _e.loan_amortization(300000000, 1.5, 5, 9, "원리금균등")
+        raise AssertionError("🔴 엔진이 거치≥전체기간을 거부하지 않는다 — 전제가 깨졌다")
+    except ValueError as ex:
+        # 🔴 엔진 문장에 `<`가 들어 있다("0 <= 거치 < 전체기간") — 화면은 이걸
+        #   **이스케이프해서** 싣는다. 날문자열로 재면 *「고쳐 말했다」*고 오판한다
+        #   (209차에 실제로 이 가드가 먼저 그렇게 틀렸다). 같은 이스케이프로 잰다.
+        from markupsafe import escape as _esc
+        engine_says = str(_esc(str(ex)))
+    r = client.post("/entry/financing/wonchaewon/preview", data={
+        "loan_principal_won": "300000000", "annual_rate_pct": "1.5",
+        "term_years": "5", "grace_years": "9", "method": "원리금균등",
+        "note": "209차 가드 — 합성 입력"})
+    assert r.status_code == 400
+    assert engine_says in r.text, (
+        f"🔴 화면이 엔진의 말을 **고쳐 말한다**. 엔진(이스케이프 후): "
+        f"{engine_says!r} — "
+        "앱이 사유를 다시 쓰는 순간 **제2 검증기**가 된다(1절 불변 원칙)")
+    assert 'value="300000000"' in r.text and "209차 가드 — 합성 입력" in r.text, (
+        "🔴 financing 거부가 원금·근거를 버렸다")
+
+    # ── ③ 시나리오·견적비교도 같은 계약인가 ────────────────────────
+    r = client.post("/entry/scenario/wonchaewon/save",
+                    data={"name": "209가드", "price_won_per_kg": "3100", "note": ""})
+    assert r.status_code == 400 and "209가드" in r.text and 'value="3100"' in r.text, (
+        "🔴 시나리오 거부가 세트 이름·가정값을 버렸다")
+    qform = _nonsan_form()
+    qform["provenance"] = ""          # 근거 없는 전사 → 저장 거부
+    r = client.post("/entry/quotes/save", data=qform)
+    assert r.status_code == 400, f"🔴 근거 없는 전사가 {r.status_code}로 통과한다"
+    assert "골조공사 | 184464840 | greenhouse_structure" in r.text, (
+        "🔴 견적 거부가 **전사한 행 전체**를 버렸다 — 가장 다시 치기 싫은 입력이다")
+
+    # ── ④ 🔴 **클라이언트 검증을 늘리지 않았는가**(제2 검증기 금지) ──
+    for path in ("/entry/newcase", "/entry/quotes/edit",
+                 "/entry/financing/wonchaewon", "/entry/scenario/wonchaewon"):
+        html = client.get(path).text
+        # 🔴 이 자리에 `\b`를 쓰려다 **백스페이스 문자가 박혔다**
+        #   (209차 뮤테이션 M5가 잡았다 — 가드가 **한 번도 발화할 수 없었다**).
+        #   역슬래시 이스케이프를 아예 쓰지 않는다.
+        tags = _re.findall("<(?:input|select|textarea)[^>]*>", html)
+        hits = sorted({a for t in tags for a in
+                       ("required", "pattern", "min", "max",
+                        "minlength", "maxlength")
+                       if _re.search("[ ]" + a + "[ =>]", t)})
+        assert not hits, (
+            f"🔴 {path}에 브라우저 검증 속성 {sorted(set(hits))}이 생겼다 — 검증은 "
+            "**서버·엔진 한 곳**에서만 한다. 클라이언트에도 두면 **둘이 갈라진다**")
+
+    # ── ⑤ 되돌릴 수 없는 거부는 **되돌릴 수 있는 척하지 않는가** ────
+    r = client.post("/entry/financing/nope/save", data={"loan_principal_won": "1"})
+    assert r.status_code == 404 and "기입이 거부됐다" in r.text, (
+        "🔴 케이스가 없어 폼을 복원할 수 없는 거부가 일반 오류 화면으로 가지 않는다")
+    assert "케이스 nope 없음" in r.text, "🔴 일반 오류 화면도 사유를 그대로 실어야 한다"
+    assert "<form" not in r.text, (
+        "🔴 복원하지 못했는데 빈 폼을 띄웠다 — **되돌릴 수 있는 척**이다")
+    assert "기입한 값은 아래에 그대로 남아 있다" not in r.text, (
+        "🔴 폼을 되돌리지 못한 화면이 *「값은 아래에 남아 있다」*고 말한다 — "
+        "**거짓말이다**. 아래에는 아무것도 없다")
+    assert r.text.count("케이스 nope 없음") == 1, (
+        "🔴 같은 사유가 두 번 실린다 — 띠와 본문이 겹쳤다")
+
+    # ── ⑥ 어느 거부도 JSON으로 새지 않는가 ─────────────────────────
+    for meth, path, data in (
+            ("get", "/pages/SmartFarm_없는파일.html", None),
+            ("get", "/pages/smartfarm_engine.py", None),
+            ("post", "/entry/newcase/save", {"case_id": "BADID"})):
+        rr = client.get(path) if meth == "get" else client.post(path, data=data)
+        assert rr.status_code in (400, 404, 409), rr.status_code
+        assert not rr.headers["content-type"].startswith("application/json"), (
+            f"🔴 {path}의 거부가 아직 JSON이다 — 화면 한 곳으로 모으지 못했다")
+
+    # ── ⑦ 좁은 폭에서 무너지지 않게 했는가(실측: 미디어 쿼리 **0개**였다) ─
+    base = _io_read("webapp_templates/_base.html")
+    assert "@media" in base, (
+        "🔴 스타일시트에 미디어 쿼리가 없다 — 209차 실측에서 600px일 때 `main`이 "
+        "288px인데 카드 그리드가 340px였고, 액션 버튼 3개가 **114px 높이**의 "
+        "세로 글자열로 무너졌다")
+    assert "flex-direction:column" in base.split("@media", 1)[1], (
+        "🔴 미디어 쿼리는 있는데 세로 배치로 바뀌지 않는다")
+    for tpl in ("entry_financing.html", "entry_scenario.html"):
+        t = _io_read("webapp_templates/" + tpl)
+        assert 'class="split"' in t and "width:420px" not in t, (
+            f"🔴 {tpl}이 아직 인라인 `width:420px`로 2단을 만든다 — "
+            "**인라인 style은 미디어 쿼리가 못 이긴다**")
+    home = _io_read("webapp_templates/console_home.html")
+    assert "minmax(min(340px,100%),1fr)" in home, (
+        "🔴 카드 그리드가 칸보다 넓어질 수 있다 — `min(340px,100%)`로 막아야 한다")
+
+
+def _io_read(rel):
+    import io as _i, os as _o
+    return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),
+                   encoding="utf-8").read()

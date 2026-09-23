@@ -23,6 +23,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 
@@ -656,3 +657,85 @@ async def quotes_save(request: Request):
     tmp.write_bytes((text.replace("\n", eol) + eol).encode("utf-8"))
     tmp.replace(target)
     return RedirectResponse(f"/entry/quotes?saved={data['comparison_id']}", status_code=303)
+
+
+# ── 5단계(209차): 거부가 기입을 버리지 않는다 ───────────────────────────
+#   🔴 **실측**: 마법사 폼은 **47칸**인데 브라우저 `required`는 **0개**다 — 검증을
+#      한 곳(서버·엔진)에서만 하려고 일부러 그렇게 뒀다(제2 검증기 금지). 그런데
+#      그 거부가 `application/json`으로 나가서 **47칸이 통째로 사라졌다**.
+#      `HTTPException` 발생 지점은 **26곳**이고 전부 같은 결말이었다.
+#   🔴 **폼은 이미 값을 되받을 줄 안다** — 템플릿의 `form_vals`가 그 길이다.
+#      **오류 경로만 그 길을 쓰지 않았다**(206차가 찾은 결함과 같은 계열:
+#      기능이 없는 게 아니라 **한 경로만 빠져 있었다**).
+#   📌 **고치는 것은 표시 계층뿐이다.** 메시지는 검증한 쪽(엔진·저장 규칙)이 낸 말을
+#      **그대로** 싣는다 — 앱이 고쳐 말하는 순간 **제2 검증기**가 된다. 상태 코드도
+#      그대로 둔다(400/404/409/500). 새 검증도, 새 산술도 넣지 않는다.
+#   ⚠️ 폼을 되돌릴 수 없는 거부(케이스가 없다·파싱 자체가 깨졌다)는 **일반 오류
+#      화면**으로 간다 — 되돌릴 수 있는 척하지 않는다.
+
+_FIN_FORM_KEYS = ("loan_principal_won", "annual_rate_pct", "term_years",
+                  "grace_years", "method", "note")
+_ENTRY_PATH_RE = re.compile(r"^/entry/(financing|scenario)/([^/]+)/(preview|save)$")
+
+
+def _entry_error_page(path: str, form):
+    """거부된 POST를 **같은 폼**으로 되돌린다. 되돌릴 수 없으면 None."""
+    try:
+        if path.startswith("/entry/newcase/"):
+            return "entry_newcase.html", {
+                "form_vals": dict(form), "result": None,
+                "statuses": WIZARD_ALLOWED_STATUS,
+                "prov_fields": WIZARD_PROV_FIELDS,
+                "prov_value_fields": WIZARD_PROV_VALUE_FIELDS,
+            }
+        m = _ENTRY_PATH_RE.match(path)
+        if m:
+            case = _full_case_or_404(m.group(2))
+            if m.group(1) == "financing":
+                return "entry_financing.html", {
+                    "case": case, "fin": case.get("financing") or {}, "preview": None,
+                    "form_vals": {k: (form.get(k) or "") for k in _FIN_FORM_KEYS},
+                }
+            return "entry_scenario.html", {
+                "case": case, "sets": (case.get("scenarios") or {}).get("sets", []),
+                "fields": sorted(bs.SCENARIO_ALLOWED_FIELDS), "preview": None,
+                "form_vals": {
+                    "name": form.get("name") or "",
+                    "assumptions": {f: form.get(f) for f in bs.SCENARIO_ALLOWED_FIELDS
+                                    if (form.get(f) or "").strip()},
+                    "note": form.get("note") or "",
+                },
+            }
+        if path.startswith("/entry/quotes/"):
+            data = _parse_quotes_form(form)  # 파싱이 깨진 거부는 여기서 다시 깨진다
+            return "entry_quotes_edit.html", {
+                "data": data, "vendors": [_vendor_to_form(v) for v in data["vendor_quotes"]],
+                "n_blocks": len(data["vendor_quotes"]) + 1,
+                "src": form.get("src") or "", "category_keys": _category_keys(),
+                "result": None,
+            }
+    except Exception:  # 되돌리기 실패는 조용히 일반 화면으로(2차 예외를 삼킨다)
+        return None
+    return None
+
+
+@app.exception_handler(StarletteHTTPException)
+async def rejection_keeps_the_form(request: Request, exc: StarletteHTTPException):
+    """거부를 **화면**으로 낸다 — 메시지는 그대로, 상태 코드도 그대로."""
+    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    tpl, ctx = "error.html", {"detail": detail, "status": exc.status_code,
+                              "path": request.url.path}
+    if request.method == "POST":
+        try:
+            form = await request.form()
+        except Exception:
+            form = None
+        if form is not None:
+            built = _entry_error_page(request.url.path, form)
+            if built:
+                tpl, ctx = built
+                # 🔴 `error`는 **폼을 되돌린 경우에만** 넣는다 — 띠가 *「기입한 값은
+                #   아래에 그대로 남아 있다」*고 말하는데, 일반 오류 화면에는 폼이
+                #   없다. 되돌리지 못했으면 **되돌린 척하지 않는다**.
+                ctx["error"] = detail
+    return templates.TemplateResponse(request, tpl, ctx, status_code=exc.status_code)

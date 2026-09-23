@@ -6,8 +6,8 @@
   <div class="top"><h1>① financing 실조건 기입 — {{ case.title }}</h1></div>
   <div class="subtitle">약정서·공고문의 실제 값만 기입한다(가공값 금지) — 검증·상환표 계산은 엔진 loan_amortization이 수행</div>
   {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — 케이스 JSON에 financing 블록 기록. 통합보고서 반영은 "엔진 재계산" 실행</div>{% endif %}
-  <div style="display:flex; gap:14px; align-items:flex-start">
-    <div class="card" style="width:420px; flex-shrink:0">
+  <div class="split">
+    <div class="card pane">
       <form method="post" action="/entry/financing/{{ case.case_id }}/preview" id="finform">
         <label>대출 원금 (loan_principal_won, 원) <span class="req">*</span></label>
         <input type="text" name="loan_principal_won" value="{{ v.loan_principal_won or '' }}" placeholder="예: 300000000">
@@ -31,7 +31,7 @@
         </div>
       </form>
     </div>
-    <div style="flex:1; min-width:0">
+    <div class="out">
       {% if preview %}
       <div class="card">
         <div style="font-weight:500; margin-bottom:8px">상환표 미리보기 — {{ preview["방식"] }}, 연 {{ preview["연이율_pct"] }}% · {{ preview["전체기간_년"] }}년{% if preview["거치기간_년"] %} · 거치 {{ preview["거치기간_년"] }}년{% endif %}</div>

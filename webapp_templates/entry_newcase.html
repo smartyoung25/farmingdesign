@@ -10,7 +10,7 @@
   <form method="post" action="/entry/newcase/preview">
     <div class="card" style="margin-bottom:12px">
       <div style="font-weight:500">케이스 메타</div>
-      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0 12px">
+      <div class="f4">
         <div><label>case_id (영소문자) <span class="req">*</span></label><input type="text" name="case_id" value="{{ v.get('case_id','') }}" placeholder="예: nonsan_kim"></div>
         <div><label>제목</label><input type="text" name="title" value="{{ v.get('title','') }}" placeholder="예: 김OO — 딸기 / 필름 (신규)"></div>
         <div><label>기준일 as_of</label><input type="text" name="as_of" value="{{ v.get('as_of','') }}" placeholder="YYYY-MM"></div>
@@ -20,7 +20,7 @@
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-weight:500">Ⅰ. 입지 — 설계하중</div>
-      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0 12px">
+      <div class="f3">
         <div><label>지역 region <span class="req">*</span></label><input type="text" name="region" value="{{ v.get('region','') }}" placeholder="예: 논산 / 충남 천안(성환읍)"></div>
         <div><label>적설 snow_cm (수동 시)</label><input type="text" name="snow_cm" value="{{ v.get('snow_cm','') }}"></div>
         <div><label>풍속 wind_ms (수동 시)</label><input type="text" name="wind_ms" value="{{ v.get('wind_ms','') }}"></div>
@@ -37,7 +37,7 @@
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-weight:500">Ⅱ. 설계</div>
-      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0 12px">
+      <div class="f3">
         <div><label>피복 cover <span class="req">*</span></label><input type="text" name="cover" value="{{ v.get('cover','') }}" placeholder="유리/필름"></div>
         <div><label>재배면적 area_m2 <span class="req">*</span></label><input type="text" name="area_m2" value="{{ v.get('area_m2','') }}"></div>
         <div><label>피복표면적 surface_area_m2 <span class="req">*</span></label><input type="text" name="surface_area_m2" value="{{ v.get('surface_area_m2','') }}"></div>
@@ -49,7 +49,7 @@
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-weight:500">Ⅲ·Ⅳ. 운영·경제성 — 값 + 근거(전 항목 필수)</div>
-      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:0 12px">
+      <div class="f2">
         <div><label>작물 crop <span class="req">*</span></label><input type="text" name="crop" value="{{ v.get('crop','') }}"></div>
         <div><label>환경적합도 fitness_pct <span class="req">*</span></label><input type="text" name="fitness_pct" value="{{ v.get('fitness_pct','') }}"></div>
       </div>
@@ -78,7 +78,7 @@
         리포트에 <b>「주입되지 않은 엔진 기본값」</b>이라 표기된다.
         ⚠️ 내용연수는 <b>ROI·회수기간까지</b> 움직인다 — 바꾸면 벤치마크와 나란히 읽지 말 것.
       </div>
-      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0 12px">
+      <div class="f3">
         <div><label>할인율 discount_rate</label><input type="text" name="discount_rate" value="{{ v.get('discount_rate','') }}" placeholder="예: 0.03 (비우면 0.05)"></div>
         <div><label>평가기간 evaluation_years</label><input type="text" name="evaluation_years" value="{{ v.get('evaluation_years','') }}" placeholder="예: 20 (비우면 10)"></div>
         <div><label>감가상각 내용연수 useful_life</label><input type="text" name="useful_life" value="{{ v.get('useful_life','') }}" placeholder="예: 20 (비우면 15)"></div>
