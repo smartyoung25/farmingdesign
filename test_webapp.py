@@ -847,29 +847,63 @@ def test_212cha_collected_sources_did_not_become_engine_values():
         assert g["name"] in doc, (
             f"🔴 근거 문서에 「{g['name']}」이 없다 — 수집 결과는 **문서에 남아야** "
             "다음 사람이 대조할 수 있다")
-
-    # ── ② 🔴 **수치가 엔진·레지스트리·케이스로 새지 않았는가** ────────
-    #   확보한 법정 수치들. 근거 문서에는 있어야 하고, 계산 계층에는 **없어야** 한다.
+    # ── ② 🔴 **등재된 값에 근거가 붙어 있는가**(213차에 계약이 뒤집혔다) ──
+    #   212차의 계약은 *「확보했어도 엔진에 넣지 마라」*였다. 213차에 **★사용자
+    #   결정**(「보조사업자 계약 기준으로 확정하고 등재 진행하라」)이 내려져
+    #   등재가 열렸다 — 그래서 이 검사는 **「없어야 한다」가 아니라 「근거가 있어야
+    #   한다」**로 바뀐다. 지우지 않고 **방향을 바꾼다**: 근거 없이 들어온 값은
+    #   여전히 잡힌다.
     COLLECTED = ("계약금액의 2% 이상", "최소 1년 이상", "8천만원을 초과",
                  "1억6천만원", "제57조 제2항", "서로 다른 광역자치단체")
     for tok in COLLECTED:
         assert tok in doc, (
-            f"🔴 근거 문서에서 확보한 원문 「{tok}」이 사라졌다 — 수집의 값은 "
-            "**문서에만** 있다. 여기서 지우면 근거가 통째로 없어진다")
-    eng = _io_read("smartfarm_engine.py")
-    reg = _io_read("엔진데이터_레지스트리.json")
-    for tok in ("계약금액의 2%", "제57조", "1억6천만원", "광역자치단체",
-                "나라장터", "수의계약"):
-        assert tok not in eng, (
-            f"🔴 **엔진에 「{tok}」이 들어왔다** — 212차는 근거를 확보했을 뿐이고 "
-            "등재는 **★사용자 결정**이다(1절: 원문 확보·대조를 거쳐서만). "
-            "확보와 등재는 다른 칸이다")
-        assert tok not in reg, f"🔴 **레지스트리에 「{tok}」이 들어왔다** — 등재는 ★다"
+            f"🔴 근거 문서에서 확보한 원문 「{tok}」이 사라졌다 — 등재값의 근거는 "
+            "**문서에 남아야** 한다")
+    import json as _j
+    reg = _j.loads(_io_read("엔진데이터_레지스트리.json"))["constants"]
+    import smartfarm_engine as _e2
+    REGISTERED = {
+        "PROCUREMENT_CONTRACT_BASIS": "결정",
+        "SUBSIDY_PROCUREMENT_THRESHOLDS": "법정기준",
+        "WARRANTY_BOND_RULE": "법정기준",
+        "QUOTE_COUNT_RULE": "법정기준",
+    }
+    for name, want_status in REGISTERED.items():
+        assert name in reg, (
+            f"🔴 엔진이 쓰는 `{name}`이 **레지스트리에 없다** — 근거 없는 값이다(1절)")
+        assert reg[name]["status"] == want_status, (
+            f"🔴 `{name}`의 status가 {reg[name]['status']!r}다 — {want_status!r}여야 한다")
+        assert hasattr(_e2, name), f"🔴 레지스트리에만 있고 엔진에 없다: {name}"
+        # 🔴**드리프트 가드**: 레지스트리 값과 엔진 값이 갈라지면 잡는다.
+        #    (213차에 여기 `or True`를 썼다가 201차 「항상 통과하는 단언」 가드가
+        #     잡았다 — 고정 수는 그대로인데 아무것도 재지 않는 문장이었다.)
+        live = getattr(_e2, name)
+        for _k, _v in reg[name]["value"].items():
+            assert _k in live and live[_k] == _v, (
+                f"🔴 `{name}`의 `{_k}`가 레지스트리 {_v!r} ↔ 엔진 "
+                f"{live.get(_k)!r}로 **갈라졌다** — 값의 출처는 한 곳이어야 한다")
+    assert "★사용자 결정 2026-09-24" in reg["PROCUREMENT_CONTRACT_BASIS"]["source"], (
+        "🔴 적용 규정의 **★결정 기록**이 레지스트리에서 사라졌다 — 이 값은 실측이 "
+        "아니라 **결정**이고, 누가 언제 정했는지가 곧 근거다")
+    assert "★" in _io_read("smartfarm_engine.py"), "🔴 엔진에서 ★ 표기가 사라졌다"
+
+    # ── ②-b 🔴 **적용하지 않기로 한 값이 들어오지 않았는가** ────────────
+    #   ★결정은 *「보조사업자 계약 기준」*이었다. 지방계약법 시행령의 수의계약
+    #   한도(4억/2억/1.6억)는 **적용하지 않기로** 한 것이므로 값으로 들어오면
+    #   결정을 어긴 것이다.
+    for bad in (400_000_000, 160_000_000):
+        assert bad not in set(_e2.SUBSIDY_PROCUREMENT_THRESHOLDS.values()), (
+            f"🔴 지방계약법 한도 {bad:,}이 임계값으로 들어왔다 — ★결정은 "
+            "**보조사업자 계약 기준**이고 그 한도는 적용하지 않는다")
+    assert _e2.PROCUREMENT_CONTRACT_BASIS["basis"] == "보조사업자 계약"
+    assert "지방자치단체" in _e2.PROCUREMENT_CONTRACT_BASIS["not_applies"], (
+        "🔴 **무엇을 적용하지 않기로 했는지**가 사라졌다 — 그것이 결정의 절반이다")
     cp_src = _io_read("consulting_package.py")
-    for tok in ("2% 이상", "8천만원", "1억6천만원", "4억원"):
+    for tok in ("20_000_000", "200_000_000", "0.02", "min_rate"):
         assert tok not in cp_src, (
-            f"🔴 조립 계층에 확보 수치 「{tok}」이 들어왔다 — `FUNCTION_GAPS`는 "
-            "**어디를 보면 있나**만 가리킨다(값은 근거 문서에)")
+            f"🔴 조립 계층이 임계값 「{tok}」을 직접 들고 있다 — 값은 엔진 상수 "
+            "한 곳에서만 온다(제2의 계산 출처 금지)")
+
 
     # ── ③ 🔴 **막는 것을 적었는가**(원문이 있어도 ★면 막힌 것이다) ───
     #   🔴 **하한으로 재면 또 추종이 된다**(212차 뮤테이션 M3가 그랬다 — 6건에서
@@ -918,9 +952,10 @@ def test_212cha_collected_sources_did_not_become_engine_values():
     #      것은 **벤치마킹 문서에서 끌어온 값**이지 단위가 아니다 → 문서 고유 수치로 조인다.
     for tok in ("요율 1.5", "$29", "€490", "€1,980", "C$6M", "$1,999",
                 "공사비 1.5~3", "공사비 3~5"):
-        assert tok not in cp_src and tok not in eng, (
+        assert tok not in cp_src and tok not in _io_read("smartfarm_engine.py"), (
             f"🔴 벤치마킹 문서의 **요금·요율** 「{tok}」이 코드에 들어왔다 — "
             "시세성이라 1절이 조회를 금한다")
+
 
 def _io_read(rel):
     import io as _i, os as _o

@@ -5404,6 +5404,172 @@ def service_life_index() -> dict:
 
 
 # ─────────────────────────────────────────────────────────────
+# ★보조사업자 계약 기준 — 조달 경로·보증·견적 요건 (★사용자 결정 2026-09-24, 213차)
+#   🔴 **212차가 연 이견 ①을 사용자가 닫았다**: 「보조사업자 계약 기준으로 확정하고
+#      등재 진행하라」. 그래서 **지방계약법 시행령의 수의계약 한도(4억/2억/1.6억)는
+#      적용하지 않는다** — 그것은 **지방자치단체가 당사자인 계약**의 기준이다.
+#      농가가 보조금으로 업체와 맺는 계약에는 「농림축산식품분야 재정사업관리
+#      기본규정」 제57조제2항의 기준이 걸린다(방향도 반대다 — 저쪽은 이하,
+#      이쪽은 초과).
+#   🔴 **190차 단서의 네 조건을 지킨다**: ①규칙·임계값이 레지스트리에 등재됐고
+#      (`PROCUREMENT_CONTRACT_BASIS`는 status 「결정」, 나머지 셋은 「법정기준」)
+#      ②같은 입력이면 같은 결과이며 ③판정마다 **항목별 근거 행**을 내고
+#      ④임계값을 주입으로 덮어쓸 수 있고 반환이 **적용된 규칙**을 드러낸다.
+#   ⚠️ **여전히 하지 않는 것**: 보험의 **적정성 판정**(요건 산출일 뿐이다) ·
+#      업체 **선정·추천**(몇 곳에서 받아야 하는지와 지역 요건만 낸다) ·
+#      기준사업비를 **엔진이 고르는 것**(사업·연도마다 달라 **주입**받는다).
+#   📌 호출 방향: 아래 셋은 **판정 함수**다 — 계산 함수를 부르지 않는다(191차 결정).
+# ─────────────────────────────────────────────────────────────
+PROCUREMENT_CONTRACT_BASIS = {
+    "basis": "보조사업자 계약",
+    "decided": "★사용자 결정 2026-09-24 (213차)",
+    "applies": "「농림축산식품분야 재정사업관리 기본규정」 제57조제2항",
+    "not_applies": ("「지방자치단체를 당사자로 하는 계약에 관한 법률 시행령」 "
+                    "제25조의 수의계약 한도 — 지자체가 당사자인 계약의 기준이다"),
+    "note": ("🔴같은 「한도」라도 **무엇을 규율하는지가 반대**다: 지방계약법은 "
+             "수의계약이 **가능한 사유의 상한**(…이하), 이 규정은 나라장터 등을 "
+             "**써야 하는 하한**(…초과)이다"),
+}
+
+# 「제57조제2항 각 호」 — 넘으면 ①나라장터 직접 ②조달청장 위탁 ③지자체장 위탁
+#   원문 인용처: 농림축산식품사업 시행지침서(발췌본) p143·p166·p261
+SUBSIDY_PROCUREMENT_THRESHOLDS = {
+    "물품·용역": 20_000_000,
+    "건설공사": 200_000_000,
+    "전문공사": 100_000_000,
+    "그 밖의 공사": 80_000_000,
+}
+PROCUREMENT_ROUTES = ("나라장터 직접 공개경쟁입찰", "조달청장에게 위탁",
+                      "지방자치단체장에게 위탁")
+
+# 하자이행보증보험 — 시행지침서(발췌본) p26 원문
+WARRANTY_BOND_RULE = {"min_rate": 0.02, "min_years": 1}
+
+# 견적 개수 요건 — 시행지침서(발췌본) p176 원문
+#   ⚠️ 기준사업비는 사업·연도마다 다르다 → **주입**받는다(엔진이 고르지 않는다)
+QUOTE_COUNT_RULE = {"base_count": 1, "over_count": 2, "distinct_region": True}
+
+
+def procurement_route(contract_kind: str, amount_won: float,
+                      thresholds: Optional[dict] = None) -> dict:
+    """보조사업자 계약의 **조달 경로 요건**(결정론 · 항목별 근거 행).
+
+    🔴 이것은 **업체를 고르는 일이 아니다** — 「나라장터 등을 거쳐야 하는가」만
+       낸다. 어느 업체와 계약할지는 사람이 정한다(1절).
+    """
+    rule = dict(SUBSIDY_PROCUREMENT_THRESHOLDS)
+    if thresholds:
+        rule.update(thresholds)
+    if contract_kind not in rule:
+        raise ValueError("모르는 계약 갈래: %r (등재: %s)"
+                         % (contract_kind, sorted(rule)))
+    if amount_won is None or amount_won < 0:
+        raise ValueError("추정가격이 음수이거나 없다: %r" % (amount_won,))
+    rows = []
+    for kind in sorted(rule):
+        limit = rule[kind]
+        applies = (kind == contract_kind)
+        rows.append({
+            "갈래": kind, "임계액": limit, "적용": applies,
+            "판단": ("초과" if applies and amount_won > limit
+                     else ("이하" if applies else "해당 없음")),
+            "근거": ("재정사업관리 기본규정 제57조제2항 — "
+                     "시행지침서(발췌본) p143·p166·p261"),
+        })
+    over = amount_won > rule[contract_kind]
+    return {
+        "basis": PROCUREMENT_CONTRACT_BASIS["basis"],
+        "contract_kind": contract_kind,
+        "amount_won": amount_won,
+        "threshold_won": rule[contract_kind],
+        "required": over,
+        "routes": list(PROCUREMENT_ROUTES) if over else [],
+        "rows": rows,
+        "applied_rule": rule,
+        "note": ("🔴**보조사업자 계약 기준**이다(★사용자 결정 2026-09-24). "
+                 "지방계약법 시행령의 수의계약 한도는 **적용하지 않았다**. "
+                 "⚠️업체를 고르지 않는다 — 경로 요건만 낸다"),
+    }
+
+
+def warranty_bond_requirement(contract_amount_won: float,
+                              rule: Optional[dict] = None) -> dict:
+    """하자이행보증보험의 **법정 최소 요건**(결정론).
+
+    ⚠️ **보험의 적정성을 판정하지 않는다.** 얼마 이상·몇 년 이상이어야 하는지를
+       낼 뿐이고, 어떤 보험에 들지는 사람과 계약이 정한다(1절: 보험 판정 금지).
+    """
+    r = dict(WARRANTY_BOND_RULE)
+    if rule:
+        r.update(rule)
+    if contract_amount_won is None or contract_amount_won < 0:
+        raise ValueError("계약금액이 음수이거나 없다: %r" % (contract_amount_won,))
+    min_won = contract_amount_won * r["min_rate"]
+    return {
+        "contract_amount_won": contract_amount_won,
+        "min_bond_won": min_won,
+        "min_years": r["min_years"],
+        "rows": [
+            {"항목": "보험가입금액",
+             "요건": "계약금액의 %s%% 이상" % (r["min_rate"] * 100),
+             "산출": min_won,
+             "근거": "농림축산식품사업 시행지침서(발췌본) p26"},
+            {"항목": "보험기간", "요건": "최소 %d년 이상" % r["min_years"],
+             "산출": r["min_years"],
+             "근거": "농림축산식품사업 시행지침서(발췌본) p26"},
+        ],
+        "applied_rule": r,
+        "note": ("⚠️**보험 적정성 판정이 아니다** — 법정 최소 요건만 낸다. "
+                 "어떤 보험에 들지는 사람과 계약이 정한다"),
+    }
+
+
+def quote_count_requirement(project_cost_won: float, standard_cost_won: float,
+                            rule: Optional[dict] = None) -> dict:
+    """견적을 **몇 곳에서** 받아야 하는가(결정론).
+
+    `standard_cost_won`(기준사업비)는 사업·연도마다 달라 **주입**받는다 —
+    엔진이 고르지 않는다(1절).
+    ⚠️ **업체를 고르지 않는다**: 개수와 지역 요건만 낸다.
+    """
+    r = dict(QUOTE_COUNT_RULE)
+    if rule:
+        r.update(rule)
+    for name, v in (("사업비", project_cost_won), ("기준사업비", standard_cost_won)):
+        if v is None or v < 0:
+            raise ValueError("%s가 음수이거나 없다: %r" % (name, v))
+    over = project_cost_won > standard_cost_won
+    need = r["over_count"] if over else r["base_count"]
+    rows = [{
+        "항목": "기준사업비 초과 여부",
+        "판단": "초과" if over else "이하",
+        "값": project_cost_won, "기준": standard_cost_won,
+        "근거": "농림축산식품사업 시행지침서(발췌본) p176",
+    }, {
+        "항목": "필요 견적 수", "판단": "%d곳 이상" % need, "값": need,
+        "기준": r["over_count"],
+        "근거": ("같은 쪽 — 「2개 업체 이상의 사업비 산출근거"
+                 "(견적서, 원가계산서) 등 구비」"),
+    }]
+    if over and r["distinct_region"]:
+        rows.append({
+            "항목": "지역 요건", "판단": "서로 다른 광역자치단체 소재",
+            "값": None, "기준": None,
+            "근거": "같은 쪽 — 「서로 다른 광역자치단체에 소재하는」",
+        })
+    return {
+        "required_count": need,
+        "over_standard": over,
+        "distinct_region_required": bool(over and r["distinct_region"]),
+        "rows": rows,
+        "applied_rule": r,
+        "note": ("⚠️지자체 공고의 「관내 업체 우선」과 이 지침의 「서로 다른 "
+                 "광역자치단체」는 **반대로 읽힐 수 있다** — 엔진은 지침 요건만 "
+                 "내고 **고르지 않는다**(근거 문서 이견 ③)"),
+    }
+
+
+# ─────────────────────────────────────────────────────────────
 # 부지 전단 G3: 인허가·제출물 (175차 신설 — P2)
 #   🔴 공사시방서 「관공서, 기타민원에 대한 인허가 수속 및 협의」 절에서 전사했다.
 #   ⚠️**비용 부담이 사본마다 다르다** — 본문에 섞지 않고 **이견으로 분리**한다

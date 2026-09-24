@@ -44,7 +44,8 @@ PACKAGE_SPEC = [
      "targets": ["시설"], "engine": ["reconcile_quote", "compare_quotes",
                                     "generate_rfq_package", "construction_company_list",
                                     "greenhouse_total_estimate", "structure_only_estimate",
-                                    "m2_to_py"]},
+                                    "m2_to_py", "procurement_route",
+                                    "quote_count_requirement"]},
     {"code": "D6", "title": "원가 분해표", "stage": "④타당성검증", "targets": ["시설"],
      "engine": ["capex_major_breakdown", "capex_breakdown"]},
     {"code": "D7", "title": "품셈 인력 산출표", "stage": "④타당성검증", "targets": ["시설"],
@@ -57,7 +58,8 @@ PACKAGE_SPEC = [
                 "dscr_schedule", "subsidy_application_checklist",
                 "npv", "irr", "cluster_economics"]},
     {"code": "D10", "title": "LCC·하자 관리표", "stage": "⑥사후관리",
-     "targets": ["시설", "기자재"], "engine": ["warranty_period", "lcc_replacement_schedule"]},
+     "targets": ["시설", "기자재"], "engine": ["warranty_period", "lcc_replacement_schedule",
+                                              "warranty_bond_requirement"]},
     {"code": "D11", "title": "근거대장", "stage": "②품질설계", "targets": ["시설"],
      "engine": []},
     {"code": "D12", "title": "결정 지원 패키지", "stage": "④타당성검증", "targets": ["시설"],
@@ -316,28 +318,23 @@ FUNCTION_GAPS = (
      "why": "표준 번호 체계를 엔진이 모른다(D19는 대조만 한다)",
      "found": "2차", "where": "KS X 3265~3267·3279 · KS B 7955 · KS B 7956-1~2 (농진원 표준확산사업)",
      "blocked": "★ 표준번호 등재 — 전체 목록·종수를 **확인하지 못했다**(사업 사이트 403)"},
-    {"fn": "F3", "name": "수의계약 한도 판정",
-     "why": "지방계약법 시행령 한도는 **법정값**이다 — 원문 확보·레지스트리 등재가 먼저다(★)",
-     "found": "1차", "where": "지방계약법 시행령 제25조(사유 한도)·제30조(견적서), 시행 2026-06-03",
-     "blocked": "★ **어느 규정이 적용되는 계약인가**가 먼저다 — 지자체 계약과 "
-                "보조사업자 계약은 한도가 다르다(근거 문서 이견 ①)"},
-    {"fn": "F3", "name": "나라장터 등록 지원",
-     "why": "엔진 원문에 「나라장터」 0회",
-     "found": "1차", "where": "재정사업관리 기본규정 제57조제2항 — 시행지침서 발췌본 p143·p166·p261 인용",
-     "blocked": "★ 법정값 등재 · 규정 **원문 자체**는 아직 확보 못 했다(인용본만)"},
-    {"fn": "F3", "name": "하자이행보증 2%·1년",
-     "why": "`warranty_period`는 기간만 낸다 — 보증 요율은 **법정·계약값**이라 미등재(★)",
-     "found": "1차", "where": "농림축산식품사업 시행지침서(발췌본) p26 — 원문 문장 확보",
-     "blocked": "★ 법정값 등재 · 확보한 것은 **발췌 책자**이지 원 지침이 아니다"},
+    {"fn": "F3", "name": "나라장터 등록 **대행**",
+     "why": ("🔴213차에 **의무 여부 판정은 열렸다**(`procurement_route`) — 금액이 "
+             "임계를 넘으면 나라장터·조달청 위탁·지자체 위탁 중 하나를 거쳐야 한다고 "
+             "낸다. 남은 것은 **실제 등록을 대신해 주는 일**이고, 그것은 계정·서식·"
+             "제출이라 엔진 밖이다"),
+     "found": "1차", "where": "재정사업관리 기본규정 제57조제2항 — 등재 완료(`SUBSIDY_PROCUREMENT_THRESHOLDS`)",
+     "blocked": "★ 대행을 서비스 범위에 넣을 것인가 · 규정 **원문 자체**는 아직 인용본만 확보"},
     {"fn": "F3", "name": "적격 공급사 풀",
      "why": "업체 **선정**은 1절이 금한 판단성이다 — 풀 자체가 없다",
      "found": "2차", "where": "농진원 표준적합 검정·성능시험(ICT 검인증 센터) 제도가 있다",
      "blocked": "★ **경계가 먼저다** — 업체 목록은 수집하지 않았다(선정에 닿는다)"},
-    {"fn": "F3", "name": "2인 이상 견적 자동 수집",
-     "why": "`compare_quotes`는 **받은 견적을 비교**할 뿐 수집하지 않는다",
-     "found": "1차", "where": "시행지침서 p176(기준사업비 초과 시 서로 다른 광역자치단체 2개 업체 이상) · 시행령 제30조",
-     "blocked": "★ 적용 계약 구분이 먼저 · 「관내 업체 우선」(지자체 공고)과 "
-                "「서로 다른 광역자치단체」(지침서)가 **반대로 읽힌다**(이견 ③)"},
+    {"fn": "F3", "name": "견적 **자동 수집**",
+     "why": ("🔴213차에 **개수·지역 요건 판정은 열렸다**(`quote_count_requirement`). "
+             "남은 것은 업체에 **실제로 요청해 받아 오는 일**이고, 그것은 업체 접촉이라 "
+             "**선정에 닿는다** — 1절이 금한 판단성이다"),
+     "found": "1차", "where": "시행지침서 p176 — 등재 완료(`QUOTE_COUNT_RULE`)",
+     "blocked": "★ 업체 접촉을 서비스 범위에 넣을 것인가(넣으면 선정 경계를 먼저 정해야 한다)"},
 )
 
 
@@ -524,6 +521,18 @@ def build_package(case: dict, injections: dict = None) -> dict:
             d = {"업체 후보(소재지 거르기만)": len(e.construction_company_list(region)),
                  "개산 A 온실 전체(평단가×면적)": est,
                  "개산 B 골조 단독": e.structure_only_estimate(area_py)}
+            # 🔴213차 — ★보조사업자 계약 기준(사용자 결정 2026-09-24)의 **요건 판정**.
+            #    계산값(총공사비)을 판정에 **넣는 것은 조립 계층의 일**이다 —
+            #    판정 함수는 계산 함수를 부르지 않는다(191차 결정).
+            d["조달 경로 요건(보조사업자 계약)"] = e.procurement_route(
+                "건설공사", case["input"]["total_construction_cost"])
+            std = inj.get("standard_cost_won")
+            d["견적 개수 요건"] = (
+                e.quote_count_requirement(
+                    case["input"]["total_construction_cost"], std)
+                if std is not None else
+                {"미주입": "기준사업비(standard_cost_won) — 사업·연도마다 달라 "
+                           "**주입**받는다(엔진이 고르지 않는다)"})
             vq = inj.get("vendor_quotes")
             form, curtain = inj.get("rfq_form"), inj.get("curtain")
             if vq and form and curtain:
@@ -645,6 +654,9 @@ def build_package(case: dict, injections: dict = None) -> dict:
                 w[wt] = e.warranty_period(wt)
             li = inj.get("lcc_items")
             d = {"법정 하자담보기간": w}
+            # 🔴213차 — 하자이행보증보험의 **법정 최소 요건**(보험 판정이 아니다)
+            d["하자이행보증 최소 요건"] = e.warranty_bond_requirement(
+                case["input"]["total_construction_cost"])
             if li:
                 d["LCC 교체 일정"] = e.lcc_replacement_schedule(li, 20)
             items.append(_item(spec, "생성" if li else "부분생성", d,

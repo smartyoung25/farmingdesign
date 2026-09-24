@@ -4995,8 +4995,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 106, "partial": 57, "near": 15}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 188차 실측은 exact 106 / partial 57 / near 15이다"
+    assert dist == {"exact": 109, "partial": 57, "near": 15}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 188차 실측은 exact 109 / partial 57 / near 15이다"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -5885,8 +5885,9 @@ def test_146cha_redteam27_corrections_hold():
     #   대장은 규칙 §5-4가 말하듯 **대기 목록**인데 이 ★는 **방금 닫힌 결정**이다.
     #   대기로 올리면 릴리스 문서의 *「★대기 17」*이 **거짓이 된다** →
     #   결정 기록은 `근거_내용연수_농진청세법_3출처대조_20260920.md`에 남겼다.
-    assert len(stars) == 31, (
-        f"엔진의 ★ 줄이 {len(stars)}개다 — 208차 전수는 31개다. "
+    # 🔴213차 — ★보조사업자 계약 등재로 31→34(판정 3종의 결정 기록 줄)
+    assert len(stars) == 34, (
+        f"엔진의 ★ 줄이 {len(stars)}개다 — 213차 전수는 34개다. "
         "새 ★가 **대기**면 대장에 올리고(대장 §5-3), **결정**이면 근거 문서에 적으라")
 
     # ── [12] 스냅샷의 skip 수가 앞뒤로 맞는가 ──────────────────────────
@@ -6003,7 +6004,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 106, "partial": 57, "near": 15}, (
+    assert dist == {"exact": 109, "partial": 57, "near": 15}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6502,8 +6503,8 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 178, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 188차 실측은 178건"
+    assert a["counts"]["source_refs"] == 181, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 188차 실측은 181건"
         "(177차 173 + 🔴178차 OPEX 비목 대조 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
@@ -7594,8 +7595,8 @@ def test_163cha_design_load_byepyo_registered():
     # 🔴178차 — `OPEX_ITEM_CATEGORIES`가 풀려 3건 → 2건이 됐다(조사표 비목 대조)
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 178차 실측은 2건이다")
-    assert a["counts"]["source_refs"] == 178, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 188차 실측은 178건")
+    assert a["counts"]["source_refs"] == 181, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 188차 실측은 181건")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -7800,8 +7801,10 @@ def test_166cha_service_design_claims_are_measured():
     #    있던 매출 산식을 엔진으로 올린 것이다 — 새 기능이 아니라 **회수**다)
     # 🔴208차 — ★②로 service_life_index()가 신설돼 70 → 71이 됐다
     #    (두 내용연수 표의 **조회 경로**를 합친 것이고 **값은 한 자리도 바꾸지 않았다**)
-    assert len(pub) == 71 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 208차 실측은 71·30이다. "
+    # 🔴213차 — 공개 함수 71→74(procurement_route·warranty_bond_requirement·
+    #    quote_count_requirement). ★결정으로 열린 등재라 대기 대장에는 가지 않는다.
+    assert len(pub) == 74 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 213차 실측은 74·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -8111,8 +8114,8 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 71 and len(missing) == 0, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 208차 실측은 71/0이다: {missing}")
+    assert len(cited) == 74 and len(missing) == 0, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 213차 실측은 74/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
         "🔴 P2·P4 2함수가 설계서에서 빠졌다")
@@ -8398,8 +8401,9 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     import json as _j
     reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                         encoding="utf-8").read())
-    assert len(reg["constants"]) == 65, (
-        "🔴 레지스트리 상수가 65개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+        # 🔴213차 — ★보조사업자 계약 등재로 65→69
+    assert len(reg["constants"]) == 69, (
+        "🔴 레지스트리 상수가 69개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
@@ -9236,15 +9240,15 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    if n.returns is not None else "")
             pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
     marked = sorted(f for f in pub if pub[f])
-    assert len(pub) == 71, f"🔴 공개 함수가 {len(pub)}개다 — 208차 실측은 71다"
+    assert len(pub) == 74, f"🔴 공개 함수가 {len(pub)}개다 — 213차 실측은 74다"
     # 🔴187차 — ★ 등급 부여로 `ksfid_grade`가 신설돼 15 → 16이 됐다.
     # 🔴188차 — `guarantee_assessment`·`progress_certification`이 신설돼 16 → 18.
     # 🔴208차 — ★②의 `service_life_index()`가 `rows`·`counts`를 내므로 18 → 19다.
     #    📌 **자를 피하려고 키 이름을 바꾸지 않았다** — 그 함수는 실제로 *드러내고
     #    멈추는* 쪽이고, 규칙이 그것을 판정지원이라 부른다. 칸은 움직이지 않는다
     #    (기자재 × 사후관리는 이미 판정지원이었다).
-    assert len(marked) == 19, (
-        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 208차 실측은 19다: {marked}")
+    assert len(marked) == 22, (
+        f"🔴 판정 필드를 가진 공개 함수가 {len(marked)}개다 — 213차 실측은 22다: {marked}")
     for f in ("lcc_replacement_schedule", "loan_amortization", "benchmark_check",
               "verify_heating_vs_actual", "consulting_fee_estimate"):
         assert pub[f], (
@@ -9382,9 +9386,9 @@ def test_181cha_package_layer_assembles_without_calculating():
     assert len(codes) == 27 and len(set(codes)) == 27, (
         f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D27이어야 한다")
     cov = cp.coverage()
-    assert len(cov["declared"]) == 69, (
+    assert len(cov["declared"]) == 72, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
-        "208차 실측은 69종이다(★②로 `service_life_index`가 D20에 붙었다)")
+        "213차 실측은 72종이다(★②로 `service_life_index`가 D20에 붙었다)")
     ghost = sorted(f for f in cov["declared"] if f not in pub)
     assert not ghost, f"🔴 패키지가 없는 함수를 부른다: {ghost}"
     # 🔴 **선언만 하고 부르지 않으면 거짓말이다** — 호출처가 실제로 있는지 본다.
@@ -9485,8 +9489,8 @@ def test_181cha_package_layer_assembles_without_calculating():
         "표시 계층이 **산식을 복제하던 것을 엔진 호출로 바꾼** 것이지 배선이 헐거워진 "
         "것이 아니다)")
     together = reached.union(cov["declared"])
-    assert len(together) == len(pub) == 71, (
-        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 208차 실측은 **71 / 71**다"
+    assert len(together) == len(pub) == 74, (
+        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 213차 실측은 **74 / 74**다"
         "(패키지 이전 17 · 181차 46 · 182차 62 · 187차 65 · 🔴188차 성능보증 4함수)")
     # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
     unreached = sorted(pub.difference(together))
