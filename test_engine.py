@@ -5886,8 +5886,8 @@ def test_146cha_redteam27_corrections_hold():
     #   대기로 올리면 릴리스 문서의 *「★대기 17」*이 **거짓이 된다** →
     #   결정 기록은 `근거_내용연수_농진청세법_3출처대조_20260920.md`에 남겼다.
     # 🔴213차 — ★보조사업자 계약 등재로 31→34(판정 3종의 결정 기록 줄)
-    assert len(stars) == 37, (
-        f"엔진의 ★ 줄이 {len(stars)}개다 — 215차 전수는 37개다(+3 — D-15 「어느 고시 판을 쓸 것인가」가 대장에 올라갔다). "
+    assert len(stars) == 42, (
+        f"엔진의 ★ 줄이 {len(stars)}개다 — 221차 전수는 42개다(+5 — ★2022-104호 준거 확정이 D-15를 닫았다). "
         "새 ★가 **대기**면 대장에 올리고(대장 §5-3), **결정**이면 근거 문서에 적으라")
 
     # ── [12] 스냅샷의 skip 수가 앞뒤로 맞는가 ──────────────────────────
@@ -7667,8 +7667,10 @@ def test_163cha_design_load_byepyo_reparse():
         assert not down, (
             f"🔴 {axis}에서 등재값이 별표 구간보다 **낮아진 지역**이 있다: {down[:5]} — "
             "개정은 상향이므로 하향은 전사 오류 신호다. 원인부터 찾아라")
-    assert sum(1 for k in snow if RDL[k]["snow_cm"] == snow[k] and snow[k] != 40) == 136
-    assert sum(1 for k in wind if RDL[k]["wind_ms"] == wind[k] and wind[k] != 40) == 148
+    # 🔴221차 — ★2022-104호 준거 확정으로 **확정값 칸이 별표와 전부 같아졌다**
+    #    (136→150 · 148→156). 종전엔 14·8건이 2025판 값이라 달랐다.
+    assert sum(1 for k in snow if RDL[k]["snow_cm"] == snow[k] and snow[k] != 40) == 150
+    assert sum(1 for k in wind if RDL[k]["wind_ms"] == wind[k] and wind[k] != 40) == 156
 
     # ── 🔴164차 — 레지스트리 서술의 네 수치를 **결과로** 재현한다 ──────
     #    서술: "40 이상 뭉뚱그림이 22개(적설)·16개(풍속)에서 구체화 …
@@ -7681,20 +7683,22 @@ def test_163cha_design_load_byepyo_reparse():
     sup_w = {k for k in wind if wind[k] != 40 and RDL[k]["wind_ms"] > wind[k]}
     # 🔴165차 — 네 수치는 이제 **전부 원문에서 기계로** 나온다(풍속 16 포함).
     #    164차 시점의 "네 수치 전부 일치"는 풍속 16에 한해 **자기대조**였다.
-    assert (len(s40), len(w40), len(sup_s), len(sup_w)) == (22, 16, 14, 8), (
+    # 🔴221차 — ★2022-104호 준거 확정(D-15): 상향 14·8을 **되돌렸다** → 0·0.
+    #    「40 이상」 칸 22·16은 2022판이 수치를 주지 않아 **2025 실측을 유지**한다.
+    assert (len(s40), len(w40), len(sup_s), len(sup_w)) == (22, 16, 0, 0), (
         f"🔴 서술의 네 수치와 별표 실측이 어긋났다: "
         f"40이상 적설 {len(s40)}(22)·풍속 {len(w40)}(16) · "
         f"그 밖 상향 적설 {len(sup_s)}(14)·풍속 {len(sup_w)}(8). "
-        "164차는 **이 넷이 맞다**는 것을 확인하고 합산만 정정했다")
+        "🔴221차에 상향 둘이 0이 됐다 — 0이 아니면 ★결정(2022 준거)이 깨진 것이다")
     assert w40 == set(tails[0]), (
         "🔴 풍속 「40 이상」 집합이 꼬리 추출 결과와 다르다 — 어느 한쪽이 섞였다")
     changed = (s40 | sup_s) | (w40 | sup_w)
-    assert len(changed) == 49 and 172 - len(changed) == 123, (
-        f"🔴 바뀐 지역이 {len(changed)}개다 — 164차 실측은 49개 변경·123개 불변이다. "
-        "레지스트리 서술의 84·88은 이 실측과도, 같은 문장의 네 수치와도 맞지 않는다")
-    assert len(sup_s | sup_w) == 22 and len(s40 | w40) == 31, (
-        "🔴 확정 변경 22건 · 판정 불가 31건이 어긋났다 — 「40 이상」 칸은 하한만 주므로 "
-        "그 지역의 변경 여부는 **확정할 수 없다**. 둘을 합쳐 세면 안 된다")
+    assert len(changed) == 31 and 172 - len(changed) == 141, (
+        f"🔴 바뀐 지역이 {len(changed)}개다 — 🔴221차 실측은 **31개 변경·141개 불변**이다"
+        "(상향 22건을 ★결정으로 되돌렸으므로 「40 이상」 구체화 31건만 남는다)")
+    assert len(sup_s | sup_w) == 0 and len(s40 | w40) == 31, (
+        "🔴 확정 변경 **0**건 · 판정 불가 31건이 어긋났다 — 221차에 ★2022 준거로 "
+        "되돌려 확정값은 별표와 같아졌고, 「40 이상」 칸만 2025 실측으로 남는다")
     # 🔴 서술이 든 예시 「함평 36→40」은 그 묶음일 수 없다 — 별표에서 40 이상 칸이다
     assert snow["함평"] == 40, (
         "🔴 별표의 함평이 「40 이상」 칸이 아니게 됐다 — 164차 §3의 전제가 깨졌다")
@@ -8178,8 +8182,9 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     led = rd("근거_결정대기대장_20260915.md")
     d = {int(x) for x in _re.findall(r"\bD-(\d+)\b", led)}
     sset = {int(x) for x in _re.findall(r"\bS-(\d+)\b", led)}
-    assert d == set(range(1, 16)) and sset == set(range(1, 5)), (
-        f"🔴 대장의 ★가 D-{sorted(d)} · S-{sorted(sset)}다 — 실측은 D-1~15 · S-1~4")
+    assert d == set(range(1, 17)) and sset == set(range(1, 5)), (
+        f"🔴 대장의 ★가 D-{sorted(d)} · S-{sorted(sset)}다 — 221차 실측은 "
+        f"**D-1~16** · S-1~4다(215차에 D-16을 더했고 221차에 닫았다)")
     assert "D-1 ~ D-15 (15건)" in crit and "S-1 ~ S-4 (4건)" in crit
 
     # ── ⑥ 한계를 적었는가(비판도 한계가 있다) ────────────────────────

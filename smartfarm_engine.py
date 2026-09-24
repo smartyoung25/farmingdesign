@@ -1941,14 +1941,42 @@ def verify_heating_vs_actual(load_per_m2: float, cover: str) -> dict:
 # 🔴215차 — **설계하중이 어느 판에서 왔는지 이름으로 말한다.** 규정은 네 번 개정됐고
 #   사업 지침마다 **참조하는 판이 다를 수 있다**. 어느 판을 쓸지는 ★사용자 결정이고,
 #   엔진은 **지금 쓰는 판이 무엇인지 드러내기만** 한다(고르지 않는다).
+# 🔴221차 — **★사용자 결정 2026-09-24: 준거는 제2022-104호로 확정한다**(D-16 닫힘).
+#   `2025년 스마트팜 ICT 융복합확산(온실신축) 사업시행지침`이 참조하는 판에 맞춘다.
+#   ⚠️**두 갈래로 나뉜다 — 섞은 것이 아니라 한쪽이 값을 주지 않아서다**:
+#     ① 2022판이 **확정값**을 주는 지역 → **2022판 값**을 쓴다(22지역을 되돌렸다).
+#     ② 2022판이 **「40 이상」 하한만** 주는 **36건**(적설 21·풍속 15) → 2022판에
+#        수치가 **없다**. 2025판 실측값이 그 하한을 만족하면서 **유일하게 근거 있는
+#        수**이므로 그대로 둔다(★사용자 결정). 강릉 93 · 대관령 167 · 울릉 197.
+#   🔴 그래서 이 표는 *「2022판 그대로」*가 아니라 **「2022판 준거 + 하한만 주는
+#      칸은 2025 실측」**이다 — `basis`가 그것을 말한다. 헷갈리면 안 된다.
+#   ⚠️ 되돌린 22지역은 **값이 작아졌다**(적설 14 · 풍속 8, −2~−4). 2025판이 더
+#      컸으므로 **더 보수적인 쪽에서 지침 준거 쪽으로** 옮긴 것이다.
+REGION_DESIGN_LOAD_BASIS = {
+    "decided": "★사용자 결정 2026-09-24 (221차) — D-16 닫힘",
+    "basis": "농림축산식품부고시 제2022-104호 (2022. 9. 30.)",
+    "why": ("2025년 스마트팜 ICT 융복합확산(온실신축) 사업시행지침이 참조하는 판"
+            "(214차 원문 확인 — 지침 본문 7회 전부 제2022-104호)"),
+    "open_upper_bound": {
+        "count": 36, "snow": 21, "wind": 15,
+        "rule": ("2022판이 「40 이상」으로 **하한만** 주는 칸은 제2025-108호 실측값을 "
+                 "쓴다 — 2022판에 수치가 없고, 2025값이 그 하한을 만족하는 "
+                 "**유일하게 근거 있는 수**다(★사용자 결정)"),
+    },
+    "reverted": {"count": 22, "snow": 14, "wind": 8,
+                 "note": "2025판 → 2022판 확정값으로 되돌렸다(값이 −2~−4 작아졌다)"},
+    "not_basis": "제2025-108호 — 최신이지만 지침이 참조하는 판이 아니다",
+}
+
 REGION_DESIGN_LOAD_EDITION = {
-    "current": "농림축산식품부고시 제2025-108호 (2025. 10. 31. 일부개정·시행)",
+    "current": ("준거 **제2022-104호**(★221차 확정) + 「40 이상」 36건은 "
+                "제2025-108호 실측값 — `REGION_DESIGN_LOAD_BASIS` 참조"),
     "history": ("제2016-180호(2016.12.28)", "제2019-44호(2019.8.23)",
                 "제2022-104호(2022.9.30)", "제2025-108호(2025.10.31)"),
     "note": ("⚠️`2025년 스마트팜 ICT 융복합확산(온실신축) 사업시행지침`은 "
              "**제2022-104호**를 참조한다(214차 원문 확인). 그 지침으로 진행하는 "
              "사업의 규격 준거와 이 표의 판이 **다르다** — 어느 판을 쓸지는 "
-             "**★사용자 결정**이다(결정대기대장 D-15). "
+             "**★사용자 결정**이다(결정대기대장 D-16). "
              "🔴216차 전수 대조: **22지역에서 갈린다**(적설 14 · 풍속 8 · 170 중) — "
              "경기권 12곳 24→26㎝ · 성산·진도 22→24㎝ · 풍속 8곳 +2~+4㎧. "
              "**전부 2025판이 더 크다**. 「40 이상」 행 36건은 하한이라 어긋남이 "
@@ -1983,20 +2011,20 @@ REGION_DESIGN_LOAD: dict = {
     "고흥": {"snow_cm": 20, "wind_ms": 34},
     "곡성": {"snow_cm": 28, "wind_ms": 26},
     "공주": {"snow_cm": 28, "wind_ms": 32},
-    "과천": {"snow_cm": 26, "wind_ms": 28},
-    "광명": {"snow_cm": 26, "wind_ms": 30},
+    "과천": {"snow_cm": 24, "wind_ms": 28},
+    "광명": {"snow_cm": 24, "wind_ms": 30},
     "광양": {"snow_cm": 20, "wind_ms": 34},
     "광주(경기)": {"snow_cm": 24, "wind_ms": 26},
     "광주광역시": {"snow_cm": 38, "wind_ms": 32},
     "괴산": {"snow_cm": 30, "wind_ms": 26},
-    "구례": {"snow_cm": 24, "wind_ms": 28},
+    "구례": {"snow_cm": 24, "wind_ms": 26},
     "구리": {"snow_cm": 24, "wind_ms": 28},
     "구미": {"snow_cm": 24, "wind_ms": 32},
     "군산": {"snow_cm": 34, "wind_ms": 38},
     "군위": {"snow_cm": 22, "wind_ms": 28},
-    "군포": {"snow_cm": 26, "wind_ms": 28},
+    "군포": {"snow_cm": 24, "wind_ms": 28},
     "금산": {"snow_cm": 26, "wind_ms": 24},
-    "김제": {"snow_cm": 40, "wind_ms": 32},
+    "김제": {"snow_cm": 40, "wind_ms": 30},
     "김천": {"snow_cm": 28, "wind_ms": 32},
     "김포": {"snow_cm": 24, "wind_ms": 32},
     "김해": {"snow_cm": 20, "wind_ms": 34},
@@ -2022,34 +2050,34 @@ REGION_DESIGN_LOAD: dict = {
     "보령": {"snow_cm": 26, "wind_ms": 36},
     "보성": {"snow_cm": 20, "wind_ms": 30},
     "보은": {"snow_cm": 34, "wind_ms": 24},
-    "봉화": {"snow_cm": 24, "wind_ms": 26},
+    "봉화": {"snow_cm": 24, "wind_ms": 24},
     "부산": {"snow_cm": 24, "wind_ms": 36},
-    "부안": {"snow_cm": 47, "wind_ms": 32},
+    "부안": {"snow_cm": 47, "wind_ms": 28},
     "부여": {"snow_cm": 26, "wind_ms": 28},
     "부천": {"snow_cm": 24, "wind_ms": 32},
     "사천": {"snow_cm": 20, "wind_ms": 34},
-    "산청": {"snow_cm": 24, "wind_ms": 30},
+    "산청": {"snow_cm": 24, "wind_ms": 28},
     "삼척": {"snow_cm": 79, "wind_ms": 26},
     "상주": {"snow_cm": 34, "wind_ms": 30},
     "서귀포": {"snow_cm": 20, "wind_ms": 43},
     "서산": {"snow_cm": 30, "wind_ms": 34},
     "서울": {"snow_cm": 26, "wind_ms": 30},
     "서천": {"snow_cm": 32, "wind_ms": 36},
-    "성남": {"snow_cm": 26, "wind_ms": 28},
-    "성산": {"snow_cm": 24, "wind_ms": 40},
+    "성남": {"snow_cm": 24, "wind_ms": 28},
+    "성산": {"snow_cm": 22, "wind_ms": 40},
     "성주": {"snow_cm": 24, "wind_ms": 30},
     "세종": {"snow_cm": 30, "wind_ms": 28},
     "속초": {"snow_cm": 91, "wind_ms": 46},
-    "수원": {"snow_cm": 26, "wind_ms": 28},
+    "수원": {"snow_cm": 24, "wind_ms": 28},
     "순창": {"snow_cm": 38, "wind_ms": 28},
-    "순천": {"snow_cm": 22, "wind_ms": 26},
-    "시흥": {"snow_cm": 26, "wind_ms": 32},
+    "순천": {"snow_cm": 22, "wind_ms": 24},
+    "시흥": {"snow_cm": 24, "wind_ms": 32},
     "신안": {"snow_cm": 30, "wind_ms": 40},
     "아산": {"snow_cm": 26, "wind_ms": 28},
     "안동": {"snow_cm": 22, "wind_ms": 28},
-    "안산": {"snow_cm": 26, "wind_ms": 30},
+    "안산": {"snow_cm": 24, "wind_ms": 30},
     "안성": {"snow_cm": 26, "wind_ms": 26},
-    "안양": {"snow_cm": 26, "wind_ms": 28},
+    "안양": {"snow_cm": 24, "wind_ms": 28},
     "양구": {"snow_cm": 30, "wind_ms": 32},
     "양산": {"snow_cm": 20, "wind_ms": 34},
     "양양": {"snow_cm": 99, "wind_ms": 42},
@@ -2057,7 +2085,7 @@ REGION_DESIGN_LOAD: dict = {
     "양평": {"snow_cm": 24, "wind_ms": 28},
     "여수": {"snow_cm": 20, "wind_ms": 42},
     "여주": {"snow_cm": 26, "wind_ms": 24},
-    "연천": {"snow_cm": 24, "wind_ms": 30},
+    "연천": {"snow_cm": 24, "wind_ms": 28},
     "영광": {"snow_cm": 42, "wind_ms": 34},
     "영덕": {"snow_cm": 40, "wind_ms": 34},
     "영동": {"snow_cm": 30, "wind_ms": 28},
@@ -2068,12 +2096,12 @@ REGION_DESIGN_LOAD: dict = {
     "영천": {"snow_cm": 20, "wind_ms": 30},
     "예산": {"snow_cm": 26, "wind_ms": 30},
     "예천": {"snow_cm": 28, "wind_ms": 30},
-    "오산": {"snow_cm": 26, "wind_ms": 28},
+    "오산": {"snow_cm": 24, "wind_ms": 28},
     "옥천": {"snow_cm": 32, "wind_ms": 28},
     "옹진": {"snow_cm": 26, "wind_ms": 36},
     "완도": {"snow_cm": 20, "wind_ms": 42},
     "완주": {"snow_cm": 26, "wind_ms": 30},
-    "용인": {"snow_cm": 26, "wind_ms": 26},
+    "용인": {"snow_cm": 24, "wind_ms": 26},
     "울릉": {"snow_cm": 197, "wind_ms": 53},
     "울산": {"snow_cm": 20, "wind_ms": 32},
     "울주": {"snow_cm": 20, "wind_ms": 32},
@@ -2082,7 +2110,7 @@ REGION_DESIGN_LOAD: dict = {
     "음성": {"snow_cm": 28, "wind_ms": 26},
     "의령": {"snow_cm": 20, "wind_ms": 32},
     "의성": {"snow_cm": 20, "wind_ms": 26},
-    "의왕": {"snow_cm": 26, "wind_ms": 28},
+    "의왕": {"snow_cm": 24, "wind_ms": 28},
     "의정부": {"snow_cm": 24, "wind_ms": 30},
     "이천": {"snow_cm": 28, "wind_ms": 24},
     "익산": {"snow_cm": 28, "wind_ms": 30},
@@ -2098,13 +2126,13 @@ REGION_DESIGN_LOAD: dict = {
     "제주": {"snow_cm": 20, "wind_ms": 43},
     "제천": {"snow_cm": 26, "wind_ms": 26},
     "증평": {"snow_cm": 32, "wind_ms": 26},
-    "진도": {"snow_cm": 24, "wind_ms": 40},
+    "진도": {"snow_cm": 22, "wind_ms": 40},
     "진안": {"snow_cm": 34, "wind_ms": 26},
     "진주": {"snow_cm": 20, "wind_ms": 32},
     "진천": {"snow_cm": 30, "wind_ms": 26},
     "진해": {"snow_cm": 20, "wind_ms": 34},
     "창녕": {"snow_cm": 20, "wind_ms": 30},
-    "창원": {"snow_cm": 20, "wind_ms": 36},
+    "창원": {"snow_cm": 20, "wind_ms": 34},
     "천안": {"snow_cm": 26, "wind_ms": 28},
     "철원": {"snow_cm": 22, "wind_ms": 34},
     "청도": {"snow_cm": 20, "wind_ms": 30},
@@ -2133,7 +2161,7 @@ REGION_DESIGN_LOAD: dict = {
     "해남": {"snow_cm": 22, "wind_ms": 36},
     "홍성": {"snow_cm": 26, "wind_ms": 32},
     "홍천": {"snow_cm": 32, "wind_ms": 24},
-    "화성": {"snow_cm": 26, "wind_ms": 30},
+    "화성": {"snow_cm": 24, "wind_ms": 30},
     "화순": {"snow_cm": 30, "wind_ms": 32},
     "화천": {"snow_cm": 28, "wind_ms": 36},
     "횡성": {"snow_cm": 34, "wind_ms": 26},
