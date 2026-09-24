@@ -5539,7 +5539,17 @@ WARRANTY_BOND_RULE = {"min_rate": 0.02, "min_years": 1}
 
 # 견적 개수 요건 — 시행지침서(발췌본) p176 원문
 #   ⚠️ 기준사업비는 사업·연도마다 다르다 → **주입**받는다(엔진이 고르지 않는다)
-QUOTE_COUNT_RULE = {"base_count": 1, "over_count": 2, "distinct_region": True}
+#   🔴**222차 정정 — 213차가 과일반화했다.** 이 조항은 「보조사업자 계약 일반」이
+#      아니라 **「특용작물(인삼)생산시설현대화 사업」** 절(발췌본 p172~)의 것이다.
+#      발췌본 **338쪽 전체에서 「기준사업비」·「2개 업체」는 p176 한 곳뿐**이다.
+#      🔴**우리 ★준거 사업인 온실신축 지침에는 이 요건이 없다**(214차 실측:
+#      「견적」 0회 · 「2개 업체」 0회). 그래서 `applies_to`를 이름으로 단다 —
+#      어느 사업의 규칙인지 모르면 **없는 요건을 만들어 낸다**.
+QUOTE_COUNT_RULE = {
+    "base_count": 1, "over_count": 2, "distinct_region": True,
+    "applies_to": "특용작물(인삼)생산시설현대화 사업",
+    "not_in": ("스마트팜 ICT 융복합확산(온실신축) — 지침에 견적 조항이 없다",),
+}
 
 
 def procurement_route(contract_kind: str, amount_won: float,
@@ -5671,9 +5681,12 @@ def quote_count_requirement(project_cost_won: float, standard_cost_won: float,
         "distinct_region_required": bool(over and r["distinct_region"]),
         "rows": rows,
         "applied_rule": r,
-        "note": ("⚠️지자체 공고의 「관내 업체 우선」과 이 지침의 「서로 다른 "
-                 "광역자치단체」는 **반대로 읽힐 수 있다** — 엔진은 지침 요건만 "
-                 "내고 **고르지 않는다**(근거 문서 이견 ③)"),
+        "applies_to": r.get("applies_to"),
+        "note": ("🔴**이 규칙은 「%s」의 조항이다**(222차 확정) — "
+                 "우리 ★준거 사업인 온실신축 지침에는 **이 요건이 없다**. "
+                 "지자체 공고의 「관내 업체 우선」은 **또 다른 사업**의 것이라 "
+                 "서로 모순이 아니다(근거 문서 이견 ③ 닫힘)"
+                 % r.get("applies_to")),
     }
 
 

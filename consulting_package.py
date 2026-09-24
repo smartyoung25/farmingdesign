@@ -532,7 +532,10 @@ def build_package(case: dict, injections: dict = None) -> dict:
                     case["input"]["total_construction_cost"], std)
                 if std is not None else
                 {"미주입": "기준사업비(standard_cost_won) — 사업·연도마다 달라 "
-                           "**주입**받는다(엔진이 고르지 않는다)"})
+                           "**주입**받는다(엔진이 고르지 않는다)",
+                 "적용 사업": e.QUOTE_COUNT_RULE["applies_to"],
+                 "주의": "🔴222차 — 이 요건은 **인삼생산시설현대화 사업** 조항이다. "
+                         "온실신축 지침에는 **견적 조항이 없다**(이견 ③ 닫힘)"})
             vq = inj.get("vendor_quotes")
             form, curtain = inj.get("rfq_form"), inj.get("curtain")
             if vq and form and curtain:
