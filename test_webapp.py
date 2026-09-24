@@ -957,6 +957,99 @@ def test_212cha_collected_sources_did_not_become_engine_values():
             "시세성이라 1절이 조회를 금한다")
 
 
+def test_214cha_originals_replaced_the_quoted_copies():
+    """214차 — **인용본을 원문으로 바꿨는가**(213차가 남긴 한계).
+
+    🔴 213차의 `status_note`는 *「규정 원문이 아니라 지침서의 인용본에서 전사했다」*
+    였다. 214차에 **훈령 제532호 제57조 원문**과 **온실신축 사업시행지침 원문**을
+    직접 열어 대조했다 — 인용본의 금액은 **한 자리도 틀리지 않았고**, 발췌본이
+    **빠뜨린 단서**가 드러났다(제3항의 전문·전기·정보통신·소방 **3억원**).
+
+    🔴 **부등호가 다르다**: 제2항은 「초과」, 제3항은 **「이상」**이다. 섞으면
+    경계값에서 틀린다 — 그래서 경계값을 직접 잰다.
+
+    ⚠️ 이견 ②가 닫혔다(온실신축에서 내재해형은 **요건**), ③은 좁혀졌다(그 지침에
+    견적 조항이 **없다**), 그리고 **새 이견 둘**이 나왔다 — 어느 쪽도 고르지 않는다.
+    """
+    import smartfarm_engine as _e
+    import json as _j
+    doc = _io_read("근거_외부수집_기능공백_20260924.md")
+    reg = _j.loads(_io_read("엔진데이터_레지스트리.json"))["constants"]
+
+    # ── ① 🔴 **제2항은 「초과」 · 제3항은 「이상」** — 경계값으로 잰다 ──
+    th = _e.SUBSIDY_PROCUREMENT_THRESHOLDS["건설공사"]
+    assert _e.procurement_route("건설공사", th)["required"] is False, (
+        "🔴 제2항이 **경계값에서 발화했다** — 원문은 「2억 원을 **초과**하는」이다. "
+        "딱 2억이면 해당하지 않는다")
+    assert _e.procurement_route("건설공사", th + 1)["required"] is True
+
+    dr = _e.PROCUREMENT_DESIGN_REVIEW_RULE["일반 공사"]
+    assert _e.procurement_route("건설공사", dr)["design_review_required"] is True, (
+        "🔴 제3항이 **경계값에서 발화하지 않았다** — 원문은 「30억 원 **이상**」이다. "
+        "제2항과 부등호가 다르다(섞으면 30억 정각에서 틀린다)")
+    assert _e.procurement_route("건설공사", dr - 1)["design_review_required"] is False
+
+    # ── ② 🔴 발췌본이 빠뜨린 **3억원 단서**가 들어왔는가 ────────────
+    for kind in ("전문공사", "전기공사", "정보통신공사", "소방공사"):
+        assert _e.PROCUREMENT_DESIGN_REVIEW_RULE[kind] == 300_000_000, (
+            f"🔴 `{kind}`의 설계검토 문턱이 3억원이 아니다 — 212차 발췌본은 "
+            "「총사업비 30억원 이상」이라고만 적어 **이 단서를 빠뜨렸다**. "
+            "원문을 봐야 했던 이유다")
+    assert _e.PROCUREMENT_DESIGN_REVIEW_RULE["일반 공사"] == 3_000_000_000
+    assert _e.procurement_route("전문공사", 350_000_000)["design_review_required"] is True
+
+    #   🔴 **무엇을 요청해야 하는지까지 내야 한다** — 「해야 한다」만 말하고 항목을
+    #      감추면 읽는 사람이 다음 걸음을 뗄 수 없다(214차 뮤테이션 M10이 잡았다).
+    hit = _e.procurement_route("전문공사", 350_000_000)
+    assert len(hit["design_review_items"]) == 3, (
+        f"🔴 설계검토 요청 항목이 {len(hit['design_review_items'])}개다 — 제3항 각 호는 "
+        "**3개**다(설계적정성 검토 · 공사계약 체결 · 10% 이상 증가 설계변경 타당성 검토)")
+    joined = " ".join(hit["design_review_items"])
+    for frag in ("실시설계", "공사계약 체결", "10% 이상"):
+        assert frag in joined, f"🔴 제3항 각 호에서 「{frag}」가 사라졌다"
+    assert "민간보조사업자가 추진하는 계약에 한한다" in joined, (
+        "🔴 제3항 제2호의 **단서**가 사라졌다 — 공사계약 체결은 민간보조사업자 "
+        "계약에만 적용된다")
+    assert _e.procurement_route("전문공사", 250_000_000)["design_review_items"] == [], (
+        "🔴 문턱 미만인데 요청 항목을 냈다")
+
+    # ── ③ 등재가 **원문 근거**로 올라섰는가 ────────────────────────
+    for name in ("SUBSIDY_PROCUREMENT_THRESHOLDS", "PROCUREMENT_DESIGN_REVIEW_RULE"):
+        src = reg[name]["source"]
+        assert "농림축산식품부훈령 제532호" in src and "2025. 2. 21." in src, (
+            f"🔴 `{name}`의 근거에서 **훈령 번호·시행일**이 사라졌다 — 원문 확보의 "
+            "증거는 그 표기다")
+    note = reg["SUBSIDY_PROCUREMENT_THRESHOLDS"]["status_note"]
+    assert "훈령 원문으로 대조 완료" in note, (
+        "🔴 213차의 「인용본만」 한계가 **해소됐다는 기록**이 사라졌다")
+    assert "인용본" not in reg["PROCUREMENT_DESIGN_REVIEW_RULE"]["status_note"]
+
+    # ── ④ ⚠️ 이견 ②가 **닫힌 대로** 적혀 있는가 ────────────────────
+    assert "## 5-b. 🔴 214차 — 원문을 둘 다 확보했다" in doc
+    assert "내재해형 시설규격 설계도를 적용" in doc, (
+        "🔴 온실신축 지침의 **원문 문장**이 사라졌다 — 이견 ②는 이 문장으로 닫혔다")
+    assert "「가점」은 0회" in doc, (
+        "🔴 *「이 지침에 가점은 0회」*가 사라졌다 — 212차의 「가점」이 **다른 사업**의 "
+        "것이었다는 근거다")
+    assert "온실신축에서는 요건" in doc
+
+    # ── ⑤ ⚠️ **새 이견 둘**이 본문에 섞이지 않고 서 있는가 ──────────
+    for frag in ("### ④ 🔴 새 이견", "### ⑤ 🔴 새 이견",
+                 "설계는 자부담으로 직접", "고시 제2022-104호"):
+        assert frag in doc, f"🔴 근거 문서에서 「{frag}」가 사라졌다"
+    assert "단정하지 않는다" in doc, (
+        "🔴 새 이견에서 **단정하지 않는다**는 문장이 사라졌다 — 다른 사업·연도는 "
+        "확인하지 않았다(1절 사실성)")
+    assert "고르지 않는다" in doc
+
+    # ── ⑥ 🔴 등재하지 **않기로** 한 것이 들어오지 않았는가 ───────────
+    eng = _io_read("smartfarm_engine.py")
+    for tok in ("15일 이내", "2년간", "제4항의 예외"):
+        assert tok not in eng or "등재하지 않" in eng, (
+            f"🔴 「{tok}」이 엔진에 값으로 들어왔다 — 절차 의무·판단 예외는 "
+            "**임계값이 아니다**")
+    assert "예외" not in str(_e.PROCUREMENT_DESIGN_REVIEW_RULE)
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),

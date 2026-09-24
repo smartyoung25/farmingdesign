@@ -5442,6 +5442,24 @@ SUBSIDY_PROCUREMENT_THRESHOLDS = {
 PROCUREMENT_ROUTES = ("나라장터 직접 공개경쟁입찰", "조달청장에게 위탁",
                       "지방자치단체장에게 위탁")
 
+# 「제57조제3항」 — 추정가격이 이 금액 **이상**이면 조달청장에게 설계적정성 검토·
+#   계약체결·설계변경 타당성 검토를 **요청하여야 한다**(214차 원문 확보).
+#   ⚠️ 단서 그대로: *「전문공사, 전기공사, 정보통신공사, 소방공사의 경우에는
+#      3억원 이상으로 한다」* — 갈래마다 문턱이 다르다.
+#   ⚠️ 제2호(공사계약 체결)는 **민간보조사업자가 추진하는 계약에 한하여** 적용된다.
+PROCUREMENT_DESIGN_REVIEW_RULE = {
+    "일반 공사": 3_000_000_000,
+    "전문공사": 300_000_000,
+    "전기공사": 300_000_000,
+    "정보통신공사": 300_000_000,
+    "소방공사": 300_000_000,
+}
+PROCUREMENT_DESIGN_REVIEW_ITEMS = (
+    "실시설계 단계에서의 설계적정성 검토",
+    "공사계약 체결(민간보조사업자가 추진하는 계약에 한한다)",
+    "공사비가 계약금액의 10% 이상 증가하는 설계변경에 대한 타당성 검토",
+)
+
 # 하자이행보증보험 — 시행지침서(발췌본) p26 원문
 WARRANTY_BOND_RULE = {"min_rate": 0.02, "min_years": 1}
 
@@ -5473,12 +5491,28 @@ def procurement_route(contract_kind: str, amount_won: float,
             "갈래": kind, "임계액": limit, "적용": applies,
             "판단": ("초과" if applies and amount_won > limit
                      else ("이하" if applies else "해당 없음")),
-            "근거": ("재정사업관리 기본규정 제57조제2항 — "
-                     "시행지침서(발췌본) p143·p166·p261"),
+            "근거": ("재정사업관리 기본규정 제57조제2항 — 농림축산식품부훈령 "
+                     "제532호(시행 2025-02-21) 원문. 214차에 인용본→원문 격상"),
         })
     over = amount_won > rule[contract_kind]
+    # 🔴214차 — 같은 조문의 **제3항**(설계적정성 검토 등 의뢰)도 함께 낸다.
+    #    갈래마다 문턱이 다르고(일반 30억 · 전문/전기/정보통신/소방 3억) 기준이
+    #    「초과」가 아니라 **「이상」**이다 — 제2항과 부등호가 다르므로 섞지 않는다.
+    dr_limit = PROCUREMENT_DESIGN_REVIEW_RULE.get(contract_kind)
+    if dr_limit is None:
+        dr_limit = PROCUREMENT_DESIGN_REVIEW_RULE["일반 공사"]
+    dr_over = amount_won >= dr_limit
+    rows.append({
+        "갈래": "설계적정성 검토 등(제3항)", "임계액": dr_limit, "적용": True,
+        "판단": "이상" if dr_over else "미만",
+        "근거": ("재정사업관리 기본규정 제57조제3항 — 농림축산식품부훈령 제532호"
+                 "(시행 2025-02-21) 원문"),
+    })
     return {
         "basis": PROCUREMENT_CONTRACT_BASIS["basis"],
+        "design_review_required": dr_over,
+        "design_review_threshold_won": dr_limit,
+        "design_review_items": list(PROCUREMENT_DESIGN_REVIEW_ITEMS) if dr_over else [],
         "contract_kind": contract_kind,
         "amount_won": amount_won,
         "threshold_won": rule[contract_kind],

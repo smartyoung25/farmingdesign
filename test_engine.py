@@ -4995,8 +4995,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 109, "partial": 57, "near": 15}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 188차 실측은 exact 109 / partial 57 / near 15이다"
+    assert dist == {"exact": 110, "partial": 57, "near": 15}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 188차 실측은 exact 110 / partial 57 / near 15이다"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -6004,7 +6004,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 109, "partial": 57, "near": 15}, (
+    assert dist == {"exact": 110, "partial": 57, "near": 15}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6503,8 +6503,8 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 181, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 188차 실측은 181건"
+    assert a["counts"]["source_refs"] == 182, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 188차 실측은 182건"
         "(177차 173 + 🔴178차 OPEX 비목 대조 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
@@ -7595,8 +7595,8 @@ def test_163cha_design_load_byepyo_registered():
     # 🔴178차 — `OPEX_ITEM_CATEGORIES`가 풀려 3건 → 2건이 됐다(조사표 비목 대조)
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 178차 실측은 2건이다")
-    assert a["counts"]["source_refs"] == 181, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 188차 실측은 181건")
+    assert a["counts"]["source_refs"] == 182, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 188차 실측은 182건")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -8402,7 +8402,7 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                         encoding="utf-8").read())
         # 🔴213차 — ★보조사업자 계약 등재로 65→69
-    assert len(reg["constants"]) == 69, (
+    assert len(reg["constants"]) == 70, (
         "🔴 레지스트리 상수가 69개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
