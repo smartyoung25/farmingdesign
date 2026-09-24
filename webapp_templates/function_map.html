@@ -25,6 +25,7 @@
   <div class="subtitle">벤치마킹 문서의 기능 축으로 산출물 {{ ix.total }}종을 묶었다 —
     <b>분류이지 판정이 아니다</b>(순위·등급·추천 없음)</div>
   <div class="banner">출처: {{ ix.source }}</div>
+  <div class="banner">없는 것 {{ ix.gap_count }}건은 212차에 외부 자료를 수집해 <b>어디를 보면 있는지</b>를 달았다 — 값은 넣지 않았다(등재는 ★사용자 결정). 수집 결과·원문 인용·이견 3건: <code>{{ ix.gap_doc }}</code></div>
 
   {% for r in ix.rows %}
   <div class="fn" id="{{ r.fn }}">
@@ -40,7 +41,10 @@
       </div>
       {% endfor %}
       {% for g in r.gaps %}
-      <div class="gap"><div class="t">{{ g.name }} — 없다</div><div class="w">{{ g.why }}</div></div>
+      <div class="gap"><div class="t">{{ g.name }} — 없다</div>
+        <div class="w">{{ g.why }}</div>
+        <div class="w" style="margin-top:5px"><b>[{{ g.found }}]</b> {{ g.where }}</div>
+        <div class="w" style="margin-top:3px">막는 것: {{ g.blocked }}</div></div>
       {% endfor %}
     </div>
   </div>

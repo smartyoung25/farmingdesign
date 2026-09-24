@@ -753,7 +753,8 @@ def test_211cha_ia_menu_matches_the_code():
 
     # ── ④ ⚠️ **없는 것을 없다고 내는가** ───────────────────────────
     assert ix["gap_count"] == len(_cp.FUNCTION_GAPS) >= 1
-    for fn, name, why in _cp.FUNCTION_GAPS:
+    for g in _cp.FUNCTION_GAPS:        # 🔴212차에 dict로 바뀌었다(출처·막는 것이 붙었다)
+        fn, name, why = g["fn"], g["name"], g["why"]
         assert fn in fns, f"🔴 미구축 {name!r}이 없는 기능 {fn!r}에 달렸다"
         assert name in html, (
             f"🔴 기능 지도가 미구축 「{name}」을 감췄다 — 벤치마킹이 이름을 대는데 "
@@ -775,7 +776,7 @@ def test_211cha_ia_menu_matches_the_code():
         "하자이행보증": "하자이행보증 2%·1년",
         "공급사": "적격 공급사 풀",
     }
-    gap_names = {g[1] for g in _cp.FUNCTION_GAPS}
+    gap_names = {g["name"] for g in _cp.FUNCTION_GAPS}
     for token, gap_name in ACCOUNTED.items():
         n = eng0.count(token)
         if n == 0:
@@ -816,6 +817,110 @@ def test_211cha_ia_menu_matches_the_code():
             assert ('href="/functions#%s"' % f) in h, (
                 f"🔴 {p}의 사이드바에 기능 {f}({name}) 항목이 없다 — 네비게이션은 "
                 "**전 화면 공통**이어야 한다")
+
+def test_212cha_collected_sources_did_not_become_engine_values():
+    """212차 — **외부 수집이 값 등재로 새지 않았는가**(사용자 지시: 외부 수집·매핑).
+
+    🔴 **수집은 1절이 지시한 경로다**: 7건 중 **시세성(단가·노임·유가·금리)은
+    하나도 없었다** — 전부 **법정·표준·절차** 정보이고, 법정값은 *「원문 확보·대조를
+    거쳐서만」* 등재하라고 되어 있다. 그러나 **확보와 등재는 다른 칸**이다.
+
+    🔴 **이 가드가 지키는 선**: 확보한 수치(2% · 1년 · 2억 · 8천만원 …)가
+    **엔진·레지스트리·케이스로 새어 들어가지 않았는지**. 새면 ★결정을 건너뛴 것이다.
+
+    ⚠️ 원문 대조에서 **벤치마킹 문서와 어긋나는 세 곳**이 나왔다 — 본문에 섞지 않고
+    근거 문서 「이견」 절로 뺐다(1절 사실성 규칙). 그 절이 사라져도 실패한다.
+    """
+    import re as _re
+    import consulting_package as _cp
+
+    DOC = _cp.GAP_EVIDENCE_DOC
+    doc = _io_read(DOC)
+    ix = _cp.function_index()
+
+    # ── ① 공백마다 **어디를 보면 있나**가 달렸는가 ──────────────────
+    for g in _cp.FUNCTION_GAPS:
+        for k in ("fn", "name", "why", "found", "where", "blocked"):
+            assert g.get(k), f"🔴 미구축 「{g.get('name')}」에 `{k}`가 비었다"
+        assert g["found"] in ("1차", "2차", "미확인"), (
+            f"🔴 「{g['name']}」의 등급이 {g['found']!r}다 — 1차/2차/미확인만 쓴다")
+        assert g["name"] in doc, (
+            f"🔴 근거 문서에 「{g['name']}」이 없다 — 수집 결과는 **문서에 남아야** "
+            "다음 사람이 대조할 수 있다")
+
+    # ── ② 🔴 **수치가 엔진·레지스트리·케이스로 새지 않았는가** ────────
+    #   확보한 법정 수치들. 근거 문서에는 있어야 하고, 계산 계층에는 **없어야** 한다.
+    COLLECTED = ("계약금액의 2% 이상", "최소 1년 이상", "8천만원을 초과",
+                 "1억6천만원", "제57조 제2항", "서로 다른 광역자치단체")
+    for tok in COLLECTED:
+        assert tok in doc, (
+            f"🔴 근거 문서에서 확보한 원문 「{tok}」이 사라졌다 — 수집의 값은 "
+            "**문서에만** 있다. 여기서 지우면 근거가 통째로 없어진다")
+    eng = _io_read("smartfarm_engine.py")
+    reg = _io_read("엔진데이터_레지스트리.json")
+    for tok in ("계약금액의 2%", "제57조", "1억6천만원", "광역자치단체",
+                "나라장터", "수의계약"):
+        assert tok not in eng, (
+            f"🔴 **엔진에 「{tok}」이 들어왔다** — 212차는 근거를 확보했을 뿐이고 "
+            "등재는 **★사용자 결정**이다(1절: 원문 확보·대조를 거쳐서만). "
+            "확보와 등재는 다른 칸이다")
+        assert tok not in reg, f"🔴 **레지스트리에 「{tok}」이 들어왔다** — 등재는 ★다"
+    cp_src = _io_read("consulting_package.py")
+    for tok in ("2% 이상", "8천만원", "1억6천만원", "4억원"):
+        assert tok not in cp_src, (
+            f"🔴 조립 계층에 확보 수치 「{tok}」이 들어왔다 — `FUNCTION_GAPS`는 "
+            "**어디를 보면 있나**만 가리킨다(값은 근거 문서에)")
+
+    # ── ③ 🔴 **막는 것을 적었는가**(원문이 있어도 ★면 막힌 것이다) ───
+    #   🔴 **하한으로 재면 또 추종이 된다**(212차 뮤테이션 M3가 그랬다 — 6건에서
+    #      하나를 ★에서 빼도 `>= 5`를 통과했다. 211차 M2와 같은 유형). 기준을
+    #      **이름으로 못 박는다**: ★ 없이 열려도 되는 것은 **값이 아닌 것** 하나뿐이다.
+    UNBLOCKED_OK = {
+        "KCS 형식 시방": "코드 **체계**이지 값이 아니다 — 등재할 수가 없으므로 ★도 없다",
+    }
+    for g in _cp.FUNCTION_GAPS:
+        if g["blocked"].startswith("★"):
+            assert g["name"] not in UNBLOCKED_OK, (
+                f"🔴 「{g['name']}」은 값이 아닌데 ★로 막아 뒀다")
+            continue
+        assert g["name"] in UNBLOCKED_OK, (
+            f"🔴 「{g['name']}」의 **막는 것**에서 ★가 사라졌다 — 이건 **값**이고, "
+            "값의 등재는 원문을 확보했더라도 **★사용자 결정**이다(1절: 원문 확보·"
+            "대조를 거쳐서만). ★를 지우면 결정을 건너뛴 것이 된다")
+    assert len(UNBLOCKED_OK) == 1, (
+        "🔴 ★ 없이 열어 두는 예외가 늘었다 — 예외는 **값이 아닌 것**에만 준다")
+
+    # ── ④ ⚠️ **이견을 본문에 섞지 않았는가** ────────────────────────
+    assert "## 4. 🔴 이견" in doc, (
+        "🔴 근거 문서에서 **「이견」 절**이 사라졌다 — 원문 대조에서 벤치마킹과 "
+        "어긋난 세 곳은 본문에 섞지 않고 따로 세워야 한다(1절 사실성 규칙)")
+    for frag in ("이견 ①", "이견 ②", "이견 ③"):
+        assert frag in doc, f"🔴 근거 문서에서 「{frag}」이 사라졌다"
+    assert "고르지 않는다" in doc, (
+        "🔴 반대로 읽히는 두 요건 중 **어느 쪽도 고르지 않는다**는 문장이 사라졌다 — "
+        "고르면 그것은 판단이다(1절)")
+
+    # ── ⑤ 화면이 **수집 결과와 막는 것**을 내는가 ───────────────────
+    html = client.get("/functions").text
+    assert DOC in html, "🔴 기능 지도가 근거 문서를 가리키지 않는다"
+    for g in _cp.FUNCTION_GAPS:
+        assert g["where"][:24] in html, (
+            f"🔴 화면이 「{g['name']}」의 **어디를 보면 있나**를 감췄다")
+    assert html.count("막는 것:") == len(_cp.FUNCTION_GAPS)
+
+    # ── ⑥ 🔴 **시세성을 끌어오지 않았는가**(1절이 금한 것) ───────────
+    #   수집 대상에 단가·노임·유가·금리가 없었다는 것이 이 차수의 전제다.
+    assert "시세성 값(단가·노임·유가·금리)은 하나도 없다" in doc, (
+        "🔴 **수집 대상에 시세성이 없다**는 전제가 문서에서 사라졌다 — 이 전제가 "
+        "무너지면 수집 자체가 1절 위반이 된다")
+    #   ⚠️ **또 무딘 토큰이었다(열한 번째)**: `"원/㎡"`·`"천원/kW"`로 재니 엔진에
+    #      원래 있던 **정당한 단위 문자열**(준분 111,055원/㎡ 등)에 걸렸다. 막으려던
+    #      것은 **벤치마킹 문서에서 끌어온 값**이지 단위가 아니다 → 문서 고유 수치로 조인다.
+    for tok in ("요율 1.5", "$29", "€490", "€1,980", "C$6M", "$1,999",
+                "공사비 1.5~3", "공사비 3~5"):
+        assert tok not in cp_src and tok not in eng, (
+            f"🔴 벤치마킹 문서의 **요금·요율** 「{tok}」이 코드에 들어왔다 — "
+            "시세성이라 1절이 조회를 금한다")
 
 def _io_read(rel):
     import io as _i, os as _o
