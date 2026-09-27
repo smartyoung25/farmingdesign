@@ -239,15 +239,16 @@ def case_detail(request: Request, display_code: str):
     # 223차 — 벤치마킹 화면 패턴(생애주기 레일·플랫폼 3단계·실사·대조·판정 부록).
     #   🔴 전부 `build_package` 반환의 **표시**다 — 묶음·순서는 `consulting_package`가
     #      쥐고(★사용자 결정 2026-09-27), 이 계층은 옮겨 담기만 한다.
-    rail = platform = d23 = d24 = d25 = None
+    rail = platform = d23 = d24 = d25 = badge = None
     if not case.get("partial"):
         rail = cpkg.lifecycle_rail(pkg["items"])
         platform = cpkg.platform_index(pkg["items"])
         d23 = (have.get("D23") or {}).get("data")
         d24 = (have.get("D24") or {}).get("data")
         d25 = (have.get("D25") or {}).get("data")
+        badge = cpkg.ksfid_badge(pkg)   # 225차 — 추적 식별자(등급 아님)
     return templates.TemplateResponse(request, "case_detail.html", {
-        "rail": rail, "platform": platform, "d23": d23, "d24": d24, "d25": d25,
+        "rail": rail, "platform": platform, "d23": d23, "d24": d24, "d25": d25, "badge": badge,
         "status_cls": STATUS_CHIP, "rule_cls": RULE_STATE_CHIP,
         "case": case, "alias": al, "outputs": _case_outputs(case), "funcs": funcs,
         "chips": chips, "kpi": kpi, "assum": assum,

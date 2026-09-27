@@ -17,6 +17,12 @@
     .kpi .val { font-size:18px; font-weight:500; color:var(--green); font-variant-numeric:tabular-nums; }
     .provrow td { font-size:12px; }
     /* 223차 — 벤치마킹 화면 패턴(레일·두 축·실사·대조·판정 부록) */
+    .idbadge { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; border:1px dashed #B8B8B0;
+               border-radius:8px; padding:6px 10px; margin:4px 0 8px; font-size:12px; color:var(--sub); background:var(--card); }
+    .idbadge .il { font-size:10.5px; color:var(--mut); width:100%; }
+    .idbadge .iv { font-family:Consolas,monospace; font-size:13px; color:var(--ink); letter-spacing:.02em; }
+    .idbadge .iv.un { font-family:inherit; color:var(--sub); }
+    .idbadge .ie { font-size:11.5px; color:var(--mut); overflow-wrap:anywhere; }
     h3.sec { font-size:13px; color:var(--sub); font-weight:500; margin:20px 0 8px; }
     .bm { font-weight:400; font-size:11.5px; color:var(--mut); }
     .railwrap { overflow-x:auto; padding-bottom:4px; }
@@ -87,6 +93,16 @@
       <a class="btn" href="/entry/scenario/{{ alias.code }}">시나리오 기입{% if n_sets %} ({{ n_sets }}){% endif %}</a>
     </div>
   </div>
+  {% if badge %}
+  <div class="idbadge" title="GLOBALG.A.P. GGN처럼 추적 식별자다 — 등급이 아니다">
+    <span class="il">추적 식별자 · K-SFID · 등급 아님</span>
+    {% if badge.issued %}<code class="iv">{{ badge.ksfid }}</code>
+      {% if badge.expires %}<span class="ie">만료 {{ badge.expires }}</span>{% endif %}
+    {% else %}<span class="iv un">미발급</span>
+      <span class="ie">형식 <code>{{ badge.format }}</code> · 발급기관 주입 대기: {% for m in badge.missing %}<code>{{ m }}</code>{% if not loop.last %} · {% endif %}{% endfor %}</span>
+    {% endif %}
+  </div>
+  {% endif %}
   <div class="subtitle">
     {{ case.input.get("crop", "—") }} · {{ case.input.get("region", "—") }} ·
     {{ "{:,}".format(case.input.get("area_m2")) if case.input.get("area_m2") else "—" }}㎡
@@ -234,7 +250,7 @@
     <div class="grade">
       <div class="gg">{{ g.grade }}</div>
       <div class="gr">통과 {{ g.n_passed }} / {{ g.n_total }} · 불합격 {{ g.failed | length }} · 미검증 {{ g.unchecked | length }}{% if not g.complete %} → <b>미완결</b>{% endif %}{% if g.disqualified_by %} · 실격 {{ g.disqualified_by | join(", ") }}{% endif %}
-        <br>식별번호 {% if d25["식별번호"] %}<code>{{ d25["식별번호"] }}</code>{% else %}미발급 — 발급기관 주입 <code>ksfid_seq</code>{% endif %}</div>
+        <br>식별번호 {% if d25["식별번호"] %}<code>{{ d25["식별번호"].ksfid }}</code>{% else %}미발급 — 발급기관 주입 <code>ksfid_seq</code>{% endif %}</div>
     </div>
     <div class="rule">{% for lv in g.rule.levels %}{% if lv in g.rule.min_pass %}<span{% if lv == g.grade %} class="on"{% endif %}>{{ lv }} ≥ {{ g.rule.min_pass[lv] }}</span>{% endif %}{% endfor %}<span{% if g.grade == g.rule.disqualify_to %} class="on"{% endif %}>실격 → {{ g.rule.disqualify_to }}</span><span>유효 {{ g.rule.validity_months }}개월</span></div>
     <div style="overflow-x:auto"><table>

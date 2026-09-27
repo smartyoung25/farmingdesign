@@ -1765,20 +1765,24 @@ def test_224cha_entry_stepper_shows_real_state():
             f"🔴 {_cd.code(case)} ⑤가 D25 반환과 다르다: {st['rules']['detail']}")
 
     # ── ⑤ 📌 주입이 **생기면 상태가 따라 바뀌는가**(값이 박혀 있지 않은가) ──
+    #   🔴225차 정정: 여기서 **가짜 문자열**("TEST-0001")을 넣었더니, 엔진이 실제로
+    #      내는 `식별번호`·`유효기간`이 **dict**라는 것을 못 봤다 — 주입되는 순간 화면에
+    #      dict가 샜다. → 발급은 **엔진에 실제로 주입**해 받은 반환으로 잰다.
     case = full[0]
-    pkg = _copy.deepcopy(_cp.build_package(case))
+    pkg = _copy.deepcopy(_cp.build_package(case, {"ksfid_seq": 7,
+                                                  "ksfid_issued": "2026-09-27"}))
     pkg["open_injections"] = [n for n in pkg["open_injections"]
                               if n["slot"] not in _cp.ENTRY_DOC_SLOTS]
-    for x in pkg["items"]:
-        if x["code"] == "D25":
-            x["data"]["식별번호"] = "TEST-0001"
-            x["data"]["유효기간"] = "2026-09-27 ~ 2027-09-26"
-            x["data"]["등급"] = dict(x["data"]["등급"], complete=True, grade="보류")
+    d25 = [x for x in pkg["items"] if x["code"] == "D25"][0]["data"]
+    real = d25["식별번호"]["ksfid"]
+    d25["등급"] = dict(d25["등급"], complete=True, grade="보류")
     st = {s["key"]: s for s in _cp.entry_steps(case, pkg)}
-    assert st["docs"]["state"] == "완료" and st["issue"]["state"] == "완료" and \
-        st["renew"]["state"] == "진행" and st["rules"]["state"] == "완료" and \
-        "등급 보류" in st["rules"]["detail"] and "TEST-0001" in st["issue"]["detail"], (
+    assert st["docs"]["state"] == "완료" and st["issue"]["state"] == "완료" and         st["renew"]["state"] == "진행" and st["rules"]["state"] == "완료" and         "등급 보류" in st["rules"]["detail"], (
         f"🔴 주입이 채워져도 스테퍼가 따라오지 않는다: {st}")
+    assert st["issue"]["detail"] == "식별번호 " + real and         st["renew"]["detail"] == "유효기간 2026-09-27 ~ " + d25["유효기간"]["expires"], (
+        f"🔴 발급·연차 칸이 엔진 반환을 옮기지 않는다: {st['issue']['detail']} / {st['renew']['detail']}")
+    assert not any("{'" in s["detail"] for s in st.values()), (
+        "🔴 스테퍼 문구에 dict가 샜다 — 엔진 반환의 필드를 골라 옮겨야 한다")
 
     # ── ⑥ 🔴 템플릿이 값을 짓지 않는가 ────────────────────────────
     tpl = _io_read("webapp_templates/entry_hub.html")
@@ -1790,6 +1794,67 @@ def test_224cha_entry_stepper_shows_real_state():
     assert not arith, f"🔴 기입 허브 템플릿 식에 산술이 있다: {arith}"
     for w in ("추천", "권장", "최적", "1순위", "우선순위"):
         assert w not in html, f"🔴 기입 허브에 판정·추천 어휘 「{w}」가 들어왔다"
+
+
+def test_225cha_tracking_id_badge_is_an_identifier_not_a_grade(monkeypatch):
+    """225차 — **추적 식별자 배지**(GLOBALG.A.P. GGN 준거, 223차 목업 승인분).
+
+    🔴 번호는 **식별자이지 등급이 아니다** — 배지에 등급 글자를 싣지 않는다.
+    🔴 번호·만료일은 엔진(`ksfid_number`·`ksfid_validity`)이 D25에 실은 것을
+       **그대로** 옮긴다. 미발급이면 형식과 빠진 주입 슬롯을 드러낸다.
+    """
+    import re as _re
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    import case_display as _cd
+    from cases import load_cases as _lc
+
+    # ── ① 형식 문자열이 엔진 docstring과 같은가(두 곳에서 짓지 않는다) ──
+    assert ("형식: `%s`" % _cp.KSFID_FORMAT) in (_e.ksfid_number.__doc__ or ""), (
+        "🔴 배지의 번호 형식이 `ksfid_number` docstring과 다르다 — 형식을 바꿨다면 "
+        "양쪽을 같이 고쳐라")
+
+    full = [x for x in _lc() if not x.get("partial")]
+
+    def _badge(html):
+        m = _re.search(r'<div class="idbadge"[^>]*>(.*?)</div>', html, _re.S)
+        assert m, "🔴 케이스 상세에 추적 식별자 배지가 없다"
+        return m.group(1)
+
+    # ── ② 미발급: 형식과 **실제로 빠진** 슬롯을 드러내는가 ──────────
+    for case in full:
+        b = _badge(client.get("/case/" + _cd.code(case)).text)
+        pkg = _cp.build_package(case)
+        need = [n["slot"] for n in [x for x in pkg["items"] if x["code"] == "D25"][0]["needs"]
+                if n["slot"] in ("ksfid_seq", "ksfid_issued")]
+        assert "미발급" in b and _cp.KSFID_FORMAT.replace("<", "&lt;").replace(">", "&gt;") in b, (
+            f"🔴 {_cd.code(case)} 미발급 배지가 형식을 내지 않는다")
+        assert _re.findall(r"<code>(ksfid_\w+)</code>", b) == need, (
+            f"🔴 {_cd.code(case)} 배지의 대기 슬롯이 D25 needs({need})와 다르다")
+        g = [x for x in pkg["items"] if x["code"] == "D25"][0]["data"]["등급"]["grade"]
+        assert "등급 아님" in b and ("등급 " + g) not in b and ">%s<" % g not in b, (
+            f"🔴 {_cd.code(case)} 배지에 등급이 섞였다 — 번호는 식별자이지 등급이 아니다")
+
+    # ── ③ 발급: 엔진이 낸 번호·만료일이 **그대로** 나오는가 ──────────
+    case = full[0]
+    inj = {"ksfid_seq": 7, "ksfid_issued": "2026-09-27"}
+    _orig = _cp.build_package
+    monkeypatch.setattr(webapp.cpkg, "build_package",
+                        lambda c, injections=None: _orig(c, inj))
+    html = client.get("/case/" + _cd.code(case)).text
+    b = _badge(html)
+    inp = C.case_to_input(case)
+    want = _e.ksfid_number(inp.region, inp.crop, inp.cover.value, 2026, 7)["ksfid"]
+    exp = _e.ksfid_validity("2026-09-27")["expires"]
+    assert f'<code class="iv">{want}</code>' in b and f"만료 {exp}" in b and "미발급" not in b, (
+        f"🔴 발급 배지가 엔진 반환({want}, {exp})을 옮기지 않는다")
+    assert "{'" not in html and "{&#39;" not in html, (
+        "🔴 케이스 상세에 dict가 샜다 — `식별번호`는 dict다(225차 정정)")
+    monkeypatch.undo()
+
+    # ── ④ 🔴 템플릿이 번호를 짓지 않는가 ──────────────────────────
+    tpl = _io_read("webapp_templates/case_detail.html")
+    assert "KSF-" not in tpl, "🔴 템플릿에 번호 조각이 박혀 있다 — 형식은 `KSFID_FORMAT`에서 온다"
 
 
 def _io_read(rel):

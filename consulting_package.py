@@ -487,14 +487,41 @@ def entry_steps(case: dict, pkg: dict) -> list:
                    f"등급 {g.get('grade')} · 통과 {g.get('n_passed')} / {g.get('n_total')}"
                    + ("" if g.get("complete") else f" · 미검증 {len(g.get('unchecked') or [])}"))
                   if g else ("대기", "D25가 아직 없다")),
-        "issue": (("완료", f"식별번호 {d25['식별번호']}") if d25.get("식별번호")
+        # 🔴225차 정정 — `식별번호`·`유효기간`은 **dict**다(`ksfid_number`·`ksfid_validity`
+        #    반환). 224차는 통째로 문자열에 넣어 주입되는 순간 dict가 화면에 샜다
+        #    (가드가 가짜 문자열을 넣어 못 봤다).
+        "issue": (("완료", f"식별번호 {d25['식별번호']['ksfid']}") if d25.get("식별번호")
                   else ("경로 없음", "ksfid_seq 미주입 — 콘솔에 발급 양식이 없다")),
-        "renew": (("진행", f"유효기간 {d25['유효기간']}") if d25.get("유효기간")
+        "renew": (("진행", f"유효기간 {d25['유효기간']['issued']} ~ {d25['유효기간']['expires']}")
+                  if d25.get("유효기간")
                   else ("대기", "발급일(ksfid_issued)이 없어 기산할 수 없다")),
     }
     return [{"key": k, "name": n, "who": w, "jas": j,
              "state": state[k][0], "detail": state[k][1]}
             for k, n, w, j in ENTRY_STEPS]
+
+
+# ─────────────────────────────────────────────────────────────
+# 225차 — **추적 식별자 배지**(사용자 지시 · 223차 목업 승인분).
+#   준거(186차 원문 대조): GLOBALG.A.P. 13자리 GGN — **번호는 추적 식별자이지 등급이
+#   아니다**. 번호·만료일은 엔진(`ksfid_number`·`ksfid_validity`)이 D25에 실어 낸 것을
+#   **그대로** 옮긴다. 미발급이면 번호 형식과 빠진 주입 슬롯을 드러낸다.
+#   📌 형식 문자열은 `ksfid_number` docstring과 **같아야 한다**(가드가 대조한다).
+# ─────────────────────────────────────────────────────────────
+KSFID_FORMAT = "KSF-<연도 4>-<지역 2>-<작목 2>-<피복 1>-<일련 4>-<검증문자 1>"
+
+
+def ksfid_badge(pkg: dict) -> dict:
+    """D25 반환 → 추적 식별자 배지(분류·옮김뿐. 번호를 만들지 않는다)."""
+    d25 = next((x for x in pkg["items"] if x["code"] == "D25"), None) or {}
+    data = d25.get("data") or {}
+    num, val = data.get("식별번호"), data.get("유효기간")
+    missing = [n["slot"] for n in (d25.get("needs") or [])
+               if n["slot"] in ("ksfid_seq", "ksfid_issued")]
+    return {"issued": bool(num),
+            "ksfid": num["ksfid"] if num else None,
+            "expires": val["expires"] if val else None,
+            "format": KSFID_FORMAT, "missing": missing}
 
 
 def build_package(case: dict, injections: dict = None) -> dict:
