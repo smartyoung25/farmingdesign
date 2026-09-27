@@ -12746,6 +12746,49 @@ def test_241cha_d5_d6_weather_station_lookup_is_decided():
     assert "| ~~**D-5**~~ ✅**닫힘(241차)** |" in led and "| ~~**D-6**~~ ✅**닫힘(241차)** |" in led
 
 
+def test_243cha_d12_pumsem_order_follows_the_source_toc():
+    """243차 — ★사용자 결정(2026-09-28, D-12): 품셈 공종 선언 순서를 **원문 목차 순**으로.
+
+    원문 목차(PDF 19, 120차 확인 = `pumsem_extract.SECTION_PAGES`): 철골 → 알루미늄 → 피복 → 천창개폐 →
+    수평스크린 → 측벽스크린 → 행잉거터 → 비닐철골 → 비닐피복. 🔴**순서만 바뀌고 값은 불변**이다 —
+    공종별 인·일 합과 총합 **11.9203**(145·150차 측정값과 같은 수)을 고정해 잰다.
+    """
+    import os as _o, sys as _s, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    rd = lambda p: open(_o.path.join(repo, p), encoding="utf-8").read()
+    import pumsem_extract as px
+
+    order = []
+    for it in e.PUMSEM_ITEMS:
+        if it.category not in order:
+            order.append(it.category)
+    assert order == [c for c, _, _ in px.SECTION_PAGES], f"🔴 공종 순서가 원문 목차와 다르다: {order}"
+    # 공종이 한 덩어리로 이어져 있는가(섞이지 않았는가)
+    cats = [it.category for it in e.PUMSEM_ITEMS]
+    assert all(cats.index(c) + cats.count(c) - 1 == len(cats) - 1 - cats[::-1].index(c) for c in order)
+
+    # ── 값 불변 — 공종별 인·일 합 · 총합 ───────────────────────────────
+    want = {"철골공사": 1.181, "알루미늄공사": 0.255, "온실피복공사": 0.104, "천창개폐장치공사": 4.765,
+            "수평스크린공사": 2.5803, "측벽스크린공사": 2.828, "행잉거터공사": 0.07,
+            "철골공사(비닐·파이프자재)": 0.106, "온실피복공사(비닐)": 0.031}
+    got = {}
+    for it in e.PUMSEM_ITEMS:
+        got[it.category] = got.get(it.category, 0.0) + sum(it.labor_per_unit.values())
+    assert {k: round(v, 4) for k, v in got.items()} == want, "🔴 순서를 바꾸다 값이 바뀌었다"
+    assert round(sum(got.values()), 4) == 11.9203 and len(e.PUMSEM_ITEMS) == 64
+
+    # ── 근거대장 인쇄 순서 · 기록 ─────────────────────────────────────
+    html = rd("SmartFarm_근거대장.html")
+    i = html.index("PUMSEM_ITEMS")
+    seg = html[i:i + 200000]
+    assert seg.index("알루미늄공사") < seg.index("온실피복공사"), "🔴 근거대장이 아직 옛 순서로 인쇄한다"
+    led = rd("근거_결정대기대장_20260915.md")
+    assert "| ~~**D-12**~~ ✅**닫힘(243차)** |" in led
+    assert "243차" in rd("근거_품셈_목차대조_20260914.md")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
