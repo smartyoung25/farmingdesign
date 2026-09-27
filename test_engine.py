@@ -4995,8 +4995,9 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 110, "partial": 57, "near": 15}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 188차 실측은 exact 110 / partial 57 / near 15이다"
+    assert dist == {"exact": 110, "partial": 57, "near": 17}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 230차 실측은 exact 110 / partial 57 / near 17이다"
+        "(+ 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
         "(137차 확정 exact90/partial50/near8 → 151차 partial +3 → 161차 near +1"
@@ -5060,9 +5061,9 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 15 and ledger.count("[부분]") == 57, (
+    assert ledger.count("[근접]") == 17 and ledger.count("[부분]") == 57, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
-        "188차 실측(15·57)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
+        "230차 실측(17·57 — 188차 15에 `KSFID_NUMBER_SPEC` near 2)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
         "(137차 확정 8·50 → 151차 partial +3 → 161차 near +1"
         "= `FR_TABLE`의 [표 3-3-27] → 🔴163차 **partial +2**"
         "= `REGION_DESIGN_LOAD`의 고시 [별표] 사본 2건)")
@@ -5262,8 +5263,8 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 72, (
-        f"partial·near가 {len(rows)}건이다 — 188차 실측은 72건"
+    assert len(rows) == 74, (
+        f"partial·near가 {len(rows)}건이다 — 230차 실측은 74건(188차 72 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1 + `REGION_DESIGN_LOAD` 2 "
         "+ 🔴173차 감리 절차의 세 번째 시방서 사본 1)")
 
@@ -6004,8 +6005,9 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 110, "partial": 57, "near": 15}, (
+    assert dist == {"exact": 110, "partial": 57, "near": 17}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
+        "(+ 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
         "도면이 면적을 정확히 재현해도 값의 출처는 견적서 사업량 표기다")
@@ -6503,8 +6505,8 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 182, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 188차 실측은 182건"
+    assert a["counts"]["source_refs"] == 184, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 230차 실측은 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(177차 173 + 🔴178차 OPEX 비목 대조 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
@@ -7595,8 +7597,8 @@ def test_163cha_design_load_byepyo_registered():
     # 🔴178차 — `OPEX_ITEM_CATEGORIES`가 풀려 3건 → 2건이 됐다(조사표 비목 대조)
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 178차 실측은 2건이다")
-    assert a["counts"]["source_refs"] == 182, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 188차 실측은 182건")
+    assert a["counts"]["source_refs"] == 184, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 230차 실측은 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -8407,7 +8409,8 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     reg = _j.loads(open(_o.path.join(repo, "엔진데이터_레지스트리.json"),
                         encoding="utf-8").read())
         # 🔴213차 — ★보조사업자 계약 등재로 65→69
-    assert len(reg["constants"]) == 70, (
+    # 🔴230차 — `KSFID_NUMBER_SPEC` 등재로 70 → 71(사용자 지시 · 원래 엔진 함수 본문의 리터럴이었다)
+    assert len(reg["constants"]) == 71, (
         "🔴 레지스트리 상수가 69개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
@@ -12205,6 +12208,54 @@ def test_208cha_service_life_merge_joins_paths_not_values():
             "**지우지 않고 취소선으로** 남겨야 *「왜 갑자기 통합했는가」*를 답할 수 있다")
     assert "rda_years`는 여전히" in ev and "[추정]" in ev, (
         "🔴 **값은 여전히 추정**이라는 사실이 사라졌다 — 통합이 값을 확정한 것으로 읽힌다")
+
+
+def test_230cha_ksfid_number_spec_is_registered_and_output_unchanged():
+    """230차 — K-SFID **번호 체계를 레지스트리에 등재**했다(사용자 지시).
+
+    `ksfid_number()` 본문의 리터럴(접두·문자표·해시 계수·검증 모듈러)을 상수
+    `KSFID_NUMBER_SPEC`으로 꺼내 `결정`으로 등재했다. 🔴값은 한 자리도 안 바꿨다 —
+    등재 전 실측 번호 4건을 그대로 박아 **출력 불변**을 잰다.
+    ⚠️ docstring은 187차부터 *「준거는 레지스트리 `source`에 적었다」*고 말했는데
+    229차까지 그런 항목이 없었다 — 이 가드가 그 문장이 **참인지** 잰다.
+    """
+    import ast as _ast, json as _j, os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda n: open(_o.path.join(repo, n), encoding="utf-8").read()
+
+    # ── ① 출력 불변 — 등재 전(229차 커밋 144c164) 실측값 ───────────────
+    BEFORE = {("강원(춘천)", "토마토", "유리", 2026, 7): "KSF-2026-8S-AW-C-0007-7",
+              ("충남", "딸기", "필름", 2027, 0): "KSF-2027-O3-Q0-8-0000-0",
+              ("제주", "감귤", "PO", 2031, 9999): "KSF-2031-U8-QC-5-9999-9",
+              ("경북", "참외", "이중필름", 1999, 1234): "KSF-1999-AW-OG-U-1234-4"}
+    for args, want in BEFORE.items():
+        assert e.ksfid_number(*args)["ksfid"] == want, (
+            f"🔴 {args}의 번호가 바뀌었다 — 상수로 꺼내는 일은 **값을 바꾸면 안 된다**. "
+            "이미 발급된 번호가 있다면 그 번호가 가리키던 것을 잃는다")
+
+    # ── ② 함수 본문에 체계 리터럴이 **남지 않았는가**(두 곳에서 쥐지 않는다) ──
+    tree = _ast.parse(rd("smartfarm_engine.py"))
+    fn = [n for n in tree.body if getattr(n, "name", None) == "ksfid_number"][0]
+    body = fn.body[1:]                                   # docstring 제외
+    lits = {c.value for n in body for c in _ast.walk(n) if isinstance(c, _ast.Constant)}
+    S = e.KSFID_NUMBER_SPEC
+    for k in ("prefix", "alphabet", "hash_mul", "hash_mod", "check_mod", "radix"):
+        assert S[k] not in lits, (
+            f"🔴 `ksfid_number` 본문에 체계 값 {S[k]!r}({k})이 리터럴로 남았다 — "
+            "`KSFID_NUMBER_SPEC`과 두 곳이 된다")
+    assert ("형식: `%s`" % S["format"]) in (fn.body[0].value.value), (
+        "🔴 docstring의 형식 문구가 상수와 다르다")
+
+    # ── ③ 레지스트리: 등재·결정·출처·docstring 약속 ───────────────────
+    ent = _j.loads(rd("엔진데이터_레지스트리.json"))["constants"]["KSFID_NUMBER_SPEC"]
+    assert ent["engine_attr"] == "KSFID_NUMBER_SPEC" and ent["status"] == "결정", (
+        "🔴 번호 체계는 원문 값이 아니라 **설계·결정**이다 — status는 「결정」")
+    assert "GGN" in ent["source"] and "229차" in ent["source"], (
+        "🔴 레지스트리 source에 준거(GGN — 식별자이지 등급 아님)나 연도 결정(229차)이 없다 — "
+        "docstring의 *「준거는 레지스트리 source에 적었다」*가 다시 거짓이 된다")
+    assert {r["file"] for r in ent["source_refs"]} >= {"근거_벤치마킹출처_검증_20260921.md"}
+    assert "PVEL" not in rd("smartfarm_engine.py").split("KSFID_NUMBER_SPEC = {")[1].split("}")[0], (
+        "🔴 외부 고유명이 엔진 상수에 들어왔다(167차 경계)")
 
 
 if __name__ == "__main__":

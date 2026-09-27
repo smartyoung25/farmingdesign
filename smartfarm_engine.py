@@ -5256,34 +5256,56 @@ def ksfid_grade(check_results: dict, thresholds: Optional[dict] = None) -> dict:
                      "`complete=False`이고 `unchecked`가 그것을 드러낸다")}
 
 
+# 230차 — 번호 체계를 함수 본문에서 **상수로 꺼냈다**(사용자 지시: 레지스트리 등재).
+#   종전엔 접두·문자표·해시 계수·검증 모듈러가 함수 안 리터럴이라 레지스트리가 잴 대상이
+#   없었다. 🔴값은 한 자리도 바꾸지 않았다 — 같은 입력이면 같은 번호다(가드가 대조).
+#   `year_source`는 엔진이 쓰지 않는 **계약 문구**다 — 연도는 호출부가 발급일에서 넣는다
+#   (229차 사용자 결정). 준거는 레지스트리 `KSFID_NUMBER_SPEC.source`에 있다.
+KSFID_NUMBER_SPEC = {
+    "prefix": "KSF",
+    "format": "KSF-<연도 4>-<지역 2>-<작목 2>-<피복 1>-<일련 4>-<검증문자 1>",
+    "alphabet": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ*",
+    "radix": 36,
+    "hash_mul": 131,
+    "hash_mod": 1296,
+    "check_mod": 37,
+    "year_range": (1000, 9999),
+    "seq_range": (0, 9999),
+    "year_source": "발급일(ksfid_issued)의 연도 — 엔진은 인자로만 받고 호출부가 넣는다",
+}
+
+
 def ksfid_number(region: str, crop: str, cover: str, year: int, seq: int) -> dict:
     """K-SFID 식별번호(결정론) — **등급이 아니라 추적 식별자**다.
 
     형식: `KSF-<연도 4>-<지역 2>-<작목 2>-<피복 1>-<일련 4>-<검증문자 1>`
     검증문자는 앞 자리의 **모듈러 37 체크**로 만든다(오타 검출용, 난수 없음).
+    체계의 값은 `KSFID_NUMBER_SPEC` 하나에 있다(230차).
     🔴 번호는 **식별자이지 등급이 아니다** — 준거는 레지스트리 `source`에 적었다.
     """
+    S = KSFID_NUMBER_SPEC
     for nm, v in (("region", region), ("crop", crop), ("cover", cover)):
         if not v:
             raise ValueError("%s가 비어 있다 — 식별번호를 만들 수 없다" % nm)
-    if not (1000 <= int(year) <= 9999):
+    if not (S["year_range"][0] <= int(year) <= S["year_range"][1]):
         raise ValueError("year는 4자리여야 한다: %r" % (year,))
-    if not (0 <= int(seq) <= 9999):
+    if not (S["seq_range"][0] <= int(seq) <= S["seq_range"][1]):
         raise ValueError("seq는 0~9999여야 한다: %r" % (seq,))
-    ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ*"
+    ALPHABET = S["alphabet"]
 
     def _two(text):
         h = 0
         for ch in str(text):
-            h = (h * 131 + ord(ch)) % 1296
-        return ALPHABET[h // 36] + ALPHABET[h % 36]
+            h = (h * S["hash_mul"] + ord(ch)) % S["hash_mod"]
+        return ALPHABET[h // S["radix"]] + ALPHABET[h % S["radix"]]
 
-    body = "KSF-%04d-%s-%s-%s-%04d" % (int(year), _two(region), _two(crop),
-                                       _two(cover)[0], int(seq))
+    body = "%s-%04d-%s-%s-%s-%04d" % (S["prefix"], int(year), _two(region), _two(crop),
+                                      _two(cover)[0], int(seq))
     acc = 0
     for ch in body:
         if ch != "-":
-            acc = (acc * 37 + (ALPHABET.index(ch) if ch in ALPHABET else 36)) % 37
+            acc = (acc * S["check_mod"] + (ALPHABET.index(ch) if ch in ALPHABET
+                                           else S["radix"])) % S["check_mod"]
     return {"ksfid": "%s-%s" % (body, ALPHABET[acc]),
             "body": body, "check_char": ALPHABET[acc],
             "inputs": {"region": region, "crop": crop, "cover": cover,

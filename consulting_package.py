@@ -510,7 +510,7 @@ def entry_steps(case: dict, pkg: dict) -> list:
 #   **그대로** 옮긴다. 미발급이면 번호 형식과 빠진 주입 슬롯을 드러낸다.
 #   📌 형식 문자열은 `ksfid_number` docstring과 **같아야 한다**(가드가 대조한다).
 # ─────────────────────────────────────────────────────────────
-KSFID_FORMAT = "KSF-<연도 4>-<지역 2>-<작목 2>-<피복 1>-<일련 4>-<검증문자 1>"
+KSFID_FORMAT = e.KSFID_NUMBER_SPEC["format"]   # 230차 — 엔진 상수 하나에서(따로 적지 않는다)
 
 
 def ksfid_badge(pkg: dict) -> dict:
