@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import os
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -5830,8 +5831,11 @@ MATERIAL_APPROVAL_ALIASES = {
 
 
 def _approval_doc_key(name) -> str:
-    # 공백 무시(231차) + 대소문자 무시(232차 — 영문 표기). 한글에는 영향이 없다
-    return "".join(str(name).split()).casefold()
+    # 공백 무시(231차) + 대소문자 무시(232차 — 영문 표기) + 전각 → 반각(233차).
+    #   NFKC는 전각 영숫자·기호(ＣＡＴＡＬＯＧ·＆·＇)와 전각 공백을 보통 글자로 옮기고,
+    #   분해형(NFD) 한글도 완성형으로 합친다. 완성형 한글은 그대로다.
+    #   ⚠️ 굽은 따옴표(’)는 전각이 아니라 NFKC가 옮기지 않는다 — 별칭에 없으면 인식 안 됨이다
+    return "".join(unicodedata.normalize("NFKC", str(name)).split()).casefold()
 
 
 def _normalize_approval_doc(name) -> Optional[str]:

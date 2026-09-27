@@ -12345,6 +12345,47 @@ def test_232cha_english_approval_doc_names():
     assert len(en) == 9, f"🔴 영문 별칭이 {len(en)}건이다 — 232차 등재는 9건이다(늘렸다면 근거와 함께)"
 
 
+def test_233cha_fullwidth_approval_doc_names():
+    """233차 — **전각 문자 표기**도 정규화한다(사용자 지시). 대조 키에 NFKC.
+
+    🔴 옮기는 것은 **글자 모양**뿐이다 — 별칭 표 값은 그대로이고, 전각을 반각으로 바꿔도
+       등재되지 않은 이름이면 여전히 「인식 안 됨」이다.
+    """
+    import unicodedata as _u
+    import json as _j, os as _o
+    CANON = e.MATERIAL_APPROVAL_ATTACHMENTS
+    FW = lambda s: "".join(chr(ord(c) + 0xFEE0) if "!" <= c <= "~" else
+                           ("　" if c == " " else c) for c in s)   # 반각 → 전각
+
+    def _row(given):
+        return e.equipment_reconcile(["히터"], {"히터": "KS"}, {"히터": given})["rows"][0]
+
+    # ── ① 전각 영문 별칭 · 전각 공백 · 분해형 한글 → 정본 ─────────────────
+    given = [FW("CATALOG"), FW("O&M Manual"), FW("Manufacturer's Specification"),
+             "표준　색상철", _u.normalize("NFD", "시험성적표"), "계산서"]
+    assert FW("CATALOG") != "CATALOG" and _u.normalize("NFD", "시험성적표") != "시험성적표", "전제"
+    r = _row(given)
+    assert r["attachments_missing"] == [], f"🔴 전각·분해형 표기를 누락으로 셌다: {r['attachments_missing']}"
+    assert r["attachments_unrecognized"] == []
+    assert r["attachments_given"] == given, "🔴 적힌 그대로(전각)를 보존하지 않았다"
+    assert r["attachments_normalized"][FW("CATALOG")] == "카탈로그"
+
+    # ── ② 🔴 모양만 옮기고 뜻은 추측하지 않는다 ─────────────────────────
+    r = _row([FW("Invoice"), FW("Brochure"), "Manufacturer’s Specification"])
+    assert r["attachments_unrecognized"] == [FW("Invoice"), FW("Brochure"),
+                                             "Manufacturer’s Specification"], (
+        f"🔴 전각을 반각으로 옮긴 뒤 등재되지 않은 이름까지 붙였다: {r['attachments_unrecognized']}")
+    assert r["attachments_missing"] == list(CANON)
+
+    # ── ③ 한글 정본은 NFKC로 **변하지 않는다**(정본 6종·별칭 전부) ─────────
+    for n in list(CANON) + list(e.MATERIAL_APPROVAL_ALIASES) + list(e.MATERIAL_APPROVAL_ALIASES.values()):
+        assert _u.normalize("NFKC", n) == n, f"🔴 등재 이름 {n!r}가 NFKC로 바뀐다 — 대조가 어긋난다"
+
+    ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
+                                    "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
+    assert "233차" in ent["source"] and "NFKC" in ent["source"], "🔴 레지스트리에 전각 규칙 기록이 없다"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
