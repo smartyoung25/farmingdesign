@@ -12641,6 +12641,45 @@ def test_239cha_b11_is_decided_unchecked_when_no_attachments():
     assert _st(dict(base, attachments_by_model={"온풍난방기": six})) == "통과"
 
 
+def test_240cha_decision_ledger_summary_matches_the_code():
+    """240차 — 결정 대기 대장 **정리표**가 본문·코드와 맞는가(사용자 지시: D-1부터 정리).
+
+    🔴 159차의 D-5 「감응 0」은 **그 뒤 생긴 조립 계층**(181차 컨설팅 패키지 D1)을 다시 재지 않아
+       낡은 채 남았다. 그래서 정리표의 D-5 서술을 **코드 실측에 묶는다** — 누가 지역명 매칭을 고치면
+       이 가드가 **대장도 고치라고** 실패한다.
+    """
+    import os as _o, sys as _s, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    rd = lambda p: open(_o.path.join(repo, p), encoding="utf-8").read()
+    led = rd("근거_결정대기대장_20260915.md")
+    i = led.index("## 🧭 240차 정리"); j = led.index("## 0. 왜 이 문서가 필요한가")
+    sec, body = led[i:j], led[j:]
+
+    # ── ① 정리표가 본문의 대기 항목을 **정확히 한 번씩** 싣는가 ─────────────
+    open_ids = sorted({int(x) for x in _re.findall(r"(?m)^\| \*\*D-(\d+)\*\* \|", body)})
+    listed = [int(x) for x in _re.findall(r"(?m)^\| D-(\d+) \|", sec)]
+    assert sorted(listed) == open_ids and len(listed) == len(set(listed)), (
+        f"🔴 정리표 {sorted(listed)}와 본문 대기 {open_ids}가 다르다 — 결정이 나면 두 곳을 함께 고쳐라")
+    assert not _re.search(r"(?m)^\| \*\*D-\d+\*\* \|", sec), (
+        "🔴 정리표가 굵은 `D-N` 행을 쓴다 — 번호 겹침 가드(149·153·216차)가 사본을 겹침으로 센다")
+    assert "대기 %d건" % len(open_ids) in led.splitlines()[0], "🔴 대장 제목의 대기 수가 본문과 다르다"
+
+    # ── ② D-5 서술이 코드 실측과 맞는가 ─────────────────────────────────
+    import consulting_package as cp
+    import case_display as cd
+    from cases import load_cases
+    c1 = [c for c in load_cases() if cd.code(c) == "C1"][0]
+    d1 = [x for x in cp.build_package(c1)["items"] if x["code"] == "D1"][0]["data"]
+    empty = [k for k in ("난방 설계외기온", "월별 평균풍속", "월별 일조시간") if d1.get(k) is None]
+    if "D-5" in [f"D-{n}" for n in open_ids]:
+        assert empty == ["난방 설계외기온", "월별 평균풍속", "월별 일조시간"], (
+            f"🔴 D-5가 대기인데 C1 D1의 빈 칸이 {empty}다 — 지역명 매칭이 바뀌었다면 대장 정리표 D-5 행을 고쳐라")
+        assert "C1·C3에서 3칸이 비어 있다" in sec
+    assert "181차에 생긴 컨설팅 패키지(D1)가\n  5함수를 모두 부른다" in sec or "5함수를 모두 부른다" in sec
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
