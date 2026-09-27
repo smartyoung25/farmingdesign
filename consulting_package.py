@@ -491,7 +491,9 @@ def entry_steps(case: dict, pkg: dict) -> list:
         #    반환). 224차는 통째로 문자열에 넣어 주입되는 순간 dict가 화면에 샜다
         #    (가드가 가짜 문자열을 넣어 못 봤다).
         "issue": (("완료", f"식별번호 {d25['식별번호']['ksfid']}") if d25.get("식별번호")
-                  else ("대기", "ksfid_seq 미주입 — 발급기관이 번호를 주면 기입한다")),
+                  else ("대기", "{} 미주입 — 번호는 일련번호와 발급일(연도)이 모두 있어야 선다".format(
+                      " · ".join(n["slot"] for n in (by.get("D25") or {}).get("needs") or []
+                                 if n["slot"] in ("ksfid_seq", "ksfid_issued"))))),
         "renew": (("진행", f"유효기간 {d25['유효기간']['issued']} ~ {d25['유효기간']['expires']}")
                   if d25.get("유효기간")
                   else ("대기", "발급일(ksfid_issued)이 없어 기산할 수 없다")),
@@ -1073,14 +1075,19 @@ def build_package(case: dict, injections: dict = None) -> dict:
             issued = inj.get("ksfid_issued")
             seq = inj.get("ksfid_seq")
             need25 = []
-            if seq is None:
-                need25 = need25 + _need("ksfid_seq")
-            else:
-                d["식별번호"] = e.ksfid_number(inp.region, inp.crop, inp.cover.value,
-                                           2026, seq)
+            # 229차 — ★사용자 결정(2026-09-27): 번호의 연도는 **발급일의 연도**다.
+            #   226차까지는 `2026`이 박혀 있어 2027년 발급분도 `KSF-2026-…`이 됐다.
+            #   발급일은 엔진 `ksfid_validity`가 검증·정규화한 값(`issued`)에서 읽는다 —
+            #   이 계층이 날짜를 다시 해석하지 않는다. 발급일이 없으면 **연도를 모르므로
+            #   번호를 만들지 않는다**(지어내지 않는다).
             if issued:
                 d["유효기간"] = e.ksfid_validity(issued, inj.get("ksfid_thresholds"))
-            else:
+            if seq is None:
+                need25 = need25 + _need("ksfid_seq")
+            elif issued:
+                d["식별번호"] = e.ksfid_number(inp.region, inp.crop, inp.cover.value,
+                                           int(d["유효기간"]["issued"][:4]), seq)
+            if not issued:
                 need25 = need25 + _need("ksfid_issued")
             if not gr["complete"]:
                 need25 = need25 + _need("doc_rows", "quoted_models")

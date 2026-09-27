@@ -2050,6 +2050,58 @@ def test_227cha_approval_attachments_reach_the_equipment_reconcile(tmp_cases):
         "🔴 규칙을 바꿨는데 레지스트리 `KSFID_CHECK_SPEC` 출처에 ★결정 기록이 없다")
 
 
+def test_229cha_ksfid_year_follows_the_issue_date():
+    """229차 — ★사용자 결정(2026-09-27): K-SFID 번호의 연도는 **발급일의 연도**다.
+
+    226차까지 `2026`이 박혀 있어 2027년 발급분도 `KSF-2026-…`이 됐다.
+    🔴 발급일이 없으면 **연도를 모르므로 번호를 만들지 않는다** — 지어내지 않는다.
+    """
+    import re as _re
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    import case_display as _cd
+    from cases import load_cases as _lc
+    case = [x for x in _lc() if not x.get("partial")][0]
+    inp = C.case_to_input(case)
+
+    def _d25(inj):
+        pkg = _cp.build_package(case, inj)
+        it = [x for x in pkg["items"] if x["code"] == "D25"][0]
+        st = {s["key"]: s for s in _cp.entry_steps(case, pkg)}
+        return it["data"], [n["slot"] for n in it["needs"]], st["issue"]
+
+    # ── ① 연도가 발급일에서 온다(두 해를 대조 — 한 해만 재면 박힌 값과 구별이 안 된다) ──
+    for day in ("2026-09-27", "2027-03-01", "2031-12-31"):
+        data, _n, st = _d25({"ksfid_seq": 7, "ksfid_issued": day})
+        want = _e.ksfid_number(inp.region, inp.crop, inp.cover.value, int(day[:4]), 7)["ksfid"]
+        assert data["식별번호"]["ksfid"] == want and want.startswith("KSF-%s-" % day[:4]), (
+            f"🔴 발급일 {day}인데 번호가 {data['식별번호']['ksfid']}다 — 연도는 발급일에서 와야 한다")
+        assert st["detail"] == "식별번호 " + want
+
+    # ── ② 발급일이 없으면 번호가 **없다** — 그리고 무엇이 없는지 말한다 ──────
+    data, needs, st = _d25({"ksfid_seq": 7})
+    assert "식별번호" not in data and "ksfid_issued" in needs and "ksfid_seq" not in needs, (
+        "🔴 발급일 없이 번호를 만들었다 — 연도를 지어낸 것이다")
+    assert st["state"] == "대기" and st["detail"].startswith("ksfid_issued 미주입"), (
+        f"🔴 스테퍼가 빠진 것을 잘못 말한다: {st['detail']}")
+    data, needs, st = _d25({"ksfid_issued": "2027-03-01"})
+    assert "식별번호" not in data and needs.count("ksfid_seq") == 1 and \
+        st["detail"].startswith("ksfid_seq 미주입"), f"🔴 일련번호 없음이 드러나지 않는다: {st['detail']}"
+
+    # ── ③ 발급 양식 미리보기도 같은 길을 탄다 ─────────────────────
+    r = client.post("/entry/issue/%s/preview" % _cd.code(case),
+                    data={"ksfid_seq": "7", "ksfid_issued": "2027-03-01", "note": ""})
+    got = _re.findall(r'id="pv-ksfid">([^<]+)', r.text)
+    assert got == [_e.ksfid_number(inp.region, inp.crop, inp.cover.value, 2027, 7)["ksfid"]], (
+        f"🔴 발급 미리보기 번호가 발급일 연도를 따르지 않는다: {got}")
+
+    # ── ④ 🔴 연도 리터럴이 번호 조립에 남지 않았는가 ──────────────────
+    src = _io_read("consulting_package.py")
+    call = src[src.index('d["식별번호"] = e.ksfid_number('):]
+    call = call[:call.index(")") + 1]
+    assert not _re.search(r"\b20\d\d\b", call), f"🔴 번호 조립에 연도 리터럴이 있다: {call}"
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),
