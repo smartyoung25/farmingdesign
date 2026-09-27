@@ -1585,6 +1585,123 @@ def test_222cha_quote_rule_names_its_programme():
     assert "**「보조사업자 계약 기준」으로 일반화**했다" in doc, (
         "🔴 **무엇을 과일반화했는지**가 사라졌다")
 
+def test_223cha_benchmark_screen_follows_the_decided_order(monkeypatch):
+    """223차 — **벤치마킹 화면 패턴**을 케이스 상세에 얹었다(사용자 지시 + 목업 승인).
+
+    준거(186차 원문 대조): 생애주기 레일 = DNV Owner's Engineer · 실사 6영역 =
+    Agritecture · 설계 대 실측 = kWh Analytics · 합격선 명시형 = PVEL.
+
+    ★사용자 결정 2026-09-27: 플랫폼 3단계 묶음은 **설계검증 = ①②③ · 성능보증 =
+    ⑤⑥ · 투자실사 = ④**, 표시 순서는 **①②③⑤⑥④**(레일과 탭이 같은 순서),
+    바꾸는 곳은 **웹 콘솔만**(정적 보고서 순서는 그대로).
+
+    🔴 묶음·순서는 `consulting_package`가 쥐고 화면은 옮겨 담기만 한다 —
+       화면이 순서를 따로 쥐면 둘이 갈라진다(210차 교훈: 이름을 두 곳에서 짓지 않는다).
+    """
+    import re as _re
+    import consulting_package as _cp
+    import case_display as _cd
+    from cases import load_cases as _lc
+
+    # ── ① ★결정이 코드에 **그대로** 있는가 ─────────────────────────
+    assert _cp.STAGE_ORDER == ("①공종설계", "②품질설계", "③감리",
+                               "⑤운영", "⑥사후관리", "④타당성검증"), (
+        f"🔴 표시 순서가 {_cp.STAGE_ORDER}로 바뀌었다 — ★사용자 결정(2026-09-27)은 ①②③⑤⑥④다")
+    assert [(k, n, s) for k, n, s, _d, _b in _cp.PLATFORM_STAGES] == [
+        ("P1", "설계검증", ("①공종설계", "②품질설계", "③감리")),
+        ("P2", "성능보증", ("⑤운영", "⑥사후관리")),
+        ("P3", "투자실사", ("④타당성검증",))], (
+        "🔴 플랫폼 3단계 묶음이 ★사용자 결정(설계검증 ①②③ · 성능보증 ⑤⑥ · 투자실사 ④)과 다르다")
+    assert set(_cp.STAGE_ORDER) == {s["stage"] for s in _cp.PACKAGE_SPEC}, (
+        "🔴 `STAGE_ORDER`가 `PACKAGE_SPEC`의 단계 집합과 다르다 — 레일에서 산출물이 사라진다")
+    flat = [st for _k, _n, sts, _d, _b in _cp.PLATFORM_STAGES for st in sts]
+    assert tuple(flat) == _cp.STAGE_ORDER, (
+        "🔴 3단계 묶음을 이어 붙인 순서가 레일 순서와 다르다 — 레일과 탭이 같은 순서여야 한다")
+
+    # ── ② 정적 보고서는 **건드리지 않았는가**(같은 날 사용자 결정) ────
+    assert "STAGE_ORDER" not in _io_read("build_site.py") and \
+        "PLATFORM_STAGES" not in _io_read("build_site.py"), (
+        "🔴 정적 보고서가 새 순서를 쓰기 시작했다 — 이번 결정은 **웹 콘솔만**이다")
+
+    cs = _lc()
+    full = [x for x in cs if not x.get("partial")]
+    assert full, "케이스가 없다"
+    for case in full:
+        code = _cd.code(case)
+        html = client.get("/case/" + code).text
+        pkg = _cp.build_package(case)
+        have = {x["code"]: x for x in pkg["items"]}
+
+        # ── ③ 레일이 그 순서로 나오고, 27종이 **한 번씩** 올라가는가 ──
+        got = _re.findall(r'<div class="sn">([^<]+)</div>', html)
+        assert tuple(got) == _cp.STAGE_ORDER, (
+            f"🔴 {code} 레일 순서가 {got}다 — `STAGE_ORDER`를 따르지 않는다")
+        rail_codes = _re.findall(r'<details class="doc[^"]*">\s*<summary><code>(D\d+)</code>', html)
+        assert sorted(rail_codes) == sorted(have), (
+            f"🔴 {code} 레일의 산출물이 패키지와 다르다: 빠짐 "
+            f"{sorted(set(have) - set(rail_codes))} · 중복/잉여 {sorted(rail_codes)}")
+        appx = _re.findall(r'<details class="doc appx">\s*<summary><code>(D\d+)</code>', html)
+        assert tuple(appx) == tuple(c for st in _cp.STAGE_ORDER for c in _cp.JUDGMENT_CODES
+                                    if have[c]["stage"] == st), (
+            f"🔴 {code} 레일의 판정 부록 표시가 {appx}다 — `JUDGMENT_CODES`(★194차)와 다르다")
+
+        # ── ④ 탭 순서가 레일과 같은가 ─────────────────────────────
+        pos = [html.find(f"<code>{k}</code> {n}") for k, n, *_r in _cp.PLATFORM_STAGES]
+        assert all(p > 0 for p in pos) and pos == sorted(pos), (
+            f"🔴 {code} 플랫폼 3단계 탭이 설계검증 → 성능보증 → 투자실사 순서가 아니다: {pos}")
+
+        # ── ⑤ 「엔진 밖」과 등급이 **엔진 반환에서** 오는가 ────────────
+        for k, key, field in (("P3", "D23", "공백 영역"), ("P2", "D24", "편차 함수 없는 항목")):
+            gaps = have[key]["data"][field]
+            assert gaps, f"🔴 {code} {key}의 「{field}」가 비었다 — 가드의 전제가 무너졌다"
+            assert ("엔진 밖 — " + " · ".join(gaps)) in html, (
+                f"🔴 {code} {k}의 「엔진 밖」이 {key} 반환({gaps})과 다르다")
+        g = have["D25"]["data"]["등급"]
+        assert f'<div class="gg">{g["grade"]}</div>' in html and \
+            f'통과 {g["n_passed"]} / {g["n_total"]}' in html, (
+            f"🔴 {code} 판정 부록의 등급·통과 수가 엔진 반환({g['grade']}, "
+            f"{g['n_passed']}/{g['n_total']})과 다르다")
+        uc = have["D23"]["data"]["단위 공사비 대조"]
+        assert "{:,.0f}원/㎡".format(uc["unit_won_m2"]) in html, (
+            f"🔴 {code} 단위 공사비가 엔진 반환({uc['unit_won_m2']})과 다르다")
+
+    # ── ⑥ 🔴 화면이 **값을 짓지 않는가** ───────────────────────────
+    tpl = _io_read("webapp_templates/case_detail.html")
+    for w in ("경영진 역량", "시장위치", "에너지효율", "가동률"):
+        assert w not in tpl, (
+            f"🔴 템플릿에 「{w}」가 박혀 있다 — 「엔진 밖」 목록은 D23·D24 반환에서 와야 한다")
+    exprs = _re.findall(r"\{\{(.*?)\}\}|\{%(.*?)%\}", tpl, _re.S)
+    arith = [a or b for a, b in exprs if _re.search(r"\w\s*[-+*/%]\s*\w", (a or b)
+                                                     .replace('"{:,.0f}"', "")
+                                                     .replace("'chip-ref'", ""))]
+    assert not arith, (
+        f"🔴 템플릿 식에 산술이 있다: {arith} — 앱 계층은 표시 포맷팅만 한다(1절)")
+
+    # ── ⑥-b 📌 등급을 **바꿔 넣어도 화면이 따라오는가** ─────────────────
+    #   뮤테이션 M8이 잡혔다: 현재 케이스 셋이 **전부 C**라 템플릿에 「C」를 박아도
+    #   ⑤가 통과했다(**고정값이 실측과 우연히 같으면 가드가 못 본다**). 엔진 반환을
+    #   다른 값으로 바꿔 화면이 그것을 옮기는지 잰다.
+    _orig = _cp.build_package
+
+    def _swapped(case, injections=None):
+        out = _orig(case, injections)
+        for x in out["items"]:
+            if x["code"] == "D25":
+                x["data"]["등급"] = dict(x["data"]["등급"], grade="보류", n_passed=1)
+        return out
+    monkeypatch.setattr(webapp.cpkg, "build_package", _swapped)
+    html = client.get("/case/" + _cd.code(full[0])).text
+    assert '<div class="gg">보류</div>' in html and "통과 1 / " in html, (
+        "🔴 판정 부록의 등급·통과 수가 엔진 반환을 따르지 않는다 — 화면에 값이 박혀 있다")
+    monkeypatch.undo()
+
+    # ── ⑦ 부분 케이스는 레일 없이 열리는가(4축 미산출이라 패키지가 없다) ──
+    for case in [x for x in cs if x.get("partial")]:
+        r = client.get("/case/" + _cd.code(case))
+        assert r.status_code == 200 and 'class="rail"' not in r.text, (
+            f"🔴 부분 케이스 {_cd.code(case)}가 레일을 냈거나 열리지 않는다")
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),

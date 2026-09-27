@@ -16,6 +16,68 @@
     .kpi .lab { font-size:11px; color:var(--mut); }
     .kpi .val { font-size:18px; font-weight:500; color:var(--green); font-variant-numeric:tabular-nums; }
     .provrow td { font-size:12px; }
+    /* 223차 — 벤치마킹 화면 패턴(레일·두 축·실사·대조·판정 부록) */
+    h3.sec { font-size:13px; color:var(--sub); font-weight:500; margin:20px 0 8px; }
+    .bm { font-weight:400; font-size:11.5px; color:var(--mut); }
+    .railwrap { overflow-x:auto; padding-bottom:4px; }
+    .rail { display:grid; grid-template-columns:repeat(6,minmax(150px,1fr)); min-width:920px; }
+    .stage { padding:0 6px; position:relative; }
+    .stage::before { content:""; position:absolute; top:6px; left:0; right:0; height:2px; background:#D7D7D1; }
+    .stage:first-child::before { left:12px; }
+    .stage:last-child::before { right:calc(100% - 20px); }
+    .rdot { width:14px; height:14px; border-radius:50%; background:var(--card); border:3px solid #1D9E75; position:relative; }
+    .sn { font-size:13px; font-weight:500; margin-top:8px; }
+    .sc { font-size:11px; color:var(--mut); margin-bottom:6px; }
+    .bar { display:flex; height:6px; border-radius:3px; overflow:hidden; background:#EFEFEA; margin-bottom:8px; }
+    .b-1 { background:#1D9E75; } .b-2 { background:#378ADD; } .b-3 { background:#D9A441; } .b-4 { background:#B4B2A9; }
+    details.doc { border:1px solid var(--line); background:var(--card); border-radius:7px; margin-bottom:4px; font-size:12px; }
+    details.doc.appx { border-style:dashed; border-color:#6A4C93; }
+    details.doc summary { display:flex; flex-wrap:wrap; gap:2px 6px; align-items:center; padding:5px 7px; cursor:pointer; list-style:none; }
+    details.doc summary::-webkit-details-marker { display:none; }
+    details.doc summary code { font-size:11px; color:var(--mut); min-width:28px; }
+    details.doc .t { order:3; flex-basis:100%; line-height:1.4; }
+    details.doc summary .chip { margin-left:auto; }
+    details.doc .needs { padding:2px 8px 7px; font-size:11px; color:var(--sub); line-height:1.6; }
+    details.doc .needs code { color:var(--green); }
+    .legend { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:11.5px; color:var(--sub); margin-top:8px; }
+    .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
+    .legend .lg-appx { border:1.5px dashed #6A4C93; }
+    .chip-appx { background:#F2EDF8; color:#6A4C93; }
+    .axes > input { position:absolute; opacity:0; pointer-events:none; }
+    .axes > label { display:inline-block; font-size:12.5px; color:var(--sub); padding:6px 12px; border:1px solid var(--line);
+                    border-radius:8px; background:var(--card); cursor:pointer; margin:0 4px 10px 0; }
+    .axes > input:checked + label { background:var(--green-soft); color:#0F3D2E; border-color:#1D9E75; font-weight:500; }
+    .axes > input:focus-visible + label { outline:2px solid #1D9E75; }
+    .axes .pane { display:none; }
+    #ax-fn:checked ~ .pane-fn { display:block; }
+    #ax-pf:checked ~ .pane-pf { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); gap:10px; }
+    .grp .gh { font-size:13.5px; font-weight:500; }
+    .grp .gh code { color:var(--green); font-size:11px; }
+    .grp .gs { font-size:11.5px; color:var(--mut); font-weight:400; }
+    .grp .gd { font-size:11.5px; color:var(--mut); margin:2px 0 8px; }
+    .grp .gl { font-size:12px; color:var(--sub); line-height:1.8; }
+    .grp .gl > span { display:inline-block; margin-right:10px; }
+    .grp .go { font-size:11.5px; color:#791F1F; border-top:1px dashed var(--line); margin-top:8px; padding-top:6px; }
+    .two { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr)); gap:12px; }
+    .ph { font-size:13.5px; font-weight:500; }
+    .ps { font-size:11.5px; color:var(--mut); margin:2px 0 10px; }
+    .dd { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+    .area { border:1px solid var(--line); border-radius:9px; padding:8px 10px; }
+    .area.slot { border:1.5px dashed #B8B8B0; }
+    .an { font-size:12.5px; font-weight:500; display:flex; justify-content:space-between; gap:6px; }
+    .af { font-family:Consolas,monospace; font-size:10.5px; color:var(--green); margin:3px 0; word-break:break-all; }
+    .aw { font-size:11.5px; color:var(--sub); }
+    .facts { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12px; color:var(--sub); margin-top:10px; border-top:1px solid var(--line); padding-top:8px; }
+    .facts b { font-weight:500; color:var(--ink); font-variant-numeric:tabular-nums; }
+    .inj { display:inline-block; border:1.5px dashed #B8B8B0; border-radius:6px; padding:0 8px; font-size:11px; color:var(--mut); }
+    td code { font-size:11px; color:var(--green); }
+    .appendix { margin-top:22px; border:1.5px dashed #6A4C93; border-radius:14px; padding:14px 16px; background:var(--card); }
+    .grade { display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; margin:4px 0 10px; }
+    .gg { font-size:30px; font-weight:500; color:#6A4C93; line-height:1; font-family:Consolas,monospace; }
+    .gr { font-size:12.5px; color:var(--sub); }
+    .rule { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
+    .rule span { font-size:11px; padding:2px 8px; border-radius:6px; border:1px solid var(--line); color:var(--mut); }
+    .rule span.on { border-color:#6A4C93; color:#6A4C93; font-weight:500; }
   </style>
   <div class="top">
     <h1>{{ alias.title }}</h1>
@@ -53,24 +115,138 @@
     {% endfor %}
   </div>
 
-  {% if funcs %}
-  <h3 style="font-size:13px; color:var(--sub); font-weight:500; margin:18px 0 8px">
-    기능별 산출 — <a href="/functions">기능 지도</a>의 축 그대로</h3>
-  <div class="card" style="padding:8px 14px 14px">
-    {% for f in funcs %}
-    <div style="padding:9px 0; border-bottom:1px solid #EFEFEA">
-      <div style="font-size:13px; font-weight:500">{{ f.name }}
-        <span style="color:var(--mut); font-weight:400; font-size:12px"> · {{ f.desc }}</span></div>
-      <div style="font-size:12px; color:var(--sub); margin-top:4px; line-height:1.7">
-        {% for i in f.docs %}<span style="display:inline-block; margin-right:10px">{{ i.code }} {{ i.title }}</span>{% endfor %}
-      </div>
-      {% if f.gaps %}
-      <div style="font-size:11.5px; color:#791F1F; margin-top:4px">
-        아직 없는 것 — {% for g in f.gaps %}{{ g.name }}{% if not loop.last %} · {% endif %}{% endfor %}
-      </div>
-      {% endif %}
+  {% if rail %}
+  <h3 class="sec">생애주기 레일 <span class="bm">①②③⑤⑥④ 순서(★사용자 결정 2026-09-27) · 준거: DNV Owner's Engineer 전주기 개입</span></h3>
+  <div class="railwrap"><div class="rail">
+    {% for s in rail %}
+    <div class="stage">
+      <div class="rdot"></div>
+      <div class="sn">{{ s.stage }}</div>
+      <div class="sc">{{ s.docs | length }}종</div>
+      <div class="bar">{% for k, n in s.tally %}{% if n %}<i class="b-{{ loop.index }}" style="flex:{{ n }}" title="{{ k }} {{ n }}"></i>{% endif %}{% endfor %}</div>
+      {% for d in s.docs %}
+      <details class="doc{% if d.appendix %} appx{% endif %}">
+        <summary><code>{{ d.code }}</code><span class="t">{{ d.title }}</span>
+          {% if d.appendix %}<span class="chip chip-appx">부록</span>{% else %}<span class="chip {{ status_cls.get(d.status, 'chip-ref') }}">{{ d.status }}</span>{% endif %}</summary>
+        {% if d.needs %}<div class="needs">비어 있는 입력 — {% for n in d.needs %}<code>{{ n }}</code>{% if not loop.last %} · {% endif %}{% endfor %}</div>
+        {% else %}<div class="needs">주입 슬롯 없음</div>{% endif %}
+      </details>
+      {% endfor %}
     </div>
     {% endfor %}
+  </div></div>
+  <div class="legend">
+    <span><i class="b-1"></i>생성</span><span><i class="b-2"></i>부분생성</span>
+    <span><i class="b-3"></i>주입대기</span><span><i class="b-4"></i>링크</span>
+    <span><i class="lg-appx"></i>판정 부록(D25~D27 — 본문과 분리, ★194차)</span>
+  </div>
+  {% endif %}
+
+  {% if funcs %}
+  <h3 class="sec">산출물 묶음 <span class="bm">같은 산출물을 두 가지 축으로 본다 — 분류이지 순위가 아니다</span></h3>
+  <div class="axes">
+    <input type="radio" name="axis" id="ax-fn" checked>
+    <label for="ax-fn">기능 (F1–F3)</label>
+    <input type="radio" name="axis" id="ax-pf">
+    <label for="ax-pf">플랫폼 3단계 (설계검증 · 성능보증 · 투자실사)</label>
+    <div class="pane pane-fn card" style="padding:8px 14px 14px">
+      <div style="font-size:11.5px; color:var(--mut); padding-top:4px"><a href="/functions">기능 지도</a>의 축 그대로</div>
+      {% for f in funcs %}
+      <div style="padding:9px 0; border-bottom:1px solid var(--line)">
+        <div style="font-size:13px; font-weight:500">{{ f.name }}
+          <span style="color:var(--mut); font-weight:400; font-size:12px"> · {{ f.desc }}</span></div>
+        <div style="font-size:12px; color:var(--sub); margin-top:4px; line-height:1.7">
+          {% for i in f.docs %}<span style="display:inline-block; margin-right:10px">{{ i.code }} {{ i.title }}</span>{% endfor %}
+        </div>
+        {% if f.gaps %}
+        <div style="font-size:11.5px; color:#791F1F; margin-top:4px">
+          아직 없는 것 — {% for g in f.gaps %}{{ g.name }}{% if not loop.last %} · {% endif %}{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="pane pane-pf">
+      {% for p in platform %}
+      <div class="card grp">
+        <div class="gh"><code>{{ p.key }}</code> {{ p.name }} <span class="gs">{% for st in p.stages %}{{ st[:1] }}{% endfor %}</span></div>
+        <div class="gd">{{ p.desc }} · 준거: {{ p.bench }}</div>
+        <div class="gl">{% for d in p.docs %}<span>{{ d.code }} {{ d.title }}{% if d.appendix %} <span class="chip chip-appx">부록</span>{% endif %}</span>{% endfor %}</div>
+        {% if p.outside %}<div class="go">엔진 밖 — {{ p.outside | join(" · ") }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if d23 or d24 %}
+  <h3 class="sec">실사 · 설계값 대조</h3>
+  <div class="two">
+    {% if d23 %}
+    <div class="card">
+      <div class="ph">D23 투자 실사 카드 · 6영역</div>
+      <div class="ps">준거: Agritecture Due Diligence 6영역. 점선은 엔진 밖 — 사람이 채우는 자리다.</div>
+      <div class="dd">
+        {% for a in d23["영역"] %}
+        <div class="area{% if not a["엔진 함수"] %} slot{% endif %}">
+          <div class="an">{{ a["영역"] }} {% if a["엔진 함수"] %}<span class="chip chip-measured">엔진</span>{% else %}<span class="chip chip-est">사람 입력</span>{% endif %}</div>
+          {% if a["엔진 함수"] %}<div class="af">{{ a["엔진 함수"] | join(" · ") }}</div>{% endif %}
+          <div class="aw">{{ (a["무엇을 덮는가"] or a["공백"] or "") | replace("**", "") }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="facts">
+        <span>엔진이 덮는 영역 <b>{{ d23["엔진이 덮는 영역"] }} / {{ d23["영역"] | length }}</b></span>
+        {% set uc = d23["단위 공사비 대조"] %}
+        {% if uc %}<span>단위 공사비 <b>{{ "{:,.0f}".format(uc.unit_won_m2) }}원/㎡</b>
+          · 밴드 {{ "{:,.0f}".format(uc.band[0]) }}–{{ "{:,.0f}".format(uc.band[1]) }}
+          <span class="chip chip-ref">{{ uc.status }}</span></span>{% endif %}
+        {% if d23["인허가 결손"] %}<span>인허가 결손 <b>{{ d23["인허가 결손"] | join(" · ") }}</b></span>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% if d24 %}
+    <div class="card">
+      <div class="ph">D24 설계값–실측 대조표</div>
+      <div class="ps">준거: kWh Analytics(설계 대 실측). 나란히 놓기까지 — 보상 판정은 하지 않는다.</div>
+      {% set cb = d24["공사비 밴드 대조"] %}
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>항목</th><th class="num">설계값</th><th>실측</th><th>편차 함수</th></tr></thead>
+        <tbody>
+        {% for r in d24["행"] %}
+        <tr><td>{{ r["항목"] }}</td>
+          <td class="num">{% if r["항목"] == "수확량" and d24["설계 수확량(kg)"] %}{{ "{:,.0f}".format(d24["설계 수확량(kg)"]) }} kg{% elif r["항목"] == "공사비" and cb %}{{ "{:,.0f}".format(cb.unit_won_m2) }}원/㎡{% else %}—{% endif %}</td>
+          <td>{% if r["실측 주입"] %}<span class="inj">{{ r["실측 주입"] }}</span>{% elif cb %}<span class="chip chip-ref">밴드 대조 {{ cb.status }}</span>{% else %}—{% endif %}</td>
+          <td>{% if r["편차 함수"] %}<code>{{ r["편차 함수"] }}</code>{% else %}<span class="chip chip-warn">엔진에 없다</span>{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if d25 %}{% set g = d25["등급"] %}
+  <div class="appendix">
+    <span class="chip chip-appx">판정 부록 · 본문과 분리(★194차)</span>
+    <div class="ph" style="margin-top:6px">D25 K-SFID 검증 등급 <span class="bm">준거: PVEL Scorecard 합격선 명시형</span></div>
+    <div class="ps">규칙 적용 결과다 — 사업이 좋은지를 말하지 않는다. 미검증은 통과로 세지 않는다. 임계값은 <code>ksfid_thresholds</code> 주입으로 덮어쓸 수 있다.</div>
+    <div class="grade">
+      <div class="gg">{{ g.grade }}</div>
+      <div class="gr">통과 {{ g.n_passed }} / {{ g.n_total }} · 불합격 {{ g.failed | length }} · 미검증 {{ g.unchecked | length }}{% if not g.complete %} → <b>미완결</b>{% endif %}{% if g.disqualified_by %} · 실격 {{ g.disqualified_by | join(", ") }}{% endif %}
+        <br>식별번호 {% if d25["식별번호"] %}<code>{{ d25["식별번호"] }}</code>{% else %}미발급 — 발급기관 주입 <code>ksfid_seq</code>{% endif %}</div>
+    </div>
+    <div class="rule">{% for lv in g.rule.levels %}{% if lv in g.rule.min_pass %}<span{% if lv == g.grade %} class="on"{% endif %}>{{ lv }} ≥ {{ g.rule.min_pass[lv] }}</span>{% endif %}{% endfor %}<span{% if g.grade == g.rule.disqualify_to %} class="on"{% endif %}>실격 → {{ g.rule.disqualify_to }}</span><span>유효 {{ g.rule.validity_months }}개월</span></div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>검증 항목</th><th>근거</th><th>실격 항목</th><th>상태</th></tr></thead>
+      <tbody>
+      {% for r in g.rows %}
+      <tr><td>{{ r.title }}</td><td>{{ r.basis }}</td><td>{{ "예" if r.disqualifying else "—" }}</td>
+        <td><span class="chip {{ rule_cls.get(r.state, 'chip-ref') }}">{{ r.state }}</span></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="note">D26 성능보증 판정서 · D27 기성 확인서도 판정 부록이다 — 레일의 점선 항목과 「판정 부록」 산출물에서 본다.</p>
   </div>
   {% endif %}
 

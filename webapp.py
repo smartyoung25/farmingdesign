@@ -193,6 +193,12 @@ def _case_outputs(case: dict) -> list:
     return rows
 
 
+# 223차 — 산출물 상태·규칙 항목 상태 → 칩 색(표시 매핑뿐. 값은 엔진 반환 그대로)
+STATUS_CHIP = {"생성": "chip-measured", "부분생성": "chip-statutory",
+               "주입대기": "chip-est", "링크": "chip-ref"}
+RULE_STATE_CHIP = {"통과": "chip-measured", "미검증": "chip-est", "불합격": "chip-warn"}
+
+
 @app.get("/case/{display_code}")
 def case_detail(request: Request, display_code: str):
     # 🔴 URL은 **표시 코드**다(C1·C4…) — 실명 `case_id`를 URL에 싣지 않는다
@@ -228,7 +234,19 @@ def case_detail(request: Request, display_code: str):
                             "status": (have.get(i["code"]) or {}).get("status", "")}
                            for i in r["docs"]],
                   "gaps": r["gaps"]} for r in ix["rows"]]
+    # 223차 — 벤치마킹 화면 패턴(생애주기 레일·플랫폼 3단계·실사·대조·판정 부록).
+    #   🔴 전부 `build_package` 반환의 **표시**다 — 묶음·순서는 `consulting_package`가
+    #      쥐고(★사용자 결정 2026-09-27), 이 계층은 옮겨 담기만 한다.
+    rail = platform = d23 = d24 = d25 = None
+    if not case.get("partial"):
+        rail = cpkg.lifecycle_rail(pkg["items"])
+        platform = cpkg.platform_index(pkg["items"])
+        d23 = (have.get("D23") or {}).get("data")
+        d24 = (have.get("D24") or {}).get("data")
+        d25 = (have.get("D25") or {}).get("data")
     return templates.TemplateResponse(request, "case_detail.html", {
+        "rail": rail, "platform": platform, "d23": d23, "d24": d24, "d25": d25,
+        "status_cls": STATUS_CHIP, "rule_cls": RULE_STATE_CHIP,
         "case": case, "alias": al, "outputs": _case_outputs(case), "funcs": funcs,
         "chips": chips, "kpi": kpi, "assum": assum,
         "n_sets": len((case.get("scenarios") or {}).get("sets", [])),

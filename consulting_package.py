@@ -374,6 +374,66 @@ def judgment_split(items: list) -> dict:
             "appendix": [x for x in items if x["code"] in JUDGMENT_CODES]}
 
 
+# ─────────────────────────────────────────────────────────────
+# 223차 — **플랫폼 3단계 축 + 표시 순서**(★사용자 결정 2026-09-27).
+#   출처: `근거_사업기획서_투자검증설계보증플랫폼_20260921.docx` §5의 3단계
+#     (투자실사 → 설계검증 → 성능보증)와 185차 대응표(`근거_사업기획서_컨셉적용_20260921.md` §1).
+#   ★ 묶음: 설계검증 = ①②③ · 성능보증 = ⑤⑥ · 투자실사 = ④
+#   ★ 표시 순서: ①②③⑤⑥④ — 레일과 탭이 **같은 순서**를 쓴다(웹 콘솔만. 정적
+#     보고서의 순서는 바꾸지 않는다 — 같은 날 사용자 결정).
+#   🔴 **분류이지 판정이 아니다** — 기능 축(211차)과 같은 산출물 27종을 다른 축으로
+#      묶을 뿐 값·순위를 만들지 않는다. 기능 축은 D코드마다, 이 축은 **stage마다**
+#      배정한다(185차 대응이 단계 단위였다).
+#   준거(186차 원문 대조): 레일 = DNV Owner's Engineer 전주기 개입 ·
+#     투자실사 = Agritecture Due Diligence 6영역 · 성능보증 = kWh Analytics
+#     Solar Revenue Put(설계 대 실측) + PVEL 합격선 명시형.
+# ─────────────────────────────────────────────────────────────
+STAGE_ORDER: tuple = ("①공종설계", "②품질설계", "③감리",
+                      "⑤운영", "⑥사후관리", "④타당성검증")
+
+PLATFORM_STAGES: tuple = (
+    ("P1", "설계검증", ("①공종설계", "②품질설계", "③감리"),
+     "설계문서 검토 → 시공 감리 → 준공 커미셔닝",
+     "DNV Owner's Engineer · TÜV Design Review"),
+    ("P2", "성능보증", ("⑤운영", "⑥사후관리"),
+     "준공 후 설계값 대 실측 — 보상 판정은 보험·금융의 일",
+     "kWh Analytics Solar Revenue Put · PVEL Scorecard"),
+    ("P3", "투자실사", ("④타당성검증",),
+     "6영역을 문서검토 → 기술평가 → 보고서로",
+     "Agritecture Due Diligence"),
+)
+
+
+def lifecycle_rail(items: list) -> list:
+    """산출물 → `STAGE_ORDER` 순서의 단계 레일(분류와 개수뿐 — 계산하지 않는다)."""
+    kinds = ("생성", "부분생성", "주입대기", "링크")
+    rail = []
+    for st in STAGE_ORDER:
+        docs = [{"code": x["code"], "title": x["title"], "status": x["status"],
+                 "appendix": x["code"] in JUDGMENT_CODES,
+                 "needs": [n["slot"] for n in (x.get("needs") or [])]}
+                for x in items if x["stage"] == st]
+        rail.append({"stage": st, "docs": docs,
+                     "tally": [(k, sum(1 for d in docs if d["status"] == k))
+                               for k in kinds]})
+    return rail
+
+
+def platform_index(items: list) -> list:
+    """산출물 → 플랫폼 3단계 묶음. 「엔진 밖」은 D23·D24 반환을 **그대로 옮긴다**."""
+    by = {x["code"]: x for x in items}
+    outside = {"P2": list((by.get("D24", {}).get("data") or {}).get("편차 함수 없는 항목") or []),
+               "P3": list((by.get("D23", {}).get("data") or {}).get("공백 영역") or [])}
+    rows = []
+    for key, name, stages, desc, bench in PLATFORM_STAGES:
+        docs = [{"code": x["code"], "title": x["title"], "status": x["status"],
+                 "appendix": x["code"] in JUDGMENT_CODES}
+                for st in stages for x in items if x["stage"] == st]
+        rows.append({"key": key, "name": name, "stages": list(stages), "desc": desc,
+                     "bench": bench, "docs": docs, "outside": outside.get(key, [])})
+    return rows
+
+
 def build_package(case: dict, injections: dict = None) -> dict:
     """케이스 1건 → D1~D20 패키지(결정론).
 
