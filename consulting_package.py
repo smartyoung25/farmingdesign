@@ -130,6 +130,7 @@ INJECTION_SLOTS = {
     "completion_date": "준공일",
     "quoted_models": "견적에 적힌 기자재 모델명",
     "ks_declared": "규격 선언(KS 적합 여부)",
+    "attachments_by_model": "재료승인 첨부(모델별 서류명) — 고객 문서. 시방서 6종과 대조한다",
     "service_life_names": "내용연수를 조회할 기종명",
     "acceptance_criteria": "장비별 시운전 합격 기준 — 🔴시방서 원문에 없다(173차)",
     "land_use_zone": "용도지역 — 지자체 확인 사항",
@@ -532,6 +533,9 @@ def ksfid_badge(pkg: dict) -> dict:
 # ─────────────────────────────────────────────────────────────
 DOC_SUBMISSION_KEY = "doc_submission"
 KSFID_ISSUE_KEY = "ksfid_issue"
+# 227차 — 재료승인 첨부 6종(공사시방서 재료 절 전사, 레지스트리 `실측`). 양식 안내용으로
+#   **엔진 상수를 그대로** 내보낸다 — 표시 계층이 목록을 따로 적지 않는다.
+APPROVAL_ATTACHMENTS: tuple = tuple(e.MATERIAL_APPROVAL_ATTACHMENTS)
 DOC_ROW_FIELDS: tuple = ("req_id", "requirement", "drawing_no", "drawing_rev",
                          "spec_no", "spec_rev", "boq_id", "boq_rev", "std_id", "std_rev")
 
@@ -548,6 +552,8 @@ def case_injections(case: dict) -> dict:
             out[k] = list(ds[k])
     if ds.get("ks_declared"):
         out["ks_declared"] = dict(ds["ks_declared"])
+    if ds.get("attachments_by_model"):                      # 227차
+        out["attachments_by_model"] = {m: list(v) for m, v in ds["attachments_by_model"].items()}
     ki = case.get(KSFID_ISSUE_KEY) or {}
     if ki.get("ksfid_seq") is not None:
         out["ksfid_seq"] = int(ki["ksfid_seq"])
@@ -913,7 +919,8 @@ def build_package(case: dict, injections: dict = None) -> dict:
                                    "견적 모델명이 없으면 대조할 대상이 없다"))
             else:
                 items.append(_item(spec, "생성",
-                                   e.equipment_reconcile(qm, inj.get("ks_declared")), [],
+                                   e.equipment_reconcile(qm, inj.get("ks_declared"),
+                                                         inj.get("attachments_by_model")), [],
                                    "🔴 적합 판정은 하지 않는다 — 3열 대조까지다"))
 
         elif code == "D20":

@@ -577,8 +577,21 @@ def _parse_docs(form) -> dict:
         if not m or not d:
             raise HTTPException(400, detail=f"규격 선언의 모델·선언이 비었다: {ln!r}")
         ks[m] = d
+    models = _lines(form, "quoted_models_text")
+    att = {}                                   # 227차 — 「모델 = 서류1, 서류2」
+    for ln in _lines(form, "attachments_text"):
+        if "=" not in ln:
+            raise HTTPException(400, detail=f"재료승인 첨부는 「모델 = 서류1, 서류2」 형식이다: {ln!r}")
+        m, rest = (x.strip() for x in ln.split("=", 1))
+        names = [x.strip() for x in rest.split(",") if x.strip()]
+        if m not in models:
+            raise HTTPException(400, detail=f"첨부의 모델 「{m}」이 견적 기자재 모델 목록에 없다 — "
+                                "대조할 기자재가 아니다")
+        if not names:
+            raise HTTPException(400, detail=f"「{m}」의 첨부 서류가 비었다: {ln!r}")
+        att[m] = names
     block = {"doc_rows": rows, "dd_documents": _lines(form, "dd_documents_text"),
-             "quoted_models": _lines(form, "quoted_models_text"), "ks_declared": ks,
+             "quoted_models": models, "ks_declared": ks, "attachments_by_model": att,
              "note": (form.get("note") or "").strip()}
     if not (rows or block["dd_documents"] or block["quoted_models"]):
         raise HTTPException(400, detail="제출 문서가 하나도 없다 — 문서 행·실사 문서·견적 모델 중 하나는 있어야 한다")
@@ -593,6 +606,8 @@ def _docs_text(block: dict) -> dict:
             "quoted_models_text": "\n".join(block.get("quoted_models") or []),
             "ks_declared_text": "\n".join(f"{m} = {d}" for m, d in
                                           (block.get("ks_declared") or {}).items()),
+            "attachments_text": "\n".join(f"{m} = {', '.join(v)}" for m, v in
+                                          (block.get("attachments_by_model") or {}).items()),
             "note": block.get("note", "")}
 
 
@@ -614,6 +629,7 @@ def _preview_with(case: dict, key: str, block: dict) -> dict:
 def _docs_ctx(case, block, preview=None, form_vals=None):
     rep = ((preview or {}).get("d4") or {}).get("4축 정합")
     return {"case": case, "alias": cdsp.alias(case), "fields": cpkg.DOC_ROW_FIELDS,
+            "approval_docs": cpkg.APPROVAL_ATTACHMENTS,
             "v": form_vals or _docs_text(block), "preview": preview, "rep": rep,
             "step_cls": STEP_STATE_CHIP}
 

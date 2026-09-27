@@ -1955,6 +1955,79 @@ def test_226cha_docs_and_issue_forms_write_the_case_and_move_the_steps(tmp_cases
             assert w not in body, f"🔴 {u}에 판정·추천 어휘 「{w}」가 들어왔다"
 
 
+def test_227cha_approval_attachments_reach_the_equipment_reconcile(tmp_cases):
+    """227차 — **재료승인 첨부 입력**(사용자 지시). 문서 제출 양식에 `attachments_by_model`.
+
+    🔴 첨부 누락은 **엔진**(`equipment_reconcile`)이 시방서 6종과 대조해 낸다 —
+       양식 안내의 6종 목록도 엔진 상수를 그대로 쓴다(두 곳에서 적지 않는다).
+    ⚠️ 이견(227차 발견, 바꾸지 않음): D25 `equipment_ks`의 근거 문구는
+       *「KS 적합 선언·재료승인 첨부가 갖춰졌는가」*인데 검사는 **선언만** 본다.
+       `KSFID_CHECK_SPEC`은 레지스트리 `결정`이라 규칙을 바꾸는 것은 ★사용자 몫이다 —
+       이 가드는 **지금 첨부가 등급을 바꾸지 않는다**는 사실을 고정해, 누가 조용히
+       바꾸면 드러나게 한다.
+    """
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    path = tmp_cases / "wonchaewon.json"
+    before = json.loads(path.read_text(encoding="utf-8"))
+
+    # ── ① 안내 목록 = 엔진 상수 ─────────────────────────────────
+    assert _cp.APPROVAL_ATTACHMENTS == tuple(_e.MATERIAL_APPROVAL_ATTACHMENTS)
+    page = client.get("/entry/docs/C2").text
+    assert " · ".join(_e.MATERIAL_APPROVAL_ATTACHMENTS) in page, (
+        "🔴 양식 안내가 시방서 6종(엔진 상수)을 그대로 내지 않는다")
+
+    base = {"quoted_models_text": "온풍난방기\n보온커튼",
+            "ks_declared_text": "온풍난방기 = KS 적합 선언(합성)",
+            "note": "고객 제출 첨부(합성) — 출처 형식 예시"}
+
+    # ── ② 형식이 틀리거나 견적에 없는 모델이면 **저장되지 않는다** ────────
+    for bad in ("온풍난방기 시험성적표", "환기팬 = 시험성적표", "온풍난방기 = "):
+        r = client.post("/entry/docs/C2/save", data=dict(base, attachments_text=bad))
+        assert r.status_code == 400, f"🔴 잘못된 첨부 입력 {bad!r}이 저장까지 갔다"
+    assert json.loads(path.read_text(encoding="utf-8")) == before
+
+    # ── ③ 저장 → 케이스 → 패키지 D19가 **엔진과 같은** 첨부 누락을 낸다 ──
+    att = "온풍난방기 = 시험성적표, 카탈로그\n보온커튼 = 제조업자 시방서"
+    r = client.post("/entry/docs/C2/save", data=dict(base, attachments_text=att),
+                    follow_redirects=False)
+    assert r.status_code == 303
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    want_att = {"온풍난방기": ["시험성적표", "카탈로그"], "보온커튼": ["제조업자 시방서"]}
+    assert saved[_cp.DOC_SUBMISSION_KEY]["attachments_by_model"] == want_att
+    pkg = _cp.build_package(saved)
+    d19 = [x for x in pkg["items"] if x["code"] == "D19"][0]["data"]
+    ref = _e.equipment_reconcile(["온풍난방기", "보온커튼"],
+                                 {"온풍난방기": "KS 적합 선언(합성)"}, want_att)
+    assert [(x["model"], x["attachments_given"], x["attachments_missing"]) for x in d19["rows"]] == \
+        [(x["model"], x["attachments_given"], x["attachments_missing"]) for x in ref["rows"]], (
+        "🔴 패키지 D19의 첨부 대조가 엔진 반환과 다르다 — 저장 첨부가 전달되지 않는다")
+    assert d19["rows"][0]["attachments_missing"] == [
+        a for a in _e.MATERIAL_APPROVAL_ATTACHMENTS if a not in ("시험성적표", "카탈로그")]
+
+    # ── ④ 미리보기 표와 재열기 왕복 ─────────────────────────────
+    pv = client.post("/entry/docs/C2/preview", data=dict(base, attachments_text=att)).text
+    assert ", ".join(d19["rows"][1]["attachments_missing"]) in pv, (
+        "🔴 미리보기 표가 엔진의 첨부 누락을 내지 않는다")
+    #   📌 무딘 토큰(열일곱 번째, 뮤테이션 M7): 입력칸 **placeholder**가 같은 예문
+    #      「온풍난방기 = 시험성적표, 카탈로그」라 재열기 값이 비어도 통과했다 →
+    #      textarea **본문**만 잘라 잰다.
+    import re as _re
+    body = _re.search(r'<textarea id="attachments_text"[^>]*>([^<]*)</textarea>',
+                      client.get("/entry/docs/C2").text).group(1)
+    assert body.splitlines() == att.splitlines(), (
+        f"🔴 문서 양식을 다시 열면 저장된 첨부가 채워지지 않는다: {body!r}")
+
+    # ── ⑤ ⚠️ 이견 고정: 첨부는 **지금** D25 등급을 바꾸지 않는다 ─────────
+    no_att = dict(saved)
+    no_att[_cp.DOC_SUBMISSION_KEY] = dict(saved[_cp.DOC_SUBMISSION_KEY], attachments_by_model={})
+    g1 = [x for x in pkg["items"] if x["code"] == "D25"][0]["data"]["등급"]
+    g0 = [x for x in _cp.build_package(no_att)["items"] if x["code"] == "D25"][0]["data"]["등급"]
+    assert (g1["grade"], g1["passed"], g1["unchecked"]) == (g0["grade"], g0["passed"], g0["unchecked"]), (
+        "🔴 첨부가 D25 등급을 바꾸기 시작했다 — `KSFID_CHECK_SPEC`은 레지스트리 `결정`이다. "
+        "규칙을 바꿨다면 ★사용자 결정을 기록하고 이 절을 함께 고쳐라(227차 이견)")
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),
