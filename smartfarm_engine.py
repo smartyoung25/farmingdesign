@@ -1524,14 +1524,16 @@ def mean_wind(region: str, months) -> Optional[float]:
     연평균이 필요하면 monthly_mean_wind(region)[12]를 쓴다 — 원문 표기값이고
     여기서 12개월을 다시 평균 내 만든 값이 아니다.
     """
-    row = MONTHLY_MEAN_WIND_MS.get(_weather_key(MONTHLY_MEAN_WIND_MS, region))   # 241차
-    if row is None:
-        return None
+    # 🔴242차 정정 — 달 검증을 **지점 조회보다 먼저** 한다. 종전엔 지점이 없으면(예: 「충남」)
+    #    검증 전에 None을 돌려줘 **13월 같은 잘못된 입력이 통과했다**(242차 가드가 잡았다).
     ms = list(months)
     if not ms:
         raise ValueError("months가 비어 있다 — 평균 낼 달을 지정해야 한다")
     if any((not isinstance(m, int)) or m < 1 or m > 12 for m in ms):
         raise ValueError(f"months는 1~12 정수여야 한다: {months!r}")
+    row = MONTHLY_MEAN_WIND_MS.get(_weather_key(MONTHLY_MEAN_WIND_MS, region))   # 241차
+    if row is None:
+        return None
     return sum(row[m - 1] for m in ms) / len(ms)
 
 

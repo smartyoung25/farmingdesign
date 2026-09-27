@@ -312,6 +312,7 @@ def entry_hub(request: Request):
         "code": cdsp.code(c), "title": cdsp.alias(c)["title"],
         "fin": bool(c.get("financing")),
         "n_sets": len((c.get("scenarios") or {}).get("sets", [])),
+        "site": bool(c.get(cpkg.SITE_CONDITIONS_KEY)),   # 242차 — ★D-9 입지 조건
         # 224차 — 기입 절차 7단계(SGS JAS 준거). 상태는 `entry_steps`가 분류한다
         "steps": cpkg.entry_steps(c, cpkg.build_package(c)),
     } for c in cs]
@@ -621,6 +622,7 @@ def _preview_with(case: dict, key: str, block: dict) -> dict:
         raise HTTPException(400, detail=str(ex))
     have = {x["code"]: x for x in pkg["items"]}
     return {"steps": cpkg.entry_steps(trial, pkg), "badge": cpkg.ksfid_badge(pkg),
+            "d1": (have.get("D1") or {}).get("data") or {},
             "d4": (have.get("D4") or {}).get("data") or {},
             "d19": (have.get("D19") or {}).get("data"),
             "d25": ((have.get("D25") or {}).get("data") or {}).get("등급") or {}}
@@ -705,6 +707,62 @@ async def issue_save(request: Request, display_code: str):
     case[cpkg.KSFID_ISSUE_KEY] = block
     _save_case(case)
     return RedirectResponse(f"/entry/issue/{display_code}?saved=1", status_code=303)
+
+
+# ── 242차: 입지 조건(동절기 달 · 보온스크린) 기입 — ★D-9 ──────────────────
+# 동절기 달은 **케이스마다 입력**하고 한 달 지정도 유효하다(★사용자 결정 2026-09-28). 엔진은
+# 기본값을 두지 않는다. 검증·계산(동절기 평균풍속·보정계수)은 엔진이 하고, 이 계층은 폼만 읽는다.
+
+def _parse_site(form) -> dict:
+    months = []
+    for raw in form.getlist("winter_m"):
+        try:
+            m = int(raw)
+        except ValueError:
+            raise HTTPException(400, detail=f"동절기 달이 숫자가 아니다: {raw!r}")
+        if m not in months:
+            months.append(m)
+    if not months:
+        raise HTTPException(400, detail="동절기 달을 한 달 이상 고른다 — 한 달만 골라도 된다(★D-9)")
+    scr = (form.get("has_thermal_screen") or "").strip()
+    if scr not in ("yes", "no"):
+        raise HTTPException(400, detail="보온스크린 유무를 고른다(있음/없음)")
+    return {"winter_months": months, "has_thermal_screen": scr == "yes",
+            "note": (form.get("note") or "").strip()}
+
+
+def _site_ctx(case, block, preview=None):
+    return {"case": case, "alias": cdsp.alias(case), "v": block, "preview": preview,
+            "threshold": e.WIND_STRONG_THRESHOLD_MS}
+
+
+@app.get("/entry/site/{display_code}")
+def site_form(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    return templates.TemplateResponse(request, "entry_site.html",
+                                      _site_ctx(case, case.get(cpkg.SITE_CONDITIONS_KEY) or {}))
+
+
+@app.post("/entry/site/{display_code}/preview")
+async def site_preview(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    form = await request.form()
+    block = _parse_site(form)
+    pv = _preview_with(case, cpkg.SITE_CONDITIONS_KEY, block)
+    return templates.TemplateResponse(request, "entry_site.html", _site_ctx(case, block, pv))
+
+
+@app.post("/entry/site/{display_code}/save")
+async def site_save(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    form = await request.form()
+    block = _parse_site(form)
+    if not block["note"]:
+        raise HTTPException(400, detail="근거(note: 동절기 달을 고른 이유·출처)가 비어 있다 — 출처 없는 설계 조건 저장 금지")
+    _preview_with(case, cpkg.SITE_CONDITIONS_KEY, block)   # 엔진 검증 통과분만 저장
+    case[cpkg.SITE_CONDITIONS_KEY] = block
+    _save_case(case)
+    return RedirectResponse(f"/entry/site/{display_code}?saved=1", status_code=303)
 
 
 @app.get("/entry/newcase")

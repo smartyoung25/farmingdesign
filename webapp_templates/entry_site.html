@@ -1,0 +1,52 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}입지 조건 기입 — {{ alias.code }}{% endblock %}
+{% block main %}
+  <div class="top"><h1>입지 조건 기입(동절기 · 보온스크린) — {{ alias.title }}</h1>
+    <div class="actions"><a class="btn" href="/entry">← 기입 워크플로</a></div></div>
+  <div class="subtitle">원문([표 3-3-35])은 「동절기 평균풍속 {{ threshold }}m/s 이상 = 강풍지역」이라고만 하고 동절기의 달을 정하지 않는다 — ★D-9(2026-09-28): 달은 케이스마다 고르고, 한 달만 골라도 된다. 평균풍속·보정계수는 엔진(mean_wind · wind_correction_factor)이 낸다</div>
+  {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — 케이스 JSON에 site_conditions 블록 기록. 정적 보고서 반영은 "엔진 재계산" 실행</div>{% endif %}
+  <div class="split">
+    <div class="card pane">
+      <form method="post" action="/entry/site/{{ alias.code }}/preview">
+        <label>동절기 달 (winter_months — 한 달 이상) <span class="req">*</span></label>
+        <div style="display:flex; flex-wrap:wrap; gap:6px 12px">
+          {% for m in [11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] %}
+          <label style="display:inline-flex; gap:4px; align-items:center; margin:0; color:var(--ink)">
+            <input type="checkbox" name="winter_m" value="{{ m }}" id="wm{{ m }}" {% if v.winter_months and m in v.winter_months %}checked{% endif %}>{{ m }}월</label>
+          {% endfor %}
+        </div>
+        <label for="has_thermal_screen">보온스크린 유무 (has_thermal_screen) <span class="req">*</span></label>
+        <select id="has_thermal_screen" name="has_thermal_screen">
+          <option value="" {% if v.has_thermal_screen is none %}selected{% endif %}>— 고른다 —</option>
+          <option value="yes" {% if v.has_thermal_screen == true %}selected{% endif %}>있음</option>
+          <option value="no" {% if v.has_thermal_screen == false %}selected{% endif %}>없음</option>
+        </select>
+        <label for="note">근거 (note — 달을 고른 이유·출처 필수) <span class="req">*</span></label>
+        <textarea id="note" name="note" placeholder="예: 발주처 설계 조건서(2026-09) — 동절기 12~2월">{{ v.note or '' }}</textarea>
+        <div class="hint">저장 시 note가 비어 있으면 거부된다 — 출처 없는 설계 조건 저장 금지</div>
+        <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap">
+          <button type="submit">엔진 미리보기 (저장 안 함)</button>
+          <button type="submit" class="btn-primary" formaction="/entry/site/{{ alias.code }}/save">케이스에 반영 (근거 포함 저장)</button>
+        </div>
+      </form>
+    </div>
+    <div class="out">
+      {% if preview %}
+      <div class="card">
+        <div style="font-weight:500; margin-bottom:8px">반영 후 입지 진단(D1) — 엔진 반환</div>
+        <table>
+          <tbody>
+          <tr><td>기상 지점</td><td id="pv-station">{{ preview.d1["기상 지점"] or "없음(지점 조회 불가)" }}</td></tr>
+          <tr><td>동절기 평균풍속(m/s)</td><td id="pv-wind">{{ preview.d1["동절기 평균풍속"] if preview.d1["동절기 평균풍속"] is not none else "—" }}</td></tr>
+          <tr><td>풍속 보정계수</td><td id="pv-factor">{{ preview.d1["풍속 보정계수"] if preview.d1["풍속 보정계수"] is defined and preview.d1["풍속 보정계수"] is not none else "—" }}</td></tr>
+          </tbody>
+        </table>
+        <p class="note">강풍 판정 기준 {{ threshold }}m/s는 원문 값이다. 보정계수는 판정이 아니라 원문 표 조회다</p>
+      </div>
+      {% else %}
+      <div class="card" style="color:var(--mut); font-size:13px">왼쪽에서 동절기 달과 보온스크린 유무를 고르고 "엔진 미리보기"를 누르면 엔진이 낸 동절기 평균풍속과 보정계수가 여기 표시된다.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

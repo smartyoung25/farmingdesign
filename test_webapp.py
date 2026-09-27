@@ -638,7 +638,7 @@ def test_210cha_every_output_is_reachable_from_the_console():
     sweep = ["/", "/entry", "/entry/newcase", "/entry/quotes", "/entry/quotes/edit"]
     sweep += ["/case/" + _cd.code(x) for x in cs]
     sweep += ["/entry/%s/%s" % (k, _cd.code(x))
-              for k in ("financing", "scenario", "docs", "issue")   # 226차 양식 2종 편입
+              for k in ("financing", "scenario", "docs", "issue", "site")   # 226차 양식 2종 · 242차 입지 조건
               for x in cs if not x.get("partial")]
     used_exc = set()
     for p in sweep:
@@ -2134,6 +2134,57 @@ def test_231cha_docs_form_shows_normalization_and_unrecognized(tmp_cases):
     d19 = [x for x in _cp.build_package(saved)["items"] if x["code"] == "D19"][0]["data"]["rows"][0]
     assert d19["attachments_unrecognized"] == ["세금계산서"] and \
         "시험성적표" not in d19["attachments_missing"], "🔴 패키지 D19가 정규화를 거치지 않는다"
+
+
+def test_242cha_d9_winter_months_are_entered_per_case(tmp_cases):
+    """242차 — ★사용자 결정(2026-09-28): **D-9 동절기 달은 케이스마다 입력, 한 달 지정도 유효**.
+
+    원문 주는 「동절기 평균풍속 3.0m/s 이상 = 강풍지역」이라고만 하고 달을 정하지 않는다 —
+    엔진은 기본값을 두지 않고(`mean_wind(months)`), 입지 조건 양식이 근거와 함께 받는다.
+    🔴 150차 「단일 월 12종 → 11곳」은 **정의 후보를 넣어 본 수**였다 — 어느 달을 쓸지는 정하지 않는다.
+    """
+    import inspect as _in
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    path = tmp_cases / "wonchaewon.json"
+    before = json.loads(path.read_text(encoding="utf-8"))
+
+    # ── ① 엔진은 여전히 기본값을 두지 않는다 ─────────────────────────
+    assert _in.signature(_e.mean_wind).parameters["months"].default is _in.Parameter.empty
+
+    # ── ② 거부 — 달 없음 · 13월 · 스크린 미선택 · 근거 없음 ─────────────────
+    ok = {"winter_m": ["1"], "has_thermal_screen": "no", "note": "설계 조건서(합성) — 출처 형식 예시"}
+    for bad in ({**ok, "winter_m": []}, {**ok, "winter_m": ["13"]},
+                {**ok, "has_thermal_screen": ""}, {**ok, "note": ""}):
+        assert client.post("/entry/site/C2/save", data=bad).status_code == 400, bad
+    assert json.loads(path.read_text(encoding="utf-8")) == before, "🔴 거부된 요청이 케이스를 바꿨다"
+
+    # ── ③ 한 달 지정 저장 → 케이스 블록 → 패키지가 스스로 읽는다 ──────────
+    assert client.post("/entry/site/C2/save", data=ok, follow_redirects=False).status_code == 303
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved[_cp.SITE_CONDITIONS_KEY] == {"winter_months": [1], "has_thermal_screen": False,
+                                              "note": ok["note"]}
+    inj = _cp.case_injections(saved)
+    assert inj["winter_months"] == [1] and inj["has_thermal_screen"] is False
+
+    # ── ④ D1은 지점이 있으면 엔진 값을 낸다 — 가상의 춘천 케이스로 잰다 ─────────
+    trial = dict(saved)
+    trial["input"] = dict(saved["input"], region="강원(춘천)")
+    d1 = [x for x in _cp.build_package(trial)["items"] if x["code"] == "D1"][0]
+    want = _e.mean_wind("춘천", [1])
+    assert d1["data"]["동절기 평균풍속"] == want
+    assert d1["data"]["풍속 보정계수"] == _e.wind_correction_factor(want, False)
+    assert "winter_months" not in [n["slot"] for n in d1["needs"]], "🔴 입력했는데 동절기가 아직 대기다"
+    # 원채원(「충남」)은 지점이 없어 평균풍속도 None이다 — 달을 넣어도 지어내지 않는다
+    d1w = [x for x in _cp.build_package(saved)["items"] if x["code"] == "D1"][0]["data"]
+    assert d1w["동절기 평균풍속"] is None and "풍속 보정계수" not in d1w
+
+    # ── ⑤ 기록 ─────────────────────────────────────────────────────
+    reg = json.loads(_io_read("엔진데이터_레지스트리.json"))["constants"]["WIND_CORRECTION_FACTOR"]["source"]
+    assert "D-9 동절기 개월은 케이스마다 입력, 한 달 지정도 유효" in reg
+    led = _io_read("근거_결정대기대장_20260915.md")
+    assert "| ~~**D-9**~~ ✅**닫힘(242차)** |" in led
+    assert "★D-9 결정" in _cp.INJECTION_SLOTS["winter_months"]
 
 
 def _io_read(rel):

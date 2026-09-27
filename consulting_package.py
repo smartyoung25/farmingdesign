@@ -115,7 +115,8 @@ PACKAGE_SPEC = [
 
 # 주입 슬롯 — 이름과 성격을 밝혀 둔다(무엇이 없어서 못 세우는지 고객이 알아야 한다)
 INJECTION_SLOTS = {
-    "winter_months": "동절기 개월 정의 — ★`D-9` 결정 대기(`mean_wind`가 기본값을 두지 않는다)",
+    "winter_months": "동절기 개월 — ★D-9 결정(2026-09-28): **케이스마다 입력**, 한 달 지정도 유효. "
+                     "엔진은 기본값을 두지 않는다(원문이 동절기를 정의하지 않는다)",
     "curtain": "피복조합(`FR_TABLE` 키) — ★`D-4`·`FR_TABLE` 계열 결정에 걸려 있어 "
                "임의로 고르지 않는다",
     "doc_rows": "도면·시방서·BoQ·규격서 식별자/Rev 행 — 고객 문서",
@@ -542,6 +543,8 @@ def ksfid_badge(pkg: dict) -> dict:
 # ─────────────────────────────────────────────────────────────
 DOC_SUBMISSION_KEY = "doc_submission"
 KSFID_ISSUE_KEY = "ksfid_issue"
+# 242차 — ★D-9(2026-09-28): 동절기 달은 **케이스마다 입력**(한 달도 유효) — 입지 조건 블록
+SITE_CONDITIONS_KEY = "site_conditions"
 # 227차 — 재료승인 첨부 6종(공사시방서 재료 절 전사, 레지스트리 `실측`). 양식 안내용으로
 #   **엔진 상수를 그대로** 내보낸다 — 표시 계층이 목록을 따로 적지 않는다.
 APPROVAL_ATTACHMENTS: tuple = tuple(e.MATERIAL_APPROVAL_ATTACHMENTS)
@@ -564,6 +567,11 @@ def case_injections(case: dict) -> dict:
         out["ks_declared"] = dict(ds["ks_declared"])
     if ds.get("attachments_by_model"):                      # 227차
         out["attachments_by_model"] = {m: list(v) for m, v in ds["attachments_by_model"].items()}
+    sc = case.get(SITE_CONDITIONS_KEY) or {}
+    if sc.get("winter_months"):
+        out["winter_months"] = [int(m) for m in sc["winter_months"]]
+    if sc.get("has_thermal_screen") is not None:
+        out["has_thermal_screen"] = bool(sc["has_thermal_screen"])
     ki = case.get(KSFID_ISSUE_KEY) or {}
     if ki.get("ksfid_seq") is not None:
         out["ksfid_seq"] = int(ki["ksfid_seq"])

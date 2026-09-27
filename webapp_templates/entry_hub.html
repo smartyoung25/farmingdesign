@@ -52,7 +52,7 @@
   </div>
   <div class="card">
     <table>
-      <thead><tr><th>케이스</th><th>① financing 실조건</th><th>④ 시나리오 가정</th><th>③ 리모델링 진단값</th></tr></thead>
+      <thead><tr><th>케이스</th><th>① financing 실조건</th><th>④ 시나리오 가정</th><th>③ 리모델링 진단값</th><th>입지 조건(동절기)</th></tr></thead>
       <tbody>
       {% for r in rows %}
       <tr>
@@ -62,6 +62,8 @@
         <td>{% if r.n_sets %}<span class="chip chip-measured">{{ r.n_sets }}세트</span>{% else %}<span class="chip chip-est">0세트</span>{% endif %}
             <a class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" href="/entry/scenario/{{ r.code }}">폼 열기</a></td>
         <td><span class="chip chip-ref">문서 절차</span> <span style="font-size:12px;color:var(--mut)">리모델링_진단값_수집명세서.md로 수집 후 별도 승격</span></td>
+        <td>{% if r.site %}<span class="chip chip-measured">기입됨</span>{% else %}<span class="chip chip-est">대기</span>{% endif %}
+            <a class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" href="/entry/site/{{ r.code }}">폼 열기</a></td>
       </tr>
       {% endfor %}
       </tbody>
