@@ -2102,6 +2102,35 @@ def test_229cha_ksfid_year_follows_the_issue_date():
     assert not _re.search(r"\b20\d\d\b", call), f"🔴 번호 조립에 연도 리터럴이 있다: {call}"
 
 
+def test_231cha_docs_form_shows_normalization_and_unrecognized(tmp_cases):
+    """231차 — 문서 양식 미리보기가 **표기 정리와 인식 안 됨**을 엔진 반환 그대로 낸다.
+
+    🔴 저장값은 **적힌 그대로**다(원문 보존) — 정규화는 대조할 때 엔진이 한다.
+    """
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    path = tmp_cases / "wonchaewon.json"
+    form = {"quoted_models_text": "온풍난방기",
+            "ks_declared_text": "온풍난방기 = KS 선언(합성)",
+            "attachments_text": "온풍난방기 = 시험성적서, 표준색상철, 세금계산서",
+            "note": "고객 제출 첨부(합성) — 출처 형식 예시"}
+    pv = client.post("/entry/docs/C2/preview", data=form).text
+    assert "시험성적서→시험성적표" in pv and "표준색상철→표준 색상철" in pv, (
+        "🔴 미리보기가 표기 정리를 보여 주지 않는다")
+    assert "인식 안 됨</span> 세금계산서" in pv, "🔴 인식 안 된 이름이 드러나지 않는다"
+    for a, c in _e.MATERIAL_APPROVAL_ALIASES.items():
+        assert f"{a}→{c}" in pv, f"🔴 양식 안내에 등재 별칭 {a}→{c}가 없다"
+
+    assert client.post("/entry/docs/C2/save", data=form, follow_redirects=False).status_code == 303
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved[_cp.DOC_SUBMISSION_KEY]["attachments_by_model"] == {
+        "온풍난방기": ["시험성적서", "표준색상철", "세금계산서"]}, (
+        "🔴 저장값을 정본으로 고쳐 썼다 — 적힌 그대로 보존해야 출처와 대조할 수 있다")
+    d19 = [x for x in _cp.build_package(saved)["items"] if x["code"] == "D19"][0]["data"]["rows"][0]
+    assert d19["attachments_unrecognized"] == ["세금계산서"] and \
+        "시험성적표" not in d19["attachments_missing"], "🔴 패키지 D19가 정규화를 거치지 않는다"
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),

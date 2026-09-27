@@ -8410,7 +8410,8 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
                         encoding="utf-8").read())
         # 🔴213차 — ★보조사업자 계약 등재로 65→69
     # 🔴230차 — `KSFID_NUMBER_SPEC` 등재로 70 → 71(사용자 지시 · 원래 엔진 함수 본문의 리터럴이었다)
-    assert len(reg["constants"]) == 71, (
+    # 🔴231차 — `MATERIAL_APPROVAL_ALIASES` 등재로 71 → 72(첨부 서류명 별칭 · 결정)
+    assert len(reg["constants"]) == 72, (
         "🔴 레지스트리 상수가 69개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
@@ -12256,6 +12257,52 @@ def test_230cha_ksfid_number_spec_is_registered_and_output_unchanged():
     assert {r["file"] for r in ent["source_refs"]} >= {"근거_벤치마킹출처_검증_20260921.md"}
     assert "PVEL" not in rd("smartfarm_engine.py").split("KSFID_NUMBER_SPEC = {")[1].split("}")[0], (
         "🔴 외부 고유명이 엔진 상수에 들어왔다(167차 경계)")
+
+
+def test_231cha_approval_doc_names_are_normalized_not_guessed():
+    """231차 — 첨부 서류명 **표기 정규화**(사용자 지시).
+
+    규칙은 둘뿐이다: ①공백 무시 ②등재 별칭(`MATERIAL_APPROVAL_ALIASES`, `결정`)만 정본으로.
+    🔴 그 밖의 이름은 **추측하지 않고** `attachments_unrecognized`로 드러낸다 —
+       누락으로 조용히 세지도, 비슷한 정본으로 끌어다 붙이지도 않는다.
+    """
+    import json as _j, os as _o
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    CANON = e.MATERIAL_APPROVAL_ATTACHMENTS
+
+    def _row(given):
+        return e.equipment_reconcile(["온풍난방기"], {"온풍난방기": "KS"},
+                                     {"온풍난방기": given})["rows"][0]
+
+    # ── ① 정본 그대로 · 공백 차이 · 별칭 → 6종 완비로 센다 ─────────────
+    r = _row(["시험성적서", "표준색상철", "자재 유지관리 지침서", "카다로그",
+              "제조사 시방서", "계산서"])
+    assert r["attachments_missing"] == [], f"🔴 표기만 다른 6종을 누락으로 셌다: {r['attachments_missing']}"
+    assert r["attachments_normalized"] == {
+        "시험성적서": "시험성적표", "표준색상철": "표준 색상철",
+        "자재 유지관리 지침서": "자재유지관리 지침서", "카다로그": "카탈로그",
+        "제조사 시방서": "제조업자 시방서"}, "🔴 무엇을 무엇으로 옮겼는지 드러내지 않는다"
+    assert r["attachments_given"] == ["시험성적서", "표준색상철", "자재 유지관리 지침서",
+                                      "카다로그", "제조사 시방서", "계산서"], (
+        "🔴 적힌 이름을 고쳐 썼다 — 원문(적힌 그대로)은 보존하고 대조만 정본으로 한다")
+
+    # ── ② 🔴 추측하지 않는다 ─────────────────────────────────────
+    r = _row(["세금계산서", "구조계산서", "시험 성적", "카탈로그 사본"] + list(CANON[:1]))
+    assert r["attachments_unrecognized"] == ["세금계산서", "구조계산서", "시험 성적", "카탈로그 사본"], (
+        f"🔴 모르는 이름을 정본으로 끌어다 붙였다: {r['attachments_unrecognized']}")
+    assert r["attachments_missing"] == list(CANON[1:]), (
+        "🔴 인식 안 된 이름이 누락 계산에 섞였다 — 「계산서」는 뜻이 둘이라 별칭이 없다")
+
+    # ── ③ 별칭 표는 좁게 — 정본을 가리키고, 뜻이 둘인 「계산서」 계열은 없다 ──
+    for a, c in e.MATERIAL_APPROVAL_ALIASES.items():
+        assert c in CANON, f"🔴 별칭 {a!r}가 정본이 아닌 {c!r}를 가리킨다"
+        assert "계산서" not in a, f"🔴 뜻이 둘인 「계산서」 계열에 별칭 {a!r}이 생겼다"
+    reg = _j.load(open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))
+    ent = reg["constants"]["MATERIAL_APPROVAL_ALIASES"]
+    assert ent["status"] == "결정" and "231차" in ent["source"], (
+        "🔴 별칭은 원문 값이 아니라 결정이다 — status 「결정」과 차수 기록이 있어야 한다")
+    assert "_normalize_approval_doc" not in [n for n in dir(e) if not n.startswith("_")], (
+        "🔴 정규화 헬퍼가 공개 함수가 됐다 — 공개 API 수(74)를 바꾸려면 별도 결정이다")
 
 
 if __name__ == "__main__":

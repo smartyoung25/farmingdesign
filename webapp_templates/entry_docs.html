@@ -20,7 +20,7 @@
         <textarea id="ks_declared_text" name="ks_declared_text" rows="2" placeholder="예: 온풍난방기 = KS B 8032 적합 선언">{{ v.ks_declared_text or '' }}</textarea>
         <label for="attachments_text">재료승인 첨부 (attachments_by_model — 「모델 = 서류1, 서류2」)</label>
         <textarea id="attachments_text" name="attachments_text" rows="2" placeholder="예: 온풍난방기 = 시험성적표, 카탈로그">{{ v.attachments_text or '' }}</textarea>
-        <div class="hint">서류명은 시방서 6종 그대로 적는다: {{ approval_docs | join(" · ") }} — 모델은 위 견적 기자재 목록에 있어야 한다</div>
+        <div class="hint">정본은 시방서 6종이다: {{ approval_docs | join(" · ") }} — 공백 차이와 등재된 별칭({% for a, c in approval_aliases.items() %}{{ a }}→{{ c }}{% if not loop.last %} · {% endif %}{% endfor %})은 엔진이 정본으로 맞추고, 그 밖의 이름은 「인식 안 됨」으로 드러난다. 모델은 위 견적 기자재 목록에 있어야 한다</div>
         <label for="note">근거 (note — 문서 출처·수령일 필수) <span class="req">*</span></label>
         <textarea id="note" name="note" placeholder="예: 고객 제출 설계도서 일식(2026-09-27 수령, 메일)">{{ v.note or '' }}</textarea>
         <div class="hint">저장 시 note가 비어 있으면 거부된다 — 출처 없는 제출 기록 금지</div>
@@ -57,12 +57,14 @@
       <div class="card" style="margin-top:10px">
         <div style="font-weight:500; margin-bottom:8px">기자재 3열 대조 — 엔진 반환(적합 판정 없음)</div>
         <div style="overflow-x:auto"><table>
-          <thead><tr><th>모델</th><th>등재 DB</th><th>규격 선언</th><th>첨부 누락</th><th>상태</th></tr></thead>
+          <thead><tr><th>모델</th><th>등재 DB</th><th>규격 선언</th><th>첨부 누락</th><th>표기 정리 · 인식 안 됨</th><th>상태</th></tr></thead>
           <tbody>
           {% for r in preview.d19.rows %}
           <tr><td>{{ r.model }}</td><td>{{ "있음" if r.in_equipment_db else "등재 범위 밖" }}</td>
             <td>{{ r.ks_declared or "—" }}</td>
-            <td>{% if r.attachments_missing %}{{ r.attachments_missing | join(", ") }}{% else %}없음{% endif %}</td><td>{{ r.status }}</td></tr>
+            <td>{% if r.attachments_missing %}{{ r.attachments_missing | join(", ") }}{% else %}없음{% endif %}</td>
+            <td>{% for g, c in (r.attachments_normalized or {}).items() %}<span class="nm">{{ g }}→{{ c }}</span> {% endfor %}{% if r.attachments_unrecognized %}<span class="chip chip-warn">인식 안 됨</span> {{ r.attachments_unrecognized | join(", ") }}{% endif %}{% if not r.attachments_normalized and not r.attachments_unrecognized %}—{% endif %}</td>
+            <td>{{ r.status }}</td></tr>
           {% endfor %}
           </tbody>
         </table></div>

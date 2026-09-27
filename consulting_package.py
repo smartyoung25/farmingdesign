@@ -538,6 +538,7 @@ KSFID_ISSUE_KEY = "ksfid_issue"
 # 227차 — 재료승인 첨부 6종(공사시방서 재료 절 전사, 레지스트리 `실측`). 양식 안내용으로
 #   **엔진 상수를 그대로** 내보낸다 — 표시 계층이 목록을 따로 적지 않는다.
 APPROVAL_ATTACHMENTS: tuple = tuple(e.MATERIAL_APPROVAL_ATTACHMENTS)
+APPROVAL_ALIASES: dict = dict(e.MATERIAL_APPROVAL_ALIASES)   # 231차 — 양식 안내용(엔진 상수 그대로)
 DOC_ROW_FIELDS: tuple = ("req_id", "requirement", "drawing_no", "drawing_rev",
                          "spec_no", "spec_rev", "boq_id", "boq_rev", "std_id", "std_rev")
 

@@ -630,6 +630,7 @@ def _docs_ctx(case, block, preview=None, form_vals=None):
     rep = ((preview or {}).get("d4") or {}).get("4축 정합")
     return {"case": case, "alias": cdsp.alias(case), "fields": cpkg.DOC_ROW_FIELDS,
             "approval_docs": cpkg.APPROVAL_ATTACHMENTS,
+            "approval_aliases": cpkg.APPROVAL_ALIASES,
             "v": form_vals or _docs_text(block), "preview": preview, "rep": rep,
             "step_cls": STEP_STATE_CHIP}
 

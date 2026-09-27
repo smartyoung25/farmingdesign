@@ -741,7 +741,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 🔴178차: refs 173 → 174(OPEX 비목 대조 — 추적성 사각 3 → 2)
     # 🔴213차 — ★보조사업자 계약 등재로 상수 65→69 · refs 178→181
     # 🔴230차 — `KSFID_NUMBER_SPEC` 등재로 상수 70→71 · refs 182→184(near 2)
-    assert a["counts"]["registry_constants"] == 71 and a["counts"]["source_refs"] == 184
+    # 🔴231차 — `MATERIAL_APPROVAL_ALIASES` 등재로 상수 71→72(결정 — 파일 ref 없음, refs 불변)
+    assert a["counts"]["registry_constants"] == 72 and a["counts"]["source_refs"] == 184
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

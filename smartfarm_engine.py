@@ -5804,6 +5804,35 @@ MATERIAL_APPROVAL_ATTACHMENTS = ("제조업자 시방서", "시험성적표", "�
                                  "카탈로그", "계산서", "자재유지관리 지침서")
 
 
+# 231차 — 첨부 서류명 **표기 정규화**(사용자 지시). 엔진이 서류명을 문자열 그대로 대조해
+#   「시험성적서」·「표준색상철」처럼 **같은 서류를 다르게 적으면 누락으로 보였다**(227차 한계).
+#   규칙 둘뿐이다: ①**공백을 무시**한다 ②아래 **별칭**만 정본으로 옮긴다. 그 밖의 이름은
+#   **추측하지 않고** `attachments_unrecognized`로 드러낸다(누락으로 조용히 세지 않는다).
+#   🔴 별칭은 원문 값이 아니라 **이 프로젝트의 결정**이다 — 정본 6종은 시방서 전사(실측)이고,
+#      별칭은 같은 서류를 가리키는 현장 표기만 좁게 둔다. 레지스트리 `결정`으로 등재한다.
+MATERIAL_APPROVAL_ALIASES = {
+    "시험성적서": "시험성적표",
+    "제조사 시방서": "제조업자 시방서",
+    "카다로그": "카탈로그",
+}
+
+
+def _approval_doc_key(name) -> str:
+    return "".join(str(name).split())
+
+
+def _normalize_approval_doc(name) -> Optional[str]:
+    """첨부 서류명 → 정본(`MATERIAL_APPROVAL_ATTACHMENTS`의 이름) 또는 None(인식 안 됨)."""
+    k = _approval_doc_key(name)
+    for canon in MATERIAL_APPROVAL_ATTACHMENTS:
+        if _approval_doc_key(canon) == k:
+            return canon
+    for alias, canon in MATERIAL_APPROVAL_ALIASES.items():
+        if _approval_doc_key(alias) == k:
+            return canon
+    return None
+
+
 def equipment_reconcile(quoted_models: list, ks_declared: dict = None,
                         attachments_by_model: dict = None) -> dict:
     """기자재 3열 대조(결정론) — 등재 DB · 규격 선언 · 재료승인 첨부. 판정 없음.
@@ -5833,13 +5862,19 @@ def equipment_reconcile(quoted_models: list, ks_declared: dict = None,
         if decl is None:
             no_ks.append(m)
         given = list(att.get(m) or [])
-        missing_att = [a for a in MATERIAL_APPROVAL_ATTACHMENTS if a not in given]
+        # 231차 — 정규화한 이름으로 대조한다. 적힌 이름(`given`)은 **그대로 둔다**(원문 보존)
+        norm = {g: _normalize_approval_doc(g) for g in given}
+        seen = {c for c in norm.values() if c}
+        missing_att = [a for a in MATERIAL_APPROVAL_ATTACHMENTS if a not in seen]
         rows.append({"model": m, "in_equipment_db": in_db,
                      "db_hits": len(found),
                      "service_life_years": (EQUIPMENT_SERVICE_LIFE_REFERENCE.get(m)
                                             or {}).get("years"),
                      "ks_declared": decl,
                      "attachments_given": given,
+                     "attachments_normalized": {g: c for g, c in norm.items()
+                                                if c and c != g},
+                     "attachments_unrecognized": [g for g, c in norm.items() if not c],
                      "attachments_missing": missing_att,
                      "status": ("[확인요망] 규격 선언 없음" if decl is None else
                                 "선언됨 — 감독자 인정 대상")})
