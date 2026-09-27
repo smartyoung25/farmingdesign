@@ -360,7 +360,9 @@ def function_index() -> dict:
             "gap_count": len(FUNCTION_GAPS),
             "gap_doc": GAP_EVIDENCE_DOC,
             "source": ("Farmingdesign 벤치마킹(2026-09-02) 머리말 Function 1~3 — "
-                       "밴드·요율은 판단성·시세성이라 가져오지 않았다"),
+                       "밴드·요율은 판단성·시세성이라 가져오지 않았다. ⚠️원본은 237차 탐색"
+                       "(리포 grep · Drive 제목 검색 · Notion 검색 · 로컬 파일명 검색)에서 "
+                       "회수되지 않았다 — 이 정의는 211차 전사만 남아 있다(238차 병기)"),
             "note": ("🔴분류이지 판정이 아니다 — 순위·등급·추천을 만들지 않는다. "
                      "기능과 stage 6단계는 1:1이 아니라 교차한다"
                      "(F2 시방이 ①·②·⑥에 흩어져 있다)")}
@@ -395,7 +397,7 @@ STAGE_ORDER: tuple = ("①공종설계", "②품질설계", "③감리",
 PLATFORM_STAGES: tuple = (
     ("P1", "설계검증", ("①공종설계", "②품질설계", "③감리"),
      "설계문서 검토 → 시공 감리 → 준공 커미셔닝",
-     "DNV Owner's Engineer · TÜV Design Review"),
+     "DNV Owner's Engineer(전주기 개념 참고)"),   # 238차 — TÜV는 186차 403·미확인이라 뺐다
     ("P2", "성능보증", ("⑤운영", "⑥사후관리"),
      "준공 후 설계값 대 실측 — 보상 판정은 보험·금융의 일",
      "kWh Analytics Solar Revenue Put · PVEL Scorecard"),
@@ -446,10 +448,13 @@ def platform_index(items: list) -> list:
 #      양식으로 이어진다. ⑦은 여전히 발급일이 있어야 기산된다.
 # ─────────────────────────────────────────────────────────────
 ENTRY_STEPS: tuple = (
-    ("case", "케이스 생성", "사람", "申請(신청)"),
-    ("docs", "문서 제출", "사람", "書類提出(서류 제출)"),
+    # 238차 정정(레드팀 29회차 B2): 종전 「書類提出」은 JAS 원문에 없는 단계명이었다. 원문 7단계
+    #   (見積り依頼 / 見積書受領·申請 / 書類審査 / 実地検査 / 判定 / 認定証発行 / 年次審査)와
+    #   **대응하는 것만** 적고, 대응이 없으면 없다고 적는다.
+    ("case", "케이스 생성", "사람", "見積り依頼·見積書受領·申請(견적·신청)"),
+    ("docs", "문서 제출", "사람", "JAS 대응 없음(콘솔 단계)"),
     ("engine", "엔진 검증", "엔진", "書類審査(서류심사)"),
-    ("evidence", "근거 대조", "사람", "実地検査(현장 확인)"),
+    ("evidence", "근거 대조", "사람", "JAS 대응 없음(実地検査는 현장검사라 다르다)"),
     ("rules", "규칙 적용", "엔진", "判定(판정)"),
     ("issue", "발급", "사람", "認定証発行(인증서 발행)"),
     ("renew", "연차 재검", "사람", "年次審査(연차심사)"),
@@ -480,8 +485,10 @@ def entry_steps(case: dict, pkg: dict) -> list:
         "engine": (("완료" if not sc.get("주입대기") and not sc.get("부분생성") else "진행"),
                    " · ".join(f"{k} {sc[k]}" for k in ("생성", "부분생성", "주입대기", "링크")
                               if sc.get(k))),
-        "evidence": (("진행", f"원문 대조 전 {len(unresolved)} / {len(prov)}필드 — "
-                      + " · ".join(unresolved))
+        # 238차 — ④는 **콘솔에 입력 경로가 없다**(원문 대조 → 레지스트리·케이스 status 갱신은
+        #   문서 절차다). 224차 설계 의도(경로 없는 칸이 진행처럼 보이지 않게)대로 「경로 없음」.
+        "evidence": (("경로 없음", f"원문 대조 전 {len(unresolved)} / {len(prov)}필드 — "
+                      + " · ".join(unresolved) + " — 콘솔 밖 절차(원문 대조 후 status 갱신)")
                      if unresolved else ("완료", f"{len(prov)}필드 전부 대조됨")),
         "rules": ((("완료" if g.get("complete") else "진행"),
                    f"등급 {g.get('grade')} · 통과 {g.get('n_passed')} / {g.get('n_total')}"
@@ -1058,6 +1065,11 @@ def build_package(case: dict, injections: dict = None) -> dict:
             _eq = (None if not inj.get("quoted_models") else
                    e.equipment_reconcile(inj["quoted_models"], inj.get("ks_declared"),
                                          inj.get("attachments_by_model")))
+            # 🔴238차 정정(레드팀 29회차 A2): 228차는 *「첨부 미제출 = 불합격」*을 정했는데 그것은
+            #   **사용자 결정이 아니라 내 선택**이었다. 이 블록의 원칙 *「자료가 없어 못 본 항목은
+            #   None(미검증)」*에 맞춰, **첨부 정보가 아예 없으면 미검증**이다. 첨부를 냈는데 6종이
+            #   모자라면 불합격(B10 ⓑ 그대로). 미제출을 불합격으로 셀지는 ★B11 대기다.
+            _att_given = bool(inj.get("attachments_by_model"))
             _att_short = bool(_eq) and any(r["attachments_missing"] for r in _eq["rows"])
             checks = {
                 "design_load": bool(_sel["candidates"]),
@@ -1067,7 +1079,8 @@ def build_package(case: dict, injections: dict = None) -> dict:
                 "heating_design": _hv["status"] == "정상",
                 "cost_band": _bc["status"] == "정상",
                 "equipment_ks": (None if _eq is None else
-                                 not _eq["needs_ks_declaration"] and not _att_short),
+                                 False if _eq["needs_ks_declaration"] else
+                                 None if not _att_given else not _att_short),
                 "permit": not _pm["missing_inputs"],
                 "warranty": e.warranty_period("온실설치") is not None,
             }
@@ -1077,9 +1090,10 @@ def build_package(case: dict, injections: dict = None) -> dict:
             seq = inj.get("ksfid_seq")
             need25 = []
             # 229차 — ★사용자 결정(2026-09-27): 번호의 연도는 **발급일의 연도**다.
-            #   226차까지는 `2026`이 박혀 있어 2027년 발급분도 `KSF-2026-…`이 됐다.
-            #   발급일은 엔진 `ksfid_validity`가 검증·정규화한 값(`issued`)에서 읽는다 —
-            #   이 계층이 날짜를 다시 해석하지 않는다. 발급일이 없으면 **연도를 모르므로
+            #   **228차까지**는 `2026`이 박혀 있어 2027년 발급분도 `KSF-2026-…`이 됐다
+            #   (238차 정정 — 종전 「226차까지」는 틀렸다).
+            #   발급일은 엔진 `ksfid_validity`가 검증·정규화한 ISO 날짜(`issued`)의 **앞 네 자리를
+            #   읽는다** — 날짜 계산을 다시 하지 않는다(238차: 「해석하지 않는다」는 과장이었다). 발급일이 없으면 **연도를 모르므로
             #   번호를 만들지 않는다**(지어내지 않는다).
             if issued:
                 d["유효기간"] = e.ksfid_validity(issued, inj.get("ksfid_thresholds"))
@@ -1090,9 +1104,14 @@ def build_package(case: dict, injections: dict = None) -> dict:
                                            int(d["유효기간"]["issued"][:4]), seq)
             if not issued:
                 need25 = need25 + _need("ksfid_issued")
-            if not gr["complete"]:
-                need25 = need25 + _need("doc_rows", "quoted_models")
-            if _att_short:                                  # 228차 — 무엇이 모자란지 드러낸다
+            # 238차 정정 — 종전엔 미완결이면 `doc_rows`·`quoted_models`를 **이미 냈어도** 달았다
+            #   (187차 단순화). 첨부 미제출이 미검증이 되자 「낸 것을 안 냈다」고 보였다 →
+            #   **실제로 빠진 입력만** 단다.
+            if checks["doc_consistency"] is None:
+                need25 = need25 + _need("doc_rows")
+            if _eq is None:
+                need25 = need25 + _need("quoted_models")
+            if _eq is not None and (not _att_given or _att_short):   # 228·238차
                 need25 = need25 + _need("attachments_by_model")
             items.append(_item(spec, "생성" if not need25 else "부분생성", d, need25,
                                "🔴 등급은 **검증 항목 통과 수 + 실격 사유**이지 "

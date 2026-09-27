@@ -132,7 +132,7 @@
   </div>
 
   {% if rail %}
-  <h3 class="sec">생애주기 레일 <span class="bm">①②③⑤⑥④ 순서(★사용자 결정 2026-09-27) · 준거: DNV Owner's Engineer 전주기 개입</span></h3>
+  <h3 class="sec">생애주기 레일 <span class="bm">①②③⑤⑥④ 순서(★사용자 결정 2026-09-27) · 단계 개념 참고: DNV Owner's Engineer 전주기 개입 — 원문 순서(RFP·부지검토가 먼저)와 이 표시 순서는 다르다</span></h3>
   <div class="railwrap" id="rail"><div class="rail">
     {% for s in rail %}
     <div class="stage">
@@ -186,7 +186,7 @@
       {% for p in platform %}
       <div class="card grp">
         <div class="gh"><code>{{ p.key }}</code> {{ p.name }} <span class="gs">{% for st in p.stages %}{{ st[:1] }}{% endfor %}</span></div>
-        <div class="gd">{{ p.desc }} · 준거: {{ p.bench }}</div>
+        <div class="gd">{{ p.desc }} · 참고: {{ p.bench }}</div>
         <div class="gl">{% for d in p.docs %}<span>{{ d.code }} {{ d.title }}{% if d.appendix %} <span class="chip chip-appx">부록</span>{% endif %}</span>{% endfor %}</div>
         {% if p.outside %}<div class="go">엔진 밖 — {{ p.outside | join(" · ") }}</div>{% endif %}
       </div>
@@ -224,7 +224,7 @@
     {% if d24 %}
     <div class="card">
       <div class="ph">D24 설계값–실측 대조표</div>
-      <div class="ps">준거: kWh Analytics(설계 대 실측). 나란히 놓기까지 — 보상 판정은 하지 않는다.</div>
+      <div class="ps">참고: kWh Analytics(설계 대 실측 보상형 — 이 표와의 대응은 이 프로젝트의 해석이다). 나란히 놓기까지 — 보상 판정은 하지 않는다.</div>
       {% set cb = d24["공사비 밴드 대조"] %}
       <div style="overflow-x:auto"><table>
         <thead><tr><th>항목</th><th class="num">설계값</th><th>실측</th><th>편차 함수</th></tr></thead>

@@ -2043,8 +2043,10 @@ def test_227cha_approval_attachments_reach_the_equipment_reconcile(tmp_cases):
         f"🔴 선언과 첨부 6종이 모두 있는데 `equipment_ks`가 「{st_full}」다")
     assert st_part == "불합격" and "attachments_by_model" in need_part, (
         f"🔴 첨부 1종이 빠졌는데 「{st_part}」다 — ★B10 ⓑ는 **6종 완비**다")
-    assert st_none == "불합격" and "attachments_by_model" in need_none, (
-        f"🔴 첨부가 하나도 없는데 「{st_none}」다 — 선언만으로 통과시키면 227차 이견으로 돌아간다")
+    #   📌238차(레드팀 29회차 A2): 「첨부 미제출 = 불합격」은 사용자 결정이 아니라 228차 내 선택이었다 →
+    #      **못 본 것은 미검증**(같은 블록의 원칙)으로 되돌렸다. 통과가 아닌 것은 그대로다. ★B11 대기.
+    assert st_none == "미검증" and "attachments_by_model" in need_none, (
+        f"🔴 첨부가 하나도 없는데 「{st_none}」다 — 못 본 것은 미검증이다(통과로 세면 227차 이견으로 돌아간다)")
     reg = json.loads(_io_read("엔진데이터_레지스트리.json"))["constants"]["KSFID_CHECK_SPEC"]
     assert "228차" in reg["source"] and "B10 ⓑ" in reg["source"] and reg["status"] == "결정", (
         "🔴 규칙을 바꿨는데 레지스트리 `KSFID_CHECK_SPEC` 출처에 ★결정 기록이 없다")

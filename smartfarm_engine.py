@@ -5312,8 +5312,9 @@ def ksfid_number(region: str, crop: str, cover: str, year: int, seq: int) -> dic
             "inputs": {"region": region, "crop": crop, "cover": cover,
                        "year": int(year), "seq": int(seq)},
             "note": ("🔴 번호는 **추적 식별자이지 등급이 아니다**. "
-                     "지역·작목·피복은 **되돌릴 수 없는 2자 해시**로 줄여 담는다 — "
-                     "번호만으로 농가를 식별하지 못하게 한다")}
+                     "지역·작목·피복은 원문 그대로가 아니라 **2자 해시**로 줄여 담지만, "
+                     "값의 종류가 적어 **표 한 장으로 되찾을 수 있다**(비식별 장치가 아니다 — "
+                     "238차 정정). 농가를 가리는 것은 번호가 아니라 **발급기관 대장의 관리**다")}
 
 
 def ksfid_validity(issued_date: str, rule: Optional[dict] = None) -> dict:
@@ -5823,13 +5824,14 @@ MATERIAL_APPROVAL_ALIASES = {
     "Test Report": "시험성적표",
     "Manufacturer's Specification": "제조업자 시방서",
     "Manufacturer Specification": "제조업자 시방서",
-    # 234차 — **굽은 따옴표(’, U+2019)** 표기(사용자 지시). 워드프로세서가 자동으로 바꾸는
-    #   흔한 모양이다. 따옴표를 일괄 치환하지 않고 **이 이름 하나만** 별칭으로 둔다 —
-    #   ‘(U+2018) 등 다른 모양은 여전히 인식 안 됨이다(추측하지 않는다).
+    # 234차 — **굽은 따옴표(’, U+2019)** 표기(사용자 지시). 따옴표를 일괄 치환하지 않고
+    #   **이 이름 하나만** 별칭으로 둔다. (당시 「‘ 등 다른 모양은 인식 안 됨」이었으나
+    #   235·236차에 ‘ ‛ ′ ` ´도 등재됐다 — 238차 정정. 「워드프로세서 자동 변환의 흔한
+    #   모양」이라는 서술은 근거가 없어 뺐다)
     "Manufacturer\u2019s Specification": "제조업자 시방서",
     # 235차 — **다른 따옴표 변형**(사용자 지시). 같은 이름의 ‘(U+2018) · ‛(U+201B) ·
     #   ′(U+2032 프라임)을 **한 건씩** 등재한다 — 여전히 일괄 치환이 아니다. 등재하지 않은
-    #   모양(` 등)과 다른 이름의 따옴표는 인식 안 됨이다.
+    #   모양(ʼ U+02BC 등)과 다른 이름의 따옴표는 인식 안 됨이다(` ´는 236차에 등재).
     "Manufacturer\u2018s Specification": "제조업자 시방서",
     "Manufacturer\u201bs Specification": "제조업자 시방서",
     "Manufacturer\u2032s Specification": "제조업자 시방서",
@@ -5840,8 +5842,10 @@ MATERIAL_APPROVAL_ALIASES = {
     "Manufacturer\u00b4s Specification": "제조업자 시방서",
     "Color Chart": "표준 색상철",
     "Colour Chart": "표준 색상철",
-    "Maintenance Manual": "자재유지관리 지침서",
-    "O&M Manual": "자재유지관리 지침서",
+    # 238차 — 「Maintenance Manual」·「O&M Manual」을 **뺐다**(레드팀 29회차 A1). 시방서 원문은
+    #   재료승인 첨부 「자재유지관리 지침서」와 **별개로** 준공 인계 서류 「건물의
+    #   유지관리지침서」를 요구한다 — 영문 O&M Manual은 통상 후자(시설 단위)에 가깝다.
+    #   뜻이 둘인 표기를 한쪽으로 옮기면 없는 서류를 있다고 센다(「계산서」와 같은 이유).
 }
 
 

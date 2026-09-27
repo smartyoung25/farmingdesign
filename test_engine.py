@@ -10836,8 +10836,10 @@ def test_193cha_named_sources_were_actually_looked_for():
         f"🔴 쓰이지 않는 부재 선언이 있다: {sorted(set(ABSENT) - used)} — "
         "자료가 들어왔다면 선언을 지우고 ref를 붙이라")
 
-    assert len(cited) == 84, (
-        f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 193차 실측은 84종이다. "
+    # 🔴238차 — `MATERIAL_APPROVAL_ALIASES` source가 시방서 원문(`시방서.hwp`)을 근거로 인용해
+    #    84 → 85(레드팀 29회차 A1·A6 반영). 이 가드의 앞 절이 실재를 확인했다.
+    assert len(cited) == 85, (
+        f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 238차 실측은 85종이다(193차 84 + 시방서.hwp). "
         "늘었다면 **새 인용이 실재하는지** 이 가드가 방금 확인한 것이고, "
         "줄었다면 인용이 사라진 것이니 어느 쪽인지 적고 갱신하라")
     assert len(ABSENT) == 4, "🔴 부재 선언이 4건이 아니다"
@@ -12074,8 +12076,14 @@ def test_207cha_release_note_numbers_are_measured():
     geun = len([f for f in _o.listdir(repo)
                 if f.startswith("근거_") and f.endswith(".md")])
 
+    # 📌238차(레드팀 29회차 B7): ClassDef 30은 dataclass 28 + Enum 2다 — 이름대로 가른다
+    dcs = len([n for n in tree.body if isinstance(n, _ast.ClassDef) and any(
+        getattr(d, "id", None) == "dataclass"
+        or getattr(getattr(d, "func", None), "id", None) == "dataclass"
+        for d in n.decorator_list)])
     FACTS = [("엔진 공개 함수", pub, "**%d**" % pub),
-             ("데이터클래스", cls, "**%d**" % cls),
+             ("클래스", cls, "**%d**" % cls),
+             ("데이터클래스", dcs, "데이터클래스 %d · Enum %d" % (dcs, cls - dcs)),
              ("레지스트리 상수", len(reg), "**%d**" % len(reg)),
              ("source_refs", refs, "**%d**" % refs),
              ("4축 케이스", sum(1 for c in cs if not c.get("partial")), None),
@@ -12092,19 +12100,40 @@ def test_207cha_release_note_numbers_are_measured():
             f"{frag!r}. **문서가 썩었다**: 리포가 바뀌면 여기 수치도 고쳐야 한다")
     # 📌 쉼표 표기(6,551)와 순수 숫자(6551)를 **둘 다** 받는다 — 1차 작성이
     #    순수 숫자만 봐서 문서의 쉼표 표기를 놓쳤다.
-    _ln = rd("smartfarm_engine.py").count(chr(10)) + 1
+    # 📌238차(B8): `count("\n")+1`은 끝 개행이 있으면 한 줄을 더 센다 → `splitlines()`
+    _src = rd("smartfarm_engine.py")
+    _ln = len(_src.splitlines())
     assert ("%d줄" % _ln) in rel or (format(_ln, ",") + "줄") in rel, (
         f"🔴 릴리스 문서의 엔진 줄 수가 실측({_ln})과 다르다")
+    # 📌238차(B9): 문서가 「가드가 다시 센다」고 했지만 KB·케이스·사각·status 수는 안 쟀다 → 잰다
+    _kb = round(_o.path.getsize(_o.path.join(repo, "smartfarm_engine.py")) / 1024)
+    assert ("%dKB" % _kb) in rel, f"🔴 릴리스 문서의 엔진 크기가 실측({_kb}KB)과 다르다"
+    _full = sum(1 for c in cs if not c.get("partial"))
+    assert ("**%d건**(4축 **%d** · 부분 **%d**)" % (len(cs), _full, len(cs) - _full)) in rel, (
+        "🔴 릴리스 문서의 케이스 수가 실측과 다르다")
+    import audit_traceability as _at
+    _a = _at.audit()
+    assert ("추적성 사각 **%d**" % len(_a["refless_blocked"])) in rel, "🔴 사각 수가 실측과 다르다"
+    from collections import Counter as _C
+    _st = _C(v["status"] for v in reg.values())
+    assert ("**%d** · **%d**" % (_st["추정"], _st["확인요망"])) in rel, (
+        "🔴 릴리스 문서의 추정·확인요망 상수 수가 실측과 다르다")
 
     # ── ② 🔴 **닫힌 척하지 않는가**(백로그를 대장에서 읽어 대조) ────
-    stars = rd("근거_결정대기대장_20260915.md").count("★")
-    need = rd("근거_확인요망대장_20260915.md").count("★")
+    # 🔴238차 정정(레드팀 29회차 B1): 종전엔 대장의 **★ 글자 수**를 셌다(19 · 8). 두 대장은
+    #    스스로 *「세면 부풀려진다」*·*「[확인요망]을 세면 틀린다」*고 경고한다 — **항목**을 센다.
+    #    결정 대기 = 대장 표의 `| **D-N** |` 행(취소선 제외, 번호 중복 제거) ·
+    #    확인요망 = 대장이 스스로 적은 「살아 있는 항목 N개」(§1 + §6)의 합.
+    _dl = rd("근거_결정대기대장_20260915.md")
+    stars = len({int(x) for x in _re.findall(r"(?m)^\| \*\*D-(\d+)\*\* \|", _dl)})
+    _cl = rd("근거_확인요망대장_20260915.md")
+    need = sum(int(x) for x in _re.findall(r"(?m)^## (?:1|6)\. 살아 있는 항목 (\d+)개", _cl))
     assert stars > 0 and need > 0, (
-        "🔴 대장에서 ★ 표시가 사라졌다 — 백로그를 셀 근거가 없어진다")
-    assert "**%d**" % stars in rel, (
-        f"🔴 릴리스 문서의 ★대기 수가 대장 실측({stars})과 다르다")
-    assert "**%d**" % need in rel, (
-        f"🔴 릴리스 문서의 확인요망 수가 대장 실측({need})과 다르다")
+        "🔴 대장에서 항목 표가 사라졌다 — 백로그를 셀 근거가 없어진다")
+    assert "| **★사용자 결정 대기**(대장의 D- 항목) | **%d** |" % stars in rel, (
+        f"🔴 릴리스 문서의 ★대기 수가 대장 항목 실측({stars})과 다르다")
+    assert "| **확인요망**(대장의 살아 있는 항목) | **%d** |" % need in rel, (
+        f"🔴 릴리스 문서의 확인요망 수가 대장 항목 실측({need})과 다르다")
     ledger = rd("근거_자기점검대장_20260922.md")
     m = _re.search(r"\|\s*\*\*3위\*\*\s*\|(.+)", ledger)
     assert m and "열린 채 관리" in m.group(1), (
@@ -12332,15 +12361,17 @@ def test_232cha_english_approval_doc_names():
 
     # ── ① 영문 표제로 5종(계산서 제외)을 채우면 계산서만 남는다 ─────────
     r = _row(["Catalog", "Test Report", "Manufacturer's Specification",
-              "Color Chart", "Maintenance Manual"])
+              "Color Chart", "자재 유지관리 지침서"])   # 238차 — 영문 O&M 별칭 제거
     assert r["attachments_missing"] == ["계산서"], (
         f"🔴 영문 표제 5종을 누락으로 셌다: {r['attachments_missing']}")
 
     # ── ② 대소문자·공백은 무시하고, 적힌 그대로는 보존한다 ───────────────
     r = _row(["CATALOGUE", "test   report", "colour chart", "o&m manual"])
     assert r["attachments_normalized"] == {
-        "CATALOGUE": "카탈로그", "test   report": "시험성적표",
-        "colour chart": "표준 색상철", "o&m manual": "자재유지관리 지침서"}
+        "CATALOGUE": "카탈로그", "test   report": "시험성적표", "colour chart": "표준 색상철"}
+    #   📌238차(레드팀 29회차 A1): 시방서가 「건물의 유지관리지침서」를 별개 서류로 요구해
+    #      O&M·Maintenance Manual 별칭을 뺐다 — 이제 인식 안 됨이다
+    assert r["attachments_unrecognized"] == ["o&m manual"]
     assert r["attachments_given"] == ["CATALOGUE", "test   report", "colour chart", "o&m manual"]
 
     # ── ③ 🔴 등재되지 않은 영문은 추측하지 않는다 ────────────────────
@@ -12357,7 +12388,9 @@ def test_232cha_english_approval_doc_names():
         "🔴 뜻이 둘인 「계산서」로 옮기는 별칭이 생겼다 — 없는 서류를 있다고 센다")
     #   📌234차: 굽은 따옴표 별칭은 `isascii()`가 False라 빠진다 → 라틴 글자가 있는 이름으로 센다
     en = [a for a in e.MATERIAL_APPROVAL_ALIASES if any("a" <= ch.lower() <= "z" for ch in a)]
-    assert len(en) == 15, (f"🔴 영문 별칭이 {len(en)}건이다 — 232차 9건 + 234차 ’ 1건 + 235차 ‘ ‛ ′ 3건 + 236차 ` ´ 2건 = 15건"
+    assert "O&M Manual" not in e.MATERIAL_APPROVAL_ALIASES and "Maintenance Manual" not in e.MATERIAL_APPROVAL_ALIASES, (
+        "🔴 O&M·Maintenance Manual 별칭이 되살아났다 — 시방서는 「건물의 유지관리지침서」를 별개로 요구한다(238차)")
+    assert len(en) == 13, (f"🔴 영문 별칭이 {len(en)}건이다 — 232차 9 + 234차 1 + 235차 3 + 236차 2 − 238차 O&M 2 = 13건"
                            "(늘렸다면 근거와 함께)")
 
 
@@ -12377,8 +12410,8 @@ def test_233cha_fullwidth_approval_doc_names():
         return e.equipment_reconcile(["히터"], {"히터": "KS"}, {"히터": given})["rows"][0]
 
     # ── ① 전각 영문 별칭 · 전각 공백 · 분해형 한글 → 정본 ─────────────────
-    given = [FW("CATALOG"), FW("O&M Manual"), FW("Manufacturer's Specification"),
-             "표준　색상철", _u.normalize("NFD", "시험성적표"), "계산서"]
+    given = [FW("CATALOG"), FW("Test Report"), FW("Manufacturer's Specification"),   # 238차 — O&M 별칭 제거
+             "표준　색상철", _u.normalize("NFD", "시험성적표"), "자재유지관리 지침서", "계산서"]
     assert FW("CATALOG") != "CATALOG" and _u.normalize("NFD", "시험성적표") != "시험성적표", "전제"
     r = _row(given)
     assert r["attachments_missing"] == [], f"🔴 전각·분해형 표기를 누락으로 셌다: {r['attachments_missing']}"
@@ -12494,6 +12527,81 @@ def test_236cha_backtick_and_acute_aliases():
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
     assert "236차" in ent["source"] and all(ent["value"].get(n) == "제조업자 시방서" for n in names), (
         "🔴 레지스트리에 236차 결정 기록이나 값이 없다")
+
+
+def test_238cha_redteam29_corrections_hold():
+    """238차 — 레드팀 29회차(223~237차 대상) 발견 반영이 **되돌아가지 않는가**.
+
+    A1 O&M·Maintenance Manual 별칭 철회(시방서가 「건물의 유지관리지침서」를 별개로 요구) ·
+    A2 첨부 정보가 없으면 미검증(228차의 「미제출=불합격」은 내 선택이었다 — ★B11) ·
+    A3 2자 해시는 비식별 장치가 아니다 · A4 「226차까지」→「228차까지」 · A7 인용 따옴표·GGN 2차 ·
+    B2 JAS 대응 정정(「書類提出」은 원문에 없다) · B3 TÜV 제거(186차 403) · B6 ④ 경로 없음.
+    """
+    import json as _j, os as _o, sys as _s, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    rd = lambda p: open(_o.path.join(repo, p), encoding="utf-8").read()
+    import consulting_package as cp
+    from cases import load_cases
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))["constants"]
+
+    # ── A1 ─────────────────────────────────────────────────────────
+    for a in ("O&M Manual", "Maintenance Manual"):
+        assert a not in e.MATERIAL_APPROVAL_ALIASES and a not in reg["MATERIAL_APPROVAL_ALIASES"]["value"]
+    assert "건물의 유지관리지침서" in reg["MATERIAL_APPROVAL_ALIASES"]["source"], (
+        "🔴 O&M 별칭을 뺀 근거(시방서 원문)가 레지스트리에 없다")
+
+    # ── A3·A4·A7 ────────────────────────────────────────────────────
+    ks = reg["KSFID_NUMBER_SPEC"]
+    assert "비식별 장치가 아니다" in ks["source"] and "되돌릴 수 없는 2자 해시" not in ks["source"]
+    assert "식별하지 못하게" not in e.ksfid_number("충남", "토마토", "유리", 2026, 1)["note"], (
+        "🔴 2자 해시가 농가를 가린다는 과장이 엔진 반환에 되살아났다 — 172지역 중 144곳은 코드가 유일하다")
+    codes = {e.ksfid_number(r, "토마토", "유리", 2026, 1)["body"].split("-")[2] for r in e.REGION_DESIGN_LOAD}
+    assert len(codes) < len(e.REGION_DESIGN_LOAD), "전제: 해시는 비가역이 아니라 **줄이기**다"
+    assert "**228차까지**" in ks["source"] and "226차까지 호출부가" not in ks["source"].replace("종전 「226차까지」", "")
+    assert "Wikipedia" in ks["source"]
+    assert any("'K-SFID'" in r["note"] for r in ks["source_refs"]), "🔴 기획서 인용의 따옴표가 빠졌다"
+
+    # ── A2 — 못 본 것은 미검증, 모자란 것은 불합격, 실제로 빠진 입력만 needs ─────
+    case = [c for c in load_cases() if not c.get("partial")][0]
+    base = {"quoted_models": ["온풍난방기"], "ks_declared": {"온풍난방기": "KS"}}
+
+    def _eq(inj):
+        it = [x for x in cp.build_package(case, inj)["items"] if x["code"] == "D25"][0]
+        row = [r for r in it["data"]["등급"]["rows"] if r["key"] == "equipment_ks"][0]
+        return row["state"], [n["slot"] for n in it["needs"]]
+    st, needs = _eq(base)
+    assert st == "미검증" and "attachments_by_model" in needs and "quoted_models" not in needs, (
+        f"🔴 첨부 정보 없음이 「{st}」·needs {needs}다 — 못 본 것은 미검증, 이미 낸 모델은 needs에 없어야 한다")
+    st, _n = _eq(dict(base, attachments_by_model={"온풍난방기": ["카탈로그"]}))
+    assert st == "불합격", "🔴 첨부를 냈는데 6종이 모자라면 불합격이다(B10 ⓑ)"
+    assert "B11" in reg["KSFID_CHECK_SPEC"]["source"] and "에이전트" in reg["KSFID_CHECK_SPEC"]["source"]
+
+    # ── B2·B3 — JAS 대응과 TÜV ──────────────────────────────────────
+    JAS = ("見積り依頼", "見積書受領", "申請", "書類審査", "実地検査", "判定", "認定証発行", "年次審査")
+    src = rd("근거_벤치마킹출처_검증_20260921.md")
+    for tok in JAS:
+        assert tok in src, f"전제: 186차 기록에 JAS 단계 {tok}가 있다"
+    for k, n, w, j in cp.ENTRY_STEPS:
+        used = [t for t in _re.findall(r"[぀-ヿ一-鿿]{2,}", j) if t not in ("大応",)]
+        for t in used:
+            assert t in JAS or "대응 없음" in j, f"🔴 스테퍼 {k}의 JAS 표기 {t!r}가 원문 7단계에 없다"
+    #   📌 무딘 토큰(열여덟 번째): `consulting_package.py`는 **정정 주석**에 「書類提出」을 적는다 →
+    #      그 파일은 **단계 표(`ENTRY_STEPS`)만** 잰다
+    assert not any("書類提出" in j for *_x, j in cp.ENTRY_STEPS)
+    for f in ("webapp_templates/entry_hub.html", "릴리스_v1.1_20260927.md"):
+        assert "書類提出" not in rd(f), f"🔴 {f}에 원문에 없는 JAS 단계명 「書類提出」이 되살아났다"
+    assert not any("TÜV" in b for *_x, b in cp.PLATFORM_STAGES), "🔴 미확인(403) TÜV가 준거로 되살아났다"
+
+    # ── B6 — ④는 콘솔 경로가 없다 ───────────────────────────────────
+    st4 = {s["key"]: s for s in cp.entry_steps(case, cp.build_package(case))}["evidence"]
+    if any((v or {}).get("status") in cp.ENTRY_OPEN_PROVENANCE for v in case["provenance"].values()):
+        assert st4["state"] == "경로 없음", f"🔴 콘솔 경로가 없는 ④가 「{st4['state']}」로 보인다"
+
+    # ── B5 — 과장이 문서에서 빠졌는가 ───────────────────────────────
+    rel = rd("릴리스_v1.1_20260927.md")
+    assert "끝까지 끌고" not in rel and "탐색 범위" in rel and "콘솔에 경로가 없는 칸" in rel
 
 
 if __name__ == "__main__":

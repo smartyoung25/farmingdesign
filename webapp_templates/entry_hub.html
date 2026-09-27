@@ -24,7 +24,7 @@
     }
   </style>
   <h3 style="font-size:13px; color:var(--sub); font-weight:500; margin:0 0 8px">
-    기입 절차 7단계 <span style="font-weight:400; font-size:11.5px; color:var(--mut)">준거: SGS Japan JAS 인증 절차(신청 → 서류심사 → 현장 확인 → 판정 → 발급 → 연차심사) · 실선은 엔진, 점선은 사람이 하는 단계 · 진행 상태이지 판정이 아니다</span></h3>
+    기입 절차 7단계 <span style="font-weight:400; font-size:11.5px; color:var(--mut)">참고: SGS Japan JAS 인증 7단계(見積り依頼 / 見積書受領·申請 / 書類審査 / 実地検査 / 判定 / 認定証発行 / 年次審査) — 단계마다 대응을 적었고 대응이 없는 칸(문서 제출·근거 대조)은 없다고 적었다 · 실선은 엔진, 점선은 사람이 하는 단계 · 진행 상태이지 판정이 아니다</span></h3>
   <div class="card" style="margin-bottom:12px">
     <div class="stepdefs">
       {% for k, n, w, j in step_defs %}
@@ -40,7 +40,7 @@
         {{ s.detail }}
         {% if s.key == "case" %}<br><a href="/case/{{ r.code }}">케이스 상세</a>
         {% elif s.key == "docs" %}<br><a href="/entry/docs/{{ r.code }}">문서 제출 양식</a>
-        {% elif s.key in ("issue", "renew") %}<br><a href="/entry/issue/{{ r.code }}">발급 양식</a>
+        {% elif s.key == "issue" %}<br><a href="/entry/issue/{{ r.code }}">발급 양식</a>
         {% elif s.key == "engine" %}<br><a href="/case/{{ r.code }}#rail">레일에서 보기</a>
         {% elif s.key == "evidence" %}<br><a href="/pages/SmartFarm_근거대장.html">근거대장</a>
         {% elif s.key == "rules" %}<br><a href="/case/{{ r.code }}#appendix">판정 부록</a>{% endif %}
