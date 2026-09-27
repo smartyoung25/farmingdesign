@@ -1068,7 +1068,7 @@ def build_package(case: dict, injections: dict = None) -> dict:
             # 🔴238차 정정(레드팀 29회차 A2): 228차는 *「첨부 미제출 = 불합격」*을 정했는데 그것은
             #   **사용자 결정이 아니라 내 선택**이었다. 이 블록의 원칙 *「자료가 없어 못 본 항목은
             #   None(미검증)」*에 맞춰, **첨부 정보가 아예 없으면 미검증**이다. 첨부를 냈는데 6종이
-            #   모자라면 불합격(B10 ⓑ 그대로). 미제출을 불합격으로 셀지는 ★B11 대기다.
+            #   모자라면 불합격(B10 ⓑ 그대로). 📌239차 — ★B11 **ⓐ 미검증으로 확정**(사용자 결정 2026-09-28).
             _att_given = bool(inj.get("attachments_by_model"))
             _att_short = bool(_eq) and any(r["attachments_missing"] for r in _eq["rows"])
             checks = {

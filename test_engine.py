@@ -12604,6 +12604,43 @@ def test_238cha_redteam29_corrections_hold():
     assert "끝까지 끌고" not in rel and "탐색 범위" in rel and "콘솔에 경로가 없는 칸" in rel
 
 
+def test_239cha_b11_is_decided_unchecked_when_no_attachments():
+    """239차 — ★사용자 결정(2026-09-28): **B11 ⓐ 미검증 확정**.
+
+    모델·선언은 냈는데 재료승인 첨부 정보가 **아예 없으면** D25 `equipment_ks`는 **미검증**이다
+    (통과로 세지 않는다 — 「못 본 것은 None」 원칙). 첨부를 냈는데 6종이 모자라면 **불합격**(B10 ⓑ).
+    🔴 결정이 **기록과 동작 양쪽**에 있는지 잰다 — 한쪽만 바뀌면 다시 228차처럼 기록과 규칙이 갈라진다.
+    """
+    import json as _j, os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    rd = lambda p: open(_o.path.join(repo, p), encoding="utf-8").read()
+    import consulting_package as cp
+    from cases import load_cases
+
+    # ── ① 기록: 레지스트리 · 작업지시서 §14 · 릴리스 §4 ──────────────────
+    src = _j.loads(rd("엔진데이터_레지스트리.json"))["constants"]["KSFID_CHECK_SPEC"]["source"]
+    assert "사용자 결정(2026-09-28): B11 ⓐ" in src, "🔴 레지스트리에 B11 ⓐ ★결정 기록이 없다(1절 조건①)"
+    wo = rd("작업지시서.md")
+    assert "| ~~B11~~ ✅ |" in wo and "ⓐ 미검증 확정" in wo, "🔴 작업지시서 §14의 B11이 닫히지 않았다"
+    assert "| **B11** | ★" not in wo, "🔴 B11이 아직 「대기」 행으로 남아 있다"
+    assert "**0**(B11은 239차에 ⓐ 미검증으로 확정)" in rd("릴리스_v1.1_20260927.md")
+
+    # ── ② 동작: 없음 → 미검증 · 모자람 → 불합격 · 완비 → 통과 ─────────────
+    case = [c for c in load_cases() if not c.get("partial")][0]
+    six = list(e.MATERIAL_APPROVAL_ATTACHMENTS)
+    base = {"quoted_models": ["온풍난방기"], "ks_declared": {"온풍난방기": "KS"}}
+
+    def _st(inj):
+        it = [x for x in cp.build_package(case, inj)["items"] if x["code"] == "D25"][0]
+        return [r for r in it["data"]["등급"]["rows"] if r["key"] == "equipment_ks"][0]["state"]
+    assert _st(base) == "미검증", "🔴 첨부 정보가 없는데 미검증이 아니다 — B11 ⓐ 위반"
+    assert _st(dict(base, attachments_by_model={})) == "미검증", "🔴 빈 첨부 표도 「없음」이다"
+    assert _st(dict(base, attachments_by_model={"온풍난방기": six[:-1]})) == "불합격"
+    assert _st(dict(base, attachments_by_model={"온풍난방기": six})) == "통과"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
