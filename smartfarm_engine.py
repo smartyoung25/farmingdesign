@@ -1315,14 +1315,54 @@ HEATING_DEGREE_HOURS_1000 = {
 
 _HDH_SET_TEMPS = (8, 12, 16, 20)
 
+# ─────────────────────────────────────────────────────────────
+# 241차 — 사용자 결정(2026-09-28): **D-6 「마산」↔「창원」 연결 · D-5 기상 4표 부분 일치 허용**.
+#   ①별칭(D-6): [표3-3-44] 풍속표만 「마산」, [표3-3-38]·[3-3-42]·[3-3-45]는 「창원」이다(150차 실측
+#     — 69키 중 유일한 불일치). 한쪽 이름으로 물어도 그 표가 가진 쪽으로 찾는다(양방향).
+#   ②부분 일치(D-5): 케이스 region은 「강원(춘천)」·「충남 천안(성환읍)」 같은 자유 서술이라
+#     표 키(기상관측지점명)와 정확히 맞지 않는다. `siting_design_load`와 **같은 규칙**을 쓴다 —
+#     정확한 키 → 별칭 → 지점명이 region 문자열에 **들어 있는지**. 🔴**후보가 둘 이상이면 None**
+#     (어느 지점인지 고를 근거가 없다 — 추측하지 않는다). 원채원 「충남」처럼 지점명이 없으면
+#     여전히 None이다(S-1).
+#   ⚠️알려진 한계: 부분 일치는 **글자 포함**이라 광역 힌트가 다른 동명 지명(예: 경기 「광주」 ↔
+#     광주 관측소)을 가려내지 못한다. 그래서 조회 결과에 **어느 지점을 썼는지**를 드러낸다
+#     (`weather_station`) — 사람이 보고 틀리면 region을 지점명으로 고쳐 넣으면 된다.
+# ─────────────────────────────────────────────────────────────
+WEATHER_STATION_ALIASES = {"마산": "창원", "창원": "마산"}
+
+
+def _weather_key(table: dict, region) -> Optional[str]:
+    """기상 표 하나에서 region에 해당하는 키(241차 규칙) — 없거나 애매하면 None."""
+    if not region:
+        return None
+    region = str(region)
+    if region in table:
+        return region
+    alias = WEATHER_STATION_ALIASES.get(region)
+    if alias in table:
+        return alias
+    cands = {k for k in table if k in region}
+    cands |= {a for k, a in WEATHER_STATION_ALIASES.items() if k in region and a in table}
+    return next(iter(cands)) if len(cands) == 1 else None
+
+
+def weather_station(region: str) -> Optional[str]:
+    """region → 기상 4표 조회에 쓰는 **관측지점명**(241차 D-5·D-6). 없거나 애매하면 None.
+
+    [표3-3-38] 설계외기온 표 기준으로 푼다(풍속표에서는 별칭으로 같은 지점이 된다).
+    조회 결과를 보여 줄 때 **어느 지점을 썼는지** 함께 드러내기 위한 함수다.
+    """
+    return _weather_key(DESIGN_OUTDOOR_TEMP_TAC, region)
+
 
 def design_outdoor_temp(region: str, tac: str = "1%") -> Optional[float]:
     """[표 3-3-38] 조회 — 지역의 난방설계 외기온(℃). 원문 권장은 TAC 1%다.
 
     tac: "1%"|"2.5%"|"5%". 지역이 표에 없으면 None(인접 지점 대용은 판단성이라
-    엔진이 고르지 않는다). 지역명은 **기상관측지점명**이다.
+    엔진이 고르지 않는다). 지역명은 **기상관측지점명**이다 — 241차부터 별칭·부분 일치로
+    찾는다(`_weather_key`, 애매하면 None).
     """
-    row = DESIGN_OUTDOOR_TEMP_TAC.get(region)
+    row = DESIGN_OUTDOOR_TEMP_TAC.get(_weather_key(DESIGN_OUTDOOR_TEMP_TAC, region))
     if row is None:
         return None
     idx = {"1%": 0, "2.5%": 1, "5%": 2}.get(tac)
@@ -1338,7 +1378,7 @@ def heating_degree_hours(region: str, set_temp_c: float) -> dict:
     돌려주고, 아니면 value=None과 함께 인접 설정온도를 알려준다 — 사이 값을
     지어내지 않기 위함이다(호출부가 어느 쪽을 쓸지 정한다).
     """
-    row = HEATING_DEGREE_HOURS_1000.get(region)
+    row = HEATING_DEGREE_HOURS_1000.get(_weather_key(HEATING_DEGREE_HOURS_1000, region))   # 241차
     if row is None:
         return {"region": region, "value": None, "reason": "표에 없는 지역(기상관측지점명 확인)",
                 "available_set_temps": list(_HDH_SET_TEMPS)}
@@ -1467,9 +1507,10 @@ def monthly_mean_wind(region: str) -> Optional[tuple]:
     """[표 3-3-44] 조회 — (1월…12월, 연평균) 평균풍속 m/s. 표에 없으면 None.
 
     지역명은 **기상관측지점명**이다(행정구역명 아님). ⚠️이 표만 '마산'을 쓰고
-    [표3-3-38]·[표3-3-42]는 '창원'을 쓴다 — 별칭 해소는 하지 않는다(위 주석).
+    [표3-3-38]·[표3-3-42]는 '창원'을 쓴다 — ~~별칭 해소는 하지 않는다~~ 241차 D-6으로
+    **별칭을 해소한다**(「창원」으로 물어도 「마산」 행을 준다). 부분 일치도 한다(D-5).
     """
-    return MONTHLY_MEAN_WIND_MS.get(region)
+    return MONTHLY_MEAN_WIND_MS.get(_weather_key(MONTHLY_MEAN_WIND_MS, region))
 
 
 def mean_wind(region: str, months) -> Optional[float]:
@@ -1483,7 +1524,7 @@ def mean_wind(region: str, months) -> Optional[float]:
     연평균이 필요하면 monthly_mean_wind(region)[12]를 쓴다 — 원문 표기값이고
     여기서 12개월을 다시 평균 내 만든 값이 아니다.
     """
-    row = MONTHLY_MEAN_WIND_MS.get(region)
+    row = MONTHLY_MEAN_WIND_MS.get(_weather_key(MONTHLY_MEAN_WIND_MS, region))   # 241차
     if row is None:
         return None
     ms = list(months)
@@ -1626,9 +1667,10 @@ MONTHLY_SUNSHINE_HOURS = {
 def monthly_sunshine(region: str) -> Optional[tuple]:
     """[표 3-3-45] 조회 — (1월…12월, 연평균) 일평균 일조시간 h/일. 없으면 None.
 
-    지역명은 **기상관측지점명**이다. 이 표는 '창원'을 쓴다([표3-3-44]만 '마산').
+    지역명은 **기상관측지점명**이다. 이 표는 '창원'을 쓴다([표3-3-44]만 '마산') —
+    241차부터 별칭·부분 일치로 찾는다.
     """
-    return MONTHLY_SUNSHINE_HOURS.get(region)
+    return MONTHLY_SUNSHINE_HOURS.get(_weather_key(MONTHLY_SUNSHINE_HOURS, region))
 
 
 def period_load_adjust_k(sunshine_h: float) -> dict:

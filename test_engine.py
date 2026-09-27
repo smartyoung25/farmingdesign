@@ -7221,10 +7221,12 @@ def test_159cha_weather_tables_unreachable_and_province_lost():
             for n in _ast.walk(node):
                 if isinstance(n, _ast.Name) and n.id in TBL:
                     users.add(node.name)
+    # 📌241차 — ★D-5·D-6으로 `weather_station`이 생겨 5 → 6이다. 「계산 도달 0」 결론은 240차에
+    #    이미 틀린 것으로 드러났다(181차 컨설팅 패키지 D1이 5함수를 부른다) — 아래 ② 이후는 159차 기록이다
     assert users == {"design_outdoor_temp", "heating_degree_hours",
-                     "monthly_sunshine", "mean_wind", "monthly_mean_wind"}, (
-        f"기상 4표를 읽는 함수가 {sorted(users)}로 바뀌었다 — 159차 실측은 5개다. "
-        "늘었다면 **계산 도달 0**이라는 결론을 다시 재라")
+                     "monthly_sunshine", "mean_wind", "monthly_mean_wind", "weather_station"}, (
+        f"기상 4표를 읽는 함수가 {sorted(users)}로 바뀌었다 — 241차 실측은 6개다(159차 5 + weather_station). "
+        "늘었다면 **어디서 부르는지** 다시 재라")
 
     # ── ② 생성기가 그 다섯을 부르는가 — 계산 도달 0 ──────────────────
     gen = "".join(rd(f) for f in ("build_site.py", "webapp.py", "render_report.py",
@@ -7809,8 +7811,9 @@ def test_166cha_service_design_claims_are_measured():
     #    (두 내용연수 표의 **조회 경로**를 합친 것이고 **값은 한 자리도 바꾸지 않았다**)
     # 🔴213차 — 공개 함수 71→74(procurement_route·warranty_bond_requirement·
     #    quote_count_requirement). ★결정으로 열린 등재라 대기 대장에는 가지 않는다.
-    assert len(pub) == 74 and len(cls) == 30, (
-        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 213차 실측은 74·30이다. "
+    # 🔴241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다)
+    assert len(pub) == 75 and len(cls) == 30, (
+        f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 241차 실측은 75·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
 
@@ -8120,8 +8123,9 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     cited = names_in(head)
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
-    assert len(cited) == 74 and len(missing) == 0, (
-        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 213차 실측은 74/0이다: {missing}")
+    # 🔴241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다) — 서비스설계 §5 부지×공종설계에 배치
+    assert len(cited) == 75 and len(missing) == 0, (
+        f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 241차 실측은 75/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
         "🔴 P2·P4 2함수가 설계서에서 빠졌다")
@@ -8411,7 +8415,8 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
         # 🔴213차 — ★보조사업자 계약 등재로 65→69
     # 🔴230차 — `KSFID_NUMBER_SPEC` 등재로 70 → 71(사용자 지시 · 원래 엔진 함수 본문의 리터럴이었다)
     # 🔴231차 — `MATERIAL_APPROVAL_ALIASES` 등재로 71 → 72(첨부 서류명 별칭 · 결정)
-    assert len(reg["constants"]) == 72, (
+    # 🔴241차 — `WEATHER_STATION_ALIASES` 등재로 72 → 73(★D-5·D-6 결정)
+    assert len(reg["constants"]) == 73, (
         "🔴 레지스트리 상수가 69개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
@@ -9249,7 +9254,7 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    if n.returns is not None else "")
             pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
     marked = sorted(f for f in pub if pub[f])
-    assert len(pub) == 74, f"🔴 공개 함수가 {len(pub)}개다 — 213차 실측은 74다"
+    assert len(pub) == 75, f"🔴 공개 함수가 {len(pub)}개다 — 241차 실측은 75다(241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다))"
     # 🔴187차 — ★ 등급 부여로 `ksfid_grade`가 신설돼 15 → 16이 됐다.
     # 🔴188차 — `guarantee_assessment`·`progress_certification`이 신설돼 16 → 18.
     # 🔴208차 — ★②의 `service_life_index()`가 `rows`·`counts`를 내므로 18 → 19다.
@@ -9395,9 +9400,9 @@ def test_181cha_package_layer_assembles_without_calculating():
     assert len(codes) == 27 and len(set(codes)) == 27, (
         f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D27이어야 한다")
     cov = cp.coverage()
-    assert len(cov["declared"]) == 72, (
+    assert len(cov["declared"]) == 73, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
-        "213차 실측은 72종이다(★②로 `service_life_index`가 D20에 붙었다)")
+        "241차 실측은 73종이다(213차 72 + D1 `weather_station`)")
     ghost = sorted(f for f in cov["declared"] if f not in pub)
     assert not ghost, f"🔴 패키지가 없는 함수를 부른다: {ghost}"
     # 🔴 **선언만 하고 부르지 않으면 거짓말이다** — 호출처가 실제로 있는지 본다.
@@ -9498,8 +9503,9 @@ def test_181cha_package_layer_assembles_without_calculating():
         "표시 계층이 **산식을 복제하던 것을 엔진 호출로 바꾼** 것이지 배선이 헐거워진 "
         "것이 아니다)")
     together = reached.union(cov["declared"])
-    assert len(together) == len(pub) == 74, (
-        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 213차 실측은 **74 / 74**다"
+    # 🔴241차 — ★D-5·D-6으로 `weather_station` 신설 + D1이 부른다 → 75 / 75(도달 사각 0 유지)
+    assert len(together) == len(pub) == 75, (
+        f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 241차 실측은 **75 / 75**다"
         "(패키지 이전 17 · 181차 46 · 182차 62 · 187차 65 · 🔴188차 성능보증 4함수)")
     # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
     unreached = sorted(pub.difference(together))
@@ -10838,8 +10844,9 @@ def test_193cha_named_sources_were_actually_looked_for():
 
     # 🔴238차 — `MATERIAL_APPROVAL_ALIASES` source가 시방서 원문(`시방서.hwp`)을 근거로 인용해
     #    84 → 85(레드팀 29회차 A1·A6 반영). 이 가드의 앞 절이 실재를 확인했다.
-    assert len(cited) == 85, (
-        f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 238차 실측은 85종이다(193차 84 + 시방서.hwp). "
+    # 🔴241차 — `WEATHER_STATION_ALIASES` source가 `근거_결정대기대장_20260915.md`를 인용해 85 → 86
+    assert len(cited) == 86, (
+        f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 241차 실측은 86종이다(238차 85 + 결정대기대장). "
         "늘었다면 **새 인용이 실재하는지** 이 가드가 방금 확인한 것이고, "
         "줄었다면 인용이 사라진 것이니 어느 쪽인지 적고 갱신하라")
     assert len(ABSENT) == 4, "🔴 부재 선언이 4건이 아니다"
@@ -12678,6 +12685,65 @@ def test_240cha_decision_ledger_summary_matches_the_code():
             f"🔴 D-5가 대기인데 C1 D1의 빈 칸이 {empty}다 — 지역명 매칭이 바뀌었다면 대장 정리표 D-5 행을 고쳐라")
         assert "C1·C3에서 3칸이 비어 있다" in sec
     assert "181차에 생긴 컨설팅 패키지(D1)가\n  5함수를 모두 부른다" in sec or "5함수를 모두 부른다" in sec
+
+
+def test_241cha_d5_d6_weather_station_lookup_is_decided():
+    """241차 — ★사용자 결정(2026-09-28): **D-6 「마산」↔「창원」 연결 · D-5 기상 4표 부분 일치 허용**.
+
+    규칙: 정확한 키 → 별칭 → 지점명이 region에 **포함** — 🔴후보가 둘 이상이면 None(추측하지 않는다).
+    효과: C1(춘천)·C3(천안) D1 3칸이 **표 값 그대로** 채워진다 · C2(「충남」)는 지점이 없어 None(S-1).
+    🔴 회귀 기준은 불변이다 — `compute()`는 케이스 `t_min`을 쓰고 기상표를 읽지 않는다.
+    """
+    import json as _j, os as _o, sys as _s
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    rd = lambda p: open(_o.path.join(repo, p), encoding="utf-8").read()
+    import consulting_package as cp
+    import case_display as cd
+    import render_report as rr
+    from cases import load_cases, case_to_input
+
+    # ── ① 별칭(D-6) — 양방향, 표가 가진 쪽으로 ─────────────────────
+    assert e.WEATHER_STATION_ALIASES == {"마산": "창원", "창원": "마산"}
+    assert e.monthly_mean_wind("창원") == e.MONTHLY_MEAN_WIND_MS["마산"]
+    assert e.design_outdoor_temp("마산") == e.DESIGN_OUTDOOR_TEMP_TAC["창원"][0]
+    assert e.monthly_sunshine("마산") == e.MONTHLY_SUNSHINE_HOURS["창원"]
+
+    # ── ② 부분 일치(D-5) — 하나면 찾고, 둘 이상이거나 없으면 None ─────────
+    assert e.weather_station("강원(춘천)") == "춘천" and e.weather_station("충남 천안(성환읍)") == "천안"
+    assert e.weather_station("춘천 천안") is None, "🔴 후보가 둘인데 하나를 골랐다 — 추측이다"
+    for none in ("충남", "논산", "", None):
+        assert e.weather_station(none) is None
+    assert e.design_outdoor_temp("논산") is None and e.heating_degree_hours("논산", 8)["value"] is None
+
+    # ── ③ 효과 — D1이 **표 값 그대로**, 지점을 드러내고, t_min을 옮겨 적는다 ─────
+    for c in load_cases():
+        if c.get("partial"):
+            continue
+        d1 = [x for x in cp.build_package(c)["items"] if x["code"] == "D1"][0]["data"]
+        st = e.weather_station(c["input"]["region"])
+        assert d1["기상 지점"] == st
+        assert d1["케이스 최저온도 t_min(입력)"] == case_to_input(c).t_min
+        if cd.code(c) in ("C1", "C3"):
+            assert st in ("춘천", "천안")
+            assert d1["난방 설계외기온"] == e.DESIGN_OUTDOOR_TEMP_TAC[st][0]
+            assert d1["월별 평균풍속"] == e.MONTHLY_MEAN_WIND_MS[st]
+            assert d1["월별 일조시간"] == e.MONTHLY_SUNSHINE_HOURS[st]
+        else:
+            assert st is None and d1["난방 설계외기온"] is None, "🔴 「충남」에 지점을 지어냈다(S-1)"
+
+    # ── ④ 회귀 기준 불변 ─────────────────────────────────────────
+    wc = [c for c in load_cases() if c["case_id"] == "wonchaewon"][0]
+    ec = rr.compute(case_to_input(wc))["economics"]
+    assert round(ec["roi"] * 100, 1) == 14.2 and round(ec["payback"], 1) == 7.1
+
+    # ── ⑤ 기록 — 레지스트리 결정 · 원장 닫힘 ─────────────────────────
+    ent = _j.loads(rd("엔진데이터_레지스트리.json"))["constants"]["WEATHER_STATION_ALIASES"]
+    assert ent["status"] == "결정" and "D-6" in ent["source"] and "D-5" in ent["source"]
+    assert "후보가 둘 이상이면 None" in ent["source"] and "기상 지점" in ent["source"]
+    led = rd("근거_결정대기대장_20260915.md")
+    assert "| ~~**D-5**~~ ✅**닫힘(241차)** |" in led and "| ~~**D-6**~~ ✅**닫힘(241차)** |" in led
 
 
 if __name__ == "__main__":

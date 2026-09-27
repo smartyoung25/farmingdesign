@@ -742,7 +742,8 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 🔴213차 — ★보조사업자 계약 등재로 상수 65→69 · refs 178→181
     # 🔴230차 — `KSFID_NUMBER_SPEC` 등재로 상수 70→71 · refs 182→184(near 2)
     # 🔴231차 — `MATERIAL_APPROVAL_ALIASES` 등재로 상수 71→72(결정 — 파일 ref 없음, refs 불변)
-    assert a["counts"]["registry_constants"] == 72 and a["counts"]["source_refs"] == 184
+    # 🔴241차 — `WEATHER_STATION_ALIASES` 등재로 상수 72→73(★D-5·D-6 결정 — 파일 ref 없음)
+    assert a["counts"]["registry_constants"] == 73 and a["counts"]["source_refs"] == 184
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음
@@ -862,10 +863,14 @@ def test_96cha_gunsan_wind_factor_applied_others_untouched():
             continue
         cj = json.load(open(path, encoding="utf-8"))
         assert "wind_factor" not in json.dumps(cj), os.path.basename(path)
-        # 케이스 region은 기상관측지점명이 아니라 표 조회가 안 된다(계수 1.0 유지)
+        # 📌241차 — ★D-5(부분 일치 허용)로 케이스 region이 기상 지점으로 **조회된다**(「충남」은 여전히 None).
+        #    그래도 **계수는 받지 않는다** — 동절기 정의(D-9)가 대기라 `mean_wind`에 줄 달이 없다(위 검사).
         reg = cj.get("input", {}).get("region")
         if reg:
-            assert e.monthly_mean_wind(reg) is None, (path, reg)
+            st = e.weather_station(reg)
+            assert e.monthly_mean_wind(reg) == (e.MONTHLY_MEAN_WIND_MS.get(
+                e.WEATHER_STATION_ALIASES.get(st, st) if st not in e.MONTHLY_MEAN_WIND_MS else st)
+                if st else None), (path, reg, st)
 
 
 def _sheet_values(rows):

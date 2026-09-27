@@ -26,7 +26,7 @@ from cases import case_to_input
 # ─────────────────────────────────────────────────────────────
 PACKAGE_SPEC = [
     {"code": "D1", "title": "입지 진단 카드", "stage": "①공종설계", "targets": ["부지"],
-     "engine": ["siting_lookup", "siting_design_load", "design_outdoor_temp",
+     "engine": ["siting_lookup", "siting_design_load", "weather_station", "design_outdoor_temp",
                 "heating_degree_hours", "monthly_mean_wind", "monthly_sunshine",
                 "mean_wind", "wind_correction_factor", "period_load_adjust_k"]},
     {"code": "D2", "title": "RFQ 사양서", "stage": "①공종설계", "targets": ["시설"],
@@ -603,7 +603,13 @@ def build_package(case: dict, injections: dict = None) -> dict:
             d = {"지역": region,
                  "설계하중": e.siting_design_load(region),
                  "내재해형 조회": e.siting_lookup(region),
+                 # 241차 — ★D-5·D-6: 기상 4표는 별칭·부분 일치로 찾는다. **어느 관측지점을
+                 #   썼는지**를 함께 낸다(부분 일치는 글자 포함이라 사람이 확인할 수 있어야 한다)
+                 "기상 지점": e.weather_station(region),
                  "난방 설계외기온": e.design_outdoor_temp(region),
+                 # 241차 — D-5 원래 뜻(89차 ⓑ 「t_min 옆 TAC 참고 열 병기」): 케이스 입력을
+                 #   **옮겨 적기만** 한다(비교·판정하지 않는다)
+                 "케이스 최저온도 t_min(입력)": inp.t_min,
                  "월별 평균풍속": e.monthly_mean_wind(region),
                  "월별 일조시간": e.monthly_sunshine(region),
                  "난방도시(설정온도 기준)": e.heating_degree_hours(region, inp.t_target)}
