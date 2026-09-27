@@ -440,10 +440,9 @@ def platform_index(items: list) -> list:
 #     書類審査 / 実地検査 / 判定 / 認定証発行 / 年次審査(연 1회).
 #   🔴 **진행 상태이지 판정이 아니다** — 각 단계 상태는 케이스·패키지 반환을 **분류**할
 #      뿐 값·등급을 새로 만들지 않는다. ⑤의 등급은 D25가 낸 것을 그대로 옮긴다.
-#   ⚠️ **경로 없음**을 숨기지 않는다: ②문서 제출·⑥발급은 콘솔에 **기입 양식도
-#      케이스 저장 필드도 없다**(웹앱은 주입값 없이 패키지를 만든다). 그래서 그 칸은
-#      「경로 없음」으로 남고 ⑦은 발급일이 없어 「대기」다 — ★사용자 결정
-#      2026-09-27 *「스테퍼만 — 실제 상태 표시」*(주입 폼은 만들지 않는다).
+#   ⚠️ 224차엔 ②문서 제출·⑥발급에 **기입 양식도 저장 필드도 없어** 「경로 없음」이었다.
+#      226차(사용자 지시)에 두 양식과 케이스 저장 블록을 만들어 이제 「대기」로 바뀌고
+#      양식으로 이어진다. ⑦은 여전히 발급일이 있어야 기산된다.
 # ─────────────────────────────────────────────────────────────
 ENTRY_STEPS: tuple = (
     ("case", "케이스 생성", "사람", "申請(신청)"),
@@ -475,7 +474,7 @@ def entry_steps(case: dict, pkg: dict) -> list:
     docs_open = [s for s in ENTRY_DOC_SLOTS if s in open_slots]
     state = {
         "case": ("완료", "케이스 파일이 있다"),
-        "docs": (("경로 없음", "미제출 " + " · ".join(docs_open) + " — 콘솔에 제출 양식이 없다")
+        "docs": (("대기", "미제출 " + " · ".join(docs_open))
                  if docs_open else ("완료", "문서 주입 슬롯이 채워졌다")),
         "engine": (("완료" if not sc.get("주입대기") and not sc.get("부분생성") else "진행"),
                    " · ".join(f"{k} {sc[k]}" for k in ("생성", "부분생성", "주입대기", "링크")
@@ -491,7 +490,7 @@ def entry_steps(case: dict, pkg: dict) -> list:
         #    반환). 224차는 통째로 문자열에 넣어 주입되는 순간 dict가 화면에 샜다
         #    (가드가 가짜 문자열을 넣어 못 봤다).
         "issue": (("완료", f"식별번호 {d25['식별번호']['ksfid']}") if d25.get("식별번호")
-                  else ("경로 없음", "ksfid_seq 미주입 — 콘솔에 발급 양식이 없다")),
+                  else ("대기", "ksfid_seq 미주입 — 발급기관이 번호를 주면 기입한다")),
         "renew": (("진행", f"유효기간 {d25['유효기간']['issued']} ~ {d25['유효기간']['expires']}")
                   if d25.get("유효기간")
                   else ("대기", "발급일(ksfid_issued)이 없어 기산할 수 없다")),
@@ -524,6 +523,39 @@ def ksfid_badge(pkg: dict) -> dict:
             "format": KSFID_FORMAT, "missing": missing}
 
 
+# ─────────────────────────────────────────────────────────────
+# 226차 — **케이스에 저장하는 주입 블록**(사용자 지시: 발급·문서 제출 주입 폼).
+#   financing과 같은 모양이다 — 블록마다 **근거(note)가 필수**이고 저장은 케이스 JSON,
+#   커밋은 사람이 한다. 값의 검증은 엔진(`doc_consistency_check`·`equipment_reconcile`·
+#   `ksfid_number`·`ksfid_validity`)이 한다 — 이 계층은 모양만 바꾼다.
+#   🔴 번호는 **발급기관이 준 것을 적을 뿐**이다 — 엔진·콘솔이 번호를 고르지 않는다.
+# ─────────────────────────────────────────────────────────────
+DOC_SUBMISSION_KEY = "doc_submission"
+KSFID_ISSUE_KEY = "ksfid_issue"
+DOC_ROW_FIELDS: tuple = ("req_id", "requirement", "drawing_no", "drawing_rev",
+                         "spec_no", "spec_rev", "boq_id", "boq_rev", "std_id", "std_rev")
+
+
+def case_injections(case: dict) -> dict:
+    """케이스 JSON의 저장 주입 블록 → `build_package` 슬롯(모양 변환뿐)."""
+    out = {}
+    ds = case.get(DOC_SUBMISSION_KEY) or {}
+    if ds.get("doc_rows"):
+        out["doc_rows"] = [e.DocRefRow(**{k: str(r.get(k) or "") for k in DOC_ROW_FIELDS})
+                           for r in ds["doc_rows"]]
+    for k in ("dd_documents", "quoted_models"):
+        if ds.get(k):
+            out[k] = list(ds[k])
+    if ds.get("ks_declared"):
+        out["ks_declared"] = dict(ds["ks_declared"])
+    ki = case.get(KSFID_ISSUE_KEY) or {}
+    if ki.get("ksfid_seq") is not None:
+        out["ksfid_seq"] = int(ki["ksfid_seq"])
+    if ki.get("ksfid_issued"):
+        out["ksfid_issued"] = str(ki["ksfid_issued"])
+    return out
+
+
 def build_package(case: dict, injections: dict = None) -> dict:
     """케이스 1건 → D1~D20 패키지(결정론).
 
@@ -532,7 +564,11 @@ def build_package(case: dict, injections: dict = None) -> dict:
     """
     if not isinstance(case, dict) or not case.get("input"):
         raise ValueError("case가 비어 있거나 input이 없다")
-    inj = dict(injections or {})
+    # 226차 — 케이스에 **저장된** 주입(문서 제출·K-SFID 발급)을 먼저 깔고, 인자로 받은
+    #   주입이 그 위를 덮는다. 저장 주입을 여기서 읽어야 콘솔과 정적 보고서가 **같은
+    #   값**을 본다(한쪽만 읽으면 둘이 갈라진다 — 210차 교훈).
+    inj = case_injections(case)
+    inj.update(injections or {})
     # 🔴 차집합은 `-`가 아니라 `difference()`로 쓴다 — 181차 가드가 조립 계층에서
     #    산술 연산자를 **하나도** 허용하지 않기 때문이다(집합 연산이라도 예외를 두면
     #    그 예외가 곧 산술이 들어오는 문이 된다).
@@ -654,7 +690,15 @@ def build_package(case: dict, injections: dict = None) -> dict:
             rows = inj.get("doc_rows")
             if rows:
                 rep = e.doc_consistency_check(rows)
-                d["4축 정합"] = {"집계": rep.counts, "행": len(rep.rows)}
+                # 226차 — 행별 분류도 싣는다(기입 양식이 **패키지를 거쳐** 보여 주도록 —
+                #   표시 계층이 엔진 함수를 직접 부르지 않는다, 80·181차 가드)
+                d["4축 정합"] = {"집계": rep.counts, "행": len(rep.rows),
+                               "행별": [{"req_id": r.req_id, "requirement": r.requirement,
+                                        "status": r.status,
+                                        "missing_docs": list(r.missing_docs),
+                                        "missing_revs": list(r.missing_revs),
+                                        "mismatch_detail": r.mismatch_detail}
+                                       for r in rep.rows]}
             else:
                 n4 = n4 + _need("doc_rows")
             items.append(_item(spec, "생성" if not n4 else "부분생성", d, n4,
@@ -949,8 +993,11 @@ def build_package(case: dict, injections: dict = None) -> dict:
                      inp.total_construction_cost, inp.area_m2, inp.cover),
                  "인허가 결손": e.site_permit_checklist(
                      area_m2=inp.area_m2, cover=inp.cover.value)["missing_inputs"]}
+            # 226차 — 제출 문서 목록을 **옮겨 적기만** 한다(내용을 심사하지 않는다)
+            if inj.get("dd_documents"):
+                d["제출 문서"] = list(inj["dd_documents"])
             items.append(_item(spec, "부분생성", d,
-                               _need("dd_documents"),
+                               [] if inj.get("dd_documents") else _need("dd_documents"),
                                "🔴 **등급을 매기지 않는다** — 기획서가 둔 인증 등급은 "
                                "**판정**이고 1절이 금한다. "
                                f"6영역 중 **{len(gaps)}개는 엔진 밖**이다(경영진 역량·시장위치) "

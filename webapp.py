@@ -547,6 +547,149 @@ def _newcase_compute_or_400(case: dict):
         raise HTTPException(400, detail=f"엔진 검증 실패: {ex}")
 
 
+# ── 226차: 문서 제출·K-SFID 발급 주입 폼(사용자 지시) ─────────────────────
+# 원칙은 financing과 같다: 폼 파싱·저장만 앱이 하고, **검증·미리보기는 엔진**
+# (`build_package` → D4 정합 분류·D19 기자재 대조·D25·배지)이 한다 — 이 계층은
+# 엔진 함수를 **직접 부르지 않고** 패키지 반환만 옮긴다(80·181차 가드).
+# 근거(note) 없는 저장은 거부. 번호는 **발급기관이 준 것을 적을 뿐**이다.
+
+def _lines(form, key) -> list:
+    return [x.strip() for x in (form.get(key) or "").splitlines() if x.strip()]
+
+
+def _parse_docs(form) -> dict:
+    rows = []
+    for ln in _lines(form, "doc_rows_text"):
+        cells = [c.strip() for c in ln.split("|")]
+        if len(cells) > len(cpkg.DOC_ROW_FIELDS):
+            raise HTTPException(400, detail=f"문서 행 칸이 {len(cells)}개다 — 최대 "
+                                f"{len(cpkg.DOC_ROW_FIELDS)}칸(req_id | 요구사항 | 도면 | Rev | "
+                                f"시방 | Rev | BoQ | Rev | 규격서 | Rev): {ln!r}")
+        row = dict(zip(cpkg.DOC_ROW_FIELDS, cells))
+        if not row.get("req_id"):
+            raise HTTPException(400, detail=f"문서 행에 req_id가 없다: {ln!r}")
+        rows.append({k: row.get(k, "") for k in cpkg.DOC_ROW_FIELDS})
+    ks = {}
+    for ln in _lines(form, "ks_declared_text"):
+        if "=" not in ln:
+            raise HTTPException(400, detail=f"규격 선언은 「모델 = 선언」 형식이다: {ln!r}")
+        m, d = (x.strip() for x in ln.split("=", 1))
+        if not m or not d:
+            raise HTTPException(400, detail=f"규격 선언의 모델·선언이 비었다: {ln!r}")
+        ks[m] = d
+    block = {"doc_rows": rows, "dd_documents": _lines(form, "dd_documents_text"),
+             "quoted_models": _lines(form, "quoted_models_text"), "ks_declared": ks,
+             "note": (form.get("note") or "").strip()}
+    if not (rows or block["dd_documents"] or block["quoted_models"]):
+        raise HTTPException(400, detail="제출 문서가 하나도 없다 — 문서 행·실사 문서·견적 모델 중 하나는 있어야 한다")
+    return block
+
+
+def _docs_text(block: dict) -> dict:
+    """저장 블록 → 폼 textarea 값(표시 포맷팅)."""
+    return {"doc_rows_text": "\n".join(" | ".join(r.get(k, "") for k in cpkg.DOC_ROW_FIELDS)
+                                       for r in block.get("doc_rows") or []),
+            "dd_documents_text": "\n".join(block.get("dd_documents") or []),
+            "quoted_models_text": "\n".join(block.get("quoted_models") or []),
+            "ks_declared_text": "\n".join(f"{m} = {d}" for m, d in
+                                          (block.get("ks_declared") or {}).items()),
+            "note": block.get("note", "")}
+
+
+def _preview_with(case: dict, key: str, block: dict) -> dict:
+    """블록을 넣은 **사본**으로 패키지를 만든다 — 엔진 검증 실패는 400으로 그대로 낸다."""
+    trial = dict(case)
+    trial[key] = block
+    try:
+        pkg = cpkg.build_package(trial)
+    except (ValueError, TypeError) as ex:
+        raise HTTPException(400, detail=str(ex))
+    have = {x["code"]: x for x in pkg["items"]}
+    return {"steps": cpkg.entry_steps(trial, pkg), "badge": cpkg.ksfid_badge(pkg),
+            "d4": (have.get("D4") or {}).get("data") or {},
+            "d19": (have.get("D19") or {}).get("data"),
+            "d25": ((have.get("D25") or {}).get("data") or {}).get("등급") or {}}
+
+
+def _docs_ctx(case, block, preview=None, form_vals=None):
+    rep = ((preview or {}).get("d4") or {}).get("4축 정합")
+    return {"case": case, "alias": cdsp.alias(case), "fields": cpkg.DOC_ROW_FIELDS,
+            "v": form_vals or _docs_text(block), "preview": preview, "rep": rep,
+            "step_cls": STEP_STATE_CHIP}
+
+
+@app.get("/entry/docs/{display_code}")
+def docs_form(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    return templates.TemplateResponse(request, "entry_docs.html",
+                                      _docs_ctx(case, case.get(cpkg.DOC_SUBMISSION_KEY) or {}))
+
+
+@app.post("/entry/docs/{display_code}/preview")
+async def docs_preview(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    form = await request.form()
+    block = _parse_docs(form)
+    pv = _preview_with(case, cpkg.DOC_SUBMISSION_KEY, block)
+    return templates.TemplateResponse(request, "entry_docs.html",
+                                      _docs_ctx(case, block, pv, _docs_text(block)))
+
+
+@app.post("/entry/docs/{display_code}/save")
+async def docs_save(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    form = await request.form()
+    block = _parse_docs(form)
+    if not block["note"]:
+        raise HTTPException(400, detail="근거(note: 문서 출처·수령일)가 비어 있다 — 출처 없는 제출 기록 금지")
+    _preview_with(case, cpkg.DOC_SUBMISSION_KEY, block)   # 엔진 검증 통과분만 저장
+    case[cpkg.DOC_SUBMISSION_KEY] = block
+    _save_case(case)
+    return RedirectResponse(f"/entry/docs/{display_code}?saved=1", status_code=303)
+
+
+def _parse_issue(form) -> dict:
+    seq = _form_float(form, "ksfid_seq", required=True, as_int=True)
+    issued = (form.get("ksfid_issued") or "").strip()
+    if not issued:
+        raise HTTPException(400, detail="ksfid_issued(발급일 YYYY-MM-DD)가 비어 있다")
+    return {"ksfid_seq": seq, "ksfid_issued": issued, "note": (form.get("note") or "").strip()}
+
+
+def _issue_ctx(case, block, preview=None):
+    return {"case": case, "alias": cdsp.alias(case), "v": block, "preview": preview,
+            "step_cls": STEP_STATE_CHIP}
+
+
+@app.get("/entry/issue/{display_code}")
+def issue_form(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    return templates.TemplateResponse(request, "entry_issue.html",
+                                      _issue_ctx(case, case.get(cpkg.KSFID_ISSUE_KEY) or {}))
+
+
+@app.post("/entry/issue/{display_code}/preview")
+async def issue_preview(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    form = await request.form()
+    block = _parse_issue(form)
+    pv = _preview_with(case, cpkg.KSFID_ISSUE_KEY, block)
+    return templates.TemplateResponse(request, "entry_issue.html", _issue_ctx(case, block, pv))
+
+
+@app.post("/entry/issue/{display_code}/save")
+async def issue_save(request: Request, display_code: str):
+    case = _full_case_or_404(display_code)
+    form = await request.form()
+    block = _parse_issue(form)
+    if not block["note"]:
+        raise HTTPException(400, detail="근거(note: 발급기관·발급 문서)가 비어 있다 — 출처 없는 발급 기록 금지")
+    _preview_with(case, cpkg.KSFID_ISSUE_KEY, block)      # 엔진 검증 통과분만 저장
+    case[cpkg.KSFID_ISSUE_KEY] = block
+    _save_case(case)
+    return RedirectResponse(f"/entry/issue/{display_code}?saved=1", status_code=303)
+
+
 @app.get("/entry/newcase")
 def newcase_form(request: Request):
     return templates.TemplateResponse(request, "entry_newcase.html", {

@@ -638,7 +638,7 @@ def test_210cha_every_output_is_reachable_from_the_console():
     sweep = ["/", "/entry", "/entry/newcase", "/entry/quotes", "/entry/quotes/edit"]
     sweep += ["/case/" + _cd.code(x) for x in cs]
     sweep += ["/entry/%s/%s" % (k, _cd.code(x))
-              for k in ("financing", "scenario")
+              for k in ("financing", "scenario", "docs", "issue")   # 226차 양식 2종 편입
               for x in cs if not x.get("partial")]
     used_exc = set()
     for p in sweep:
@@ -1707,6 +1707,8 @@ def test_224cha_entry_stepper_shows_real_state():
 
     ★사용자 결정 2026-09-27: *「스테퍼만 — 실제 상태 표시」* — 주입 폼은 만들지
     않는다. 그래서 ②문서 제출·⑥발급은 **「경로 없음」**으로 드러나야 한다.
+    📌226차(사용자 지시)에 두 양식이 생겨 미기입은 **「대기」**가 됐다 — 완료로
+    보이지 않아야 한다는 요구는 그대로다.
 
     🔴 상태는 `consulting_package.entry_steps`가 **분류**하고 화면은 옮긴다 —
        등급·개수를 화면이 짓지 않는다.
@@ -1744,11 +1746,11 @@ def test_224cha_entry_stepper_shows_real_state():
         # ── ② 🔴 경로가 없는 칸을 **완료처럼 보이지 않는가** ────────
         slots = [n["slot"] for n in pkg["open_injections"]]
         if any(s in slots for s in _cp.ENTRY_DOC_SLOTS):
-            assert st["docs"]["state"] == "경로 없음", (
+            assert st["docs"]["state"] == "대기", (
                 f"🔴 {_cd.code(case)} 문서가 없는데 ②가 「{st['docs']['state']}」다")
         if not (pkg["items"] and [x for x in pkg["items"] if x["code"] == "D25"][0]
                 ["data"].get("식별번호")):
-            assert st["issue"]["state"] == "경로 없음" and st["renew"]["state"] == "대기"
+            assert st["issue"]["state"] == "대기" and st["renew"]["state"] == "대기"
 
         # ── ③ 근거 대조 수를 **독립으로** 다시 세어 대조 ─────────────
         prov = case.get("provenance") or {}
@@ -1786,8 +1788,13 @@ def test_224cha_entry_stepper_shows_real_state():
 
     # ── ⑥ 🔴 템플릿이 값을 짓지 않는가 ────────────────────────────
     tpl = _io_read("webapp_templates/entry_hub.html")
-    for w in ("경로 없음</span>", "등급 C", "통과 4"):
-        assert w not in tpl, f"🔴 기입 허브 템플릿에 상태·값 「{w}」가 박혀 있다"
+    #   📌226차: `"대기</span>"`를 템플릿 전체에서 찾으니 **기존 financing 표의 「대기」
+    #      칩**에 걸렸다(무딘 토큰, 열여섯 번째) → **스테퍼 구간만** 잘라서 잰다.
+    seg = tpl[tpl.index('class="steprow"'):tpl.index('<p class="note">')]
+    for w in ("경로 없음", "대기", "완료", "진행"):
+        assert f">{w}<" not in seg, f"🔴 스테퍼 구간에 상태 「{w}」가 박혀 있다"
+    for w in ("등급 C", "통과 4"):
+        assert w not in tpl, f"🔴 기입 허브 템플릿에 값 「{w}」가 박혀 있다"
     exprs = _re.findall(r"\{\{(.*?)\}\}|\{%(.*?)%\}", tpl, _re.S)
     arith = [a or b for a, b in exprs if _re.search(r"\w\s*[-+*/%]\s*\w", (a or b)
                                                      .replace("'chip-ref'", ""))]
@@ -1855,6 +1862,97 @@ def test_225cha_tracking_id_badge_is_an_identifier_not_a_grade(monkeypatch):
     # ── ④ 🔴 템플릿이 번호를 짓지 않는가 ──────────────────────────
     tpl = _io_read("webapp_templates/case_detail.html")
     assert "KSF-" not in tpl, "🔴 템플릿에 번호 조각이 박혀 있다 — 형식은 `KSFID_FORMAT`에서 온다"
+
+
+def test_226cha_docs_and_issue_forms_write_the_case_and_move_the_steps(tmp_cases):
+    """226차 — **문서 제출·K-SFID 발급 주입 폼**(사용자 지시).
+
+    🔴 저장 주입은 `build_package`가 **케이스에서 직접** 읽는다 — 콘솔과 정적 보고서가
+       같은 값을 본다(한쪽만 읽으면 갈라진다, 210차 교훈).
+    🔴 검증은 엔진이 한다: 범위 밖 번호·잘못된 날짜는 엔진 예외가 400으로 나온다.
+    🔴 번호는 **발급기관이 준 것을 적을 뿐** — 콘솔이 번호를 고르지 않는다.
+    """
+    import re as _re
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    path = tmp_cases / "wonchaewon.json"
+    before = json.loads(path.read_text(encoding="utf-8"))
+    assert _cp.DOC_SUBMISSION_KEY not in before and _cp.KSFID_ISSUE_KEY not in before, (
+        "전제: 실케이스에는 아직 주입 블록이 없다")
+
+    # ── ① 근거 없는 저장·엔진이 거부하는 값은 **저장되지 않는다** ────────
+    docs = {"doc_rows_text": "R-01 | 측창 개폐 | A-101 | Rev2 | S-07 | Rev2 | B-12 | Rev1 | KS-01 | 2021",
+            "dd_documents_text": "사업계획서(합성)\n설계도서 일식(합성)",
+            "quoted_models_text": "온풍난방기", "ks_declared_text": "온풍난방기 = KS 적합 선언(합성)",
+            "note": ""}
+    assert client.post("/entry/docs/C2/save", data=docs).status_code == 400
+    bad = dict(docs, doc_rows_text="R-01 | a | b | c | d | e | f | g | h | i | 넘침", note="x")
+    assert client.post("/entry/docs/C2/save", data=bad).status_code == 400
+    issue = {"ksfid_seq": "7", "ksfid_issued": "2026-09-27", "note": ""}
+    assert client.post("/entry/issue/C2/save", data=issue).status_code == 400
+    for k, v in (("ksfid_seq", "12000"), ("ksfid_issued", "2026-13-40")):
+        r = client.post("/entry/issue/C2/save", data=dict(issue, note="x", **{k: v}))
+        assert r.status_code == 400, f"🔴 엔진이 거부할 {k}={v}가 저장까지 갔다"
+    assert json.loads(path.read_text(encoding="utf-8")) == before, (
+        "🔴 거부된 요청이 케이스를 바꿨다")
+
+    # ── ② 미리보기는 엔진 반환을 옮기고, 저장하지 않는다 ─────────────
+    r = client.post("/entry/issue/C2/preview", data=issue)
+    inp = C.case_to_input(before)
+    want = _e.ksfid_number(inp.region, inp.crop, inp.cover.value, 2026, 7)["ksfid"]
+    assert r.status_code == 200 and _re.findall(r'id="pv-ksfid">([^<]+)', r.text) == [want], (
+        "🔴 발급 미리보기가 엔진이 조립한 번호를 내지 않는다")
+    r = client.post("/entry/docs/C2/preview", data=docs)
+    assert r.status_code == 200 and "R-01" in r.text and "온풍난방기" in r.text
+    assert json.loads(path.read_text(encoding="utf-8")) == before, "🔴 미리보기가 저장했다"
+
+    # ── ③ 저장하면 케이스에 **근거와 함께** 기록되고 절차가 움직인다 ──────
+    docs["note"] = "고객 제출 문서(합성) — 출처 형식 예시"
+    issue["note"] = "발급기관 인증서(합성) — 출처 형식 예시"
+    assert client.post("/entry/docs/C2/save", data=docs, follow_redirects=False).status_code == 303
+    assert client.post("/entry/issue/C2/save", data=issue, follow_redirects=False).status_code == 303
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    ds, ki = saved[_cp.DOC_SUBMISSION_KEY], saved[_cp.KSFID_ISSUE_KEY]
+    assert ds["doc_rows"][0]["req_id"] == "R-01" and ds["doc_rows"][0]["std_rev"] == "2021"
+    assert ds["dd_documents"] == ["사업계획서(합성)", "설계도서 일식(합성)"]
+    assert ds["ks_declared"] == {"온풍난방기": "KS 적합 선언(합성)"} and ds["note"]
+    assert ki == {"ksfid_seq": 7, "ksfid_issued": "2026-09-27", "note": issue["note"]}
+    for k in ("input", "provenance", "title"):
+        assert saved[k] == before[k], f"🔴 주입 저장이 케이스의 `{k}`를 건드렸다"
+
+    pkg = _cp.build_package(saved)            # 🔴 인자 없이 — 저장분을 **스스로** 읽는가
+    have = {x["code"]: x for x in pkg["items"]}
+    slots = [n["slot"] for n in pkg["open_injections"]]
+    for s in ("doc_rows", "dd_documents", "quoted_models", "ksfid_seq", "ksfid_issued"):
+        assert s not in slots, f"🔴 저장했는데 `{s}`가 아직 주입 대기다 — 패키지가 저장분을 안 읽는다"
+    assert have["D23"]["data"]["제출 문서"] == ds["dd_documents"]
+    assert have["D25"]["data"]["식별번호"]["ksfid"] == want
+    assert have["D19"]["status"] == "생성"
+
+    st = {s["key"]: s for s in _cp.entry_steps(saved, pkg)}
+    assert st["docs"]["state"] == "완료" and st["issue"]["state"] == "완료" and \
+        st["renew"]["state"] == "진행", f"🔴 저장 후 절차가 움직이지 않았다: {st}"
+    html = client.get("/case/C2").text
+    assert f'<code class="iv">{want}</code>' in html, "🔴 케이스 상세 배지가 저장분을 내지 않는다"
+    hub = client.get("/entry").text
+    assert "식별번호 " + want in hub, "🔴 기입 허브 스테퍼가 저장분을 내지 않는다"
+
+    # ── ④ 폼을 다시 열면 저장값이 채워져 있는가(왕복) ────────────────
+    f = client.get("/entry/docs/C2").text
+    assert "R-01 | 측창 개폐 | A-101" in f and "온풍난방기 = KS 적합 선언(합성)" in f
+    assert 'value="7"' in client.get("/entry/issue/C2").text
+
+    # ── ⑤ 🔴 새 양식에 산술·추천 어휘가 없는가 ──────────────────────
+    for t in ("entry_docs.html", "entry_issue.html"):
+        tpl = _io_read("webapp_templates/" + t)
+        exprs = _re.findall(r"\{\{(.*?)\}\}|\{%(.*?)%\}", tpl, _re.S)
+        arith = [a or b for a, b in exprs if _re.search(
+            r"\w\s*[-+*/%]\s*\w", (a or b).replace("'chip-ref'", ""))]
+        assert not arith, f"🔴 {t} 식에 산술이 있다: {arith}"
+    for u in ("/entry/docs/C2", "/entry/issue/C2"):
+        body = client.get(u).text
+        for w in ("추천", "권장", "최적", "1순위", "우선순위"):
+            assert w not in body, f"🔴 {u}에 판정·추천 어휘 「{w}」가 들어왔다"
 
 
 def _io_read(rel):

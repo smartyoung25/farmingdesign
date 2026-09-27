@@ -1,0 +1,72 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}문서 제출 기입 — {{ alias.code }}{% endblock %}
+{% block main %}
+  <div class="top"><h1>② 문서 제출 기입 — {{ alias.title }}</h1>
+    <div class="actions"><a class="btn" href="/entry">← 기입 워크플로</a></div></div>
+  <div class="subtitle">고객이 제출한 문서의 식별자·목록만 옮겨 적는다 — 4축 정합 분류(D4)·기자재 3열 대조(D19)는 엔진이 하고, 적합 여부는 판정하지 않는다</div>
+  {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — 케이스 JSON에 doc_submission 블록 기록. 정적 보고서 반영은 "엔진 재계산" 실행</div>{% endif %}
+  <div class="split">
+    <div class="card pane">
+      <form method="post" action="/entry/docs/{{ alias.code }}/preview">
+        <label for="doc_rows_text">문서 4축 행 (doc_rows — 한 줄에 한 요구사항, 「|」로 구분)</label>
+        <textarea id="doc_rows_text" name="doc_rows_text" rows="5" placeholder="예: R-01 | 측창 개폐 | A-101 | Rev2 | S-07 | Rev2 | B-12 | Rev2 | KS-B-7955 | 2021">{{ v.doc_rows_text or '' }}</textarea>
+        <div class="hint">칸 순서: {{ fields | join(" | ") }} — 빈 칸은 비워 두면 엔진이 누락으로 분류한다</div>
+        <label for="dd_documents_text">실사 제출 문서 (dd_documents — 한 줄에 하나)</label>
+        <textarea id="dd_documents_text" name="dd_documents_text" rows="3" placeholder="예: 사업계획서(2026-09) · 설계도서 일식 · 판로계약서">{{ v.dd_documents_text or '' }}</textarea>
+        <label for="quoted_models_text">견적 기자재 모델 (quoted_models — 한 줄에 하나)</label>
+        <textarea id="quoted_models_text" name="quoted_models_text" rows="3" placeholder="견적서에 적힌 모델·장치명 그대로">{{ v.quoted_models_text or '' }}</textarea>
+        <label for="ks_declared_text">규격 선언 (ks_declared — 「모델 = 선언」)</label>
+        <textarea id="ks_declared_text" name="ks_declared_text" rows="2" placeholder="예: 온풍난방기 = KS B 8032 적합 선언">{{ v.ks_declared_text or '' }}</textarea>
+        <label for="note">근거 (note — 문서 출처·수령일 필수) <span class="req">*</span></label>
+        <textarea id="note" name="note" placeholder="예: 고객 제출 설계도서 일식(2026-09-27 수령, 메일)">{{ v.note or '' }}</textarea>
+        <div class="hint">저장 시 note가 비어 있으면 거부된다 — 출처 없는 제출 기록 금지</div>
+        <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap">
+          <button type="submit">엔진 미리보기 (저장 안 함)</button>
+          <button type="submit" class="btn-primary" formaction="/entry/docs/{{ alias.code }}/save">케이스에 반영 (근거 포함 저장)</button>
+        </div>
+      </form>
+    </div>
+    <div class="out">
+      {% if preview %}
+      <div class="card">
+        <div style="font-weight:500; margin-bottom:8px">반영 후 기입 절차</div>
+        {% for s in preview.steps %}{% if s.key in ("docs", "rules") %}
+        <div style="font-size:12.5px; margin-bottom:4px"><span class="chip {{ step_cls.get(s.state, 'chip-ref') }}">{{ s.state }}</span> {{ s.name }} — {{ s.detail }}</div>
+        {% endif %}{% endfor %}
+      </div>
+      {% if rep %}
+      <div class="card" style="margin-top:10px">
+        <div style="font-weight:500; margin-bottom:8px">문서 4축 정합 — 엔진 분류(판정 아님)</div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>req_id</th><th>요구사항</th><th>분류</th><th>누락·불일치</th></tr></thead>
+          <tbody>
+          {% for r in rep["행별"] %}
+          <tr><td>{{ r.req_id }}</td><td>{{ r.requirement }}</td><td>{{ r.status }}</td>
+            <td>{% if r.missing_docs %}식별자 누락 {{ r.missing_docs | join(", ") }} {% endif %}{% if r.missing_revs %}Rev 누락 {{ r.missing_revs | join(", ") }} {% endif %}{{ r.mismatch_detail }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        <p class="note">집계 {% for k, n in rep["집계"].items() %}{{ k }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+      </div>
+      {% endif %}
+      {% if preview.d19 %}
+      <div class="card" style="margin-top:10px">
+        <div style="font-weight:500; margin-bottom:8px">기자재 3열 대조 — 엔진 반환(적합 판정 없음)</div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>모델</th><th>등재 DB</th><th>규격 선언</th><th>상태</th></tr></thead>
+          <tbody>
+          {% for r in preview.d19.rows %}
+          <tr><td>{{ r.model }}</td><td>{{ "있음" if r.in_equipment_db else "등재 범위 밖" }}</td>
+            <td>{{ r.ks_declared or "—" }}</td><td>{{ r.status }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+      </div>
+      {% endif %}
+      {% else %}
+      <div class="card" style="color:var(--mut); font-size:13px">왼쪽 폼을 채우고 "엔진 미리보기"를 누르면 4축 정합 분류·기자재 대조와 반영 후 기입 절차 상태가 여기 표시된다.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

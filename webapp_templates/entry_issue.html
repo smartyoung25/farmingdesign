@@ -1,0 +1,46 @@
+{% extends "_base.html" %}
+{% set active = "entry" %}
+{% block title %}K-SFID 발급 기입 — {{ alias.code }}{% endblock %}
+{% block main %}
+  <div class="top"><h1>⑥ K-SFID 발급 기입 — {{ alias.title }}</h1>
+    <div class="actions"><a class="btn" href="/entry">← 기입 워크플로</a></div></div>
+  <div class="subtitle">발급기관이 준 일련번호와 발급일을 옮겨 적는다 — 번호 조립(검증문자 포함)과 유효기간은 엔진(ksfid_number · ksfid_validity)이 낸다. 발급 여부는 발급기관이 정하고, 콘솔은 번호를 고르지 않는다</div>
+  {% if request.query_params.get("saved") %}<div class="banner ok">저장됨 — 케이스 JSON에 ksfid_issue 블록 기록. 정적 보고서 반영은 "엔진 재계산" 실행</div>{% endif %}
+  <div class="split">
+    <div class="card pane">
+      <form method="post" action="/entry/issue/{{ alias.code }}/preview">
+        <label for="ksfid_seq">일련번호 (ksfid_seq, 0~9999) <span class="req">*</span></label>
+        <input type="text" id="ksfid_seq" name="ksfid_seq" value="{{ v.ksfid_seq if v.ksfid_seq is not none else '' }}" placeholder="발급기관이 부여한 번호">
+        <label for="ksfid_issued">발급일 (ksfid_issued, YYYY-MM-DD) <span class="req">*</span></label>
+        <input type="text" id="ksfid_issued" name="ksfid_issued" value="{{ v.ksfid_issued or '' }}" placeholder="예: 2026-09-27">
+        <label for="note">근거 (note — 발급기관·발급 문서 필수) <span class="req">*</span></label>
+        <textarea id="note" name="note" placeholder="예: ○○ 발급기관 인증서 제△호(2026-09-27)">{{ v.note or '' }}</textarea>
+        <div class="hint">저장 시 note가 비어 있으면 거부된다 — 출처 없는 발급 기록 금지</div>
+        <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap">
+          <button type="submit">엔진 미리보기 (저장 안 함)</button>
+          <button type="submit" class="btn-primary" formaction="/entry/issue/{{ alias.code }}/save">케이스에 반영 (근거 포함 저장)</button>
+        </div>
+      </form>
+    </div>
+    <div class="out">
+      {% if preview %}
+      <div class="card">
+        <div style="font-weight:500; margin-bottom:8px">반영 후 추적 식별자 — 엔진 반환</div>
+        <div style="font-size:12px; color:var(--mut)">추적 식별자 · K-SFID · 등급 아님</div>
+        <div style="font-family:Consolas,monospace; font-size:16px; margin:4px 0" id="pv-ksfid">{{ preview.badge.ksfid }}</div>
+        {% if preview.badge.expires %}<div style="font-size:12.5px; color:var(--sub)">만료 {{ preview.badge.expires }}</div>{% endif %}
+      </div>
+      {% if not preview.d25.complete %}
+      <div class="banner" style="margin-top:10px">D25 검증 항목이 미완결이다(미검증 {{ preview.d25.unchecked | length }}) — 기록은 막지 않는다. 발급 여부는 발급기관 몫이고, 이 표시는 사실을 알릴 뿐이다</div>
+      {% endif %}
+      <div class="card" style="margin-top:10px">
+        {% for s in preview.steps %}{% if s.key in ("rules", "issue", "renew") %}
+        <div style="font-size:12.5px; margin-bottom:4px"><span class="chip {{ step_cls.get(s.state, 'chip-ref') }}">{{ s.state }}</span> {{ s.name }} — {{ s.detail }}</div>
+        {% endif %}{% endfor %}
+      </div>
+      {% else %}
+      <div class="card" style="color:var(--mut); font-size:13px">왼쪽 폼을 채우고 "엔진 미리보기"를 누르면 엔진이 조립한 식별번호와 만료일이 여기 표시된다.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
