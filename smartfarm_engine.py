@@ -5814,11 +5814,24 @@ MATERIAL_APPROVAL_ALIASES = {
     "시험성적서": "시험성적표",
     "제조사 시방서": "제조업자 시방서",
     "카다로그": "카탈로그",
+    # 232차 — **영문 표기**(사용자 지시). 수입 기자재 서류는 영문 표제로 온다.
+    #   대소문자는 `_approval_doc_key`가 무시한다(Catalog = CATALOG). 🔴「계산서」는
+    #   영문도 Invoice·Calculation Sheet로 갈려 **두지 않는다**(231차와 같은 이유).
+    "Catalog": "카탈로그",
+    "Catalogue": "카탈로그",
+    "Test Report": "시험성적표",
+    "Manufacturer's Specification": "제조업자 시방서",
+    "Manufacturer Specification": "제조업자 시방서",
+    "Color Chart": "표준 색상철",
+    "Colour Chart": "표준 색상철",
+    "Maintenance Manual": "자재유지관리 지침서",
+    "O&M Manual": "자재유지관리 지침서",
 }
 
 
 def _approval_doc_key(name) -> str:
-    return "".join(str(name).split())
+    # 공백 무시(231차) + 대소문자 무시(232차 — 영문 표기). 한글에는 영향이 없다
+    return "".join(str(name).split()).casefold()
 
 
 def _normalize_approval_doc(name) -> Optional[str]:

@@ -2118,8 +2118,11 @@ def test_231cha_docs_form_shows_normalization_and_unrecognized(tmp_cases):
     assert "시험성적서→시험성적표" in pv and "표준색상철→표준 색상철" in pv, (
         "🔴 미리보기가 표기 정리를 보여 주지 않는다")
     assert "인식 안 됨</span> 세금계산서" in pv, "🔴 인식 안 된 이름이 드러나지 않는다"
+    #   📌232차: 영문 별칭 「Manufacturer's …」의 `'`를 Jinja가 `&#39;`로 이스케이프한다 —
+    #      화면은 맞고 **비교가 날것**이었다 → Jinja와 같은 `markupsafe.escape`로 잰다.
+    from markupsafe import escape as _esc
     for a, c in _e.MATERIAL_APPROVAL_ALIASES.items():
-        assert f"{a}→{c}" in pv, f"🔴 양식 안내에 등재 별칭 {a}→{c}가 없다"
+        assert f"{_esc(a)}→{_esc(c)}" in pv, f"🔴 양식 안내에 등재 별칭 {a}→{c}가 없다"
 
     assert client.post("/entry/docs/C2/save", data=form, follow_redirects=False).status_code == 303
     saved = json.loads(path.read_text(encoding="utf-8"))

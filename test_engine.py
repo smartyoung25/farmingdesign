@@ -12305,6 +12305,46 @@ def test_231cha_approval_doc_names_are_normalized_not_guessed():
         "🔴 정규화 헬퍼가 공개 함수가 됐다 — 공개 API 수(74)를 바꾸려면 별도 결정이다")
 
 
+def test_232cha_english_approval_doc_names():
+    """232차 — **영문 첨부 서류명**(사용자 지시). 별칭 9건 + 대소문자 무시.
+
+    🔴 여전히 추측하지 않는다: 등재되지 않은 영문(복수형·다른 어휘)은 「인식 안 됨」이다.
+    🔴 「계산서」는 영문도 Invoice·Calculation Sheet로 갈려 **별칭이 없다**.
+    """
+    CANON = e.MATERIAL_APPROVAL_ATTACHMENTS
+
+    def _row(given):
+        return e.equipment_reconcile(["히터"], {"히터": "KS"}, {"히터": given})["rows"][0]
+
+    # ── ① 영문 표제로 5종(계산서 제외)을 채우면 계산서만 남는다 ─────────
+    r = _row(["Catalog", "Test Report", "Manufacturer's Specification",
+              "Color Chart", "Maintenance Manual"])
+    assert r["attachments_missing"] == ["계산서"], (
+        f"🔴 영문 표제 5종을 누락으로 셌다: {r['attachments_missing']}")
+
+    # ── ② 대소문자·공백은 무시하고, 적힌 그대로는 보존한다 ───────────────
+    r = _row(["CATALOGUE", "test   report", "colour chart", "o&m manual"])
+    assert r["attachments_normalized"] == {
+        "CATALOGUE": "카탈로그", "test   report": "시험성적표",
+        "colour chart": "표준 색상철", "o&m manual": "자재유지관리 지침서"}
+    assert r["attachments_given"] == ["CATALOGUE", "test   report", "colour chart", "o&m manual"]
+
+    # ── ③ 🔴 등재되지 않은 영문은 추측하지 않는다 ────────────────────
+    r = _row(["Invoice", "Calculation Sheet", "Manufacturers Specification",
+              "Brochure", "Datasheet"])
+    assert r["attachments_unrecognized"] == ["Invoice", "Calculation Sheet",
+                                             "Manufacturers Specification", "Brochure", "Datasheet"], (
+        f"🔴 등재되지 않은 영문을 끌어다 붙였다: {r['attachments_unrecognized']}")
+    assert r["attachments_missing"] == list(CANON)
+
+    # ── ④ 별칭 표: 정본만 가리키고, 계산서로 가는 별칭은 **어느 언어로도** 없다 ──
+    assert all(c in CANON for c in e.MATERIAL_APPROVAL_ALIASES.values())
+    assert "계산서" not in e.MATERIAL_APPROVAL_ALIASES.values(), (
+        "🔴 뜻이 둘인 「계산서」로 옮기는 별칭이 생겼다 — 없는 서류를 있다고 센다")
+    en = [a for a in e.MATERIAL_APPROVAL_ALIASES if a.isascii()]
+    assert len(en) == 9, f"🔴 영문 별칭이 {len(en)}건이다 — 232차 등재는 9건이다(늘렸다면 근거와 함께)"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
