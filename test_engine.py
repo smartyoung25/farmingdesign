@@ -4995,8 +4995,8 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 110, "partial": 57, "near": 17}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 230차 실측은 exact 110 / partial 57 / near 17이다"
+    assert dist == {"exact": 112, "partial": 57, "near": 17}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 244차 실측은 exact 112 / partial 57 / near 17이다(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10))"
         "(+ 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
         "감리 절차 2상수)"
@@ -6005,8 +6005,8 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 110, "partial": 57, "near": 17}, (
-        f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다"
+    assert dist == {"exact": 112, "partial": 57, "near": 17}, (
+        f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10))"
         "(+ 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
         "163차에 `REGION_DESIGN_LOAD`의 [별표] 사본 2건이 더해져 53 → 55). "
@@ -6505,8 +6505,8 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 184, (
-        f"source_refs가 {a['counts']['source_refs']}다 — 230차 실측은 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
+    assert a["counts"]["source_refs"] == 186, (
+        f"source_refs가 {a['counts']['source_refs']}다 — 244차 실측은 186건(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10)) · 230차 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(177차 173 + 🔴178차 OPEX 비목 대조 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
     blind = {x[0] if isinstance(x, (list, tuple)) else x
@@ -7599,8 +7599,8 @@ def test_163cha_design_load_byepyo_registered():
     # 🔴178차 — `OPEX_ITEM_CATEGORIES`가 풀려 3건 → 2건이 됐다(조사표 비목 대조)
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 178차 실측은 2건이다")
-    assert a["counts"]["source_refs"] == 184, (
-        f"source_refs가 {a['counts']['source_refs']}건이다 — 230차 실측은 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))")
+    assert a["counts"]["source_refs"] == 186, (
+        f"source_refs가 {a['counts']['source_refs']}건이다 — 244차 실측은 186건(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10)) · 230차 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
     assert len(e.REGION_DESIGN_LOAD) == 172
@@ -8416,7 +8416,8 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     # 🔴230차 — `KSFID_NUMBER_SPEC` 등재로 70 → 71(사용자 지시 · 원래 엔진 함수 본문의 리터럴이었다)
     # 🔴231차 — `MATERIAL_APPROVAL_ALIASES` 등재로 71 → 72(첨부 서류명 별칭 · 결정)
     # 🔴241차 — `WEATHER_STATION_ALIASES` 등재로 72 → 73(★D-5·D-6 결정)
-    assert len(reg["constants"]) == 73, (
+    # 🔴244차 — `PUMSEM_OVERHEAD_RATES` 등재로 73 → 74(★D-10 — 원문 [주] 전사)
+    assert len(reg["constants"]) == 74, (
         "🔴 레지스트리 상수가 69개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
@@ -12787,6 +12788,59 @@ def test_243cha_d12_pumsem_order_follows_the_source_toc():
     led = rd("근거_결정대기대장_20260915.md")
     assert "| ~~**D-12**~~ ✅**닫힘(243차)** |" in led
     assert "243차" in rd("근거_품셈_목차대조_20260914.md")
+
+
+def test_244cha_d10_overhead_rates_match_the_source_notes():
+    """244차 — ★사용자 결정(2026-09-28, D-10): **품셈 공구손료·잡재료 요율 등재**.
+
+    🔴 엔진 표를 **원문 PDF에서 다시 뽑은** `pumsem_extract.rate_rules()`와 품목 단위로 대조한다 —
+       등재값이 원문 [주]를 벗어나면 실패한다. 두 계열(공구손료 = 인력품 기준 · 잡재료 = 주재료비 기준)을
+       한 필드로 합치지 않는다. 선홈통(2%·3% 동시)은 **값을 고르지 않는다**.
+    """
+    import os as _o, sys as _s, json as _j
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    if repo not in _s.path:
+        _s.path.insert(0, repo)
+    import pumsem_extract as px
+    R = e.PUMSEM_OVERHEAD_RATES
+
+    # ── ① 원문 재추출과 품목 단위 대조 ──────────────────────────────
+    try:
+        rr = px.rate_rules()
+    finally:
+        px.close_doc()
+    names = {}
+    for it in e.PUMSEM_ITEMS:
+        names.setdefault(it.category, []).append(it.name)
+    key = lambda c, n: "%s|%s" % (c, names[c][n - 1])
+    src3 = {key(c, n) for c, n in rr["3"]}
+    src2 = {key(c, n) for c, n in rr["2"]}
+    src5 = {key(c, n) for c, n in rr["5"]}
+    assert (len(src3), len(src2), len(src5)) == (26, 4, 2), "전제: 원문 규정 3% 26 · 2% 4 · 5% 2"
+    both = src2 & src3
+    assert both == {"알루미늄공사|선홈통공사"}, f"🔴 2%·3% 동시 규정 품목이 {both}다 — 원문 결함 E1은 선홈통 하나다"
+    for k in src3 - both:
+        assert R.get(k, {}).get("공구손료율") == 0.03, f"🔴 {k}: 원문 3%인데 등재 {R.get(k)}"
+    for k in src2 - both:
+        assert R.get(k, {}).get("공구손료율") == 0.02, f"🔴 {k}: 원문 2%인데 등재 {R.get(k)}"
+    for k in src5:
+        assert R.get(k, {}).get("잡재료율") == 0.05, f"🔴 {k}: 원문 잡재료 5%인데 등재 {R.get(k)}"
+    tool = {k for k, v in R.items() if "공구손료율" in v}
+    assert tool == src2 | src3 and {k for k, v in R.items() if "잡재료율" in v} == src5, (
+        "🔴 원문에 없는 품목에 요율이 등재됐거나 원문 품목이 빠졌다")
+
+    # ── ② 선홈통 — 고르지 않는다 ─────────────────────────────────────
+    assert R["알루미늄공사|선홈통공사"] == {"공구손료율": None, "공구손료율_원문": [0.02, 0.03]}, (
+        "🔴 원문이 2%와 3%를 동시에 적은 품목에 값 하나를 골랐다 — 판단성이다")
+    # 두 계열은 한 필드로 합치지 않는다(샌드위치판넬은 둘 다)
+    assert R["온실피복공사|샌드위치판넬"] == {"공구손료율": 0.03, "잡재료율": 0.05}
+
+    # ── ③ 기록 ─────────────────────────────────────────────────────
+    reg = _j.load(open(_o.path.join(repo, "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["PUMSEM_OVERHEAD_RATES"]
+    assert reg["status"] == "실측" and any(r["file"].endswith("품셈.pdf") and r["match"] == "exact" for r in reg["source_refs"])
+    assert "D-10" in reg["source"] and "금액은 내지 않는다" in reg["source"]
+    led = open(_o.path.join(repo, "근거_결정대기대장_20260915.md"), encoding="utf-8").read()
+    assert "| ~~**D-10**~~ ✅**닫힘(244차)** |" in led
 
 
 if __name__ == "__main__":

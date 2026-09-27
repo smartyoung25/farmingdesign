@@ -40,7 +40,8 @@ def test_simple_dict_and_scalar_constants():
                 "CAPEX_MAJOR_KNOWN_TOTALS",  # 표본 known_total 단일 출처(2026-08-18 53차, 레드팀 4회차 F8)
                 "KSFID_NUMBER_SPEC",  # K-SFID 번호 체계(2026-09-27 230차, 사용자 지시 등재)
                 "MATERIAL_APPROVAL_ALIASES",  # 첨부 서류명 별칭(2026-09-27 231차, 사용자 지시)
-                "WEATHER_STATION_ALIASES"]:  # 기상 지점 별칭(2026-09-28 241차, ★D-5·D-6)
+                "WEATHER_STATION_ALIASES",  # 기상 지점 별칭(2026-09-28 241차, ★D-5·D-6)
+                "PUMSEM_OVERHEAD_RATES"]:  # 품셈 공구손료·잡재료 요율(2026-09-28 244차, ★D-10)
         eng = _norm(getattr(e, C[key]["engine_attr"]))
         assert eng == C[key]["value"], f"{key}: 엔진={eng} vs 레지스트리={C[key]['value']}"
 
