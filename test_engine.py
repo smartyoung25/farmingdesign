@@ -12343,7 +12343,7 @@ def test_232cha_english_approval_doc_names():
         "🔴 뜻이 둘인 「계산서」로 옮기는 별칭이 생겼다 — 없는 서류를 있다고 센다")
     #   📌234차: 굽은 따옴표 별칭은 `isascii()`가 False라 빠진다 → 라틴 글자가 있는 이름으로 센다
     en = [a for a in e.MATERIAL_APPROVAL_ALIASES if any("a" <= ch.lower() <= "z" for ch in a)]
-    assert len(en) == 10, (f"🔴 영문 별칭이 {len(en)}건이다 — 232차 9건 + 234차 굽은 따옴표 1건 = 10건"
+    assert len(en) == 13, (f"🔴 영문 별칭이 {len(en)}건이다 — 232차 9건 + 234차 ’ 1건 + 235차 ‘ ‛ ′ 3건 = 13건"
                            "(늘렸다면 근거와 함께)")
 
 
@@ -12375,9 +12375,10 @@ def test_233cha_fullwidth_approval_doc_names():
     # ── ② 🔴 모양만 옮기고 뜻은 추측하지 않는다 ─────────────────────────
     #   📌234차: 「Manufacturer’s(U+2019) Specification」이 별칭으로 **등재됐다**(사용자 지시) →
     #      등재되지 않은 모양 ‘(U+2018)로 「추측하지 않는다」를 잰다.
-    r = _row([FW("Invoice"), FW("Brochure"), "Manufacturer\u2018s Specification"])
+    #   📌235차: ‘ ‛ ′도 등재됐다 → 등재되지 않은 **백틱(`)**으로 잰다.
+    r = _row([FW("Invoice"), FW("Brochure"), "Manufacturer`s Specification"])
     assert r["attachments_unrecognized"] == [FW("Invoice"), FW("Brochure"),
-                                             "Manufacturer\u2018s Specification"], (
+                                             "Manufacturer`s Specification"], (
         f"🔴 전각을 반각으로 옮긴 뒤 등재되지 않은 이름까지 붙였다: {r['attachments_unrecognized']}")
     assert r["attachments_missing"] == list(CANON)
 
@@ -12404,18 +12405,48 @@ def test_234cha_curly_apostrophe_is_one_registered_alias():
     def _row(given):
         return e.equipment_reconcile(["히터"], {"히터": "KS"}, {"히터": given})["rows"][0]
 
-    r = _row([name, name.upper(), "Manufacturer's Specification", "Manufacturer" + LSQ + "s Specification",
+    #   📌235차: ‘(LSQ)도 등재됐다(사용자 지시) → 「등재하지 않은 모양」 예시를 백틱(`)으로 바꿨다
+    r = _row([name, name.upper(), "Manufacturer's Specification", "Manufacturer`s Specification",
               "Catalog" + RSQ])
     assert r["attachments_normalized"] == {name: "제조업자 시방서", name.upper(): "제조업자 시방서",
                                            "Manufacturer's Specification": "제조업자 시방서"}, (
         "🔴 등재한 굽은 따옴표 이름(대소문자 무관)과 곧은 따옴표 이름이 정본으로 가지 않는다")
-    assert r["attachments_unrecognized"] == ["Manufacturer" + LSQ + "s Specification", "Catalog" + RSQ], (
+    assert r["attachments_unrecognized"] == ["Manufacturer`s Specification", "Catalog" + RSQ], (
         f"🔴 등재하지 않은 따옴표 모양까지 맞췄다 — 일괄 치환은 추측이다: {r['attachments_unrecognized']}")
-    assert sum(1 for a in e.MATERIAL_APPROVAL_ALIASES if RSQ in a) == 1 and \
-        not any(LSQ in a for a in e.MATERIAL_APPROVAL_ALIASES), "🔴 따옴표 별칭은 234차 한 건뿐이어야 한다"
+    assert sum(1 for a in e.MATERIAL_APPROVAL_ALIASES if RSQ in a) == 1, (
+        "🔴 ’ 가 든 별칭은 234차 한 건뿐이어야 한다(다른 모양은 235차 가드가 잰다)")
     ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
     assert "234차" in ent["source"] and ent["value"].get(name) == "제조업자 시방서"
+
+
+def test_235cha_other_quote_variants_are_registered_one_by_one():
+    """235차 — 다른 따옴표 변형(‘ U+2018 · ‛ U+201B · ′ U+2032)을 **한 건씩** 별칭으로(사용자 지시).
+
+    🔴 여전히 일괄 치환이 아니다 — 등재한 네 모양(’ ‘ ‛ ′)의 **그 이름**만 맞고,
+       백틱(`)·다른 이름의 따옴표는 「인식 안 됨」이다.
+    """
+    import json as _j, os as _o
+    QUOTES = ("’", "‘", "‛", "′")
+    names = ["Manufacturer" + q + "s Specification" for q in QUOTES]
+    for n in names:
+        assert e.MATERIAL_APPROVAL_ALIASES.get(n) == "제조업자 시방서", f"🔴 {n!r}이 등재되지 않았다"
+
+    r = e.equipment_reconcile(["히터"], {"히터": "KS"},
+                              {"히터": names + ["Manufacturer`s Specification",
+                                                "Catalog‘", "Test′Report"]})["rows"][0]
+    assert set(r["attachments_normalized"]) == set(names)
+    assert r["attachments_unrecognized"] == ["Manufacturer`s Specification", "Catalog‘", "Test′Report"], (
+        f"🔴 등재하지 않은 따옴표 모양·이름까지 맞췄다: {r['attachments_unrecognized']}")
+
+    # 굽은 따옴표·프라임·백틱이 든 별칭은 **이 이름의 네 모양뿐**이다
+    #   (곧은 따옴표 「Manufacturer's Specification」은 232차 영문 별칭이라 따로 있다)
+    quoted = sorted(a for a in e.MATERIAL_APPROVAL_ALIASES
+                    if any(q in a for q in QUOTES + ("`",)))
+    assert quoted == sorted(names), f"🔴 따옴표 별칭이 {quoted}다 — 235차 등재는 네 모양 한 이름뿐이다"
+    ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
+                                    "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
+    assert "235차" in ent["source"] and all(ent["value"].get(n) == "제조업자 시방서" for n in names)
 
 
 if __name__ == "__main__":

@@ -5827,6 +5827,12 @@ MATERIAL_APPROVAL_ALIASES = {
     #   흔한 모양이다. 따옴표를 일괄 치환하지 않고 **이 이름 하나만** 별칭으로 둔다 —
     #   ‘(U+2018) 등 다른 모양은 여전히 인식 안 됨이다(추측하지 않는다).
     "Manufacturer\u2019s Specification": "제조업자 시방서",
+    # 235차 — **다른 따옴표 변형**(사용자 지시). 같은 이름의 ‘(U+2018) · ‛(U+201B) ·
+    #   ′(U+2032 프라임)을 **한 건씩** 등재한다 — 여전히 일괄 치환이 아니다. 등재하지 않은
+    #   모양(` 등)과 다른 이름의 따옴표는 인식 안 됨이다.
+    "Manufacturer\u2018s Specification": "제조업자 시방서",
+    "Manufacturer\u201bs Specification": "제조업자 시방서",
+    "Manufacturer\u2032s Specification": "제조업자 시방서",
     "Color Chart": "표준 색상철",
     "Colour Chart": "표준 색상철",
     "Maintenance Manual": "자재유지관리 지침서",
@@ -5839,7 +5845,7 @@ def _approval_doc_key(name) -> str:
     #   NFKC는 전각 영숫자·기호(ＣＡＴＡＬＯＧ·＆·＇)와 전각 공백을 보통 글자로 옮기고,
     #   분해형(NFD) 한글도 완성형으로 합친다. 완성형 한글은 그대로다.
     #   ⚠️ 굽은 따옴표(’)는 전각이 아니라 NFKC가 옮기지 않는다 — 별칭에 없으면 인식 안 됨이다
-    #      (234차에 「Manufacturer’s Specification」 하나만 별칭으로 등재했다)
+    #      (234·235차에 「Manufacturer…s Specification」의 ’ ‘ ‛ ′ 네 모양만 별칭으로 등재했다)
     return "".join(unicodedata.normalize("NFKC", str(name)).split()).casefold()
 
 
