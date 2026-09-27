@@ -1047,6 +1047,15 @@ def build_package(case: dict, injections: dict = None) -> dict:
             _hv = e.verify_heating_vs_actual(res["heating"]["load_per_m2"],
                                              inp.cover.value)
             _rows = inj.get("doc_rows")
+            # 228차 — ★사용자 결정(2026-09-27, B10 ⓑ): `equipment_ks`는 근거 문구
+            #   *「KS 적합 선언·재료승인 첨부가 갖춰졌는가」* 그대로 **선언과 첨부 6종
+            #   완비를 함께** 본다. 227차까지는 선언만 봐서 문구와 검사가 어긋났다.
+            #   판정 기준은 엔진 `equipment_reconcile` 반환(`needs_ks_declaration`·
+            #   `attachments_missing`)이다 — 이 계층은 그 둘을 **읽기만** 한다.
+            _eq = (None if not inj.get("quoted_models") else
+                   e.equipment_reconcile(inj["quoted_models"], inj.get("ks_declared"),
+                                         inj.get("attachments_by_model")))
+            _att_short = bool(_eq) and any(r["attachments_missing"] for r in _eq["rows"])
             checks = {
                 "design_load": bool(_sel["candidates"]),
                 "doc_consistency": (None if not _rows else
@@ -1054,10 +1063,8 @@ def build_package(case: dict, injections: dict = None) -> dict:
                                     == len(_rows)),
                 "heating_design": _hv["status"] == "정상",
                 "cost_band": _bc["status"] == "정상",
-                "equipment_ks": (None if not inj.get("quoted_models") else
-                                 not e.equipment_reconcile(
-                                     inj["quoted_models"],
-                                     inj.get("ks_declared"))["needs_ks_declaration"]),
+                "equipment_ks": (None if _eq is None else
+                                 not _eq["needs_ks_declaration"] and not _att_short),
                 "permit": not _pm["missing_inputs"],
                 "warranty": e.warranty_period("온실설치") is not None,
             }
@@ -1077,6 +1084,8 @@ def build_package(case: dict, injections: dict = None) -> dict:
                 need25 = need25 + _need("ksfid_issued")
             if not gr["complete"]:
                 need25 = need25 + _need("doc_rows", "quoted_models")
+            if _att_short:                                  # 228차 — 무엇이 모자란지 드러낸다
+                need25 = need25 + _need("attachments_by_model")
             items.append(_item(spec, "생성" if not need25 else "부분생성", d, need25,
                                "🔴 등급은 **검증 항목 통과 수 + 실격 사유**이지 "
                                "**사업 평가가 아니다**. 임계값은 ★사용자 결정이고 "

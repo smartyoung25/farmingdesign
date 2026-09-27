@@ -11305,7 +11305,7 @@
       "axis": "품질설계→감리(등급)",
       "check": "list",
       "desc": "K-SFID 검증 항목 7종(실격 항목 2종 포함) — 등급 산정의 대상",
-      "source": "2026-09-21 187차 — ★**사용자 결정**(*「★ 등급 부여 체계도 설계하라」*)으로 신설한 **검증 등급 규칙**이다. 🔴**값의 출처는 원문이 아니라 사용자 결정**이므로 status를 `결정`으로 둔다 — 실측도 법정기준도 아니다. 구조의 준거는 186차에 **원문에서 확인**한 Kiwa PVEL PV Module Reliability Scorecard의 Top Performer 기준이다: 시험별 *「< 2% power degradation」* **그리고** *「must not have experienced a wet leakage failure, a 'major' defect during visual inspection, or a diode failure」* — **합격선 명시형**이라 가중합 총점이 아니라 **항목별 통과 수 + 실격 사유**로 등급을 낸다. 유효기간 12개월은 **SGS Japan JAS 인증의 연 1회 갱신** 준용(186차 원문 확인). ⚠️**임계값(A 7 / B 6 / C 4)은 벤치마크에서 유도한 것이 아니라 이 프로젝트의 결정**이고, `ksfid_grade(thresholds=)`로 **덮어쓸 수 있다** — 바꾸면 등급이 바뀐다는 것을 반환의 `rule`이 드러낸다",
+      "source": "2026-09-21 187차 — ★**사용자 결정**(*「★ 등급 부여 체계도 설계하라」*)으로 신설한 **검증 등급 규칙**이다. 🔴**값의 출처는 원문이 아니라 사용자 결정**이므로 status를 `결정`으로 둔다 — 실측도 법정기준도 아니다. 구조의 준거는 186차에 **원문에서 확인**한 Kiwa PVEL PV Module Reliability Scorecard의 Top Performer 기준이다: 시험별 *「< 2% power degradation」* **그리고** *「must not have experienced a wet leakage failure, a 'major' defect during visual inspection, or a diode failure」* — **합격선 명시형**이라 가중합 총점이 아니라 **항목별 통과 수 + 실격 사유**로 등급을 낸다. 유효기간 12개월은 **SGS Japan JAS 인증의 연 1회 갱신** 준용(186차 원문 확인). ⚠️**임계값(A 7 / B 6 / C 4)은 벤치마크에서 유도한 것이 아니라 이 프로젝트의 결정**이고, `ksfid_grade(thresholds=)`로 **덮어쓸 수 있다** — 바꾸면 등급이 바뀐다는 것을 반환의 `rule`이 드러낸다 📌228차 — ★**사용자 결정(2026-09-27, B10 ⓑ)**: `equipment_ks`의 검사를 근거 문구(「KS 적합 선언·재료승인 첨부가 갖춰졌는가」)에 맞춰 **선언 + 첨부 6종(`MATERIAL_APPROVAL_ATTACHMENTS`) 완비**로 넓혔다. 227차까지는 선언만 봐 문구와 검사가 어긋났다(227차 발견 이견). 항목 목록·실격 여부·등급 경계는 바꾸지 않았다",
       "status": "결정",
       "status_note": "결정(★사용자 2026-09-21) — 원문 실측이 아니라 프로젝트 결정값이다",
       "value": [

@@ -1960,11 +1960,9 @@ def test_227cha_approval_attachments_reach_the_equipment_reconcile(tmp_cases):
 
     🔴 첨부 누락은 **엔진**(`equipment_reconcile`)이 시방서 6종과 대조해 낸다 —
        양식 안내의 6종 목록도 엔진 상수를 그대로 쓴다(두 곳에서 적지 않는다).
-    ⚠️ 이견(227차 발견, 바꾸지 않음): D25 `equipment_ks`의 근거 문구는
-       *「KS 적합 선언·재료승인 첨부가 갖춰졌는가」*인데 검사는 **선언만** 본다.
-       `KSFID_CHECK_SPEC`은 레지스트리 `결정`이라 규칙을 바꾸는 것은 ★사용자 몫이다 —
-       이 가드는 **지금 첨부가 등급을 바꾸지 않는다**는 사실을 고정해, 누가 조용히
-       바꾸면 드러나게 한다.
+    ⚠️ 이견(227차 발견): D25 `equipment_ks`의 근거 문구는 *「KS 적합 선언·재료승인
+       첨부가 갖춰졌는가」*인데 검사는 **선언만** 봤다. → 📌228차 ★사용자 결정(B10 ⓑ)으로
+       검사에 **첨부 6종 완비**를 더했다(⑤가 그것을 잰다).
     """
     import consulting_package as _cp
     import smartfarm_engine as _e
@@ -2018,14 +2016,38 @@ def test_227cha_approval_attachments_reach_the_equipment_reconcile(tmp_cases):
     assert body.splitlines() == att.splitlines(), (
         f"🔴 문서 양식을 다시 열면 저장된 첨부가 채워지지 않는다: {body!r}")
 
-    # ── ⑤ ⚠️ 이견 고정: 첨부는 **지금** D25 등급을 바꾸지 않는다 ─────────
-    no_att = dict(saved)
-    no_att[_cp.DOC_SUBMISSION_KEY] = dict(saved[_cp.DOC_SUBMISSION_KEY], attachments_by_model={})
-    g1 = [x for x in pkg["items"] if x["code"] == "D25"][0]["data"]["등급"]
-    g0 = [x for x in _cp.build_package(no_att)["items"] if x["code"] == "D25"][0]["data"]["등급"]
-    assert (g1["grade"], g1["passed"], g1["unchecked"]) == (g0["grade"], g0["passed"], g0["unchecked"]), (
-        "🔴 첨부가 D25 등급을 바꾸기 시작했다 — `KSFID_CHECK_SPEC`은 레지스트리 `결정`이다. "
-        "규칙을 바꿨다면 ★사용자 결정을 기록하고 이 절을 함께 고쳐라(227차 이견)")
+    # ── ⑤ 🔴228차 ★사용자 결정(B10 ⓑ): `equipment_ks` = 선언 + 첨부 6종 **완비** ──
+    #   227차엔 여기서 *「첨부는 등급을 바꾸지 않는다」*를 고정했다(이견 고정). 사용자가
+    #   ⓑ를 골라 **규칙이 바뀌었고** 이 절도 함께 바꿨다. 두 모델 모두 **선언이 있어야**
+    #   첨부만의 효과를 잰다(선언이 빠지면 첨부와 무관하게 불합격이라 가드가 못 본다).
+    full6 = list(_e.MATERIAL_APPROVAL_ATTACHMENTS)
+
+    both = {"온풍난방기": "KS 선언(합성)", "보온커튼": "KS 선언(합성)"}
+
+    def _eqks(att_map, ks=both):
+        c = dict(saved)
+        c[_cp.DOC_SUBMISSION_KEY] = dict(
+            saved[_cp.DOC_SUBMISSION_KEY], ks_declared=ks, attachments_by_model=att_map)
+        it = [x for x in _cp.build_package(c)["items"] if x["code"] == "D25"][0]
+        row = [r for r in it["data"]["등급"]["rows"] if r["key"] == "equipment_ks"][0]
+        return row["state"], [n["slot"] for n in it["needs"]]
+
+    st_full, need_full = _eqks({"온풍난방기": full6, "보온커튼": full6})
+    st_part, need_part = _eqks({"온풍난방기": full6, "보온커튼": full6[:-1]})
+    st_none, need_none = _eqks({})
+    #   📌 뮤테이션 M5: 선언 검사를 빼도 위 셋은 통과했다 → **첨부 완비 + 선언 누락**을 잰다
+    st_nodecl, _n = _eqks({"온풍난방기": full6, "보온커튼": full6}, {"온풍난방기": "KS 선언(합성)"})
+    assert st_nodecl == "불합격", (
+        f"🔴 첨부가 다 있어도 선언이 빠졌는데 「{st_nodecl}」다 — 선언과 첨부는 **둘 다** 필요하다")
+    assert st_full == "통과" and "attachments_by_model" not in need_full, (
+        f"🔴 선언과 첨부 6종이 모두 있는데 `equipment_ks`가 「{st_full}」다")
+    assert st_part == "불합격" and "attachments_by_model" in need_part, (
+        f"🔴 첨부 1종이 빠졌는데 「{st_part}」다 — ★B10 ⓑ는 **6종 완비**다")
+    assert st_none == "불합격" and "attachments_by_model" in need_none, (
+        f"🔴 첨부가 하나도 없는데 「{st_none}」다 — 선언만으로 통과시키면 227차 이견으로 돌아간다")
+    reg = json.loads(_io_read("엔진데이터_레지스트리.json"))["constants"]["KSFID_CHECK_SPEC"]
+    assert "228차" in reg["source"] and "B10 ⓑ" in reg["source"] and reg["status"] == "결정", (
+        "🔴 규칙을 바꿨는데 레지스트리 `KSFID_CHECK_SPEC` 출처에 ★결정 기록이 없다")
 
 
 def _io_read(rel):
