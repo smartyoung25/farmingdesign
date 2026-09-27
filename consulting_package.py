@@ -434,6 +434,69 @@ def platform_index(items: list) -> list:
     return rows
 
 
+# ─────────────────────────────────────────────────────────────
+# 224차 — **기입 절차 스테퍼**(사용자 지시 · 223차 목업 승인분).
+#   준거(186차 원문 대조): SGS Japan JAS 인증 절차 — 見積り依頼 / 見積書受領·申請 /
+#     書類審査 / 実地検査 / 判定 / 認定証発行 / 年次審査(연 1회).
+#   🔴 **진행 상태이지 판정이 아니다** — 각 단계 상태는 케이스·패키지 반환을 **분류**할
+#      뿐 값·등급을 새로 만들지 않는다. ⑤의 등급은 D25가 낸 것을 그대로 옮긴다.
+#   ⚠️ **경로 없음**을 숨기지 않는다: ②문서 제출·⑥발급은 콘솔에 **기입 양식도
+#      케이스 저장 필드도 없다**(웹앱은 주입값 없이 패키지를 만든다). 그래서 그 칸은
+#      「경로 없음」으로 남고 ⑦은 발급일이 없어 「대기」다 — ★사용자 결정
+#      2026-09-27 *「스테퍼만 — 실제 상태 표시」*(주입 폼은 만들지 않는다).
+# ─────────────────────────────────────────────────────────────
+ENTRY_STEPS: tuple = (
+    ("case", "케이스 생성", "사람", "申請(신청)"),
+    ("docs", "문서 제출", "사람", "書類提出(서류 제출)"),
+    ("engine", "엔진 검증", "엔진", "書類審査(서류심사)"),
+    ("evidence", "근거 대조", "사람", "実地検査(현장 확인)"),
+    ("rules", "규칙 적용", "엔진", "判定(판정)"),
+    ("issue", "발급", "사람", "認定証発行(인증서 발행)"),
+    ("renew", "연차 재검", "사람", "年次審査(연차심사)"),
+)
+ENTRY_DOC_SLOTS: tuple = ("doc_rows", "dd_documents", "quoted_models")
+# 원문 대조 전 status — 이것이 남아 있으면 ④는 끝나지 않았다(35차 정책: 실측 승격은 대조로만)
+ENTRY_OPEN_PROVENANCE: tuple = ("추정", "확인요망", "미검증")
+
+
+def entry_steps(case: dict, pkg: dict) -> list:
+    """케이스 1건의 기입 절차 7단계 상태(분류뿐 — 계산하지 않는다).
+
+    상태: 완료 · 진행 · 대기 · 경로 없음. `detail`은 **반환을 옮긴 문구**다.
+    """
+    by = {x["code"]: x for x in pkg["items"]}
+    open_slots = [n["slot"] for n in pkg.get("open_injections") or []]
+    d25 = (by.get("D25") or {}).get("data") or {}
+    g = d25.get("등급") or {}
+    prov = case.get("provenance") or {}
+    unresolved = sorted(f for f, v in prov.items()
+                        if (v or {}).get("status") in ENTRY_OPEN_PROVENANCE)
+    sc = pkg.get("status_counts") or {}
+    docs_open = [s for s in ENTRY_DOC_SLOTS if s in open_slots]
+    state = {
+        "case": ("완료", "케이스 파일이 있다"),
+        "docs": (("경로 없음", "미제출 " + " · ".join(docs_open) + " — 콘솔에 제출 양식이 없다")
+                 if docs_open else ("완료", "문서 주입 슬롯이 채워졌다")),
+        "engine": (("완료" if not sc.get("주입대기") and not sc.get("부분생성") else "진행"),
+                   " · ".join(f"{k} {sc[k]}" for k in ("생성", "부분생성", "주입대기", "링크")
+                              if sc.get(k))),
+        "evidence": (("진행", f"원문 대조 전 {len(unresolved)} / {len(prov)}필드 — "
+                      + " · ".join(unresolved))
+                     if unresolved else ("완료", f"{len(prov)}필드 전부 대조됨")),
+        "rules": ((("완료" if g.get("complete") else "진행"),
+                   f"등급 {g.get('grade')} · 통과 {g.get('n_passed')} / {g.get('n_total')}"
+                   + ("" if g.get("complete") else f" · 미검증 {len(g.get('unchecked') or [])}"))
+                  if g else ("대기", "D25가 아직 없다")),
+        "issue": (("완료", f"식별번호 {d25['식별번호']}") if d25.get("식별번호")
+                  else ("경로 없음", "ksfid_seq 미주입 — 콘솔에 발급 양식이 없다")),
+        "renew": (("진행", f"유효기간 {d25['유효기간']}") if d25.get("유효기간")
+                  else ("대기", "발급일(ksfid_issued)이 없어 기산할 수 없다")),
+    }
+    return [{"key": k, "name": n, "who": w, "jas": j,
+             "state": state[k][0], "detail": state[k][1]}
+            for k, n, w, j in ENTRY_STEPS]
+
+
 def build_package(case: dict, injections: dict = None) -> dict:
     """케이스 1건 → D1~D20 패키지(결정론).
 

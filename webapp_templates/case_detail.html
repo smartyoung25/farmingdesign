@@ -117,7 +117,7 @@
 
   {% if rail %}
   <h3 class="sec">생애주기 레일 <span class="bm">①②③⑤⑥④ 순서(★사용자 결정 2026-09-27) · 준거: DNV Owner's Engineer 전주기 개입</span></h3>
-  <div class="railwrap"><div class="rail">
+  <div class="railwrap" id="rail"><div class="rail">
     {% for s in rail %}
     <div class="stage">
       <div class="rdot"></div>
@@ -227,7 +227,7 @@
   {% endif %}
 
   {% if d25 %}{% set g = d25["등급"] %}
-  <div class="appendix">
+  <div class="appendix" id="appendix">
     <span class="chip chip-appx">판정 부록 · 본문과 분리(★194차)</span>
     <div class="ph" style="margin-top:6px">D25 K-SFID 검증 등급 <span class="bm">준거: PVEL Scorecard 합격선 명시형</span></div>
     <div class="ps">규칙 적용 결과다 — 사업이 좋은지를 말하지 않는다. 미검증은 통과로 세지 않는다. 임계값은 <code>ksfid_thresholds</code> 주입으로 덮어쓸 수 있다.</div>

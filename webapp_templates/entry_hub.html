@@ -4,6 +4,50 @@
 {% block main %}
   <div class="top"><h1>기입 워크플로</h1></div>
   <div class="subtitle">실조건·가정값을 근거와 함께 케이스에 기입한다 — 근거(출처) 없는 저장은 거부되며, 저장은 케이스 JSON에 기록되고 커밋은 사람이 한다</div>
+  <style>
+    /* 224차 — 기입 절차 스테퍼(SGS JAS 준거) */
+    .stepdefs { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; margin-bottom:6px; counter-reset:s; }
+    .stepdef { font-size:12px; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--card); }
+    .stepdef.human { border-style:dashed; border-color:#B8B8B0; }
+    .stepdef.eng { border-color:#1D9E75; }
+    .stepdef::before { counter-increment:s; content:counter(s); font-size:11px; color:var(--mut); margin-right:4px; }
+    .stepdef b { font-weight:500; }
+    .stepdef .j { display:block; font-size:10.5px; color:var(--mut); margin-top:2px; }
+    .steprow { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
+    .stepcell { font-size:11.5px; color:var(--sub); padding:6px 8px; border-radius:8px; background:var(--card);
+                border:1px solid var(--line); line-height:1.45; min-width:0; overflow-wrap:anywhere; }
+    .stepcell .chip { display:inline-block; margin-bottom:3px; }
+    .stepcell a { color:var(--green); }
+    .stepcase { font-size:13px; font-weight:500; margin:12px 0 6px; }
+    @media (max-width:900px) {
+      .stepdefs, .steprow { grid-template-columns:1fr; }
+    }
+  </style>
+  <h3 style="font-size:13px; color:var(--sub); font-weight:500; margin:0 0 8px">
+    기입 절차 7단계 <span style="font-weight:400; font-size:11.5px; color:var(--mut)">준거: SGS Japan JAS 인증 절차(신청 → 서류심사 → 현장 확인 → 판정 → 발급 → 연차심사) · 실선은 엔진, 점선은 사람이 하는 단계 · 진행 상태이지 판정이 아니다</span></h3>
+  <div class="card" style="margin-bottom:12px">
+    <div class="stepdefs">
+      {% for k, n, w, j in step_defs %}
+      <div class="stepdef {{ 'eng' if w == '엔진' else 'human' }}"><b>{{ n }}</b> · {{ w }}<span class="j">{{ j }}</span></div>
+      {% endfor %}
+    </div>
+    {% for r in rows %}
+    <div class="stepcase">{{ r.title }}</div>
+    <div class="steprow">
+      {% for s in r.steps %}
+      <div class="stepcell" data-step="{{ s.key }}">
+        <span class="chip {{ step_cls.get(s.state, 'chip-ref') }}">{{ s.state }}</span><br>
+        {{ s.detail }}
+        {% if s.key == "case" %}<br><a href="/case/{{ r.code }}">케이스 상세</a>
+        {% elif s.key == "engine" %}<br><a href="/case/{{ r.code }}#rail">레일에서 보기</a>
+        {% elif s.key == "evidence" %}<br><a href="/pages/SmartFarm_근거대장.html">근거대장</a>
+        {% elif s.key == "rules" %}<br><a href="/case/{{ r.code }}#appendix">판정 부록</a>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    <p class="note">「경로 없음」은 콘솔에 기입 양식도 케이스 저장 필드도 없다는 뜻이다 — 문서 제출(doc_rows · dd_documents · quoted_models)과 발급(ksfid_seq · ksfid_issued)은 아직 주입할 곳이 없다(★사용자 결정 2026-09-27: 스테퍼만 구현). 등급은 D25 반환을 그대로 옮긴다.</p>
+  </div>
   <div class="card">
     <table>
       <thead><tr><th>케이스</th><th>① financing 실조건</th><th>④ 시나리오 가정</th><th>③ 리모델링 진단값</th></tr></thead>

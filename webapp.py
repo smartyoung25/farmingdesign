@@ -197,6 +197,8 @@ def _case_outputs(case: dict) -> list:
 STATUS_CHIP = {"생성": "chip-measured", "부분생성": "chip-statutory",
                "주입대기": "chip-est", "링크": "chip-ref"}
 RULE_STATE_CHIP = {"통과": "chip-measured", "미검증": "chip-est", "불합격": "chip-warn"}
+STEP_STATE_CHIP = {"완료": "chip-measured", "진행": "chip-statutory",
+                   "대기": "chip-ref", "경로 없음": "chip-warn"}
 
 
 @app.get("/case/{display_code}")
@@ -309,8 +311,11 @@ def entry_hub(request: Request):
         "code": cdsp.code(c), "title": cdsp.alias(c)["title"],
         "fin": bool(c.get("financing")),
         "n_sets": len((c.get("scenarios") or {}).get("sets", [])),
+        # 224차 — 기입 절차 7단계(SGS JAS 준거). 상태는 `entry_steps`가 분류한다
+        "steps": cpkg.entry_steps(c, cpkg.build_package(c)),
     } for c in cs]
-    return templates.TemplateResponse(request, "entry_hub.html", {"rows": rows})
+    return templates.TemplateResponse(request, "entry_hub.html", {
+        "rows": rows, "step_defs": cpkg.ENTRY_STEPS, "step_cls": STEP_STATE_CHIP})
 
 
 @app.get("/entry/financing/{display_code}")

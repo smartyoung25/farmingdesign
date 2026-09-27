@@ -1702,6 +1702,96 @@ def test_223cha_benchmark_screen_follows_the_decided_order(monkeypatch):
             f"🔴 부분 케이스 {_cd.code(case)}가 레일을 냈거나 열리지 않는다")
 
 
+def test_224cha_entry_stepper_shows_real_state():
+    """224차 — **기입 절차 스테퍼**(SGS JAS 준거, 223차 목업 승인분).
+
+    ★사용자 결정 2026-09-27: *「스테퍼만 — 실제 상태 표시」* — 주입 폼은 만들지
+    않는다. 그래서 ②문서 제출·⑥발급은 **「경로 없음」**으로 드러나야 한다.
+
+    🔴 상태는 `consulting_package.entry_steps`가 **분류**하고 화면은 옮긴다 —
+       등급·개수를 화면이 짓지 않는다.
+    """
+    import re as _re
+    import copy as _copy
+    import consulting_package as _cp
+    import case_display as _cd
+    from cases import load_cases as _lc
+
+    # ── ① 7단계와 준거가 그대로인가 ────────────────────────────
+    assert [k for k, *_r in _cp.ENTRY_STEPS] == [
+        "case", "docs", "engine", "evidence", "rules", "issue", "renew"], (
+        "🔴 기입 절차 단계가 바뀌었다 — 223차 목업 승인분은 7단계다")
+    assert {w for _k, _n, w, _j in _cp.ENTRY_STEPS} == {"사람", "엔진"}
+    assert [k for k, _n, w, _j in _cp.ENTRY_STEPS if w == "엔진"] == ["engine", "rules"], (
+        "🔴 엔진이 하는 단계는 검증·규칙 적용 둘뿐이다 — 나머지는 사람 몫이다")
+
+    html = client.get("/entry").text
+    cells = _re.findall(r'data-step="(\w+)">\s*<span class="chip [^"]+">([^<]+)</span><br>\s*([^<\n]+?)\s*(?:<br>|</div>)',
+                        html)
+    full = [x for x in _lc() if not x.get("partial")]
+    assert len(cells) == 7 * len(full), (
+        f"🔴 스테퍼 칸이 {len(cells)}개다 — 케이스 {len(full)}건 × 7이어야 한다")
+
+    for i, case in enumerate(full):
+        pkg = _cp.build_package(case)
+        want = _cp.entry_steps(case, pkg)
+        got = cells[7 * i: 7 * i + 7]
+        assert [(s["key"], s["state"], s["detail"]) for s in want] == \
+            [(k, st, d.strip()) for k, st, d in got], (
+            f"🔴 {_cd.code(case)} 스테퍼가 `entry_steps` 반환과 다르다: {got}")
+        st = {s["key"]: s for s in want}
+
+        # ── ② 🔴 경로가 없는 칸을 **완료처럼 보이지 않는가** ────────
+        slots = [n["slot"] for n in pkg["open_injections"]]
+        if any(s in slots for s in _cp.ENTRY_DOC_SLOTS):
+            assert st["docs"]["state"] == "경로 없음", (
+                f"🔴 {_cd.code(case)} 문서가 없는데 ②가 「{st['docs']['state']}」다")
+        if not (pkg["items"] and [x for x in pkg["items"] if x["code"] == "D25"][0]
+                ["data"].get("식별번호")):
+            assert st["issue"]["state"] == "경로 없음" and st["renew"]["state"] == "대기"
+
+        # ── ③ 근거 대조 수를 **독립으로** 다시 세어 대조 ─────────────
+        prov = case.get("provenance") or {}
+        n_open = sum(1 for v in prov.values()
+                     if (v or {}).get("status") in ("추정", "확인요망", "미검증"))
+        assert f"원문 대조 전 {n_open} / {len(prov)}필드" in st["evidence"]["detail"] or \
+            (n_open == 0 and st["evidence"]["state"] == "완료"), (
+            f"🔴 {_cd.code(case)} ④ 근거 대조 수가 케이스 provenance와 다르다")
+
+        # ── ④ 등급은 D25 반환 그대로인가 ─────────────────────────
+        g = [x for x in pkg["items"] if x["code"] == "D25"][0]["data"]["등급"]
+        assert st["rules"]["detail"].startswith(
+            f"등급 {g['grade']} · 통과 {g['n_passed']} / {g['n_total']}"), (
+            f"🔴 {_cd.code(case)} ⑤가 D25 반환과 다르다: {st['rules']['detail']}")
+
+    # ── ⑤ 📌 주입이 **생기면 상태가 따라 바뀌는가**(값이 박혀 있지 않은가) ──
+    case = full[0]
+    pkg = _copy.deepcopy(_cp.build_package(case))
+    pkg["open_injections"] = [n for n in pkg["open_injections"]
+                              if n["slot"] not in _cp.ENTRY_DOC_SLOTS]
+    for x in pkg["items"]:
+        if x["code"] == "D25":
+            x["data"]["식별번호"] = "TEST-0001"
+            x["data"]["유효기간"] = "2026-09-27 ~ 2027-09-26"
+            x["data"]["등급"] = dict(x["data"]["등급"], complete=True, grade="보류")
+    st = {s["key"]: s for s in _cp.entry_steps(case, pkg)}
+    assert st["docs"]["state"] == "완료" and st["issue"]["state"] == "완료" and \
+        st["renew"]["state"] == "진행" and st["rules"]["state"] == "완료" and \
+        "등급 보류" in st["rules"]["detail"] and "TEST-0001" in st["issue"]["detail"], (
+        f"🔴 주입이 채워져도 스테퍼가 따라오지 않는다: {st}")
+
+    # ── ⑥ 🔴 템플릿이 값을 짓지 않는가 ────────────────────────────
+    tpl = _io_read("webapp_templates/entry_hub.html")
+    for w in ("경로 없음</span>", "등급 C", "통과 4"):
+        assert w not in tpl, f"🔴 기입 허브 템플릿에 상태·값 「{w}」가 박혀 있다"
+    exprs = _re.findall(r"\{\{(.*?)\}\}|\{%(.*?)%\}", tpl, _re.S)
+    arith = [a or b for a, b in exprs if _re.search(r"\w\s*[-+*/%]\s*\w", (a or b)
+                                                     .replace("'chip-ref'", ""))]
+    assert not arith, f"🔴 기입 허브 템플릿 식에 산술이 있다: {arith}"
+    for w in ("추천", "권장", "최적", "1순위", "우선순위"):
+        assert w not in html, f"🔴 기입 허브에 판정·추천 어휘 「{w}」가 들어왔다"
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),
