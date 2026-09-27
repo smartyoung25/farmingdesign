@@ -12343,7 +12343,7 @@ def test_232cha_english_approval_doc_names():
         "🔴 뜻이 둘인 「계산서」로 옮기는 별칭이 생겼다 — 없는 서류를 있다고 센다")
     #   📌234차: 굽은 따옴표 별칭은 `isascii()`가 False라 빠진다 → 라틴 글자가 있는 이름으로 센다
     en = [a for a in e.MATERIAL_APPROVAL_ALIASES if any("a" <= ch.lower() <= "z" for ch in a)]
-    assert len(en) == 13, (f"🔴 영문 별칭이 {len(en)}건이다 — 232차 9건 + 234차 ’ 1건 + 235차 ‘ ‛ ′ 3건 = 13건"
+    assert len(en) == 15, (f"🔴 영문 별칭이 {len(en)}건이다 — 232차 9건 + 234차 ’ 1건 + 235차 ‘ ‛ ′ 3건 + 236차 ` ´ 2건 = 15건"
                            "(늘렸다면 근거와 함께)")
 
 
@@ -12376,15 +12376,21 @@ def test_233cha_fullwidth_approval_doc_names():
     #   📌234차: 「Manufacturer’s(U+2019) Specification」이 별칭으로 **등재됐다**(사용자 지시) →
     #      등재되지 않은 모양 ‘(U+2018)로 「추측하지 않는다」를 잰다.
     #   📌235차: ‘ ‛ ′도 등재됐다 → 등재되지 않은 **백틱(`)**으로 잰다.
-    r = _row([FW("Invoice"), FW("Brochure"), "Manufacturer`s Specification"])
+    r = _row([FW("Invoice"), FW("Brochure"), "Manufacturer\u02bcs Specification"])
     assert r["attachments_unrecognized"] == [FW("Invoice"), FW("Brochure"),
-                                             "Manufacturer`s Specification"], (
+                                             "Manufacturer\u02bcs Specification"], (
         f"🔴 전각을 반각으로 옮긴 뒤 등재되지 않은 이름까지 붙였다: {r['attachments_unrecognized']}")
     assert r["attachments_missing"] == list(CANON)
 
     # ── ③ 한글 정본은 NFKC로 **변하지 않는다**(정본 6종·별칭 전부) ─────────
-    for n in list(CANON) + list(e.MATERIAL_APPROVAL_ALIASES) + list(e.MATERIAL_APPROVAL_ALIASES.values()):
-        assert _u.normalize("NFKC", n) == n, f"🔴 등재 이름 {n!r}가 NFKC로 바뀐다 — 대조가 어긋난다"
+    #   📌236차: acute(´) 별칭은 NFKC가 「공백+결합 부호」로 푼다 — 대조는 **같은 키 함수**를
+    #      거쳐 맞으므로, 불변을 요구하는 것은 **한글 이름**(정본·한글 별칭)으로 좁혔다.
+    #      별칭 전부는 **자기 자신으로 대조해 정본이 나오는지**를 잰다.
+    for n in list(CANON) + [a for a in e.MATERIAL_APPROVAL_ALIASES if not a.isascii()
+                             and any("\uac00" <= ch <= "\ud7a3" for ch in a)]:
+        assert _u.normalize("NFKC", n) == n, f"🔴 한글 등재 이름 {n!r}가 NFKC로 바뀐다 — 대조가 어긋난다"
+    for a, c in e.MATERIAL_APPROVAL_ALIASES.items():
+        assert e._normalize_approval_doc(a) == c, f"🔴 등재 별칭 {a!r}이 자기 자신으로 정본 {c!r}에 닿지 않는다"
 
     ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
@@ -12406,12 +12412,12 @@ def test_234cha_curly_apostrophe_is_one_registered_alias():
         return e.equipment_reconcile(["히터"], {"히터": "KS"}, {"히터": given})["rows"][0]
 
     #   📌235차: ‘(LSQ)도 등재됐다(사용자 지시) → 「등재하지 않은 모양」 예시를 백틱(`)으로 바꿨다
-    r = _row([name, name.upper(), "Manufacturer's Specification", "Manufacturer`s Specification",
+    r = _row([name, name.upper(), "Manufacturer's Specification", "Manufacturer\u02bcs Specification",
               "Catalog" + RSQ])
     assert r["attachments_normalized"] == {name: "제조업자 시방서", name.upper(): "제조업자 시방서",
                                            "Manufacturer's Specification": "제조업자 시방서"}, (
         "🔴 등재한 굽은 따옴표 이름(대소문자 무관)과 곧은 따옴표 이름이 정본으로 가지 않는다")
-    assert r["attachments_unrecognized"] == ["Manufacturer`s Specification", "Catalog" + RSQ], (
+    assert r["attachments_unrecognized"] == ["Manufacturer\u02bcs Specification", "Catalog" + RSQ], (
         f"🔴 등재하지 않은 따옴표 모양까지 맞췄다 — 일괄 치환은 추측이다: {r['attachments_unrecognized']}")
     assert sum(1 for a in e.MATERIAL_APPROVAL_ALIASES if RSQ in a) == 1, (
         "🔴 ’ 가 든 별칭은 234차 한 건뿐이어야 한다(다른 모양은 235차 가드가 잰다)")
@@ -12433,20 +12439,47 @@ def test_235cha_other_quote_variants_are_registered_one_by_one():
         assert e.MATERIAL_APPROVAL_ALIASES.get(n) == "제조업자 시방서", f"🔴 {n!r}이 등재되지 않았다"
 
     r = e.equipment_reconcile(["히터"], {"히터": "KS"},
-                              {"히터": names + ["Manufacturer`s Specification",
+                              {"히터": names + ["Manufacturer\u02bcs Specification",
                                                 "Catalog‘", "Test′Report"]})["rows"][0]
     assert set(r["attachments_normalized"]) == set(names)
-    assert r["attachments_unrecognized"] == ["Manufacturer`s Specification", "Catalog‘", "Test′Report"], (
+    assert r["attachments_unrecognized"] == ["Manufacturer\u02bcs Specification", "Catalog‘", "Test′Report"], (
         f"🔴 등재하지 않은 따옴표 모양·이름까지 맞췄다: {r['attachments_unrecognized']}")
 
     # 굽은 따옴표·프라임·백틱이 든 별칭은 **이 이름의 네 모양뿐**이다
     #   (곧은 따옴표 「Manufacturer's Specification」은 232차 영문 별칭이라 따로 있다)
     quoted = sorted(a for a in e.MATERIAL_APPROVAL_ALIASES
-                    if any(q in a for q in QUOTES + ("`",)))
-    assert quoted == sorted(names), f"🔴 따옴표 별칭이 {quoted}다 — 235차 등재는 네 모양 한 이름뿐이다"
+                    if any(q in a for q in QUOTES + ("`", "\u00b4", "\u02bc")))
+    #   📌236차: 백틱·acute가 더해져 **여섯 모양** 한 이름이다
+    six = sorted(names + ["Manufacturer`s Specification", "Manufacturer\u00b4s Specification"])
+    assert quoted == six, f"🔴 따옴표 별칭이 {quoted}다 — 236차 등재는 여섯 모양 한 이름뿐이다"
     ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
     assert "235차" in ent["source"] and all(ent["value"].get(n) == "제조업자 시방서" for n in names)
+
+
+def test_236cha_backtick_and_acute_aliases():
+    """236차 — 백틱(`)·acute(´ U+00B4) 표기를 같은 이름에 한 건씩(사용자 지시).
+
+    ⚠️ acute는 NFKC가 「공백 + 결합 부호」로 풀지만 별칭과 입력이 **같은 키 함수**를 거쳐 맞는다.
+    🔴 등재하지 않은 모양(ʼ U+02BC)은 여전히 「인식 안 됨」이다.
+    """
+    BT, AC, MA = "`", "´", "ʼ"
+    names = ["Manufacturer" + q + "s Specification" for q in (BT, AC)]
+    for n in names:
+        assert e.MATERIAL_APPROVAL_ALIASES.get(n) == "제조업자 시방서"
+    r = e.equipment_reconcile(["히터"], {"히터": "KS"},
+                              {"히터": names + [names[1].upper(), "Manufacturer" + MA + "s Specification",
+                                                "Catalog" + AC]})["rows"][0]
+    assert set(r["attachments_normalized"]) == set(names + [names[1].upper()]), (
+        f"🔴 백틱·acute 표기가 정본으로 가지 않는다: {r['attachments_normalized']}")
+    assert r["attachments_unrecognized"] == ["Manufacturer" + MA + "s Specification", "Catalog" + AC], (
+        f"🔴 등재하지 않은 모양·이름까지 맞췄다: {r['attachments_unrecognized']}")
+    #   📌 뮤테이션 M4: 레지스트리 기록을 지워도 통과했다 → 기록을 잰다
+    import json as _j, os as _o
+    ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
+                                    "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
+    assert "236차" in ent["source"] and all(ent["value"].get(n) == "제조업자 시방서" for n in names), (
+        "🔴 레지스트리에 236차 결정 기록이나 값이 없다")
 
 
 if __name__ == "__main__":
