@@ -12341,8 +12341,10 @@ def test_232cha_english_approval_doc_names():
     assert all(c in CANON for c in e.MATERIAL_APPROVAL_ALIASES.values())
     assert "계산서" not in e.MATERIAL_APPROVAL_ALIASES.values(), (
         "🔴 뜻이 둘인 「계산서」로 옮기는 별칭이 생겼다 — 없는 서류를 있다고 센다")
-    en = [a for a in e.MATERIAL_APPROVAL_ALIASES if a.isascii()]
-    assert len(en) == 9, f"🔴 영문 별칭이 {len(en)}건이다 — 232차 등재는 9건이다(늘렸다면 근거와 함께)"
+    #   📌234차: 굽은 따옴표 별칭은 `isascii()`가 False라 빠진다 → 라틴 글자가 있는 이름으로 센다
+    en = [a for a in e.MATERIAL_APPROVAL_ALIASES if any("a" <= ch.lower() <= "z" for ch in a)]
+    assert len(en) == 10, (f"🔴 영문 별칭이 {len(en)}건이다 — 232차 9건 + 234차 굽은 따옴표 1건 = 10건"
+                           "(늘렸다면 근거와 함께)")
 
 
 def test_233cha_fullwidth_approval_doc_names():
@@ -12371,9 +12373,11 @@ def test_233cha_fullwidth_approval_doc_names():
     assert r["attachments_normalized"][FW("CATALOG")] == "카탈로그"
 
     # ── ② 🔴 모양만 옮기고 뜻은 추측하지 않는다 ─────────────────────────
-    r = _row([FW("Invoice"), FW("Brochure"), "Manufacturer’s Specification"])
+    #   📌234차: 「Manufacturer’s(U+2019) Specification」이 별칭으로 **등재됐다**(사용자 지시) →
+    #      등재되지 않은 모양 ‘(U+2018)로 「추측하지 않는다」를 잰다.
+    r = _row([FW("Invoice"), FW("Brochure"), "Manufacturer\u2018s Specification"])
     assert r["attachments_unrecognized"] == [FW("Invoice"), FW("Brochure"),
-                                             "Manufacturer’s Specification"], (
+                                             "Manufacturer\u2018s Specification"], (
         f"🔴 전각을 반각으로 옮긴 뒤 등재되지 않은 이름까지 붙였다: {r['attachments_unrecognized']}")
     assert r["attachments_missing"] == list(CANON)
 
@@ -12384,6 +12388,34 @@ def test_233cha_fullwidth_approval_doc_names():
     ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
     assert "233차" in ent["source"] and "NFKC" in ent["source"], "🔴 레지스트리에 전각 규칙 기록이 없다"
+
+
+def test_234cha_curly_apostrophe_is_one_registered_alias():
+    """234차 — 굽은 따옴표(’, U+2019) 표기를 **별칭 한 건**으로 등재했다(사용자 지시).
+
+    🔴 따옴표를 일괄 치환하지 않는다 — 등재한 이름 하나만 맞고, 다른 모양(‘ U+2018)은
+       여전히 「인식 안 됨」이다.
+    """
+    import json as _j, os as _o
+    RSQ, LSQ = "’", "‘"
+    name = "Manufacturer" + RSQ + "s Specification"
+    assert e.MATERIAL_APPROVAL_ALIASES.get(name) == "제조업자 시방서"
+
+    def _row(given):
+        return e.equipment_reconcile(["히터"], {"히터": "KS"}, {"히터": given})["rows"][0]
+
+    r = _row([name, name.upper(), "Manufacturer's Specification", "Manufacturer" + LSQ + "s Specification",
+              "Catalog" + RSQ])
+    assert r["attachments_normalized"] == {name: "제조업자 시방서", name.upper(): "제조업자 시방서",
+                                           "Manufacturer's Specification": "제조업자 시방서"}, (
+        "🔴 등재한 굽은 따옴표 이름(대소문자 무관)과 곧은 따옴표 이름이 정본으로 가지 않는다")
+    assert r["attachments_unrecognized"] == ["Manufacturer" + LSQ + "s Specification", "Catalog" + RSQ], (
+        f"🔴 등재하지 않은 따옴표 모양까지 맞췄다 — 일괄 치환은 추측이다: {r['attachments_unrecognized']}")
+    assert sum(1 for a in e.MATERIAL_APPROVAL_ALIASES if RSQ in a) == 1 and \
+        not any(LSQ in a for a in e.MATERIAL_APPROVAL_ALIASES), "🔴 따옴표 별칭은 234차 한 건뿐이어야 한다"
+    ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
+                                    "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
+    assert "234차" in ent["source"] and ent["value"].get(name) == "제조업자 시방서"
 
 
 if __name__ == "__main__":

@@ -5823,6 +5823,10 @@ MATERIAL_APPROVAL_ALIASES = {
     "Test Report": "시험성적표",
     "Manufacturer's Specification": "제조업자 시방서",
     "Manufacturer Specification": "제조업자 시방서",
+    # 234차 — **굽은 따옴표(’, U+2019)** 표기(사용자 지시). 워드프로세서가 자동으로 바꾸는
+    #   흔한 모양이다. 따옴표를 일괄 치환하지 않고 **이 이름 하나만** 별칭으로 둔다 —
+    #   ‘(U+2018) 등 다른 모양은 여전히 인식 안 됨이다(추측하지 않는다).
+    "Manufacturer\u2019s Specification": "제조업자 시방서",
     "Color Chart": "표준 색상철",
     "Colour Chart": "표준 색상철",
     "Maintenance Manual": "자재유지관리 지침서",
@@ -5835,6 +5839,7 @@ def _approval_doc_key(name) -> str:
     #   NFKC는 전각 영숫자·기호(ＣＡＴＡＬＯＧ·＆·＇)와 전각 공백을 보통 글자로 옮기고,
     #   분해형(NFD) 한글도 완성형으로 합친다. 완성형 한글은 그대로다.
     #   ⚠️ 굽은 따옴표(’)는 전각이 아니라 NFKC가 옮기지 않는다 — 별칭에 없으면 인식 안 됨이다
+    #      (234차에 「Manufacturer’s Specification」 하나만 별칭으로 등재했다)
     return "".join(unicodedata.normalize("NFKC", str(name)).split()).casefold()
 
 
