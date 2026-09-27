@@ -12047,8 +12047,19 @@ def test_207cha_release_note_numbers_are_measured():
     if repo not in _s.path:
         _s.path.insert(0, repo)
     rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
-    REL = "릴리스_v1.0_20260923.md"
+    # 📌237차 — v1.0은 **207차 동결 기록**으로 되돌렸다. 실측 대조는 **가장 높은 판**을 잰다
+    #    (208~236차가 v1.0 §1을 실측에 맞춰 고치다 「207차 실측」 머리 아래 현재 수치가 섞였다).
+    def _ver(p):
+        m = _re.match(r"릴리스_v(\d+)\.(\d+)_", _o.path.basename(p))
+        return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+    rels = sorted(_g.glob(_o.path.join(repo, "릴리스_v*.md")), key=_ver)
+    assert len(rels) >= 2, "🔴 릴리스 문서가 사라졌다"
+    REL = _o.path.basename(rels[-1])
+    assert REL == "릴리스_v1.1_20260927.md", f"🔴 현행 릴리스가 {REL}다 — 새 판이면 이 줄을 갱신하라"
     rel = rd(REL)
+    v10 = rd("릴리스_v1.0_20260923.md")
+    assert "207차 동결 기록" in v10 and "| 회귀 | 3파일 **366 passed**" in v10, (
+        "🔴 v1.0이 207차 동결 기록이 아니다 — 지난 판은 고치지 않는다(현행 판이 실측을 진다)")
 
     # ── ① 엔진·레지스트리·케이스·산출물·근거를 **다시 센다** ────────
     tree = _ast.parse(rd("smartfarm_engine.py"))
@@ -12070,6 +12081,9 @@ def test_207cha_release_note_numbers_are_measured():
              ("4축 케이스", sum(1 for c in cs if not c.get("partial")), None),
              ("산출물 HTML", outs, "**%d건**" % outs),
              ("근거 문서", geun, "**%d건**" % geun)]
+    # 237차 — 콘솔 라우트 수도 잰다(v1.1이 콘솔 완성 판이다)
+    routes = len(_re.findall(r"^@app\.(?:get|post)\(", rd("webapp.py"), _re.M))
+    FACTS.append(("웹 콘솔 라우트", routes, "**%d**(GET·POST)" % routes))
     for label, value, frag in FACTS:
         if frag is None:
             continue
