@@ -2,7 +2,8 @@
 실행: python mutations/run_all.py 251  (원본 통과 확인·파일 복원은 실행기가 한다)
 """
 import subprocess, sys, os
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 리포 루트(265차 — 절대 경로 제거); sys.stdout.reconfigure(encoding='utf-8')
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 리포 루트(265차 — 절대 경로 제거)
+sys.stdout.reconfigure(encoding='utf-8')  # 266차: 265차 치환이 이 문장을 주석 속에 넣었다 — 되살림
 A='audit_work_orders.py'; W='webapp.py'
 M=[("M1 R9 끔", A, '    if leaked:\n        # 메시지가', '    if False:\n        # 메시지가'),
    ("M2 R9 메시지가 이름을 되풀이", A, 'f"{sorted(set(cdsp.scrub(n) for n in leaked))}) — case_display', 'f"{sorted(leaked)}) — case_display'),

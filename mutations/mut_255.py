@@ -2,7 +2,8 @@
 실행: python mutations/run_all.py 255  (원본 통과 확인·파일 복원은 실행기가 한다)
 """
 import subprocess, sys, os
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 리포 루트(265차 — 절대 경로 제거); sys.stdout.reconfigure(encoding='utf-8')
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 리포 루트(265차 — 절대 경로 제거)
+sys.stdout.reconfigure(encoding='utf-8')  # 266차: 265차 치환이 이 문장을 주석 속에 넣었다 — 되살림
 W='docs/work-orders/WO-006_D11_크루구성.md'; L='근거_결정대기대장_20260915.md'
 run=lambda: subprocess.run([sys.executable,'-m','pytest','test_engine.py','-q','-x','-k','255cha'],capture_output=True).returncode
 assert run()==0, "원본이 실패한다 — 뮤테이션 무효"

@@ -2,7 +2,8 @@
 실행: python mutations/run_all.py 253  (원본 통과 확인·파일 복원은 실행기가 한다)
 """
 import subprocess, sys, os
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 리포 루트(265차 — 절대 경로 제거); sys.stdout.reconfigure(encoding='utf-8')
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 리포 루트(265차 — 절대 경로 제거)
+sys.stdout.reconfigure(encoding='utf-8')  # 266차: 265차 치환이 이 문장을 주석 속에 넣었다 — 되살림
 W='docs/work-orders/WO-007_D13_관리동이관.md'; L='근거_결정대기대장_20260915.md'
 M=[("M1 부대시설 값 변경", 'smartfarm_engine.py', '"auxiliary_facility": 40093200,', '"auxiliary_facility": 77320088,'),
    ("M2 대장 D-13 다시 열기", L, '| ~~**D-13**~~ ✅**닫힘(253차)** |', '| **D-13** |'),

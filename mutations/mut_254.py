@@ -2,7 +2,8 @@
 실행: python mutations/run_all.py 254  (원본 통과 확인·파일 복원은 실행기가 한다)
 """
 import subprocess, sys, os
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 리포 루트(265차 — 절대 경로 제거); sys.stdout.reconfigure(encoding='utf-8')
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 리포 루트(265차 — 절대 경로 제거)
+sys.stdout.reconfigure(encoding='utf-8')  # 266차: 265차 치환이 이 문장을 주석 속에 넣었다 — 되살림
 W='docs/work-orders/WO-009_D15_품셈주적용조건.md'; L='근거_결정대기대장_20260915.md'
 M=[("M1 엔진이 적용조건을 냄", 'smartfarm_engine.py', '        "total_labor_days": round(sum(item.labor_per_unit.values()) * quantity, 3),\n    }', '        "total_labor_days": round(sum(item.labor_per_unit.values()) * quantity, 3),\n        **({"적용조건": "p.144"} if category == "온실피복공사" else {}),\n    }'),
    ("M2 대장 D-15 다시 열기", L, '| ~~**D-15**~~ ✅**닫힘(254차)** |', '| **D-15** |'),

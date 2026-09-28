@@ -13403,15 +13403,24 @@ def test_258cha_app_layer_counting_is_allowed_only_as_counting():
     bad += [_ast.unparse(n) for n in _ast.walk(tree) if isinstance(n, _ast.Call)
             and (getattr(n.func, "id", None) in agg or getattr(n.func, "attr", None) in agg)]
     #   `+= 1`·`-= 1`(한 개씩 세기)은 허용 — 32회차 B4가 이것을 실패로 잡는 거짓 양성을 짚었다
-    one = lambda v: isinstance(v, _ast.Constant) and v.value == 1
+    #   📌266차(레드팀 33회차 B8): 「한 개씩 세기」는 **정수 1**만(1.0·True는 아니다)
+    one = lambda v: isinstance(v, _ast.Constant) and type(v.value) is int and v.value == 1
     bad += [_ast.unparse(n) for n in _ast.walk(tree) if isinstance(n, _ast.AugAssign)
             and isinstance(n.op, (_ast.Add, _ast.Mult, _ast.Div, _ast.Sub))
             and not (isinstance(n.op, (_ast.Add, _ast.Sub)) and one(n.value))]
-    #   `tot = tot + v` 꼴 누적(AugAssign이 아닌 대입)
-    bad += [_ast.unparse(n) for n in _ast.walk(tree) if isinstance(n, _ast.Assign) and len(n.targets) == 1
-            and isinstance(n.targets[0], _ast.Name) and isinstance(n.value, _ast.BinOp)
-            and isinstance(n.value.op, (_ast.Add, _ast.Sub)) and isinstance(n.value.left, _ast.Name)
-            and n.value.left.id == n.targets[0].id and not one(n.value.right)]
+    #   누적 대입 — 대상(이름·첨자)이 오른쪽 산술식의 **어느 피연산자로든** 다시 나오면 누적이다
+    #   (`t = t + v` · `t = v + t` · `t = t + a + b` · `d["k"] = d["k"] + v`). 단 `t = t ± 1`(정수)은 세기.
+    def _operands(e):
+        if isinstance(e, _ast.BinOp) and isinstance(e.op, (_ast.Add, _ast.Sub, _ast.Mult, _ast.Div)):
+            return _operands(e.left) + _operands(e.right)
+        return [e]
+    for n in _ast.walk(tree):
+        if isinstance(n, _ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], (_ast.Name, _ast.Subscript))                 and isinstance(n.value, _ast.BinOp):
+            tgt = _ast.dump(n.targets[0], annotate_fields=False).replace("Store()", "Load()")
+            ops = _operands(n.value)
+            if any(_ast.dump(o, annotate_fields=False) == tgt for o in ops) and not (
+                    len(ops) == 2 and isinstance(n.value.op, (_ast.Add, _ast.Sub)) and any(one(o) for o in ops)):
+                bad.append(_ast.unparse(n))
     assert not bad, f"🔴 앱 계층 `sum()`이 항목 세기가 아니다: {bad} — 258차 허용은 **세기**까지다(엔진 값 합산 금지)"
 
     # ── ③ 화면은 계산 수치와 건수를 구분해 말한다 ──────────────────────
@@ -13543,14 +13552,15 @@ def test_264cha_redteam32_corrections_hold():
     s5 = [num(a) for c, *_x, a in rows if c == "S5"]
     wo_s5 = num(_re.search(r"빼면 \*\*([\d,]+)\*\*", sec).group(1))
     assert s5 and total - s5[0] == wo_s5, (total, s5, wo_s5)
-    assert "WO-007 [가정]이 발동됐다" in sec and "발동됐다" in rd(_o.path.join("docs", "work-orders", next(
+    #   📌266차(33회차 A4): S5 포함도 산술 일치뿐이라 [추정]이다
+    assert "WO-007 [가정]이 발동된 것으로 보인다 [추정]" in sec and "발동된 것으로 보인다 [추정]" in rd(_o.path.join("docs", "work-orders", next(
         f for f in _o.listdir(_o.path.join(repo, "docs", "work-orders")) if f.startswith("WO-007_"))))
     led = rd("근거_결정대기대장_20260915.md")
     d13 = next(ln for ln in led.splitlines() if ln.startswith("| ~~**D-13**~~"))
     assert "S5 관리동커텐 2,817,269를 포함한다" in d13 and "빼면 34,060,779" in d13
     # ── A1 목록 밖 라인 · 범위 ──────────────────────────────────────────
     for mark in ("중간보강 5.6m」 **60,453**", "측면 보강대 118.0m」 **543,304**", "전등(관리동) LED 80W 5EA」 **382,500**",
-                 "통로와 섞인 라인", "⚠️범위:"):
+                 "통로와 섞인 라인", "⚠️**범위 — 완결을 주장하지 않는다**", "전수 아님", "모타 전선(관리동천창)", "관리동스크린1단자"):
         assert mark in sec, mark
     assert "넣으면 36,938,501" not in sec, "🔴 목록 밖 라인이 하나뿐인 것처럼 합계를 다시 냈다"
     # ── A2 [추정] ────────────────────────────────────────────────
@@ -13558,7 +13568,7 @@ def test_264cha_redteam32_corrections_hold():
     assert "이중 계산으로 보인다 **[추정]**" in rd("근거_잔여결정8건_감응측정_20260916.md")
     assert "「사재 이중 계산」은 **[추정]**" in rd("릴리스_v1.2_20260928.md")
     # ── A6 S9 근거 · A5 쪽 번호 · B7 행 표현 ──────────────────────────────
-    assert "**사업명·소재지**가 같다" in sec and "3,714㎡ — S9 설계도면과 같은 사업" not in sec
+    assert "**소재지·규모**" in sec and "**사업명·소재지**가 같다" not in sec and "3,714㎡ — S9 설계도면과 같은 사업" not in sec
     assert "**모두 PDF보다 1 작다**" in sec and "15행 — S4 행은 원문 7줄의 합산" in sec
 
 
@@ -13593,22 +13603,76 @@ def test_265cha_mutation_scripts_live_in_the_repo():
     # ── ③ 실행기 — 원본 통과 확인 · 복원 · 알려진 놓침 ──────────────────────
     spec = _iu.spec_from_file_location("mut_run_all", _o.path.join(mdir, "run_all.py"))
     run_all = _iu.module_from_spec(spec)
+    #   📌266차(레드팀 33회차 B7): 문자열만 보지 말고 **집계 함수를 실제로 부른다**(모듈 적재는 부작용이 chdir뿐이다)
+    _cwd = _o.getcwd()
+    try:
+        spec.loader.exec_module(run_all)
+    finally:
+        _o.chdir(_cwd)
+    t = run_all.tally(chr(10).join(["잡음 M1", "적용 불가(0) M2", "적용불가 M3", "놓침 M4 x", "놓침 M5 y"]),
+                      {"M5 y": "등가 변이 — z"})
+    assert (t["caught"], t["stale"], t["missed"], t["known"]) == (1, 2, 1, 1), t
+    assert run_all.expected_count(rd(_o.path.join("mutations", "mut_228.py"))) == 7
+    assert run_all.expected_count(rd(_o.path.join("mutations", "mut_246.py"))) == 3
+    _ra = rd(_o.path.join("mutations", "run_all.py"))
+    assert "git_state" in _ra and "def restore" in _ra and "누락" in _ra and "건너뜀" in _ra
     src_ra = rd(_o.path.join("mutations", "run_all.py"))
-    assert "def baseline_args" in src_ra and "def touched" in src_ra and "restored" in src_ra
+    #   📌266차: 복원은 이름 추적(touched)이 아니라 git 상태 비교(restore)다(레드팀 33회차 B4)
+    assert "def baseline_args" in src_ra and "def restore" in src_ra and "restored" in src_ra
     tree = _ast.parse(src_ra)
-    known = next(_ast.literal_eval(n.value) for n in tree.body
-                 if isinstance(n, _ast.Assign) and getattr(n.targets[0], "id", "") == "KNOWN")
+    known = run_all.KNOWN  # 266차: 사유에 공통 문구 변수를 쓰므로 적재한 모듈에서 읽는다
     for rnd, items in known.items():
         body = rd(_o.path.join("mutations", f"mut_{rnd}.py"))
         for name, why in items.items():
             assert name in body, f"🔴 알려진 놓침 {rnd} 「{name}」이 스크립트에 없다 — 유령 면제"
-            assert _re.match(r"(등가 변이|대상 이동|상태 변화) — \S", why), f"🔴 {rnd} 「{name}」 분류·이유가 없다: {why}"
+            assert _re.match(r"(등가 변이|대상 이동|상태 변화) — \S", why) and "〃" not in why, f"🔴 {rnd} 「{name}」 분류·이유가 없다: {why}"
 
     # ── ④ 문서 · 명령 ────────────────────────────────────────────────
     readme = rd(_o.path.join("mutations", "README.md"))
     for n in have:
         assert f"| {n} |" in readme, f"🔴 README 결과표에 {n}차가 없다"
     assert "python mutations/run_all.py" in rd("CLAUDE.md")
+
+
+def test_266cha_redteam33_corrections_hold():
+    """266차 — 레드팀 33회차(264·265차 대상) 반영이 되돌아가지 않는가.
+
+    A: 목록 밖 원문 라인은 **전수를 주장하지 않는다**(두 번 연속 「이것뿐」이 반증됐다) · S5 포함은 [추정] ·
+       쪽 번호는 0부터 센 번호 · S9 근거는 소재지·규모 · 「15줄」 → 「15행」 · WO-007도 [추정].
+    B: 실행기가 띄어쓴 「적용 불가」를 세고 선언 수와 대조한다 · 240·249차 보충 스크립트.
+    """
+    import os as _o, io as _io, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    doc = rd("근거_관리동_실재점검_20260915.md")
+    sec = doc[doc.index("## 263차 — 목록 전 라인 원문 대조"):]
+    # ── 완결 주장 없음 · 찾은 라인은 원문 위치와 함께 ─────────────────────
+    assert "찾지 못했다**(메인 세션은" not in sec, "🔴 출처 없는 부재 단정이 되살아났다"
+    for mark in ("지금까지 찾은 것(전수 아님)", "**더 있을 수 있다**", "키워드가 없는 연동 라인",
+                 "p.10 「모타 전선(관리동천창) VCTP 2P×2.5C 800m」 **1,120,000**",
+                 "p.5 「관리동스크린1단자-0.5마력(삼상)」 **170,000**",
+                 "레디믹스콘크리트 타설 **6,987,422**", "방습필름설치 **420,806**", "와이어메시 바닥깔기 **1,719,586**"):
+        assert mark in sec, mark
+    linked = [int(x.replace(",", "")) for x in _re.findall(
+        r"(?:타설|방습필름설치|와이어메시 바닥깔기) \*\*([\d,]+)\*\*", sec)]
+    stated = int(_re.search(r"\(합 ([\d,]+) — 143차", sec).group(1).replace(",", ""))
+    assert len(linked) == 3 and sum(linked) == stated, (linked, stated)
+    # ── [추정] · 쪽 번호 · S9 ───────────────────────────────────────────
+    assert "**150차 측정은 S5를 이관 대상에 넣은 것으로 보인다**" in sec and "같은 등급 **[추정]**" in sec
+    assert "**0부터 센 쪽 번호**" in sec and "(인쇄 쪽과 PDF 쪽의 차로 보인다)" not in sec
+    led = rd("근거_결정대기대장_20260915.md")
+    d13 = next(ln for ln in led.splitlines() if ln.startswith("| ~~**D-13**~~"))
+    assert "목록 15줄" not in d13 and "**전수 아님**" in d13 and "S5를 넣은 것으로 **보인다 [추정]**" in d13
+    wo7 = rd(_o.path.join("docs", "work-orders", next(
+        f for f in _o.listdir(_o.path.join(repo, "docs", "work-orders")) if f.startswith("WO-007_"))))
+    assert "두 번 더한 것으로 보인다 **[추정]**" in wo7 and "**발동됐다**" not in wo7
+    # ── 실행기 · 보충 스크립트 ────────────────────────────────────────────
+    ra = rd(_o.path.join("mutations", "run_all.py"))
+    assert "head.startswith('적용불가')" in ra and "def expected_count" in ra and "🔴누락" in ra
+    for extra in ("mut_240b.py", "mut_249b.py"):
+        body = rd(_o.path.join("mutations", extra))
+        assert "원본이 실패한다" in body and "보충 뮤테이션(266차)" in body, extra
+    assert "| 240b |" in rd(_o.path.join("mutations", "README.md"))
 
 
 if __name__ == "__main__":
