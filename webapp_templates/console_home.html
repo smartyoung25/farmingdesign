@@ -4,45 +4,136 @@
 {% block foot %}근거대장 상수 {{ n_constants }}건 · 계산은 전부 엔진(smartfarm_engine){% endblock %}
 {% block main %}
   <style>
+    /* 245차 — Agritecture 홈 구성 벤치마킹: 히어로 → 숫자 띠 → 일하는 방식 → 서비스 → 케이스 → 근거 현황 */
+    .hero { padding:28px 0 18px; }
+    .hero h1 { font-size:34px; line-height:1.25; font-weight:700; color:#0F3D2E; letter-spacing:-.01em; max-width:760px; text-wrap:balance; }
+    .hero h1 em { font-style:normal; color:#1D9E75; }
+    .hero p { font-size:15px; color:var(--sub); line-height:1.65; margin:14px 0 20px; max-width:680px; }
+    .hero .btns { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn-lg { font-size:13px; font-weight:700; letter-spacing:.02em; padding:12px 20px; border-radius:8px; text-decoration:none; }
+    .btn-lg.solid { background:var(--green); color:#fff; }
+    .btn-lg.ghost { border:1px solid var(--line); color:var(--ink); background:var(--card); }
+    .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:12px; margin:8px 0 34px; }
+    .stat { border-top:3px solid #1D9E75; background:var(--card); border-radius:0 0 10px 10px; padding:14px 16px; }
+    .stat .n { font-size:30px; font-weight:700; color:#0F3D2E; font-variant-numeric:tabular-nums; }
+    .stat .l { font-size:13px; font-weight:500; margin-top:2px; }
+    .stat .d { font-size:12px; color:var(--sub); margin-top:4px; line-height:1.45; }
+    section.blk { margin:0 0 34px; scroll-margin-top:150px; }   /* 상단 고정 메뉴에 제목이 가리지 않게 */
+    section.blk > h2 { font-size:22px; font-weight:700; color:#0F3D2E; margin-bottom:6px; }
+    section.blk > .lead { font-size:13.5px; color:var(--sub); margin-bottom:14px; max-width:720px; line-height:1.6; }
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); gap:12px; }
+    .step { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+    .step .no { width:28px; height:28px; border-radius:50%; background:#1D9E75; color:#fff; font-weight:700;
+                display:flex; align-items:center; justify-content:center; font-size:13px; }
+    .step h3 { font-size:16px; font-weight:700; margin:10px 0 4px; }
+    .step .st { font-size:12px; color:var(--green); font-weight:500; }
+    .step p { font-size:12.5px; color:var(--sub); line-height:1.55; margin-top:6px; }
+    .svc { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr)); gap:12px; }
+    .svc a { display:flex; flex-direction:column; gap:6px; background:var(--card); border:1px solid var(--line);
+             border-radius:12px; padding:16px 18px; text-decoration:none; color:inherit; }
+    .svc a:hover { border-color:#1D9E75; }
+    .svc .code { font-size:11px; font-weight:700; color:#1D9E75; letter-spacing:.06em; }
+    .svc h3 { font-size:16px; font-weight:700; }
+    .svc p { font-size:12.5px; color:var(--sub); line-height:1.55; flex:1; }
+    .svc .more { font-size:12px; font-weight:700; color:var(--green); }
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr)); gap:12px; margin-bottom:12px; }
     a.card { text-decoration:none; color:inherit; display:block; }
-    a.card:hover { border-color:#B4B2A9; }
-    .card h2 { font-size:15px; font-weight:500; margin-bottom:6px; }
+    a.card:hover { border-color:#1D9E75; }
+    .card .tag { font-size:10.5px; font-weight:700; letter-spacing:.06em; color:#1D9E75; }
+    .card h2 { font-size:15px; font-weight:700; margin:4px 0 6px; }
     .card .meta { font-size:12px; color:var(--sub); margin-bottom:10px; }
     .card .row { display:flex; align-items:center; gap:8px; }
     .card .kpi { font-size:13px; font-weight:500; color:var(--green); }
     .card .chip { margin-left:auto; }
-    h3.sec { font-size:13px; color:var(--sub); font-weight:500; margin:18px 0 8px; }
+    .tools { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .ev { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .ev .chip { font-size:12px; padding:4px 12px; }
   </style>
-  <div class="top">
-    <h1>케이스</h1>
-    <div class="actions">
+
+  <div class="hero">
+    <h1>입지부터 사후관리까지, <em>모든 수치에 근거가 붙는</em> 스마트팜 컨설팅</h1>
+    <p>입지·설계·운영·경제성 4축을 엔진이 계산하고, 그 수가 어느 원문에서 왔는지 함께 냅니다. 입력되지 않은 것은 「무엇이 비어 있는지」로 드러납니다.</p>
+    <div class="btns">
+      <a class="btn-lg solid" href="/entry/newcase">새 케이스 시작</a>
+      <a class="btn-lg ghost" href="#cases">케이스 보기</a>
+    </div>
+  </div>
+
+  <div class="stats" aria-label="현황">
+    {% for label, n, desc in stats %}
+    <div class="stat"><div class="n">{{ n }}</div><div class="l">{{ label }}</div><div class="d">{{ desc }}</div></div>
+    {% endfor %}
+  </div>
+
+  {% if request.query_params.get("created") %}<div class="banner ok">케이스 {{ request.query_params.get("created") }} 생성됨(추정/확인요망 status) — 통합보고서 생성은 "엔진 재계산" 실행, 실측 승격은 원문 대조 절차로</div>{% endif %}
+  {% if waits %}<div class="banner">데이터 대기 {{ waits | length }}건 — {{ waits | join(" · ") }}</div>{% endif %}
+
+  <section class="blk" aria-labelledby="how">
+    <h2 id="how">일하는 방식</h2>
+    <p class="lead">사업기획서의 3단계를 이 순서로 진행합니다(★사용자 결정 2026-09-27). 각 단계가 어떤 산출물을 내는지는 케이스 상세의 생애주기 레일에서 봅니다.</p>
+    <div class="steps">
+      {% for f in flow %}
+      <div class="step">
+        <div class="no">{{ loop.index }}</div>
+        <h3>{{ f.name }}</h3>
+        <div class="st">{% for st in f.stages %}{{ st }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+        <p>{{ f.desc }}<br>참고: {{ f.bench }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="blk" aria-labelledby="svc">
+    <h2 id="svc">서비스</h2>
+    <p class="lead">산출물을 「고객이 무엇을 받는가」로 묶었습니다 — 분류이지 순위가 아닙니다.</p>
+    <div class="svc">
+      {% for r in services %}
+      <a href="/functions#{{ r.fn }}">
+        <span class="code">{{ r.fn }} · 산출물 {{ r.docs | length }}종</span>
+        <h3>{{ r.name }}</h3>
+        <p>{{ r.desc }}{% if r.gaps %} — 아직 없는 것 {{ r.gaps | length }}건{% endif %}</p>
+        <span class="more">기능 지도에서 보기 →</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="blk" id="cases" aria-labelledby="cs">
+    <h2 id="cs">케이스</h2>
+    <p class="lead">카드 수치는 요청 시점 엔진 실계산 · 칩은 provenance status 그대로</p>
+    <div class="tools">
       <form method="post" action="/rebuild" style="display:inline"><button type="submit">엔진 재계산(사이트 재생성)</button></form>
       <a class="btn" href="/entry">기입 워크플로 →</a>
       <a class="btn btn-primary" href="/entry/newcase">+ 새 케이스</a>
     </div>
-  </div>
-  <div class="subtitle">카드 수치는 요청 시점 엔진 실계산 · 칩은 provenance status 그대로</div>
-  {% if request.query_params.get("created") %}<div class="banner ok">케이스 {{ request.query_params.get("created") }} 생성됨(추정/확인요망 status) — 통합보고서 생성은 "엔진 재계산" 실행, 실측 승격은 원문 대조 절차로</div>{% endif %}
-  {% if waits %}<div class="banner">데이터 대기 {{ waits | length }}건 — {{ waits | join(" · ") }}</div>{% endif %}
-  <div class="grid">
-    {% for c in full_cards %}
-    <a class="card" href="{{ c.href }}">
-      <h2>{{ c.title }}</h2>
-      <div class="meta">{{ c.meta }}</div>
-      <div class="row"><span class="kpi">{{ c.kpi }}</span><span class="chip {{ c.chip_class }}">{{ c.chip }}</span></div>
-    </a>
-    {% endfor %}
-  </div>
-  <h3 class="sec">부분 케이스 (시공축 전용 — 4축 KPI 미산출)</h3>
-  <div class="grid">
-    {% for c in partial_cards %}
-    <a class="card" href="{{ c.href }}">
-      <h2>{{ c.title }}</h2>
-      <div class="meta">{{ c.meta }}</div>
-      <div class="row"><span class="kpi">{{ c.kpi }}</span><span class="chip {{ c.chip_class }}">{{ c.chip }}</span></div>
-    </a>
-    {% endfor %}
-  </div>
+    <div class="grid">
+      {% for c in full_cards %}
+      <a class="card" href="{{ c.href }}">
+        <div class="tag">4축 케이스</div>
+        <h2>{{ c.title }}</h2>
+        <div class="meta">{{ c.meta }}</div>
+        <div class="row"><span class="kpi">{{ c.kpi }}</span><span class="chip {{ c.chip_class }}">{{ c.chip }}</span></div>
+      </a>
+      {% endfor %}
+      {% for c in partial_cards %}
+      <a class="card" href="{{ c.href }}">
+        <div class="tag">부분 케이스 · 시공축</div>
+        <h2>{{ c.title }}</h2>
+        <div class="meta">{{ c.meta }}</div>
+        <div class="row"><span class="kpi">{{ c.kpi }}</span><span class="chip {{ c.chip_class }}">{{ c.chip }}</span></div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="blk" aria-labelledby="ev">
+    <h2 id="ev">근거 현황</h2>
+    <p class="lead">엔진 상수 {{ n_constants }}건이 어떤 근거 위에 서 있는지입니다 — 「추정」·「확인요망」은 원문이 들어오기 전까지 그렇게 표시됩니다.</p>
+    <div class="ev">
+      {% for k, n, cls in status_rows %}<span class="chip {{ cls }}">{{ k }} {{ n }}</span>{% endfor %}
+      <a class="btn" href="/pages/SmartFarm_근거대장.html">근거대장 열기 →</a>
+    </div>
+  </section>
+
   <p class="note">이 콘솔의 모든 수치는 엔진 호출 결과의 표시 전용이다(앱 내 재계산 없음) · 보고서는 build_site 산출물을 그대로 서빙 · 판정·추천 없음(케이스 나열은 로더 순서)</p>
 {% endblock %}

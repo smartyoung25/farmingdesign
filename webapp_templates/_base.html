@@ -9,10 +9,32 @@
           --line:#E7E7E3; --bg:#FAFAF8; --card:#FFFFFF; }
   * { box-sizing:border-box; margin:0; }
   body { font-family:"Noto Sans KR","Malgun Gothic",sans-serif; background:var(--bg); color:var(--ink);
-         display:flex; min-height:100vh; font-size:14px; }
-  aside { width:232px; background:var(--card); border-right:1px solid var(--line);
-          padding:20px 12px 16px; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
-  .logo { display:flex; align-items:center; gap:8px; padding:0 12px 12px; font-weight:500; font-size:15px; }
+         display:flex; flex-direction:column; min-height:100vh; font-size:14px; word-break:keep-all; }
+  /* 245차 — Agritecture 벤치마킹: 왼쪽 사이드바 → **상단 메뉴 + 오른쪽 행동 버튼**, 아래 푸터 링크 */
+  header.topbar { position:sticky; top:0; z-index:10; background:var(--card); border-bottom:1px solid var(--line); }
+  .topbar .in { max-width:1180px; margin:0 auto; padding:10px 28px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .logo { display:flex; align-items:center; gap:8px; font-weight:700; font-size:15px; color:var(--ink); text-decoration:none; }
+  .menu { display:flex; align-items:center; gap:4px; flex:1; flex-wrap:wrap; }
+  .menu > a, .menu > details > summary { font-size:13.5px; color:#3A3A36; text-decoration:none; padding:8px 12px;
+         border-radius:8px; cursor:pointer; list-style:none; font-weight:500; }
+  .menu > details > summary::-webkit-details-marker { display:none; }
+  .menu > a:hover, .menu > details > summary:hover { background:var(--green-soft); color:#0F3D2E; }
+  .menu > a.active, .menu > details.active > summary { color:var(--green); }
+  .menu details { position:relative; }
+  .menu details > .drop { position:absolute; top:100%; left:0; min-width:230px; background:var(--card);
+         border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.08); padding:6px; z-index:20; }
+  .drop a { display:block; padding:8px 10px; border-radius:6px; font-size:13px; color:#3A3A36; text-decoration:none; }
+  .drop a:hover { background:var(--green-soft); }
+  .drop a small { display:block; font-size:11px; color:var(--mut); }
+  .cta { font-size:13px; font-weight:700; letter-spacing:.02em; padding:9px 16px; border-radius:8px;
+         background:var(--green); color:#fff; text-decoration:none; white-space:nowrap; }
+  footer.foot { margin-top:auto; border-top:1px solid var(--line); background:var(--card); }
+  footer.foot .in { max-width:1180px; margin:0 auto; padding:18px 28px; display:flex; gap:28px; flex-wrap:wrap;
+         font-size:12px; color:var(--sub); }
+  footer.foot .col { display:flex; flex-direction:column; gap:6px; min-width:150px; }
+  footer.foot .col b { color:var(--ink); font-weight:500; }
+  footer.foot a { color:var(--sub); text-decoration:none; }
+  footer.foot a:hover { color:var(--green); }
   .logo .mark { width:22px; height:22px; border-radius:6px; background:#1D9E75; }
   .navlabel { font-size:11px; color:var(--mut); padding:14px 12px 4px; }
   .nav { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px;
@@ -21,7 +43,7 @@
   .nav.active { background:var(--green-soft); color:#0F3D2E; font-weight:500; }
   .nav.active .dot { background:#1D9E75; }
   .foot { margin-top:auto; padding:10px 12px 0; font-size:11px; color:var(--sub); }
-  main { flex:1; min-width:0; padding:24px 28px; max-width:1100px; }
+  main { flex:1; min-width:0; padding:24px 28px; max-width:1180px; width:100%; margin:0 auto; }
   .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
   .top h1 { font-size:19px; font-weight:500; }
   .subtitle { font-size:12.5px; color:var(--sub); margin-bottom:16px; }
@@ -65,12 +87,10 @@
      들어갔고 액션 버튼 3개가 **114px 높이**의 세로 글자열로 무너졌다. */
   @media (max-width:900px) {
     body { flex-direction:column; }
-    aside { width:auto; flex-direction:row; flex-wrap:wrap; align-items:center;
-            border-right:none; border-bottom:1px solid var(--line); padding:12px 16px; gap:6px; }
-    .logo { width:100%; padding:0 0 4px; }
-    .navlabel { padding:6px 4px 6px 0; }
-    .nav { padding:6px 10px; border:1px solid var(--line); }
-    .foot { width:100%; margin-top:6px; padding:6px 0 0; }
+    .topbar .in { padding:10px 16px; gap:8px; }
+    .menu { order:3; flex:1 1 100%; }   /* 245차 — flex-basis 0이면 width가 무시돼 58px에 갇혔다 */
+    .menu details > .drop { position:static; box-shadow:none; }
+    footer.foot .in { padding:16px; }
     main { padding:16px; max-width:none; }
     .top { flex-wrap:wrap; gap:8px; }
     .actions { flex-wrap:wrap; }
@@ -81,30 +101,42 @@
 </style>
 </head>
 <body>
-<aside>
-  <div class="logo"><span class="mark"></span>스마트팜 컨설팅</div>
-  <div class="navlabel">기능</div>
-  <a class="nav {% if active == 'functions' %}active{% endif %}" href="/functions"><span class="dot"></span>기능 지도</a>
-  {% for f in nav_functions() %}{% if f.fn != 'F0' %}
-  <a class="nav sub" href="/functions#{{ f.fn }}" title="{{ f.desc }}"><span class="dot"></span>{{ f.name }}</a>
-  {% endif %}{% endfor %}
-  <div class="navlabel">작업</div>
-  <a class="nav {% if active == 'cases' %}active{% endif %}" href="/"><span class="dot"></span>케이스</a>
-  <a class="nav {% if active == 'entry' %}active{% endif %}" href="/entry"><span class="dot"></span>기입 워크플로</a>
-  {% for q in quote_pages | default([]) %}
-  <a class="nav" href="/pages/{{ q }}"><span class="dot"></span>{{ q | replace("SmartFarm_견적비교_", "견적비교 — ") | replace(".html", "") }}</a>
-  {% endfor %}
-  <div class="navlabel">참조</div>
-  <a class="nav" href="/pages/SmartFarm_근거대장.html"><span class="dot"></span>근거대장</a>
-  <a class="nav" href="/pages/SmartFarm_벤치마크비교.html"><span class="dot"></span>벤치마크</a>
-  <a class="nav" href="/pages/SmartFarm_CAPEX분해.html"><span class="dot"></span>CAPEX 분해</a>
-  <a class="nav" href="/pages/SmartFarm_케이스비교.html"><span class="dot"></span>케이스 비교뷰</a>
-  <a class="nav" href="/pages/index.html"><span class="dot"></span>정적 사이트(index)</a>
-  <div class="foot">{% block foot %}계산은 전부 엔진(smartfarm_engine) — 앱 내 산술 없음{% endblock %}</div>
-</aside>
+<header class="topbar"><div class="in">
+  <a class="logo" href="/"><span class="mark"></span>스마트팜 컨설팅</a>
+  <nav class="menu" aria-label="주 메뉴">
+    <details class="{% if active == 'functions' %}active{% endif %}"><summary>서비스</summary>
+      <div class="drop">
+        <a href="/functions">기능 지도<small>산출물 27종을 기능으로 묶은 지도</small></a>
+        {% for f in nav_functions() %}{% if f.fn != 'F0' %}
+        <a href="/functions#{{ f.fn }}" title="{{ f.desc }}">{{ f.name }}<small>{{ f.desc }}</small></a>
+        {% endif %}{% endfor %}
+      </div></details>
+    <a class="{% if active == 'cases' %}active{% endif %}" href="/#cases">케이스</a>
+    <a class="{% if active == 'entry' %}active{% endif %}" href="/entry">기입</a>
+    <details><summary>참조</summary>
+      <div class="drop">
+        <a href="/pages/SmartFarm_근거대장.html">근거대장<small>모든 수치의 출처</small></a>
+        <a href="/pages/SmartFarm_벤치마크비교.html">벤치마크</a>
+        <a href="/pages/SmartFarm_CAPEX분해.html">CAPEX 분해</a>
+        <a href="/pages/SmartFarm_케이스비교.html">케이스 비교뷰</a>
+        {% for q in quote_pages | default([]) %}
+        <a href="/pages/{{ q }}">{{ q | replace("SmartFarm_견적비교_", "견적비교 — ") | replace(".html", "") }}</a>
+        {% endfor %}
+        <a href="/pages/index.html">정적 사이트(index)</a>
+      </div></details>
+  </nav>
+  <a class="cta" href="/entry/newcase">새 케이스 시작</a>
+</div></header>
 <main>
 {% if error %}<div class="banner err" role="alert">거부됨 — {{ error }}<div class="why">기입한 값은 아래에 그대로 남아 있다 · 이 문장은 검증한 쪽이 낸 말 그대로다(앱이 고쳐 말하지 않는다)</div></div>{% endif %}
 {% block main %}{% endblock %}
 </main>
-</body>
-</html>
+<footer class="foot"><div class="in">
+  <div class="col"><b>서비스</b><a href="/functions">기능 지도</a>
+    {% for f in nav_functions() %}{% if f.fn != 'F0' %}<a href="/functions#{{ f.fn }}">{{ f.name }}</a>{% endif %}{% endfor %}</div>
+  <div class="col"><b>작업</b><a href="/#cases">케이스</a><a href="/entry">기입 워크플로</a><a href="/entry/newcase">새 케이스</a></div>
+  <div class="col"><b>참조</b><a href="/pages/SmartFarm_근거대장.html">근거대장</a><a href="/pages/SmartFarm_벤치마크비교.html">벤치마크</a>
+    <a href="/pages/SmartFarm_CAPEX분해.html">CAPEX 분해</a><a href="/pages/SmartFarm_케이스비교.html">케이스 비교뷰</a><a href="/pages/index.html">정적 사이트(index)</a></div>
+  <div class="col" style="flex:1; min-width:220px">{% block foot %}계산은 전부 엔진(smartfarm_engine) — 앱 내 산술 없음{% endblock %}
+    <span>화면의 수치는 엔진 호출 결과의 표시다</span></div>
+</div></footer>

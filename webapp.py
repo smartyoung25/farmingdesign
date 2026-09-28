@@ -104,11 +104,26 @@ def console_home(request: Request):
     partial = [_case_card(c) for c in cs if c.get("partial")]
     reg = json.loads((ROOT / "엔진데이터_레지스트리.json").read_text(encoding="utf-8"))
     quotes = sorted(Path(p).name for p in glob.glob(str(ROOT / "SmartFarm_견적비교_*.html")))
+    # 245차 — Agritecture 벤치마킹 홈: 숫자 띠 · 일하는 방식 · 서비스 · 케이스 · 근거 현황.
+    #   🔴 전부 **이미 있는 데이터를 세거나 옮긴 것**이다 — 새 수치·문구를 짓지 않는다
+    #   (Agritecture의 고객 추천사 자리는 지어낼 수 없어 **근거 현황**으로 바꿨다).
+    from collections import Counter as _Counter
+    ix = cpkg.function_index()
+    status = _Counter(v.get("status", "") for v in reg["constants"].values())
     return templates.TemplateResponse(request, "console_home.html", {
         "full_cards": full, "partial_cards": partial,
         "waits": _data_wait(cs),
         "n_constants": len(reg["constants"]),
         "quote_pages": quotes,
+        "stats": [("케이스", len(cs), f"4축 {len(full)} · 부분 {len(partial)}"),
+                  ("산출물", ix["total"], "D1~D27 — 케이스 1건이 받는 산출물 종류"),
+                  ("근거 상수", len(reg["constants"]), "레지스트리에 출처·status가 등재된 엔진 상수"),
+                  ("원문 출처", sum(len(v.get("source_refs") or []) for v in reg["constants"].values()),
+                   "상수가 가리키는 원문 파일 연결(source_refs)")],
+        "flow": [{"key": k, "name": n, "stages": list(st), "desc": d, "bench": b}
+                 for k, n, st, d, b in cpkg.PLATFORM_STAGES],
+        "services": ix["rows"],
+        "status_rows": [(k, status[k], chip_class(k)) for k in sorted(status, key=lambda x: -status[x])],
     })
 
 

@@ -2187,6 +2187,50 @@ def test_242cha_d9_winter_months_are_entered_per_case(tmp_cases):
     assert "★D-9 결정" in _cp.INJECTION_SLOTS["winter_months"]
 
 
+def test_245cha_agritecture_layout_uses_only_existing_data():
+    """245차 — Agritecture 홈 구성을 벤치마킹했다(사용자 지시: 세부 내용은 두고 구성만).
+
+    상단 메뉴 + 행동 버튼 · 히어로 → 숫자 띠 → 일하는 방식 → 서비스 → 케이스 → 근거 현황 · 푸터.
+    🔴 **내용은 이미 있는 데이터만** 쓴다 — 숫자 띠는 실측, 일하는 방식은 ★결정된 3단계, 서비스는 기능 축,
+       Agritecture의 **고객 추천사 자리는 지어낼 수 없어 근거 현황**으로 바꿨다.
+    """
+    import re as _re
+    import consulting_package as _cp
+    from cases import load_cases as _lc
+    html = client.get("/").text
+
+    # ── ① 섹션 순서 ────────────────────────────────────────────────
+    marks = ['class="hero"', 'class="stats"', 'id="how"', 'id="svc"', 'id="cs"', 'id="ev"']
+    pos = [html.find(m) for m in marks]
+    assert all(p > 0 for p in pos) and pos == sorted(pos), f"🔴 홈 섹션 순서가 다르다: {pos}"
+
+    # ── ② 숫자 띠 = 실측 ────────────────────────────────────────────
+    reg = json.loads(_io_read("엔진데이터_레지스트리.json"))["constants"]
+    cs = _lc()
+    want = {"케이스": len(cs), "산출물": len(_cp.PACKAGE_SPEC), "근거 상수": len(reg),
+            "원문 출처": sum(len(v.get("source_refs") or []) for v in reg.values())}
+    got = dict((l, int(n)) for n, l in _re.findall(
+        r'<div class="n">(\d+)</div><div class="l">([^<]+)</div>', html))
+    assert got == want, f"🔴 숫자 띠 {got}가 실측 {want}와 다르다 — 숫자를 짓지 않는다"
+
+    # ── ③ 일하는 방식 = ★결정된 3단계 순서 · 서비스 = 기능 축 ──────────────
+    flow = _re.findall(r'<div class="step">\s*<div class="no">\d</div>\s*<h3>([^<]+)</h3>', html)
+    assert flow == [n for _k, n, *_r in _cp.PLATFORM_STAGES], f"🔴 일하는 방식 순서가 {flow}다"
+    svc = _re.findall(r'<span class="code">(F\d) ·', html)
+    assert svc == [f for f, _n, _d in _cp.BENCHMARK_FUNCTIONS], f"🔴 서비스 카드가 {svc}다"
+
+    # ── ④ 지어낸 추천사·실적 과장이 없다 ─────────────────────────────
+    for w in ("추천사", "고객 후기", "What Our Clients Say", "+ Projects", "억 원 자문"):
+        assert w not in html, f"🔴 홈에 근거 없는 홍보 문구 「{w}」가 들어왔다"
+    assert "근거 현황" in html and "/pages/SmartFarm_근거대장.html" in html
+
+    # ── ⑤ 모든 화면이 같은 상단 메뉴·행동 버튼·푸터를 쓴다(사이드바 없음) ────────
+    for u in ("/", "/functions", "/entry", "/case/C1", "/entry/docs/C1", "/entry/site/C1"):
+        h = client.get(u).text
+        assert '<header class="topbar">' in h and 'class="cta" href="/entry/newcase"' in h, u
+        assert '<footer class="foot">' in h and "<aside>" not in h, u
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),
