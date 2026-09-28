@@ -12466,7 +12466,7 @@ def test_233cha_fullwidth_approval_doc_names():
 
     ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
-    assert "233차" in ent["source"] and "NFKC" in ent["source"], "🔴 레지스트리에 전각 규칙 기록이 없다"
+    assert "📌233차 — 사용자 지시" in ent["source"] and "NFKC" in ent["source"], "🔴 레지스트리에 전각 규칙 기록이 없다"  # 📌265차: 차수 번호 글자는 뒤 차수 서술에도 나온다 — 그 차수의 기록 문구 자체를 본다(뮤테이션 재현에서 놓침)
 
 
 def test_234cha_curly_apostrophe_is_one_registered_alias():
@@ -12495,7 +12495,7 @@ def test_234cha_curly_apostrophe_is_one_registered_alias():
         "🔴 ’ 가 든 별칭은 234차 한 건뿐이어야 한다(다른 모양은 235차 가드가 잰다)")
     ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
-    assert "234차" in ent["source"] and ent["value"].get(name) == "제조업자 시방서"
+    assert "📌234차 — 사용자 지시" in ent["source"] and ent["value"].get(name) == "제조업자 시방서"  # 📌265차: 차수 번호 글자는 뒤 차수 서술에도 나온다 — 그 차수의 기록 문구 자체를 본다(뮤테이션 재현에서 놓침)
 
 
 def test_235cha_other_quote_variants_are_registered_one_by_one():
@@ -12526,7 +12526,7 @@ def test_235cha_other_quote_variants_are_registered_one_by_one():
     assert quoted == six, f"🔴 따옴표 별칭이 {quoted}다 — 236차 등재는 여섯 모양 한 이름뿐이다"
     ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
-    assert "235차" in ent["source"] and all(ent["value"].get(n) == "제조업자 시방서" for n in names)
+    assert "📌235차 — 사용자 지시" in ent["source"] and all(ent["value"].get(n) == "제조업자 시방서" for n in names)  # 📌265차: 차수 번호 글자는 뒤 차수 서술에도 나온다 — 그 차수의 기록 문구 자체를 본다(뮤테이션 재현에서 놓침)
 
 
 def test_236cha_backtick_and_acute_aliases():
@@ -12550,7 +12550,7 @@ def test_236cha_backtick_and_acute_aliases():
     import json as _j, os as _o
     ent = _j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)),
                                     "엔진데이터_레지스트리.json"), encoding="utf-8"))["constants"]["MATERIAL_APPROVAL_ALIASES"]
-    assert "236차" in ent["source"] and all(ent["value"].get(n) == "제조업자 시방서" for n in names), (
+    assert "📌236차 — 사용자 지시" in ent["source"] and all(ent["value"].get(n) == "제조업자 시방서" for n in names), (
         "🔴 레지스트리에 236차 결정 기록이나 값이 없다")
 
 
@@ -13560,6 +13560,55 @@ def test_264cha_redteam32_corrections_hold():
     # ── A6 S9 근거 · A5 쪽 번호 · B7 행 표현 ──────────────────────────────
     assert "**사업명·소재지**가 같다" in sec and "3,714㎡ — S9 설계도면과 같은 사업" not in sec
     assert "**모두 PDF보다 1 작다**" in sec and "15행 — S4 행은 원문 7줄의 합산" in sec
+
+
+def test_265cha_mutation_scripts_live_in_the_repo():
+    """265차 — 뮤테이션 스크립트가 리포에 있고 리포만으로 다시 돌릴 수 있는가(사용자 지시 「뮤테이션 스크립트도 리포에 넣어」).
+
+    🔴 레드팀 32회차: 스크립트가 작업 임시 폴더에 있어 「N/N 잡음」을 리포만으로 재현할 수 없었다.
+    🔴 알려진 놓침은 **분류와 이유**가 있어야 하고, 그 이름이 실제 스크립트에 있어야 한다(유령 면제 금지).
+    ⚠️ 이 가드는 뮤테이션을 **돌리지 않는다**(느리다) — 돌리는 것은 `python mutations/run_all.py`다.
+    """
+    import os as _o, io as _io, re as _re, ast as _ast, importlib.util as _iu, warnings as _w
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    mdir = _o.path.join(repo, "mutations")
+    have = sorted(int(m.group(1)) for f in _o.listdir(mdir) for m in [_re.match(r"mut_(\d+)\.py$", f)] if m)
+
+    # ── ① 223차부터 이 차수까지 빠짐없이 ──────────────────────────────
+    lg = rd("차수로그.md")
+    top = int(_re.search(r"- \*\*2026-\d\d-\d\d (\d+)차\*\*", lg).group(1))
+    missing = [n for n in range(223, top + 1) if n not in have]
+    assert not missing, f"🔴 뮤테이션 스크립트가 없는 차수: {missing}"
+
+    # ── ② 리포만으로 돈다 — 절대 경로 없음 · 리포 루트로 이동 ─────────────────
+    for n in have:
+        src = rd(_o.path.join("mutations", f"mut_{n}.py"))
+        assert "C:\\FarmingDesign" not in src and "C:/FarmingDesign" not in src and "scratchpad" not in src, n
+        assert "os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))" in src, n
+        with _w.catch_warnings():  # 옛 스크립트의 이스케이프 경고(당시 기록이라 고치지 않는다)
+            _w.simplefilter("ignore", SyntaxWarning)
+            _ast.parse(src)
+
+    # ── ③ 실행기 — 원본 통과 확인 · 복원 · 알려진 놓침 ──────────────────────
+    spec = _iu.spec_from_file_location("mut_run_all", _o.path.join(mdir, "run_all.py"))
+    run_all = _iu.module_from_spec(spec)
+    src_ra = rd(_o.path.join("mutations", "run_all.py"))
+    assert "def baseline_args" in src_ra and "def touched" in src_ra and "restored" in src_ra
+    tree = _ast.parse(src_ra)
+    known = next(_ast.literal_eval(n.value) for n in tree.body
+                 if isinstance(n, _ast.Assign) and getattr(n.targets[0], "id", "") == "KNOWN")
+    for rnd, items in known.items():
+        body = rd(_o.path.join("mutations", f"mut_{rnd}.py"))
+        for name, why in items.items():
+            assert name in body, f"🔴 알려진 놓침 {rnd} 「{name}」이 스크립트에 없다 — 유령 면제"
+            assert _re.match(r"(등가 변이|대상 이동|상태 변화) — \S", why), f"🔴 {rnd} 「{name}」 분류·이유가 없다: {why}"
+
+    # ── ④ 문서 · 명령 ────────────────────────────────────────────────
+    readme = rd(_o.path.join("mutations", "README.md"))
+    for n in have:
+        assert f"| {n} |" in readme, f"🔴 README 결과표에 {n}차가 없다"
+    assert "python mutations/run_all.py" in rd("CLAUDE.md")
 
 
 if __name__ == "__main__":

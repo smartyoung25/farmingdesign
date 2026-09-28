@@ -2048,7 +2048,8 @@ def test_227cha_approval_attachments_reach_the_equipment_reconcile(tmp_cases):
     assert st_none == "미검증" and "attachments_by_model" in need_none, (
         f"🔴 첨부가 하나도 없는데 「{st_none}」다 — 못 본 것은 미검증이다(통과로 세면 227차 이견으로 돌아간다)")
     reg = json.loads(_io_read("엔진데이터_레지스트리.json"))["constants"]["KSFID_CHECK_SPEC"]
-    assert "228차" in reg["source"] and "B10 ⓑ" in reg["source"] and reg["status"] == "결정", (
+    #   📌265차: 「228차」 글자는 239차 서술에도 나온다 — 228차 기록 문구 자체를 본다(뮤테이션 재현에서 놓침)
+    assert "📌228차 — ★**사용자 결정(2026-09-27, B10 ⓑ)**" in reg["source"] and reg["status"] == "결정", (
         "🔴 규칙을 바꿨는데 레지스트리 `KSFID_CHECK_SPEC` 출처에 ★결정 기록이 없다")
 
 
