@@ -12972,6 +12972,45 @@ def test_247cha_work_order_format_audit_catches_each_rule():
     assert "python audit_work_orders.py" in cm
 
 
+def test_249cha_open_decisions_each_have_one_work_order():
+    """249차 — 결정 대기 D-7 이후 항목이 WO 1건씩으로 만들어져 있고, 대장과 WO 상태가 갈라지지 않는가.
+
+    🔴 WO는 **결정을 대신 내리지 않는다** — 대장에서 열린 항목의 WO는 선택을
+       `[확인 필요]`로 남기고 색인 상태가 「완료」가 아니어야 한다.
+    🔴 거꾸로 색인이 「완료」인 D 항목은 대장에서도 닫혀 있어야 한다(두 곳이 갈라지면 잡는다).
+    ⚠️ D-1~D-4는 이 차수의 범위(D-7부터) 밖이다 — 원문 자료 대기.
+    """
+    import os as _o, io as _io, re as _re
+    import audit_work_orders as A
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    led = _io.open(_o.path.join(repo, "근거_결정대기대장_20260915.md"), encoding="utf-8").read()
+    opened = {int(x) for x in _re.findall(r"^\| \*\*D-(\d+)\*\* \|", led, _re.M)}
+    closed = {int(x) for x in _re.findall(r"^\| ~~\*\*D-(\d+)\*\*~~", led, _re.M)}
+    open_ = {n for n in opened - closed if n >= 7}
+    assert open_ >= {7, 8, 11, 13, 14, 15} - closed, open_
+
+    r = A.audit()
+    assert r["pass"], r["problems"]
+    state = {row[0]: row[5] for row in r["index"]}
+    by_d = {}
+    for f in r["files"]:
+        m = _re.match(r"D-(\d+) ", f["parsed"]["title"] or "")
+        if m:
+            by_d.setdefault(int(m.group(1)), []).append(f)
+
+    for n in sorted(open_):
+        wos = by_d.get(n, [])
+        assert len(wos) == 1, f"🔴 열린 D-{n}의 WO가 {len(wos)}건이다 — 1건이어야 한다"
+        f = wos[0]
+        assert f["parsed"]["n_confirm_needed"] >= 1, (
+            f"🔴 {f['id']}(D-{n})가 [확인 필요] 없이 선택을 적었다 — 결정은 사용자 몫이다")
+        assert state[f["id"]] != "완료", f"🔴 대장은 D-{n}을 열어 두었는데 {f['id']}는 완료다"
+    for n, wos in by_d.items():
+        for f in wos:
+            if state.get(f["id"]) == "완료":
+                assert n in closed, f"🔴 {f['id']}는 완료인데 대장의 D-{n}이 닫히지 않았다"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
