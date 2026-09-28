@@ -13468,6 +13468,44 @@ def test_262cha_unverified_items_checked_against_originals():
     assert "→ ✅**262차 OCR로 확인(「공정등이」 일치)**" in rd("검증절차_레드팀.md")
 
 
+def test_263cha_aux_facility_lines_all_checked_against_originals():
+    """263차 — 부대시설 이관 측정(D-13)의 목록 라인을 **전부** 원문과 대조한 표가 대장과 맞물리는가.
+
+    🔴 표를 **파싱해** 합을 다시 낸다 — 대장의 36,878,048과 같아야 하고, 150차 37,226,888과의 차는
+       표의 **A5 사재 한 줄**과 같아야 한다(262차 「사재 이중 계산」 판단의 근거).
+    🔴 S6·S7은 엔진 표본 1건이라 **한 번만** 센다 · 온실 전체 금액(S3 12,125,520 · S8)은 표에 없다.
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as e
+    import case_display as cd
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    doc = rd("근거_관리동_실재점검_20260915.md")
+    sec = doc[doc.index("## 263차 — 목록 전 라인 원문 대조"):]
+    rows = _re.findall(r"(?m)^\| (A\d+|S\d+(?:·S\d+)?) \| ([^|]+) \| ([^|]+) \| ([\d,]+) \|$", sec)
+    assert len(rows) == 15, len(rows)
+    total = sum(int(a.replace(",", "")) for *_x, a in rows)
+    stated = int(_re.search(r"\| \*\*합계\*\* \| \*\*([\d,]+)\*\*", sec).group(1).replace(",", ""))
+    assert total == stated, (total, stated)
+
+    led = rd("근거_결정대기대장_20260915.md")
+    d13 = next(ln for ln in led.splitlines() if ln.startswith("| ~~**D-13**~~"))
+    resum = int(_re.search(r"모두 더하면 \*\*([\d,]+)\*\*", d13).group(1).replace(",", ""))
+    assert total == resum, (total, resum)
+    sajae = [int(a.replace(",", "")) for c, s, item, a in rows if c == "A5" and "사재" in item]
+    assert sajae and 37226888 - total == sajae[0], (37226888 - total, sajae)
+    assert "263차에 나머지 9표본도 원문 대조" in d13
+
+    codes = {c for c, *_x in rows}
+    assert codes == {"A2", "A4", "A5", "A6", "A7", "S3", "S4", "S5", "S6·S7", "S9"}, codes
+    assert "S6·S7" in e.CAPEX_MAJOR_CASE_CHUNKS or any(
+        cd.SOURCE_ALIASES.get(k) == "S6" or "·" in cd.scrub(k) for k in e.CAPEX_MAJOR_CASE_CHUNKS), "전제: S6·S7은 표본 1건"
+    assert not any(a == "12,125,520" for *_x, a in rows), "🔴 온실 전체 금액이 표에 들어왔다"
+    assert all(s.strip() and s.strip() != "—" for c, s, *_x in rows), "🔴 원문 위치가 빈 행이 있다"
+    assert cd.audit(sec) == {}
+    assert "**263차 확인**" in rd("릴리스_v1.2_20260928.md")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

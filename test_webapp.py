@@ -2358,7 +2358,8 @@ def test_251cha_work_orders_carry_no_personal_names(monkeypatch):
     #   최신까지 **전부** 본다(245~248은 256차에 코드로 바꿨다).
     top = int(_re.search(r"- \*\*2026-\d\d-\d\d (\d+)차\*\*", lg).group(1))
     for n in range(245, top + 1):
-        i = lg.index(f"- **2026-09-28 {n}차**")
+        #   📌263차 — 날짜가 바뀌었다(2026-09-29). 차수 번호로 찾는다
+        i = _re.search(r"(?m)^- \*\*2026-\d\d-\d\d %d차\*\*" % n, lg).start()
         j = lg.index("\n- **2026-", i + 5)
         assert cd.audit(lg[i:j]) == {}, (n, cd.audit(lg[i:j]))
 
