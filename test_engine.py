@@ -13675,6 +13675,36 @@ def test_266cha_redteam33_corrections_hold():
     assert "| 240b |" in rd(_o.path.join("mutations", "README.md"))
 
 
+def test_267cha_unverified_items_taken_to_the_originals():
+    """267차 — 「확인하지 못한 것」 2건(150차 구성 내역 · 목록 밖 라인 귀속)을 원문으로 갈 수 있는 데까지 간 기록이 맞물리는가.
+
+    🔴 150차 구성 내역은 **git 전 이력**에도 없다 — 그래서 [추정]은 그대로다(단정으로 바뀌면 실패).
+    🔴 귀속 표는 **원문이 말하는 것만** 적는다 — 「넣는다/뺀다」 같은 분류 결정 문장이 들어오면 실패(D-13 ★유지).
+    """
+    import os as _o, io as _io, re as _re, subprocess as _sp
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    doc = rd("근거_관리동_실재점검_20260915.md")
+    sec = doc[doc.index("## 267차 — 「확인하지 못한 것」 2건 진행"):]
+
+    # ── ① 150차 커밋에 라인 목록이 없다는 것을 git으로 다시 잰다 ────────────
+    show = _sp.run(["git", "show", "57de25b"], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=repo).stdout
+    assert "37,226,888" in show and "1,020,144" not in show and "348,840" not in show, "🔴 150차 커밋에 라인 목록이 있다 — [추정]을 다시 보라"
+    assert "git 전 이력에도 없다" in sec and "**[추정]** 그대로 둔다" in sec
+    assert "「각」" in sec and "증명은 아니다" in sec
+
+    # ── ② 귀속 표 — 원문 사실만 · 결정 문장 없음 ───────────────────────────
+    rows = _re.findall(r"(?m)^\| (A\d+|S\d+(?:·S\d+)?) \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$", sec)
+    assert len(rows) >= 7, len(rows)
+    for mark in ("관리동면적 **432㎡(130.68py)**", "TR2 관리동트러스", "121.2×2 = 작업동 콘크리트타설 수량의 200%",
+                 "비고 **「작업동」**", "배수(200%)의 뜻을 원문이 설명하지 않는다", "「관리동천창」", "「관리동스크린」"):
+        assert mark in sec, mark
+    for bad in ("이관한다", "부대시설에 넣는다", "auxiliary_facility로 옮긴다", "이관하지 않는다"):
+        assert bad not in sec, f"🔴 분류 결정 문장 「{bad}」 — D-13은 ★유지로 닫혀 있다"
+    assert "★유지로 닫혀 있어 지금은 결정 대상이 아니다" in sec and "⚠️범위" in sec
+    assert "**267차**" in rd("릴리스_v1.2_20260928.md") and "다시 열지 않는다" in rd("릴리스_v1.2_20260928.md")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
