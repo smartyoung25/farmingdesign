@@ -13880,6 +13880,91 @@ def test_269cha_the_2026_guideline_was_opened_and_nothing_was_registered():
     assert "601자뿐이다" in sec and "리포에 넣지 않았다" in sec
 
 
+
+def test_270cha_the_ict_standard_list_was_opened_and_counted_from_the_rows():
+    """270차 — ICT 표준 목록을 열고 센 기록이 맞물리는가.
+
+    🔴 집계표의 수를 **믿지 않는다** — 전수표 행을 다시 세어 집계표와 맞는지 잰다
+       (가드가 데이터를 따라가면 데이터가 틀려도 통과한다 — 211·212차 교훈).
+    🔴 벤치마킹의 종수는 **2022년 기사값**이라는 기록과, 두 수를 같은 자로 재지
+       않는다는 문장이 사라지면 실패.
+    🔴 KS X 3268·3269는 **[미확인]**이다 — 있다고 단정하면 실패.
+    """
+    import os as _o, io as _io
+    import consulting_package as _cp
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_외부수집_기능공백_20260924.md")
+    sec = doc[doc.index("## 7. 🔴 270차 — ICT 표준 목록을 열었다"):]
+    lines = [ln.strip() for ln in sec.splitlines()]
+
+    # ── ① 전수표 행을 **다시 센다** — 집계표가 아니라 행에서 수를 만든다 ────
+    std, notice = {"KS": 0, "SPS": 0, "TTAS": 0}, 0
+    for ln in lines:
+        if not ln.startswith("|"):
+            continue
+        cols = [c.strip() for c in ln.strip("|").split("|")]
+        if len(cols) == 4 and cols[0] in std and cols[1].isdigit():
+            std[cols[0]] += 1
+        elif len(cols) == 3 and cols[0].isdigit():
+            notice += 1
+    total_std = sum(std.values())
+    assert std == {"KS": 23, "SPS": 29, "TTAS": 3}, f"🔴 전수표를 다시 세니 {std}다"
+    assert total_std == 55 and notice == 13, (total_std, notice)
+    # 집계표가 **행에서 센 수와 같은가** — 둘이 갈라지면 실패
+    for label, n in (("KS(국가표준)", 23), ("SPS(단체표준)", 29),
+                     ("TTAS(TTAK, 정보통신단체표준)", 3)):
+        assert ("| %s | **%d** |" % (label, n)) in sec, f"🔴 집계표의 {label} 칸이 행 수와 다르다"
+    assert "| **표준 소계** | **55** |" in sec and "| **게시물 합** | **68** |" in sec
+    assert total_std + notice == 68
+
+    # ── ② 모집단이 다르다는 경고를 지우지 않았다 ───────────────────────────
+    assert "**이것은 「스마트팜 ICT 표준의 전체 목록」이 아니다.**" in sec
+    assert "모집단이 다르다" in sec
+
+    # ── ③ 벤치마킹 종수의 출처·시점 — 2022년 기사이고 TTAS는 2021년 기준 ────
+    #   ⚠️ 줄바꿈을 건너뛰고 본다 — 문장이 두 줄에 걸쳐 있다(첫 시도가 그래서 실패했다)
+    flat = " ".join(sec.split())
+    assert "농수축산신문" in flat and "2022-09-16" in flat, "🔴 기사 출처·날짜가 사라졌다"
+    assert "**네 해 전 수치**" in flat and "**TTAS 70은 그보다 한 해 더 이른 2021년 기준**" in flat
+    assert "*「KS가 9에서 23으로 늘었다」*는 말은 **하지 않는다**" in flat, (
+        "🔴 두 수를 같은 자로 재지 않는다는 문장이 사라졌다")
+
+    # ── ④ 1차 자료 — 품목 내역의 합이 표기와 맞는가 ─────────────────────────
+    assert "**KS X 3265∼3269**" in sec and "**KS X 3279**" in sec
+    assert "**시설원예 22종, 축산 19종**" in sec
+    assert "22 = 13 + 9 · 19 = 8 + 7 + 4" in sec
+    assert 13 + 9 == 22 and 8 + 7 + 4 == 19
+
+    # ── ⑤ KS X 3268·3269는 **[미확인]** — 있다고도 없다고도 단정하지 않는다 ──
+    assert "**KOAT 게시판 55건에 KS X 3268·3269는 없다**" in sec
+    assert "**[미확인]으로 남긴다.**" in sec
+    for bad in ("3268·3269는 제정됐다", "3268·3269는 폐지됐다", "3268·3269는 존재하지 않는다"):
+        assert bad not in sec, f"🔴 단정문 「{bad}」"
+
+    # ── ⑥ 막힌 이유가 바뀌었다 — 목록은 구했고 **등재만 남았다** ────────────
+    g2 = [g for g in _cp.FUNCTION_GAPS if g["name"] == "ICT 기자재 KS/SPS/TTAS 사양"]
+    assert len(g2) == 1, g2
+    assert g2[0]["found"] == "1차", "🔴 G2가 아직 2차 자료로 적혀 있다"
+    assert "등재" in g2[0]["blocked"] and "목록은 확보했다" in g2[0]["blocked"]
+    assert "3268·3269" in g2[0]["blocked"], "🔴 미확인 두 번호가 blocked에서 사라졌다"
+    #   ⚠️ 건수는 엔진·조립 계층에 적지 않는다(212차 계약). 낱개 숫자로 재면
+    #      표준 번호(3265∼3269)가 먼저 걸린다 — 첫 시도가 그렇게 실패했다. **건수 표기**로 잰다
+    src = rd("consulting_package.py")
+    i = src.index(chr(34) + "name" + chr(34) + ": " + chr(34) + "ICT 기자재 KS/SPS/TTAS 사양" + chr(34))
+    blk = src[i:src.index(chr(34) + "fn" + chr(34), i + 10)]
+    for n in ("55건", "68건", "23건", "29건", "표준 55", "KS 23", "SPS 29", "TTAS 3건"):
+        assert n not in blk, f"🔴 표준 건수 표기 「{n}」이 조립 계층에 적혔다 — 수는 근거 문서에만 둔다"
+
+    # ── ⑦ 403은 여전하다 · 확인하지 못한 것을 지우지 않았다 ─────────────────
+    assert "HTTP 403 동일" in sec and "**여전히 403**" in sec
+    assert "`standard.go.kr` DNS 실패" in sec and "표준 **본문**은 하나도 열지 않았다" in sec
+
+    # ── ⑧ 269차가 남긴 관찰을 닫았다 — D-3·D-7은 설계였다 ───────────────────
+    assert "D-3은 **취소선 없는 굵은 행 1 + 취소선 행 1**" in sec
+    assert "**고칠 것이 없다**" in sec
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
