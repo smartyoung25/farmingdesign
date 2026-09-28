@@ -13965,6 +13965,79 @@ def test_270cha_the_ict_standard_list_was_opened_and_counted_from_the_rows():
     assert "**고칠 것이 없다**" in sec
 
 
+
+def test_272cha_region_to_station_reach_is_measured_not_asserted():
+    """272차 — 시군구 172 ↔ 관측지점 69의 도달률을, 문서가 아니라 **엔진을 호출해** 잰다.
+
+    🔴 문서의 수를 믿지 않는다 — `design_outdoor_temp`를 172지역에 실제로 돌려
+       도달 수를 만들고, 그 수가 근거 문서 표와 같은지 본다(가드가 데이터를 따라가면
+       데이터가 틀려도 통과한다 — 211·212·270차 교훈).
+    🔴 241차 ★결정(부분 일치 허용)을 **272차가 바꾸지 않았다**는 것을 고정한다 —
+       광주(경기)가 `광주`를 받는 현행 동작이 사라지면 그건 결정 변경이므로 실패.
+    """
+    import os as _o, io as _io
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_지역정규화_기상지점_20260929.md")
+
+    # ── ① 엔진을 실제로 돌려 수를 만든다 ──────────────────────────────────
+    regions = set(_e.REGION_DESIGN_LOAD)
+    stations = set(_e.DESIGN_OUTDOOR_TEMP_TAC)
+    same = regions & stations
+    reach = {r for r in regions if _e.design_outdoor_temp(r) is not None}
+    assert len(regions) == 172, len(regions)
+    assert len(stations) == 69, len(stations)
+    assert len(same) == 66, len(same)
+    assert len(reach) == 69, f"🔴 도달 행정구역이 {len(reach)}개다 — 272차 실측은 69다"
+    assert len(regions) - len(reach) == 103
+
+    # 문서 표가 **같은 수**를 적고 있는가 — 갈라지면 실패
+    for row in ("| `REGION_DESIGN_LOAD`(설계하중) | **172** |",
+                "| 기상 4표(TAC·난방도일·풍속·일조) | **69** |",
+                "| 이름이 같은 것 | **66** |",
+                "| **못 닿는 행정구역** | **103** |"):
+        assert row in doc, f"🔴 근거 문서의 집계 행이 실측과 갈라졌다: {row}"
+
+    # 관측지점인데 행정구역 목록에 없는 3건
+    assert stations - regions == {"광주", "울릉도", "흑산도"}, sorted(stations - regions)
+
+    # ── ② 괄호 한정자 — 3건뿐이고 매칭되는 것은 광주(경기) 하나 ─────────────
+    paren = sorted(r for r in regions if "(" in r)
+    assert paren == ["고성(강원)", "고성(경남)", "광주(경기)"], paren
+    assert not [k for k in stations if "(" in k], "🔴 관측지점에 괄호가 생겼다 — 아래 판단이 흔들린다"
+    assert _e.weather_station("고성(강원)") is None
+    assert _e.weather_station("고성(경남)") is None
+
+    # ── ③ 🔴 241차 ★결정을 바꾸지 않았다 ──────────────────────────────────
+    #   광주(경기)와 광주광역시가 **같은 지점·같은 값**을 받는 현행 동작을 고정한다.
+    #   막는 쪽으로 바꾸려면 ★사용자 결정이 먼저다(근거 문서 §4).
+    assert _e.weather_station("광주(경기)") == "광주"
+    assert _e.weather_station("광주광역시") == "광주"
+    assert _e.design_outdoor_temp("광주(경기)") == _e.design_outdoor_temp("광주광역시") == -7.2
+    #   설계하중은 둘을 구분한다 — 그래서 기상값만 같은 것이 드러난다
+    assert _e.REGION_DESIGN_LOAD["광주(경기)"] != _e.REGION_DESIGN_LOAD["광주광역시"]
+    assert "**272차는 아무것도 바꾸지 않았다.**" in doc
+    assert "결함이 아니라 결정의 대가" in doc
+
+    # ── ④ 241차 주석이 한계를 **먼저** 적어 두었다는 사실을 지우지 않았다 ────
+    esrc = rd("smartfarm_engine.py")
+    assert "알려진 한계: 부분 일치는 **글자 포함**이라" in esrc
+    assert "후보 둘 이상이면 None" in esrc or "len(cands) == 1" in esrc
+
+    # ── ⑤ 원문 표를 **찾지 못했다** — 찾았다고 바뀌면 실패 ──────────────────
+    assert "## 2. 원문 표를 찾았나 — **찾지 못했다**" in doc
+    for why in ("**지점 기반**이다", "**172 시군구 대응이 아니다**",
+                "**근거의 오용**이다", "**역방향(172 시군구 → 지점)은 주지 않는다**"):
+        assert why in doc, f"🔴 「{why}」가 사라졌다"
+    assert "**[2차·미확인]**" in doc and "원문을 확인하지 못했다" in doc
+
+    # ── ⑥ 88차가 먼저 적었다는 사실 · 확인하지 못한 것 ──────────────────────
+    assert "**새 발견이 아니다**" in doc and "88차" in doc
+    assert "별표7의 춘천 **−14.7℃**는 **검색 결과 인용**이고 원문 대조가 아니다" in doc
+    assert "어느 쪽이 맞는지는 말하지 않는다" in doc
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
