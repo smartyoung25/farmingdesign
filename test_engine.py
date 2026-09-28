@@ -13398,6 +13398,24 @@ def test_258cha_app_layer_counting_is_allowed_only_as_counting():
     assert "계산 수치는 엔진 호출 결과의 표시다 — 건수는" in rd(_o.path.join("webapp_templates", "_base.html"))
 
 
+def test_260cha_old_records_keep_names_as_decided():
+    """260차 — ★사용자 결정(2026-09-28): 「옛 기록은 지금처럼 그대로 둬」.
+
+    183차 경계(내부 기록은 추적성 때문에 이름 유지)가 확정됐다. 무기명은 **새로 쓰는 공유 산출물**에만(251차).
+    🔴 경계가 두 곳에서 같은 말을 해야 한다 — 표시 계층(`case_display`)의 「내부 데이터는 손대지 않는다」와
+       현행 릴리스 §4의 확정 기록. 릴리스가 이것을 다시 「경계로 남김」이라 적으면 실패한다.
+    """
+    import os as _o, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    assert "내부 데이터는 손대지 않는다" in rd("case_display.py")
+    rel = rd("릴리스_v1.2_20260928.md")
+    i = rel.index("사용자 경계로 남긴 것"); j = rel.index("\n- ", i + 1)
+    blk = rel[i:j]
+    assert blk.startswith("사용자 경계로 남긴 것**: 없음.") and "260차에 ★「그대로 둔다」로 확정" in blk, blk[:120]
+    assert "새로 쓰는 공유 산출물" in blk
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
