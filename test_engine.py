@@ -4826,7 +4826,8 @@ def test_135cha_redteam26_corrections_are_pinned():
     assert "5 + 19 = 24개" in led, (
         "대장의 항목 수가 26회차 정정(19 / 24)에서 벗어났다 — 131차는 20 / 25로 적었다")
     assert "| ✅ **이미 닫혔다** | **10** |" in led, "닫힘 수 10이 되돌아갔다"
-    assert "## 6. 살아 있는 항목 19개" in led, "6절 제목의 항목 수가 되돌아갔다"
+    #   📌250차 — AC5가 ★D-7 유지로 닫혀 19 → 18. 닫힌 행은 취소선으로 남는다.
+    assert "## 6. 살아 있는 항목 18개" in led and "~~**AC5**~~" in led, "6절 제목의 항목 수가 되돌아갔다"
     assert led.count("AC5") >= 1 and "158원 → 42원" in led, (
         "AC5(94차가 새로 연 2,323 vs 2,321.87 — 밴드 여유 **158원**→42원)가 대장에서 사라졌다. "
         "🔴153차: 종전 이 가드가 **미정정값 159원을 고정**하고 있었다")
@@ -6753,7 +6754,10 @@ def test_153cha_redteam28_corrections_hold():
     # ── [1] D-7은 158원이다 — 한 파일 안에서 갈리지 않는가 ────────────
     exact = 240000 - 557152000 / 2323
     assert 158.0 <= exact < 159.0, exact
-    rows = [ln for ln in led.splitlines() if ln.lstrip().startswith("| **D-7** |")]
+    #   📌250차 — D-7이 ★유지로 닫혀 두 행이 `| ~~**D-7**~~`로 바뀌었다. 닫혀도 **측정 이력(158원)은
+    #   두 행에 그대로 남아야** 한다 — 닫힌 형식도 같은 조건으로 본다.
+    rows = [ln for ln in led.splitlines()
+            if ln.lstrip().startswith(("| **D-7** |", "| ~~**D-7**~~"))]
     assert len(rows) == 2, f"대장의 D-7 행이 {len(rows)}개다(§2·§4 두 곳)"
     for r in rows:
         assert "158원 → 42원" in r, (
@@ -13009,6 +13013,47 @@ def test_249cha_open_decisions_each_have_one_work_order():
         for f in wos:
             if state.get(f["id"]) == "완료":
                 assert n in closed, f"🔴 {f['id']}는 완료인데 대장의 D-{n}이 닫히지 않았다"
+
+
+def test_250cha_d7_area_kept_as_decided():
+    """250차 — ★D-7 유지(사용자 결정 2026-09-28): C3 면적은 2,323 그대로, 두 대장은 닫힘.
+
+    🔴 「유지」는 **값을 고른 것이 아니라 현행을 확정한 것**이다 — 원문 내부 불일치(2,321.87)는
+       기록으로 남아야 하고, 교체했다면의 측정 이력(158원 → 42원)도 지우지 않는다.
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as e
+    from cases import load_cases
+    import audit_work_orders as A
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    # ── ① 값 불변 ────────────────────────────────────────────────
+    row = [a for a in e.ACTUALS if a[0] == "우민재"]
+    assert len(row) == 1 and row[0][1] == 2323 and row[0][2] == 557152000, row
+    c3 = [c for c in load_cases() if c.get("case_id") == "uminjae" or "uminjae" in str(c.get("id", ""))]
+    assert c3 and all(c["input"]["area_m2"] == 2323 for c in c3)
+    assert round(240000 - 557152000 / 2323, 2) == 158.42
+
+    # ── ② 두 대장 닫힘 · 이력 보존 ─────────────────────────────────
+    led = rd("근거_결정대기대장_20260915.md")
+    assert "| ~~**D-7**~~ ✅**닫힘(250차)** | ★**사용자 결정 2026-09-28: 유지**" in led
+    assert not _re.search(r"(?m)^\| \*\*D-7\*\* \|", led) and not _re.search(r"(?m)^\| D-7 \|", led)
+    #   📌 파일 전체에서 찾으면 다른 행의 같은 문구로 통과한다 — **닫힌 D-7 행 자체**를 본다.
+    closed = [ln for ln in led.splitlines() if ln.startswith("| ~~**D-7**~~ ✅**닫힘(250차)** |")]
+    assert len(closed) == 1 and "2,321.87" in closed[0] and "158원 → 42원" in closed[0], closed
+    cl = rd("근거_확인요망대장_20260915.md")
+    assert "| ~~**AC5**~~ | ✅ **250차 — 닫혔다(★사용자 결정 2026-09-28: D-7 유지).**" in cl
+    assert "## 6. 살아 있는 항목 18개" in cl
+
+    # ── ③ WO-004 = 완료 · 결정 기록 · ⓐ 기준은 켜지 않음 ────────────
+    r = A.audit()
+    f = next(x for x in r["files"] if x["id"] == "WO-004")
+    assert dict((row[0], row[5]) for row in r["index"])["WO-004"] == "완료"
+    assert f["parsed"]["n_confirm_needed"] == 0 and "ⓑ 2,323 유지" in f["parsed"]["sections"][2]["body"]
+    for c in f["parsed"]["criteria"]:
+        if c["text"].startswith("(ⓐ"):
+            assert not c["checked"] and "해당 없음" in c["text"], c["text"]
 
 
 if __name__ == "__main__":
