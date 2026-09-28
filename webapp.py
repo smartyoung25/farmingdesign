@@ -106,7 +106,10 @@ def console_home(request: Request):
     reg = json.loads((ROOT / "엔진데이터_레지스트리.json").read_text(encoding="utf-8"))
     quotes = sorted(Path(p).name for p in glob.glob(str(ROOT / "SmartFarm_견적비교_*.html")))
     # 245차 — Agritecture 벤치마킹 홈: 숫자 띠 · 일하는 방식 · 서비스 · 케이스 · 근거 현황.
-    #   🔴 전부 **이미 있는 데이터를 세거나 옮긴 것**이다 — 새 수치·문구를 짓지 않는다
+    #   🔴 수치는 전부 **이미 있는 데이터를 세거나 옮긴 것**이다 — 새 수치를 짓지 않는다.
+    #   📌256차(레드팀 30회차 B2): 히어로 문구는 245차에 **새로 쓴 소개문**이다(「새 문구를 짓지 않는다」는
+    #   틀린 서술이었다). 「모든 수치에 근거가 붙는」은 추정·확인요망이 있는데 과장이라 「근거 상태가 붙는」으로
+    #   고쳤다 — 문구 선택은 사용자가 바꿀 수 있다.
     #   (Agritecture의 고객 추천사 자리는 지어낼 수 없어 **근거 현황**으로 바꿨다).
     from collections import Counter as _Counter
     ix = cpkg.function_index()
@@ -119,8 +122,8 @@ def console_home(request: Request):
         "stats": [("케이스", len(cs), f"4축 {len(full)} · 부분 {len(partial)}"),
                   ("산출물", ix["total"], "D1~D27 — 케이스 1건이 받는 산출물 종류"),
                   ("근거 상수", len(reg["constants"]), "레지스트리에 출처·status가 등재된 엔진 상수"),
-                  ("원문 출처", sum(len(v.get("source_refs") or []) for v in reg["constants"].values()),
-                   "상수가 가리키는 원문 파일 연결(source_refs)")],
+                  ("출처 연결", sum(len(v.get("source_refs") or []) for v in reg["constants"].values()),
+                   "상수 → 원문 파일 연결 수(source_refs) — 한 파일이 여러 상수에 걸리면 여러 번 센다")],
         "flow": [{"key": k, "name": n, "stages": list(st), "desc": d, "bench": b}
                  for k, n, st, d, b in cpkg.PLATFORM_STAGES],
         "services": ix["rows"],
@@ -172,6 +175,7 @@ def work_orders(request: Request):
                      "round": ix[3] if ix else "—", "prereq": p["prereq"],
                      "state": ix[5] if ix else "색인 없음",
                      "checked": p["n_checked"], "total": p["n_criteria"],
+                     "applicable": p["n_applicable"], "na": p["n_na"],
                      "problems": [cdsp.scrub(x) for x in f["problems"]]})
     return templates.TemplateResponse(request, "work_orders.html", {
         "rows": rows, "audit_pass": r["pass"], "problems": [cdsp.scrub(x) for x in r["problems"]]})

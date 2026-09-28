@@ -2208,7 +2208,7 @@ def test_245cha_agritecture_layout_uses_only_existing_data():
     reg = json.loads(_io_read("엔진데이터_레지스트리.json"))["constants"]
     cs = _lc()
     want = {"케이스": len(cs), "산출물": len(_cp.PACKAGE_SPEC), "근거 상수": len(reg),
-            "원문 출처": sum(len(v.get("source_refs") or []) for v in reg.values())}
+            "출처 연결": sum(len(v.get("source_refs") or []) for v in reg.values())}
     got = dict((l, int(n)) for n, l in _re.findall(
         r'<div class="n">(\d+)</div><div class="l">([^<]+)</div>', html))
     assert got == want, f"🔴 숫자 띠 {got}가 실측 {want}와 다르다 — 숫자를 짓지 않는다"
@@ -2325,7 +2325,7 @@ def test_251cha_work_orders_carry_no_personal_names(monkeypatch):
     name = next(f for f in _o.listdir(d) if f.startswith("WO-001_"))
     base = _io.open(_o.path.join(d, name), encoding="utf-8").read()
     known = {f["id"] for f in r["files"]}
-    leak = base.replace("- 작업 유형:", "- 작업 유형:", 1).replace("## 2. 배경·사용자\n", "## 2. 배경·사용자\n- 우민재 농가 표본\n", 1)
+    leak = base.replace("## 2. 배경·사용자\n", "## 2. 배경·사용자\n- 우민재 농가 표본\n", 1)
     assert leak != base
     msgs = A.check_wo(leak, name, known)
     assert any(x.startswith("R9") for x in msgs)
@@ -2354,7 +2354,10 @@ def test_251cha_work_orders_carry_no_personal_names(monkeypatch):
 
     # ── ④ 이 지시 뒤의 새 차수 기록(249~251)에도 실명이 없다 ─────────────
     lg = _io_read("차수로그.md")
-    for n in (249, 250, 251):
+    #   📌256차(레드팀 30회차 B6③·B9): 249~251로 고정하면 뒤 차수를 보지 않는다 — 이 세션이 쓴 245차부터
+    #   최신까지 **전부** 본다(245~248은 256차에 코드로 바꿨다).
+    top = int(_re.search(r"- \*\*2026-\d\d-\d\d (\d+)차\*\*", lg).group(1))
+    for n in range(245, top + 1):
         i = lg.index(f"- **2026-09-28 {n}차**")
         j = lg.index("\n- **2026-", i + 5)
         assert cd.audit(lg[i:j]) == {}, (n, cd.audit(lg[i:j]))

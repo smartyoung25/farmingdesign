@@ -4827,7 +4827,8 @@ def test_135cha_redteam26_corrections_are_pinned():
         "대장의 항목 수가 26회차 정정(19 / 24)에서 벗어났다 — 131차는 20 / 25로 적었다")
     assert "| ✅ **이미 닫혔다** | **10** |" in led, "닫힘 수 10이 되돌아갔다"
     #   📌250차 — AC5가 ★D-7 유지로 닫혀 19 → 18. 닫힌 행은 취소선으로 남는다.
-    assert "## 6. 살아 있는 항목 18개" in led and "~~**AC5**~~" in led, "6절 제목의 항목 수가 되돌아갔다"
+    #   📌256차 — WD1이 D-6(241차 ★연결)과 함께 닫혀 18 → 17(레드팀 30회차 A1).
+    assert "## 6. 살아 있는 항목 17개" in led and "~~**AC5**~~" in led and "~~**WD1**~~" in led, "6절 제목의 항목 수가 되돌아갔다"
     assert led.count("AC5") >= 1 and "158원 → 42원" in led, (
         "AC5(94차가 새로 연 2,323 vs 2,321.87 — 밴드 여유 **158원**→42원)가 대장에서 사라졌다. "
         "🔴153차: 종전 이 가드가 **미정정값 159원을 고정**하고 있었다")
@@ -5614,9 +5615,13 @@ def test_144cha_decision_ledger_covers_every_star():
         "🔴 'E절 8건 vs 대기 13건'이라는 144차 발견이 대장에서 사라졌다")
 
     # ③ B7이 작업지시서에 ★로 살아 있는가(닫혔다면 대장도 닫아야 한다)
-    m = _re.search(r"\| B7 \|[^\n]*", wi)
+    #   📌256차 — B7이 ★D-9(242차)로 닫혀 `| ~~B7~~ ✅…`가 됐다(레드팀 30회차 A6). 이 가드의
+    #   조건 그대로 「닫혔다면 대장도 닫아야 한다」를 본다.
+    m = _re.search(r"\| (~~)?B7(~~)? [^\n]*", wi)
     assert m and "★" in m.group(0), (
         "14절 B7이 사라졌거나 ★가 빠졌다 — 대장 D-9의 근거다")
+    if m.group(1):
+        assert "~~**D-9**~~" in led, "🔴 14절 B7은 닫혔는데 대장 D-9가 열려 있다"
 
     # ④ 회귀 기준에 닿는 2건이 표시돼 있는가
     assert "원채원 ROI 14.2%가 직접 깨진다" in led, (
@@ -13034,7 +13039,9 @@ def test_250cha_d7_area_kept_as_decided():
     assert len(row) == 1 and row[0][1] == 2323 and row[0][2] == 557152000, row
     c3 = [c for c in load_cases() if c.get("case_id") == "uminjae" or "uminjae" in str(c.get("id", ""))]
     assert c3 and all(c["input"]["area_m2"] == 2323 for c in c3)
-    assert round(240000 - 557152000 / 2323, 2) == 158.42
+    #   📌256차(레드팀 30회차 B6①): 상수끼리 계산하면 동어반복이다 — 엔진의 밴드와 ACTUALS 행에서 읽는다.
+    lo, hi = e.BENCHMARK_BANDS[e.Cover.FILM]
+    assert row[0][3] == e.Cover.FILM and round(hi - row[0][2] / row[0][1], 2) == 158.42
 
     # ── ② 두 대장 닫힘 · 이력 보존 ─────────────────────────────────
     led = rd("근거_결정대기대장_20260915.md")
@@ -13045,7 +13052,6 @@ def test_250cha_d7_area_kept_as_decided():
     assert len(closed) == 1 and "2,321.87" in closed[0] and "158원 → 42원" in closed[0], closed
     cl = rd("근거_확인요망대장_20260915.md")
     assert "| ~~**AC5**~~ | ✅ **250차 — 닫혔다(★사용자 결정 2026-09-28: D-7 유지).**" in cl
-    assert "## 6. 살아 있는 항목 18개" in cl
 
     # ── ③ WO-004 = 완료 · 결정 기록 · ⓐ 기준은 켜지 않음 ────────────
     r = A.audit()
@@ -13170,12 +13176,16 @@ def test_254cha_d15_disagreement_kept_as_decided():
     closed = [ln for ln in led.splitlines() if ln.startswith("| ~~**D-15**~~ ✅**닫힘(254차)** |")]
     assert len(closed) == 1, closed
     for mark in ("이견 유지", "p.129", "p.144", "유리닦기 등의 공정이 없는 것으로 조사",
-                 "유리끼우기, 유리닦기 및 마무리 작업을 포함한다", "0.87%"):
+                 "유리끼우기, 유리닦기 및 마무리 작업을 포함한다", "0.369%", "2품목(천창유리·측면강화유리)"):
         assert mark in closed[0], mark
     assert cd.audit(closed[0]) == {}
     assert not _re.search(r"(?m)^\| \*\*D-15\*\* \|", led) and not _re.search(r"(?m)^\| D-15 \|", led)
     assert "D-15" in led.splitlines()[0].split("(", 1)[1]
-    assert "유리닦기" in rd("엔진데이터_레지스트리.json"), "🔴 레지스트리의 p.129 ↔ p.144 이견 기록이 사라졌다"
+    #   📌256차(레드팀 30회차 A3): 이견 문구는 유리 2품목([주]②)에만 있다 — 몫을 엔진 계수로 다시 잰다.
+    g2 = sum(sum(i.labor_per_unit.values()) for i in gl if i.name in ("천창유리", "측면강화유리"))
+    assert round(100 * g2 / tot, 3) == 0.369, g2
+    #   📌256차(B6②): 「유리닦기」 한 단어는 넓다 — p.129 인용 문구 자체를 본다.
+    assert "유리닦기 등의 공정등이 없는 것으로 조사" in rd("엔진데이터_레지스트리.json"), "🔴 레지스트리의 p.129 ↔ p.144 이견 기록이 사라졌다"
 
     # ── ③ WO-009 = 완료 · ⓐ·ⓑ 기준은 켜지 않음 ─────────────────────
     r = A.audit()
@@ -13231,6 +13241,76 @@ def test_255cha_d11_crew_not_introduced_as_decided():
     for c in f["parsed"]["criteria"]:
         if c["text"].startswith(("(ⓐ", "(ⓑ")):
             assert not c["checked"] and "해당 없음" in c["text"], c["text"]
+
+
+def test_256cha_redteam30_corrections_hold():
+    """256차 — 레드팀 30회차(239~255차 대상, 발견 19건) 반영이 되돌아가지 않는가.
+
+    A1 닫힌 결정과 **같은 항목**인 확인요망 행도 닫혀 있다(D-6 ↔ WD1 · D-7 ↔ AC5).
+    A3 D-15 이견 몫은 유리 2품목 0.369%다(4품목 0.87%는 패널 포함 과대).
+    A4·A5 완결·부재 단정에 **범위와 조건**이 붙어 있다.  A6 작업지시서 14절도 닫힘을 표시한다.
+    B1 완료된 D 결정 WO의 제목·색인은 **결정 결과**를 말한다(기각된 선택지를 제목으로 두지 않는다).
+    B5 선택되지 않은 분기의 기준은 「해당 없음」으로 세고, 완료 WO는 대상 기준을 전부 확인했다.
+    B8 검사기가 붙여 쓴 「잘된다」·빈 「(확인: )」·「해당없음」을 잡는다.
+    B2·B3 홈 소개문·푸터가 과장하지 않는다.
+    """
+    import os as _o, io as _io, re as _re
+    import audit_work_orders as A
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    led, cl, wi = rd("근거_결정대기대장_20260915.md"), rd("근거_확인요망대장_20260915.md"), rd("작업지시서.md")
+
+    # ── A1 같은 항목은 함께 닫힌다 ───────────────────────────────────
+    for d, c in (("D-6", "WD1"), ("D-7", "AC5")):
+        assert f"| ~~**{d}**~~" in led and f"| ~~**{c}**~~" in cl, (d, c)
+    assert "## 6. 살아 있는 항목 17개" in cl and "세는 법" in cl
+
+    # ── A3 D-15 이견 몫 ────────────────────────────────────────────
+    d15 = next(ln for ln in led.splitlines() if ln.startswith("| ~~**D-15**~~"))
+    assert "0.369%" in d15 and "2품목(천창유리·측면강화유리)" in d15
+
+    # ── A4·A5 범위·조건 병기 ─────────────────────────────────────────
+    assert "이 대장의 D 항목 가운데에서는 이제 없다" in led and "S-3(OPEX 원문)이 들어와" in led
+    assert "240차 분류(① 원문 자료 불필요 / ② 원문 자료가 먼저) 기준으로" in led
+    assert "146차 엔진 ★ 줄 22개" in led
+
+    # ── A6 작업지시서 14절 ─────────────────────────────────────────
+    for tag in ("B7", "D5", "D6", "D7", "D8"):
+        assert _re.search(r"(?m)^\| ~~%s~~ ✅\*\*닫힘" % tag, wi), f"🔴 14절 {tag}에 닫힘 표시가 없다"
+
+    # ── B1·B5 완료된 D 결정 WO ─────────────────────────────────────
+    r = A.audit()
+    assert r["pass"], r["problems"]
+    state = {row[0]: row for row in r["index"]}
+    done = [f for f in r["files"] if _re.match(r"D-\d+ ", f["parsed"]["title"] or "")
+            and state[f["id"]][5] == "완료"]
+    assert len(done) >= 5
+    for f in done:
+        p = f["parsed"]
+        m = _re.search(r"결정: ★\*\*[ⓐⓑⓒ] ([^*]+)\*\*", p["sections"][2]["body"])
+        assert m, f["id"]
+        assert "★" in p["title"] and "결정 반영" not in p["title"], (f["id"], p["title"])
+        assert state[f["id"]][2] == p["title"], (f["id"], state[f["id"]][2])
+        assert p["n_na"] >= 1 and p["n_checked"] == p["n_applicable"], (f["id"], p["n_checked"], p["n_applicable"])
+
+    # ── B8 검사기 거짓 음성 ─────────────────────────────────────────
+    name = next(fn for fn in _o.listdir(_o.path.join(repo, "docs", "work-orders")) if fn.startswith("WO-001_"))
+    base = rd(_o.path.join("docs", "work-orders", name))
+    crit = next(ln for ln in base.splitlines() if ln.startswith("- [x] `docs/HANDOFF.md`"))
+    known = {x["id"] for x in r["files"]}
+    for bad, rule in (("- [x] 설치가 잘된다 (확인: 같은 명령)", "R2"),
+                      ("- [x] 설치가 끝난다 (확인: )", "R2"),
+                      ("- [x] 설치가 끝난다 (확인:)", "R2")):
+        assert any(x.startswith(rule) for x in A.check_wo(base.replace(crit, bad), name, known)), bad
+    for ok in ("- [x] 잘못된 경로는 404다 (확인: 같은 명령)", "- [x] 잘라 낸 줄이 없다 (확인: 같은 명령)"):
+        assert A.check_wo(base.replace(crit, ok), name, known) == [], ok
+    na = base.replace("해당 없음 — 입력은", "해당없음")
+    assert na != base and any(x.startswith("R1") for x in A.check_wo(na, name, known))
+
+    # ── B2·B3 홈 소개문·푸터 ───────────────────────────────────────
+    home, basehtml = rd(_o.path.join("webapp_templates", "console_home.html")), rd(_o.path.join("webapp_templates", "_base.html"))
+    assert "모든 수치에 근거가 붙는" not in home and "모든 수치에 근거 상태가 붙는" in home
+    assert "이 콘솔의 모든 수치는 엔진 호출 결과" not in home and "화면의 수치는 엔진 호출 결과의 표시다" not in basehtml
 
 
 if __name__ == "__main__":

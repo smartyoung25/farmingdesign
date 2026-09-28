@@ -17,7 +17,7 @@
   {% if problems %}<div class="banner">{% for x in problems %}{{ x }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
   <div class="card wo-scroll">
     <table>
-      <thead><tr><th>번호</th><th>작업명</th><th>유형</th><th>차수</th><th>선행</th><th>상태</th><th>수용기준 확인</th></tr></thead>
+      <thead><tr><th>번호</th><th>작업명</th><th>유형</th><th>차수</th><th>선행</th><th>상태</th><th>수용기준 확인 / 대상</th></tr></thead>
       <tbody>
       {% for r in rows %}
       <tr data-wo="{{ r.id }}">
@@ -27,7 +27,7 @@
         <td>{{ r.round }}</td>
         <td>{{ r.prereq }}</td>
         <td><span class="chip {{ 'chip-measured' if r.state == '완료' else 'chip-est' }}">{{ r.state }}</span></td>
-        <td class="num" data-checked="{{ r.checked }}" data-total="{{ r.total }}">{{ r.checked }} / {{ r.total }}</td>
+        <td class="num" data-checked="{{ r.checked }}" data-total="{{ r.total }}" data-applicable="{{ r.applicable }}">{{ r.checked }} / {{ r.applicable }}{% if r.na %} <small>(해당 없음 {{ r.na }})</small>{% endif %}</td>
       </tr>
       {% endfor %}
       </tbody>

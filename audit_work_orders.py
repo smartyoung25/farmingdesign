@@ -4,7 +4,7 @@
   Verification Checklist 가운데 **기계로 판정할 수 있는 항목**만 본다.
   리포 적용 방식·이견은 docs/work-orders/README.md 한 곳에 있다.
 
-규칙(WO-002 6절):
+규칙(R1~R8은 WO-002 6절 · R9는 251차 사용자 지시 — WO 없이 추가, 256차 명시):
   R1 템플릿 9절이 순서대로 있고 비어 있지 않다(「해당 없음」 뒤에는 이유)
   R2 수용기준마다 「(확인:」이 있고 금지 표현이 없다
   R3 3절 「제외」 항목이 1개 이상
@@ -38,7 +38,8 @@ SECTION_TITLES = ("목적", "배경·사용자", "범위", "입력·출력", "�
                   "작업 단위", "수용기준", "제약·주의사항", "보고 형식")
 WORK_TYPES = ("신규 기능", "버그 수정", "리팩터링", "자동화 스크립트", "데이터 처리", "테스트 보강")
 # 스킬 Iron Law 2의 금지 표현. 「잘」은 낱말 안의 글자(잘못·잘라)를 잡지 않도록 홀로 선 것만 본다.
-BANNED = (("잘", re.compile(r"(?<![가-힣])잘(?![가-힣])")),
+#   256차(레드팀 30회차 B8): 붙여 쓴 「잘된다」·「잘동작」도 잡고, 「잘못·잘라·잘린·잘려·잘랐·잘게」는 통과시킨다.
+BANNED = (("잘", re.compile(r"(?<![가-힣])잘(?!못|라|린|려|랐|게)")),
           ("적절히", re.compile("적절히")),
           ("원활하게", re.compile("원활하게")),
           ("빠르게", re.compile("빠르게")),
@@ -49,7 +50,11 @@ BANNED = (("잘", re.compile(r"(?<![가-힣])잘(?![가-힣])")),
 ID_RE = r"WO-\d{3}(?:-fix\d+)?"
 FILE_RE = re.compile(r"^(" + ID_RE + r")_.+\.md$")
 CODE_LINE = re.compile(r"^\s*(def |async def |class |function |import |from \S+ import )")
-NA_OK = re.compile(r"해당 없음\s*(—|–|-|:|\()\s*\S")
+NA_OK = re.compile(r"해당\s*없음\s*(—|–|-|:|\()\s*\S")
+# 256차: 「(확인: )」처럼 확인 방법이 빈 것도 확인 방법이 없는 것이다
+CONFIRM_OK = re.compile(r"\(확인:\s*[^)\s]")
+# 256차: 선택되지 않은 분기의 기준 — 「(ⓐ 해당 없음 — ⓑ 선택)」. 체크하지 않고 「해당 없음」으로 센다
+NA_CRIT = re.compile(r"^\([^)]*해당\s*없음\s*—[^)]*\)")
 
 
 def parse_wo(text):
@@ -86,7 +91,8 @@ def parse_wo(text):
     for ln in body(7):
         cm = re.match(r"^\s*- \[( |x|X)\] (.+)$", ln)
         if cm:
-            criteria.append({"text": cm.group(2).strip(), "checked": cm.group(1) != " "})
+            criteria.append({"text": cm.group(2).strip(), "checked": cm.group(1) != " ",
+                             "na": bool(NA_CRIT.match(cm.group(2).strip()))})
     return {
         "id": m.group(1) if m else None,
         "title": m.group(2).strip() if m else None,
@@ -98,6 +104,8 @@ def parse_wo(text):
         "criteria": criteria,
         "n_criteria": len(criteria),
         "n_checked": sum(1 for c in criteria if c["checked"]),
+        "n_na": sum(1 for c in criteria if c["na"]),
+        "n_applicable": sum(1 for c in criteria if not c["na"]),
         "n_confirm_needed": text.count("[확인 필요"),
         "code_lines": code_lines,
     }
@@ -163,8 +171,8 @@ def check_wo(text, name, known_ids):
             probs.append(f"R1 {n}절이 비어 있다 — 해당 없으면 「해당 없음 — 이유」를 쓴다")
         for ln in s["body"].split("\n"):
             # 「해당 없음」처럼 낫표로 인용한 것은 낱말을 가리키는 것이지 선언이 아니다
-            bare = ln.replace("「해당 없음」", "")
-            if "해당 없음" in bare and not NA_OK.search(bare):
+            bare = re.sub(r"「해당\s*없음」", "", ln)
+            if re.search(r"해당\s*없음", bare) and not NA_OK.search(bare):
                 probs.append(f"R1 {n}절 「해당 없음」 뒤에 이유가 없다")
     # R3 제외
     if not _exclusions(p["sections"].get(3, {}).get("body", "")):
@@ -179,7 +187,7 @@ def check_wo(text, name, known_ids):
     if not p["criteria"]:
         probs.append("R2 수용기준이 0개다")
     for c in p["criteria"]:
-        if "(확인:" not in c["text"]:
+        if not CONFIRM_OK.search(c["text"]):
             probs.append(f"R2 「{c['text'][:24]}…」에 확인 방법 「(확인: …)」이 없다")
         for word, rx in BANNED:
             if rx.search(c["text"]):
@@ -260,7 +268,8 @@ def main():
     for f in r["files"]:
         p = f["parsed"]
         tag = "OK " if not f["problems"] else "ERR"
-        print(f"  {tag} {f['name']} — 수용기준 확인 {p['n_checked']}/{p['n_criteria']} · "
+        print(f"  {tag} {f['name']} — 수용기준 확인 {p['n_checked']}/{p['n_applicable']}"
+              f"{' (해당 없음 ' + str(p['n_na']) + ')' if p['n_na'] else ''} · "
               f"작업 단위 {len(p['tasks'])} · [확인 필요] {p['n_confirm_needed']}")
     for x in r["problems"]:
         print(f"  - {x}")

@@ -19,7 +19,7 @@
     <span class="chip chip-ref">작성일 {{ p.date }}</span>
     <span class="chip chip-ref">{{ p.type }}</span>
     <span class="chip chip-ref">선행 {{ p.prereq }}</span>
-    <span class="chip {{ 'chip-measured' if p.n_checked == p.n_criteria else 'chip-est' }}">수용기준 확인 {{ p.n_checked }} / {{ p.n_criteria }}</span>
+    <span class="chip {{ 'chip-measured' if p.n_checked == p.n_applicable else 'chip-est' }}">수용기준 확인 {{ p.n_checked }} / {{ p.n_applicable }}{% if p.n_na %} · 해당 없음 {{ p.n_na }}{% endif %}</span>
     <span class="chip {{ 'chip-measured' if not f.problems else 'chip-warn' }}">형식 검사 {{ '통과' if not f.problems else '문제 ' ~ (f.problems | length) ~ '건' }}</span>
   </div>
   {% for x in f.problems %}<div class="banner">{{ x }}</div>{% endfor %}
@@ -29,7 +29,7 @@
     {% if n == 7 %}
     <ul class="wo-crit">
       {% for c in p.criteria %}
-      <li><span class="chip {{ 'chip-measured' if c.checked else 'chip-est' }}">{{ '확인' if c.checked else '미확인' }}</span><span>{{ c.text }}</span></li>
+      <li>{% if c.na %}<span class="chip chip-ref">해당 없음</span>{% else %}<span class="chip {{ 'chip-measured' if c.checked else 'chip-est' }}">{{ '확인' if c.checked else '미확인' }}</span>{% endif %}<span>{{ c.text }}</span></li>
       {% endfor %}
     </ul>
     {% else %}
@@ -37,5 +37,5 @@
     {% endif %}
   </div>
   {% endfor %}
-  <p class="note">원본: <code>docs/work-orders/{{ f.name }}</code> — 이 화면은 읽기 전용이다.</p>
+  <p class="note">원본: <code>docs/work-orders/{{ f.name }}</code> — 이 화면은 읽기 전용이다. 「확인」은 그 WO를 닫은 차수에 명령을 실행한 결과이고, 기준에 적힌 수치(테스트 수 등)는 <b>당시 값</b>이다 — 현재 값은 작업지시서 2절 스냅샷이 원본이다.</p>
 {% endblock %}
