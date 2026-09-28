@@ -11322,8 +11322,8 @@ def test_198cha_code_pointers_to_documents_resolve():
     #    실재 확인함(이 가드의 앞 절이 파일 존재를 이미 잰다).
     # 🔴223차 — `consulting_package.py`가 `근거_사업기획서_컨셉적용_20260921.md`를
     #    인용해 46→47이 됐다(플랫폼 3단계 축의 출처). 실재 확인함.
-    assert len(cited) == 47, (
-        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종 · 211차 45종 · 212차 46종(`consulting_package.py`가 외부수집 근거 문서를 인용) · 223차 47종(같은 파일이 사업기획서 컨셉 적용 문서를 인용). "
+    assert len(cited) == 49, (
+        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종 · 211차 45종 · 212차 46종(`consulting_package.py`가 외부수집 근거 문서를 인용) · 223차 47종(같은 파일이 사업기획서 컨셉 적용 문서를 인용) · 247차 49종(`audit_work_orders.py`가 WO 색인 `README.md`와 스킬 `SKILL.md`를 인용 — 둘 다 실재). "
         "늘었다면 **새 인용이 실재하는지** 방금 확인한 것이고, 줄었다면 인용이 "
         "사라진 것이니 어느 쪽인지 적고 갱신하라")
 
@@ -12879,6 +12879,97 @@ def test_246cha_work_order_skill_installed_verbatim_with_repo_mapping():
                   if _re.match(r"WO-\d{3}", f) and f.endswith(".md"))
     assert sorted(p for _i, p in listed) == disk, f"🔴 색인 {listed}와 폴더 {disk}가 다르다"
     assert all(p.startswith(i + "_") for i, p in listed)
+
+
+def test_247cha_work_order_format_audit_catches_each_rule():
+    """247차 — WO-002: `audit_work_orders.py`가 스킬 양식의 기계 판정 규칙 R1~R8을 하나씩 잡는가.
+
+    🔴 실제 폴더는 PASS여야 하고, **원본 WO-001을 규칙마다 한 곳씩 깨뜨린 변형**은
+       그 규칙의 문제를 **반드시** 내야 한다(통과만 보는 가드는 헛돈다).
+    🔴 「잘못」 같은 낱말 속 글자는 금지 표현 「잘」이 아니다 — 거짓 양성 방지.
+    ⚠️ 이 검사의 PASS는 **형식**만 뜻한다 — 수용기준이 목적을 덮는지는 사람이 본다.
+    """
+    import os as _o, io as _io, re as _re, tempfile as _tf, shutil as _sh
+    import audit_work_orders as A
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    d = _o.path.join(repo, "docs", "work-orders")
+
+    # ── ① 실제 폴더 ───────────────────────────────────────────────
+    r = A.audit(d)
+    assert r["pass"] and not r["problems"], r["problems"]
+    assert len(r["files"]) == len([f for f in _o.listdir(d) if A.FILE_RE.match(f)]) >= 3
+
+    name = "WO-001_스킬설치_리포적용.md"
+    base = _io.open(_o.path.join(d, name), encoding="utf-8").read().replace(chr(13) + chr(10), chr(10))
+    known = {"WO-001", "WO-002", "WO-003"}
+    p = A.parse_wo(base)
+    assert (p["order"], len(p["tasks"]), p["n_criteria"]) == (list(range(1, 10)), 4, 6)
+    assert A.check_wo(base, name, known) == []
+
+    def sub(a, b, s=None):
+        s = base if s is None else s
+        assert s.count(a) >= 1, a
+        return s.replace(a, b, 1)
+    crit = "- [x] `docs/HANDOFF.md`가 존재하지 않는다 (확인: 같은 명령)"
+    task = "- T4: `CLAUDE.md` 한 줄 · 가드 테스트 · 차수 기록 — 완료 조건: 7절 수용기준 전부 통과"
+    excl = base[base.index("- 제외 (이번에 하지 않음):"):base.index("## 4.")]
+
+    # ── ② 규칙마다 한 곳씩 깨뜨린다 ─────────────────────────────────
+    M = {
+        "R1": [sub("## 8. 제약·주의사항", "## 8. 기타"),
+               sub("## 8. 제약·주의사항\n", "## 10. 부록\n"),
+               sub("- 비밀키·개인정보: 해당 없음 — 입력은", "- 비밀키·개인정보: 해당 없음. 입력은"),
+               base[:base.index("## 2.")] + "## 2. 배경·사용자\n\n" + base[base.index("## 3."):]],
+        "R2": [sub(crit, "- [x] `docs/HANDOFF.md`가 존재하지 않는다"),
+               sub(crit, "- [x] 설치가 잘 된다 (확인: 같은 명령)"),
+               sub(crit, "- [x] 화면이 정상동작한다 (확인: 같은 명령)"),
+               base[:base.index("## 7.")] + "## 7. 수용기준\n\n" + base[base.index("## 8."):]],
+        "R3": [sub(excl, "- 제외 (이번에 하지 않음):\n\n")],
+        "R4": [sub(task, task + "".join(f"\n- T{i}: 추가 — 완료 조건: 없음" for i in range(5, 9))),
+               sub(task, "- T4: 차수 기록")],
+        "R5": [sub("## 9. 보고 형식", "```python\ndef f():\n    return 1\n```\n## 9. 보고 형식"),
+               sub("## 9. 보고 형식", "```\nimport os\n```\n## 9. 보고 형식")],
+        "R6": [sub("# 작업지시서 WO-001:", "# 작업지시서 WO-004:"),
+               sub("- 작업 유형: 자동화 스크립트", "- 작업 유형: 기타"),
+               sub("- 선행 지시서: 없음", "- 선행 지시서: WO-999"),
+               sub("- 작성일: 2026-09-28", "- 작성일: 9월 28일")],
+    }
+    for rule, variants in M.items():
+        for i, v in enumerate(variants):
+            got = A.check_wo(v, name, known)
+            assert any(x.startswith(rule) for x in got), f"🔴 {rule} 변형 {i}를 놓쳤다: {got}"
+    # R7 — 원 지시서가 없는 수정 지시서
+    fix = sub("# 작업지시서 WO-001:", "# 작업지시서 WO-777-fix1:")
+    assert any(x.startswith("R7") for x in A.check_wo(fix, "WO-777-fix1_x.md", known))
+    assert not any(x.startswith("R7") for x in A.check_wo(
+        sub("# 작업지시서 WO-001:", "# 작업지시서 WO-001-fix1:"), "WO-001-fix1_x.md", known))
+
+    # ── ③ 거짓 양성 방지 ───────────────────────────────────────────
+    ok = sub(crit, "- [x] 잘못된 경로 값은 404다 (확인: 같은 명령)")
+    assert A.check_wo(ok, name, known) == [], "🔴 「잘못」을 금지 표현 「잘」로 오인했다"
+    ok2 = sub("- 입력: `C:", "- 입력: 「해당 없음」이라는 낱말을 인용 · `C:")
+    assert A.check_wo(ok2, name, known) == []
+
+    # ── ④ R8 색인 — 임시 폴더에서 색인 행을 빼고 검사 ──────────────
+    tmp = _tf.mkdtemp()
+    try:
+        for f in _o.listdir(d):
+            _sh.copy(_o.path.join(d, f), tmp)
+        rd = _io.open(_o.path.join(tmp, "README.md"), encoding="utf-8").read()
+        _io.open(_o.path.join(tmp, "README.md"), "w", encoding="utf-8").write(
+            _re.sub(r"^\| \[WO-003\].*$", "", rd, flags=_re.M))
+        r2 = A.audit(tmp)
+        assert not r2["pass"] and r2["index_missing"] and any(x.startswith("R8") for x in r2["problems"])
+    finally:
+        _sh.rmtree(tmp, ignore_errors=True)
+    assert not A.audit(_o.path.join(repo, "없는폴더"))["pass"]
+
+    # ── ⑤ 감사자는 엔진 계층 밖에 있다 ──────────────────────────────
+    for f in ("smartfarm_engine.py", "build_site.py"):
+        src = _io.open(_o.path.join(repo, f), encoding="utf-8").read()
+        assert "audit_work_orders" not in src, f"🔴 {f}가 WO 검사기를 import한다"
+    cm = _io.open(_o.path.join(repo, "CLAUDE.md"), encoding="utf-8").read()
+    assert "python audit_work_orders.py" in cm
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@
   (기대 passed 수의 원본은 작업지시서 2절 — 여기 복제하지 않음)
 - 사이트 생성: python build_site.py — "생성 완료" 출력 라인을 눈으로 확인(stderr 삼키면 조용한 실패, 16차 사고)
 - 웹앱: python -m uvicorn webapp:app --port 8600 (.claude/launch.json)
+- WO 형식 검사: python audit_work_orders.py — docs/work-orders/를 고친 차수는 커밋 전 PASS 확인(247차)
 - 커밋 메시지는 파일로 쓰고 git commit -F <파일> (PowerShell 한국어 인용부호 깨짐)
 
 ## 환경 특성 (반복 확인됨)
