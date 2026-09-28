@@ -13316,7 +13316,8 @@ def test_256cha_redteam30_corrections_hold():
 
     # ── B2·B3 홈 소개문·푸터 ───────────────────────────────────────
     home, basehtml = rd(_o.path.join("webapp_templates", "console_home.html")), rd(_o.path.join("webapp_templates", "_base.html"))
-    assert "모든 수치에 근거가 붙는" not in home and "모든 수치에 근거 상태가 붙는" in home
+    #   📌259차 — ★사용자 결정: 히어로 제목 「스마트농업을 디자인하다」. 256차 과장 문구는 계속 없어야 한다.
+    assert "모든 수치에 근거가 붙는" not in home and "<h1>스마트농업을 <em>디자인하다</em></h1>" in home
     assert "이 콘솔의 모든 수치는 엔진 호출 결과" not in home and "화면의 수치는 엔진 호출 결과의 표시다" not in basehtml
 
 

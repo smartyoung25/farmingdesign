@@ -2363,6 +2363,22 @@ def test_251cha_work_orders_carry_no_personal_names(monkeypatch):
         assert cd.audit(lg[i:j]) == {}, (n, cd.audit(lg[i:j]))
 
 
+def test_259cha_home_hero_is_the_user_copy():
+    """259차 — ★사용자 결정(2026-09-28): 홈 히어로 제목은 「스마트농업을 디자인하다」.
+
+    🔴 제목만 바꿨다 — 설명문(엔진이 계산하고 출처 상태를 함께 낸다)과 섹션 구성은 그대로여야 한다.
+    결정은 코드 주석과 현행 릴리스 §4에 기록돼 있어야 하고, 과장 문구(256차 B2)는 돌아오지 않는다.
+    """
+    import re as _re
+    html = client.get("/").text
+    h1 = _re.search(r'<div class="hero">\s*<h1>(.*?)</h1>', html, _re.S)
+    assert h1 and _re.sub(r"<[^>]+>", "", h1.group(1)) == "스마트농업을 디자인하다", h1 and h1.group(1)
+    assert "실측인지, 추정인지, 확인이 필요한지" in html, "🔴 설명문까지 바뀌었다 — 결정은 제목만이다"
+    assert "모든 수치에 근거가 붙는" not in html
+    assert "★사용자 결정(2026-09-28): 히어로 제목은 「스마트농업을 디자인하다」" in _io_read("webapp.py")
+    assert "홈 소개 문구는 259차에 ★「스마트농업을 디자인하다」로 확정" in _io_read("릴리스_v1.2_20260928.md")
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),
