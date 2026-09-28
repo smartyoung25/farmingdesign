@@ -13979,3 +13979,58 @@ if __name__ == "__main__":
             traceback.print_exc()
     print(f"\n{passed}/{len(fns)} passed")
     sys.exit(0 if passed == len(fns) else 1)
+
+
+def test_271cha_runner_restores_only_what_the_script_can_touch():
+    """271차 — 뮤테이션 실행기가 **스크립트 범위 밖의 파일에 손대지 않는가**.
+
+    269차 ⑩ 사고: 268차 실행 중 같은 리포에 붙은 다른 세션이 고치던 파일을 실행기가 HEAD로 되돌려 그쪽 절을 지웠다.
+    ① 소스 — touchable·in_scope·restore(scope)·foreign 보고·실행 전 변경 알림 ② 실측 — 범위 밖 새 파일은 남고 범위 안 새 파일은 지워진다
+    ③ touchable — 249·249b의 glob 디렉터리 · 268의 파일 5개 · 268 사고 경로는 범위 밖 ④ README·차수로그 기록.
+    """
+    import os as _o, io as _io, importlib.util as _iu, warnings as _w
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    ra = rd(_o.path.join("mutations", "run_all.py"))
+    # ── ① 소스 ─────────────────────────────────────────────────────
+    for s in ("def touchable(src):", "def in_scope(path, scope):", "def restore(before, snap, scope=None):",
+              "if scope is not None and not in_scope(path, scope):", "return fixed, foreign",
+              "restore(before, snap, touchable(src))", "⚠️외부 변경(손대지 않음): ", "if dirty:", "실행 전 변경",
+              "if d and os.path.isdir(os.path.join(ROOT, d)):"):
+        assert s in ra, s
+    assert ra.index("if scope is not None and not in_scope(path, scope):") < ra.index("_checkout(path); fixed.append(path)"), \
+        "🔴 범위 검사가 checkout보다 뒤에 있다"
+    # ── ②·③ 실측 ─────────────────────────────────────────────────────
+    spec = _iu.spec_from_file_location("mut_run_all_271", _o.path.join(repo, "mutations", "run_all.py"))
+    mod = _iu.module_from_spec(spec); _cwd = _o.getcwd()
+    probe_in, probe_out = _o.path.join("mutations", "_271_probe_in.txt"), "_271_probe_out.txt"
+    try:
+        spec.loader.exec_module(mod)
+        _o.chdir(repo)
+        with _w.catch_warnings():
+            _w.simplefilter("ignore")                          # 옛 스크립트의 '\\d' 경고
+            sc249 = mod.touchable(rd(_o.path.join("mutations", "mut_249.py")))
+            sc249b = mod.touchable(rd(_o.path.join("mutations", "mut_249b.py")))
+            sc268 = mod.touchable(rd(_o.path.join("mutations", "mut_268.py")))
+        assert "docs/work-orders/" in sc249[1] and "docs/work-orders/" in sc249b[1], (sc249[1], sc249b[1])
+        assert mod.in_scope("docs/work-orders/WO-008_x.md", sc249b)
+        assert sc268[0] == {"README.md", "mutations/README.md", "mutations/run_all.py", "test_engine.py",
+                            "근거_관리동_실재점검_20260915.md"} and sc268[1] == set(), sc268
+        assert not mod.in_scope("근거_외부수집_기능공백_20260924.md", sc268), "🔴 268차 사고 경로가 268 스크립트 범위에 든다"
+        before = mod.git_state()
+        assert probe_in not in before and probe_out not in before
+        _io.open(probe_in, "w", encoding="utf-8").write("271 probe (in scope)\n")
+        _io.open(probe_out, "w", encoding="utf-8").write("271 probe (out of scope)\n")
+        fixed, foreign = mod.restore(before, {}, ({probe_in.replace(_o.sep, "/")}, set()))
+        assert not _o.path.exists(probe_in) and _o.path.exists(probe_out), (fixed, foreign)
+        assert fixed == [probe_in.replace(_o.sep, "/")] and foreign == [probe_out], (fixed, foreign)
+    finally:
+        for p in (probe_in, probe_out):
+            if _o.path.exists(_o.path.join(repo, p)):
+                _o.remove(_o.path.join(repo, p))
+        _o.chdir(_cwd)
+    # ── ④ 기록 ─────────────────────────────────────────────────────
+    rm = rd(_o.path.join("mutations", "README.md"))
+    assert "스크립트가 손댈 수 있는 경로" in rm and "외부 변경" in rm and "269차 ⑩" in rm
+    lg = rd("차수로그.md")
+    assert "271차" in lg and "손댈 수 있는 경로" in lg

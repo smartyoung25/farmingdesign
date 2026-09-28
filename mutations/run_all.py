@@ -6,9 +6,12 @@
 한 스크립트마다:
   ① **원본 통과 확인** — 스크립트가 부르는 테스트 파일과 `-k` 선택자를 모아 먼저 돌린다. 실패하면 **무효**,
      선택자를 하나도 못 모으면 **건너뜀**(둘 다 실패로 친다 — 266차: 종전엔 건너뛰고도 「통과」로 적었다).
-  ② **안전 복원(git 기준)** — 실행 전 `git status`와 이미 바뀌어 있던 파일의 바이트를 저장하고, 끝나면(시간 초과·예외 포함)
-     새로 바뀐 추적 파일은 되돌리고 새로 생긴 파일은 지운다(266차: 종전엔 스크립트가 **이름으로 부른** 파일만 복원해
-     glob으로 얻은 경로·새로 만든 파일을 놓쳤다 — 레드팀 33회차 B4).
+  ② **안전 복원(git 기준 · 스크립트가 손댈 수 있는 범위만)** — 실행 전 `git status`와 이미 바뀌어 있던 파일의 바이트를 저장하고,
+     끝나면(시간 초과·예외 포함) 새로 바뀐 추적 파일은 되돌리고 새로 생긴 파일은 지운다(266차: 종전엔 스크립트가 **이름으로 부른**
+     파일만 복원해 glob으로 얻은 경로·새로 만든 파일을 놓쳤다 — 레드팀 33회차 B4).
+     🔴271차: 되돌리는 것은 **그 스크립트가 손댈 수 있는 경로**(소스의 문자열 리터럴이 가리키는 파일·glob 디렉터리 아래)뿐이다 —
+     그 밖의 변경은 **손대지 않고 「외부 변경」으로 보고**한다. 268차 실행 중 **같은 리포에 붙은 다른 세션**이 고치던 파일을
+     실행기가 HEAD로 되돌려 그쪽 작업을 지웠다(269차 ⑩). 실행 시작 때 작업 트리가 더럽혀 있으면 그 경로를 미리 알린다.
   ③ **집계** — 「잡음」·「놓침」·「적용불가」(띄어쓰기 무관 — 266차: 223~245차는 「적용 불가」라 **20건이 소리 없이 빠졌다**, 33회차 B1)를
      세고, **스크립트에 선언된 뮤테이션 수와 대조**한다(모자라면 「누락」 — 실패).
      결함이 아닌 놓침은 `KNOWN`에 분류·이유와 함께 둔다. 지금 **살아서 잡는 뮤테이션이 0**인 차수는 경고한다(33회차 B3).
@@ -44,6 +47,42 @@ KNOWN = {
     '249': {'M1 D-11 WO의 D 번호 제거': '상태 변화 — D-11이 255차에 닫혀 열린 항목 검사 대상이 아니다',
             'M4 D-7 WO 중복': '상태 변화 — D-7이 250차에 닫혀 열린 항목 검사 대상이 아니다'},
 }
+
+
+def touchable(src):
+    """스크립트가 손댈 수 있는 경로 — 소스의 문자열 리터럴 가운데 **존재하는 파일**(그대로)과 glob 패턴의 **디렉터리**(접두).
+    271차: 복원은 이 범위 안에서만 한다. 리터럴 밖에서 경로를 만드는 스크립트는 없다(223~270차 전수 — glob은 249·249b뿐)."""
+    files, dirs = set(), set()
+    for node in ast.walk(ast.parse(src)):
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            continue
+        v = node.value.replace(os.sep, '/').strip('/')
+        if not v or '\n' in v:
+            continue
+        if any(ch in v for ch in '*?[') and '/' in v:          # glob 패턴 — 존재하는 디렉터리 접두만(빈 접두 = 리포 전체라 안 받는다)
+            d = v.split('*')[0].split('?')[0].split('[')[0].rsplit('/', 1)[0]
+            if d and os.path.isdir(os.path.join(ROOT, d)):
+                dirs.add(d + '/')
+        elif os.path.isfile(os.path.join(ROOT, v)):
+            files.add(v)
+    # os.path.join('mutations', 'README.md')처럼 조각으로 부르는 경우 — 조각 둘을 이어 본다
+    parts = [n.value for n in ast.walk(ast.parse(src)) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+    for a in parts:
+        for b in parts:
+            j = a.strip('/') + '/' + b.strip('/')
+            if '\n' in j:
+                continue
+            if os.path.isfile(os.path.join(ROOT, j)):
+                files.add(j)
+            elif 'glob' in src and os.path.isdir(os.path.join(ROOT, j)):   # 249b: join('docs', 'work-orders', 'WO-008_*.md')
+                dirs.add(j + '/')
+    return files, dirs
+
+
+def in_scope(path, scope):
+    files, dirs = scope
+    p = path.replace(os.sep, '/')
+    return p in files or any(p.startswith(d) for d in dirs)
 
 
 def num_of(path):
@@ -113,12 +152,17 @@ def _checkout(path):
         raise RuntimeError(f'{path} 복원 실패: ' + r.stderr.decode('utf-8', 'replace').strip())
 
 
-def restore(before, snap):
-    """실행 전 상태로 되돌린다 — 되돌린 경로 목록을 돌려준다."""
+def restore(before, snap, scope=None):
+    """실행 전 상태로 되돌린다 — (되돌린 경로, 손대지 않은 바깥 변경 경로)를 돌려준다.
+    `scope`(touchable 결과)가 있으면 **그 범위 안의 경로만** 되돌린다 — 바깥은 다른 세션·사용자의 작업일 수 있다(271차)."""
     after = git_state()
-    fixed = []
+    fixed, foreign = [], []
     for path, code in after.items():
         if before.get(path) == code and path not in snap:
+            continue
+        if scope is not None and not in_scope(path, scope):
+            if path not in snap or open(path, 'rb').read() != snap[path]:
+                foreign.append(path)
             continue
         if path in snap:                                   # 원래 바뀌어 있던 파일 — 저장한 바이트로
             if not os.path.exists(path) or open(path, 'rb').read() != snap[path]:
@@ -131,15 +175,17 @@ def restore(before, snap):
             _checkout(path); fixed.append(path)
     for path, data in snap.items():                         # 원래 있던 파일이 지워진 경우
         if not os.path.exists(path):
+            if scope is not None and not in_scope(path, scope):
+                foreign.append(path); continue
             open(path, 'wb').write(data); fixed.append(path)
-    return fixed
+    return fixed, foreign
 
 
 def run_one(path):
     src = open(path, encoding='utf-8').read()
     num = num_of(path)
     res = {'baseline': '통과', 'caught': 0, 'missed': 0, 'known': 0, 'stale': 0, 'error': '',
-           'restored': [], 'missed_names': [], 'expected': expected_count(src)}
+           'restored': [], 'foreign': [], 'missed_names': [], 'expected': expected_count(src)}
     files, ks = baseline_args(src)
     if not ks:
         res['baseline'] = '건너뜀'
@@ -161,7 +207,7 @@ def run_one(path):
     except subprocess.TimeoutExpired:
         res['error'] = '시간 초과'
     finally:
-        res['restored'] = restore(before, snap)
+        res['restored'], res['foreign'] = restore(before, snap, touchable(src))
     return res
 
 
@@ -170,6 +216,9 @@ def main(argv):
     paths = sorted(glob.glob(os.path.join(ROOT, 'mutations', 'mut_*.py')))
     paths = [p for p in paths if not want or num_of(p) in want]
     bad = False
+    dirty = git_state()
+    if dirty:
+        print(f'⚠️작업 트리에 실행 전 변경 {len(dirty)}건 — 실행기는 스크립트 범위 밖의 파일에 손대지 않는다: ' + ', '.join(sorted(dirty)))
     print('스크립트 | 원본 | 잡음 | 놓침 | 알려진 놓침(분류) | 적용불가(낡음) | 선언 | 비고')
     for p in paths:
         t0 = time.time()
@@ -186,6 +235,8 @@ def main(argv):
             notes.append('⚠️살아서 잡는 뮤테이션 0 — 가드를 지금 상태로 다시 재야 한다')
         if r['restored']:
             notes.append('복원: ' + ', '.join(r['restored']))
+        if r['foreign']:
+            notes.append('⚠️외부 변경(손대지 않음): ' + ', '.join(r['foreign']))
         print(f"{os.path.basename(p)[:-3]} | {r['baseline']} | {r['caught']} | {r['missed']} | {r['known']} | {r['stale']} | "
               f"{r['expected']} | {' · '.join(notes)} ({time.time() - t0:.0f}s)", flush=True)
         bad |= (r['baseline'] != '통과' or r['missed'] > 0 or bool(r['error'])
