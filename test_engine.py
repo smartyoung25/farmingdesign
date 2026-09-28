@@ -8198,9 +8198,10 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     led = rd("근거_결정대기대장_20260915.md")
     d = {int(x) for x in _re.findall(r"\bD-(\d+)\b", led)}
     sset = {int(x) for x in _re.findall(r"\bS-(\d+)\b", led)}
-    assert d == set(range(1, 17)) and sset == set(range(1, 5)), (
-        f"🔴 대장의 ★가 D-{sorted(d)} · S-{sorted(sset)}다 — 221차 실측은 "
-        f"**D-1~16** · S-1~4다(215차에 D-16을 더했고 221차에 닫았다)")
+    assert d == set(range(1, 18)) and sset == set(range(1, 5)), (
+        f"🔴 대장의 ★가 D-{sorted(d)} · S-{sorted(sset)}다 — 269차 실측은 "
+        f"**D-1~17** · S-1~4다(215차에 D-16을 더했고 221차에 닫았으며 "
+        f"269차에 D-17[지침 요율 조회처]을 더했다)")
     assert "D-1 ~ D-15 (15건)" in crit and "S-1 ~ S-4 (4건)" in crit
 
     # ── ⑥ 한계를 적었는가(비판도 한계가 있다) ────────────────────────
@@ -13794,6 +13795,89 @@ def test_268cha_redteam34_corrections_hold():
     for k, col in zip(range(2, 6), range(2, 6)):
         assert sum(int(r[col]) for r in rws) == int(tot.group(k)), (col, tot.groups())
     assert all(int(r[2]) + int(r[3]) + int(r[4]) + int(r[5]) == int(r[6]) for r in rws), "🔴 행의 집계 합이 선언과 다르다"
+
+
+
+def test_269cha_the_2026_guideline_was_opened_and_nothing_was_registered():
+    """269차 — 2026년 온실신축 사업시행지침 원문을 열어 두 미확인을 닫은 기록이 맞물리는가.
+
+    🔴 「기준사업비」는 2026·2025 지침과 '27 공모 추진계획 **세 문서 모두 0회**다 —
+       그래서 D5의 「미주입」은 채울 구멍이 아니다. 그 문장이 흐려지면 실패.
+    🔴 지침이 싣는 **요율표는 등재하지 않았다**(D-17 대기) — 엔진 코드에 값이 들어오면 실패.
+    🔴 파서가 표를 두 번 세던 것을 **214차 실측(위탁설계 17 · 자가설계 28)**으로 잡았다 —
+       그 검산 기준이 사라지면 실패.
+    """
+    import os as _o, io as _io
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_외부수집_기능공백_20260924.md")
+    sec = doc[doc.index("## 6. 🔴 269차 — 2026년 지침 원문을 열었다"):]
+    lines = [ln.strip() for ln in sec.splitlines()]
+
+    # ── ① 세 문서 0회 표 — 낱말 3종 각각이 세 문서 모두 0이어야 한다 ────────
+    for word in ("기준사업비", "견적", "2개 업체"):
+        hit = [ln for ln in lines if ln.startswith("| " + word + " |")]
+        assert len(hit) == 1, f"🔴 「{word}」 행이 0회 표에서 사라졌거나 늘었다: {hit}"
+        cells = [c.strip() for c in hit[0].strip("|").split("|")]
+        assert cells[1:] == ["**0**", "**0**", "**0**"], (word, cells)
+    assert "채워야 할 구멍이 아니라 정확한 상태" in sec, "🔴 「미주입」의 뜻이 흐려졌다"
+    assert "주입 경로는 그대로 둔다" in sec, "🔴 주입 경로를 없앴다는 서술로 바뀌었다"
+
+    # ── ② 조립 계층도 같은 말을 한다 — D5는 여전히 「미주입」을 낸다 ─────────
+    src = rd("consulting_package.py")
+    assert '"미주입의 뜻"' in src and "**채울 구멍이 아니다**" in src
+    assert '"미주입": "기준사업비(standard_cost_won)' in src, "🔴 D5가 기준사업비를 채운 값으로 바뀌었다"
+    assert _e.QUOTE_COUNT_RULE["applies_to"] == "특용작물(인삼)생산시설현대화 사업"
+
+    # ── ③ 요율표는 **등재하지 않았다** — 엔진 코드에 값이 들어오면 실패 ──────
+    assert "설계·감리·사업관리비 요율은「엔지니어링산업진흥법」및「농어촌정비법」의 기준을 준용" in sec
+    for cell in ("9.52", "6.16", "1.66", "1.7", "1.32", "2.73"):
+        assert cell in sec, f"🔴 요율표 칸 {cell} 이 근거 문서에서 사라졌다"
+    esrc = rd("smartfarm_engine.py")
+    #   ⚠️ 낱개 수로 재면 안 된다 — `ridge_height_m=6.16` 같은 규격값이 먼저 걸린다.
+    #      요율표가 들어왔다면 **한 줄에 여러 칸**이 같이 온다. 그 조합으로 잰다.
+    cells = ("9.52", "8.57", "7.54", "6.88", "6.16", "5.47", "4.67", "4.15",
+             "1.66", "1.53", "1.48", "1.41", "1.57", "1.52", "1.42", "1.32",
+             "3.36", "2.87", "2.73")
+    for ln in esrc.splitlines():
+        if ln.lstrip().startswith("#"):
+            continue
+        hits = [c for c in cells if c in ln]
+        assert len(hits) < 2, f"🔴 지침 요율 {hits} 이 엔진 **코드** 한 줄에 함께 등재됐다 — D-17은 대기다: {ln.strip()[:120]}"
+    assert len(_e.SUPERVISION_FEE_RATE_TABLE) == 17, "🔴 건축사대가기준 표(17구간)가 바뀌었다"
+    assert "결정 대기 D-17" in esrc and "값은 **바꾸지 않았다**" in esrc
+
+    # ── ④ D-17이 대장에 있고 굵은 번호가 겹치지 않는다 ─────────────────────
+    led = rd("근거_결정대기대장_20260915.md")
+    bold = []
+    for ln in led.splitlines():
+        t = ln.strip()
+        if not t.startswith("|"):
+            continue
+        head = t.strip("|").split("|")[0].strip().replace("~", "").strip()
+        if head.startswith("**D-") and head[4:].split("*")[0].isdigit():
+            bold.append("D-" + head[4:].split("*")[0])
+    assert bold.count("D-17") == 1, f"🔴 D-17이 대장 본문 행에서 사라졌거나 겹쳤다: {bold}"
+    #   ⚠️ 전체 유일성은 재지 않는다 — D-3·D-7은 **269차 이전부터** 굵은 행이 두 번씩이다
+    #      (HEAD 9224d45에서 확인). 내 차수가 만든 것이 아니라 여기서 고치지 않는다.
+    assert "지금 대기 6건 · 닫힘 11건" in led and "어느 목록에도 없던 것 (**9건**" in led
+
+    # ── ⑤ ★2022-104 준거 불변 · 가점 목록에 내재해형이 없다 ────────────────
+    assert "221차 ★결정(2022-104호 준거)이 **최신 지침에서도 그대로 서 있다**" in sec
+    assert "🔴 **내재해형은 이 목록에 없다**" in sec
+    assert "설계도서(도면, 내역서, 시방서, 구조계산서, 부하계산서 등)가 준비된 경우" in sec
+
+    # ── ⑥ 파서 이중 계산 — 214차 실측이 검산 기준이었다 ────────────────────
+    assert "「위탁설계 24 · 자가설계 43」" in sec and "**17 · 28**" in sec
+    assert "214차 측정이 오늘의 검산 기준이 됐다" in sec
+    hx = rd("hwpx_extract.py")
+    assert "가장 가까운 조상 문단" in hx, "🔴 이중 계산을 막는 귀속 규칙 설명이 사라졌다"
+    assert "owner[el] = cur" in hx, "🔴 조상 문단 귀속 코드가 사라졌다"
+
+    # ── ⑦ 확인하지 못한 것을 지우지 않았다 ────────────────────────────────
+    assert "전문을 줄 단위로 2025년판과 대조하지 않았다" in sec
+    assert "601자뿐이다" in sec and "리포에 넣지 않았다" in sec
 
 
 if __name__ == "__main__":
