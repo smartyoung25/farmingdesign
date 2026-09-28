@@ -51,7 +51,7 @@
 - [x] R1~R8 위반 변형 입력마다 문제가 1건 이상 나오고, 원본 WO-001은 문제 0건이다 (확인: `python -m pytest test_engine.py -q -k 247cha`)
 - [x] 「잘못」이 들어간 수용기준은 R2 문제를 내지 않는다 (확인: 같은 명령)
 - [x] 엔진 계층 `smartfarm_engine.py`·`build_site.py`에 `audit_work_orders` import가 없다 — 표시 계층 `webapp.py`는 WO-003에서 읽기 전용으로 쓴다 (확인: 같은 명령)
-- [x] 회귀 3파일 383 passed, 원채원 ROI 14.2% · Payback 7.1년 · 실질ROI 28.3% 유지 (확인: `python -m pytest test_engine.py test_registry.py test_cases.py -q`)
+- [x] 회귀 3파일 383 passed, C2 ROI 14.2% · Payback 7.1년 · 실질ROI 28.3% 유지 (확인: `python -m pytest test_engine.py test_registry.py test_cases.py -q`)
 - [x] 5파일 462 passed, skip 0 (확인: `python -m pytest test_engine.py test_registry.py test_cases.py test_chunking_v2.py test_webapp.py -q`)
 
 ## 8. 제약·주의사항

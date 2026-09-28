@@ -2302,6 +2302,64 @@ def test_248cha_work_order_screens_show_the_audit_as_is(monkeypatch):
         assert '<a href="/workorders">작업지시서(WO)</a></div>' in h, u
 
 
+def test_251cha_work_orders_carry_no_personal_names(monkeypatch):
+    """251차 — 사용자 지시 「개인 이름은 무기명으로 처리」: WO 문서·색인·콘솔 WO 화면에 실명이 없는가.
+
+    🔴 판정은 `case_display.audit` **그대로** 쓴다 — 명단을 따로 두면 제2의 명단이 된다(183·184차 표시 계층).
+    🔴 파일(R9)과 화면(scrub) **두 겹**이다 — 검사가 FAIL인 WO가 들어와도 화면에는 코드로 나간다.
+    ⚠️ 경계: 엔진·케이스·레지스트리·옛 차수 기록은 **내부 데이터**라 그대로다(추적성 — 183차).
+    """
+    import os as _o, io as _io, re as _re, tempfile as _tf, shutil as _sh
+    import audit_work_orders as A
+    import case_display as cd
+    d = _o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), "docs", "work-orders")
+
+    # ── ① 파일·파일명·색인 ─────────────────────────────────────────
+    r = A.audit()
+    assert r["pass"], r["problems"]
+    for fn in _o.listdir(d):
+        assert cd.audit(fn) == {}, fn
+        assert cd.audit(_io.open(_o.path.join(d, fn), encoding="utf-8").read()) == {}, fn
+
+    # ── ② R9가 잡는가(본문 · 파일명) ─────────────────────────────────
+    name = next(f for f in _o.listdir(d) if f.startswith("WO-001_"))
+    base = _io.open(_o.path.join(d, name), encoding="utf-8").read()
+    known = {f["id"] for f in r["files"]}
+    leak = base.replace("- 작업 유형:", "- 작업 유형:", 1).replace("## 2. 배경·사용자\n", "## 2. 배경·사용자\n- 우민재 농가 표본\n", 1)
+    assert leak != base
+    msgs = A.check_wo(leak, name, known)
+    assert any(x.startswith("R9") for x in msgs)
+    #   📌 메시지가 찾은 이름을 되풀이하면 **CLI 출력이 누출 경로**가 된다(화면은 scrub이 가려 준다)
+    assert cd.audit(" ".join(msgs)) == {}, msgs
+    assert any(x.startswith("R9") for x in A.check_wo(base, "WO-001_최선동.md", known))
+    assert not any(x.startswith("R9") for x in A.check_wo(base, name, known))
+
+    # ── ③ 화면 — 실명이 든 WO가 들어와도 코드로 나간다 ─────────────────
+    tmp = _tf.mkdtemp()
+    try:
+        for fn in _o.listdir(d):
+            _sh.copy(_o.path.join(d, fn), tmp)
+        _io.open(_o.path.join(tmp, name), "w", encoding="utf-8").write(
+            leak.replace("# 작업지시서 WO-001: ", "# 작업지시서 WO-001: 임미라 ", 1))
+        _orig = A.audit
+        monkeypatch.setattr(webapp.awo, "audit", lambda folder=tmp: _orig(folder))
+        assert not webapp.awo.audit()["pass"]
+        for u in ("/workorders", "/workorders/WO-001"):
+            h = client.get(u).text
+            assert cd.audit(h) == {}, (u, cd.audit(h))
+        assert "C3 농가 표본" in client.get("/workorders/WO-001").text
+    finally:
+        monkeypatch.undo()
+        _sh.rmtree(tmp, ignore_errors=True)
+
+    # ── ④ 이 지시 뒤의 새 차수 기록(249~251)에도 실명이 없다 ─────────────
+    lg = _io_read("차수로그.md")
+    for n in (249, 250, 251):
+        i = lg.index(f"- **2026-09-28 {n}차**")
+        j = lg.index("\n- **2026-", i + 5)
+        assert cd.audit(lg[i:j]) == {}, (n, cd.audit(lg[i:j]))
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),

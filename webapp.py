@@ -167,13 +167,14 @@ def work_orders(request: Request):
     rows = []
     for f in r["files"]:
         p, ix = f["parsed"], idx.get(f["id"])
-        rows.append({"id": f["id"], "title": p["title"], "type": p["type"],
+        #   251차 — 개인 이름은 표시 코드로(R9가 파일을 막지만, 화면도 한 번 더 거른다)
+        rows.append({"id": f["id"], "title": cdsp.scrub(p["title"]), "type": p["type"],
                      "round": ix[3] if ix else "—", "prereq": p["prereq"],
                      "state": ix[5] if ix else "색인 없음",
                      "checked": p["n_checked"], "total": p["n_criteria"],
-                     "problems": f["problems"]})
+                     "problems": [cdsp.scrub(x) for x in f["problems"]]})
     return templates.TemplateResponse(request, "work_orders.html", {
-        "rows": rows, "audit_pass": r["pass"], "problems": r["problems"]})
+        "rows": rows, "audit_pass": r["pass"], "problems": [cdsp.scrub(x) for x in r["problems"]]})
 
 
 @app.get("/workorders/{wo_id}")
@@ -184,10 +185,13 @@ def work_order_detail(request: Request, wo_id: str):
     f = next((x for x in r["files"] if x["id"] == wo_id), None)
     if f is None:
         raise HTTPException(404, detail=f"{wo_id} 없음 — docs/work-orders/에 그 번호의 파일이 없다")
-    p = f["parsed"]
+    f = {**f, "problems": [cdsp.scrub(x) for x in f["problems"]]}
+    p = dict(f["parsed"])
+    p["title"] = cdsp.scrub(p["title"])
+    p["criteria"] = [{**c, "text": cdsp.scrub(c["text"])} for c in p["criteria"]]
     return templates.TemplateResponse(request, "work_order_detail.html", {
         "f": f, "p": p,
-        "sections": [(n, p["sections"][n]["title"], p["sections"][n]["body"]) for n in p["order"]]})
+        "sections": [(n, p["sections"][n]["title"], cdsp.scrub(p["sections"][n]["body"])) for n in p["order"]]})
 
 
 @app.get("/health")

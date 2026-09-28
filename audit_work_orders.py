@@ -13,6 +13,8 @@
   R6 헤더 — 제목 번호 = 파일명 번호 · 작성일 · 작업 유형 6종 · 선행 지시서 실재
   R7 수정 지시서(-fixK)는 원 지시서가 실재한다
   R8 README 색인과 폴더가 서로 빠짐없이 대응한다
+  R9 개인 이름·내부 식별자가 없다 — 표시 코드(C*·A*·S*·V*)로 쓴다(251차, 사용자 지시
+     「개인 이름은 무기명으로 처리」). 판정은 `case_display.audit` 그대로(제2의 명단 금지)
 
 자동화 경계: 이 검사가 「통과」라고 해서 WO가 옳다는 뜻이 아니다 — 수용기준이 목적을
   실제로 덮는지, 가정이 타당한지는 사람(또는 레드팀)이 본다.
@@ -26,6 +28,8 @@ import io
 import os
 import re
 import sys
+
+import case_display as cdsp
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 WO_DIR = os.path.join(ROOT, "docs", "work-orders")
@@ -180,6 +184,12 @@ def check_wo(text, name, known_ids):
         for word, rx in BANNED:
             if rx.search(c["text"]):
                 probs.append(f"R2 「{c['text'][:24]}…」에 금지 표현 「{word}」가 있다")
+    # R9 개인 이름 — 파일명과 본문 모두. 코드 ↔ 이름 매핑은 case_display.py에만 있다
+    leaked = {**cdsp.audit(name), **cdsp.audit(text)}
+    if leaked:
+        # 메시지가 이름을 되풀이하면 그 자체가 누출이다 — 해당 코드만 적는다
+        probs.append(f"R9 개인 이름·내부 식별자 {len(leaked)}종이 있다(해당 코드 "
+                     f"{sorted(set(cdsp.scrub(n) for n in leaked))}) — case_display 표시 코드로 쓴다")
     # R5 구현 코드
     bad = [ln.strip() for ln in p["code_lines"] if CODE_LINE.match(ln)]
     if bad:
@@ -220,7 +230,11 @@ def audit(folder=WO_DIR):
     if not os.path.exists(readme):
         res["problems"].append("R8 README.md(색인)가 없다")
     else:
-        rows = index_rows(_read(readme))
+        rt = _read(readme)
+        if cdsp.audit(rt):
+            res["problems"].append(f"R9 README.md에 개인 이름·내부 식별자 {len(cdsp.audit(rt))}종이 있다(해당 코드 "
+                                   f"{sorted(set(cdsp.scrub(n) for n in cdsp.audit(rt)))})")
+        rows = index_rows(rt)
         res["index"] = rows
         listed = {r[1] for r in rows}
         res["index_missing"] = sorted(set(names) - listed)
