@@ -13425,6 +13425,49 @@ def test_260cha_old_records_keep_names_as_decided():
     assert "새로 쓰는 공유 산출물" in blk
 
 
+def test_262cha_unverified_items_checked_against_originals():
+    """262차 — 레드팀 30·31회차가 「확인 불가」로 남긴 4건을 원문으로 확인한 기록이 맞물리는가.
+
+    품셈 p.129(OCR — 「공정등이」) · C3 도면 4쪽(2,321.87) · 무인방제 2건(원문 xls) · 부대시설 재합산(36,878,048).
+    🔴 수치는 **대장 문장에서 읽어** 서로 맞는지 잰다(상수끼리의 동어반복 금지 — 31회차 B6①). 기준값 40,093,200은 엔진에서 읽는다.
+    ⚠️ OCR·PDF를 다시 돌리지 않는다(느리고 환경 의존) — 원문 대조는 262차에 한 번 했고, 여기서는 기록의 정합만 본다.
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as e
+    import case_display as cd
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    led = rd("근거_결정대기대장_20260915.md")
+    row = lambda h: next(ln for ln in led.splitlines() if ln.startswith(h))
+    num = lambda s: int(s.replace(",", ""))
+
+    d15 = row("| ~~**D-15**~~")
+    assert "262차 원문 확인(OCR)" in d15 and "유리닦기 등의 공정**등이** 없는 것으로 조사" in d15
+    d7 = row("| ~~**D-7**~~")
+    assert "4쪽 공사개요" in d7 and "2,321.87M2 (702.36평)" in d7
+    d8 = row("| ~~**D-8**~~")
+    m = _re.search(r"소계 재 ([\d,]+) \+ 노 ([\d,]+) = ([\d,]+)", d8)
+    assert m and num(m.group(1)) + num(m.group(2)) == num(m.group(3)) == 25107700, m and m.groups()
+    assert "「안개분무시설 식 1 18,500,000」" in d8
+
+    # ── 부대시설 재합산 — 문장에서 읽은 수끼리 · 기준은 엔진 ─────────────────
+    d13 = row("| ~~**D-13**~~")
+    new = num(_re.search(r"모두 더하면 \*\*([\d,]+)\*\*", d13).group(1))
+    gap = num(_re.search(r"차 \*\*([\d,]+)\*\*은 A5", d13).group(1))
+    tot = num(_re.search(r"→ \*\*([\d,]+)\(([\d.]+)배\)\*\*", d13).group(1))
+    ratio = float(_re.search(r"→ \*\*[\d,]+\(([\d.]+)배\)\*\*", d13).group(1))
+    aux = sum(v.get("auxiliary_facility") or 0 for v in e.CAPEX_MAJOR_CASE_CHUNKS.values())
+    assert 37226888 - new == gap == 348840, (new, gap)
+    assert aux + new == tot and round(tot / aux, 2) == ratio, (aux, new, tot, ratio)
+    assert "37,226,888" in d13 and "A5 외 라인은 이번에 원문을 다시 열지 않았다" in d13
+    for ln in (d15, d7, d8, d13):
+        assert cd.audit(ln) == {}
+
+    rel = rd("릴리스_v1.2_20260928.md")
+    assert "**262차에 원문으로 확인**" in rel and "A5 외 라인" in rel
+    assert "→ ✅**262차 OCR로 확인(「공정등이」 일치)**" in rd("검증절차_레드팀.md")
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
