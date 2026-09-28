@@ -13410,16 +13410,35 @@ def test_258cha_app_layer_counting_is_allowed_only_as_counting():
             and not (isinstance(n.op, (_ast.Add, _ast.Sub)) and one(n.value))]
     #   누적 대입 — 대상(이름·첨자)이 오른쪽 산술식의 **어느 피연산자로든** 다시 나오면 누적이다
     #   (`t = t + v` · `t = v + t` · `t = t + a + b` · `d["k"] = d["k"] + v`). 단 `t = t ± 1`(정수)은 세기.
+    #   📌268차(34회차 B6): 부호 반전·함수 감싸기·조건식·튜플 대입·주석 대입 속의 누적도 본다
     def _operands(e):
-        if isinstance(e, _ast.BinOp) and isinstance(e.op, (_ast.Add, _ast.Sub, _ast.Mult, _ast.Div)):
+        if isinstance(e, _ast.BinOp) and isinstance(e.op, (_ast.Add, _ast.Sub, _ast.Mult, _ast.Div, _ast.FloorDiv)):
             return _operands(e.left) + _operands(e.right)
+        if isinstance(e, _ast.UnaryOp):
+            return _operands(e.operand)
+        if isinstance(e, _ast.Call):
+            return [o for a in e.args for o in _operands(a)]
+        if isinstance(e, _ast.IfExp):
+            return _operands(e.body) + _operands(e.orelse)
         return [e]
+    def _pairs(n):
+        if isinstance(n, _ast.AnnAssign) and n.value is not None:
+            return [(n.target, n.value)]
+        if isinstance(n, _ast.Assign) and len(n.targets) == 1:
+            t, v = n.targets[0], n.value
+            if isinstance(t, _ast.Tuple) and isinstance(v, _ast.Tuple) and len(t.elts) == len(v.elts):
+                return list(zip(t.elts, v.elts))
+            return [(t, v)]
+        return []
     for n in _ast.walk(tree):
-        if isinstance(n, _ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], (_ast.Name, _ast.Subscript))                 and isinstance(n.value, _ast.BinOp):
-            tgt = _ast.dump(n.targets[0], annotate_fields=False).replace("Store()", "Load()")
-            ops = _operands(n.value)
-            if any(_ast.dump(o, annotate_fields=False) == tgt for o in ops) and not (
-                    len(ops) == 2 and isinstance(n.value.op, (_ast.Add, _ast.Sub)) and any(one(o) for o in ops)):
+        for t, v in _pairs(n):
+            if not isinstance(t, (_ast.Name, _ast.Subscript)) or not isinstance(v, (_ast.BinOp, _ast.UnaryOp, _ast.Call, _ast.IfExp)):
+                continue
+            tgt = _ast.dump(t, annotate_fields=False).replace("Store()", "Load()")
+            ops = _operands(v)
+            counting_step = (isinstance(v, _ast.BinOp) and isinstance(v.op, (_ast.Add, _ast.Sub))
+                             and _ast.dump(v.left, annotate_fields=False) == tgt and one(v.right))
+            if len(ops) >= 2 and any(_ast.dump(o, annotate_fields=False) == tgt for o in ops) and not counting_step:
                 bad.append(_ast.unparse(n))
     assert not bad, f"🔴 앱 계층 `sum()`이 항목 세기가 아니다: {bad} — 258차 허용은 **세기**까지다(엔진 값 합산 금지)"
 
@@ -13614,6 +13633,13 @@ def test_265cha_mutation_scripts_live_in_the_repo():
     assert (t["caught"], t["stale"], t["missed"], t["known"]) == (1, 2, 1, 1), t
     assert run_all.expected_count(rd(_o.path.join("mutations", "mut_228.py"))) == 7
     assert run_all.expected_count(rd(_o.path.join("mutations", "mut_246.py"))) == 3
+    #   📌268차(34회차 B10): 다른 두 형식도 잰다 — 목록 밖 `res.append(("M…` 1건(243차) · 5-튜플 원소(266차)
+    assert run_all.expected_count(rd(_o.path.join("mutations", "mut_243.py"))) == 3
+    assert run_all.expected_count(rd(_o.path.join("mutations", "mut_266.py"))) == 8
+    for extra in sorted(f for f in _o.listdir(mdir) if _re.match(r"mut_\d+b\.py$", f)):   # 보충 스크립트도 같은 규칙
+        src = rd(_o.path.join("mutations", extra))
+        assert "C:\\FarmingDesign" not in src and "scratchpad" not in src and "os.path.dirname(os.path.dirname(" in src, extra
+        assert f"| {extra[4:-3]} |" in rd(_o.path.join("mutations", "README.md")), extra
     _ra = rd(_o.path.join("mutations", "run_all.py"))
     assert "git_state" in _ra and "def restore" in _ra and "누락" in _ra and "건너뜀" in _ra
     src_ra = rd(_o.path.join("mutations", "run_all.py"))
@@ -13668,7 +13694,8 @@ def test_266cha_redteam33_corrections_hold():
     assert "두 번 더한 것으로 보인다 **[추정]**" in wo7 and "**발동됐다**" not in wo7
     # ── 실행기 · 보충 스크립트 ────────────────────────────────────────────
     ra = rd(_o.path.join("mutations", "run_all.py"))
-    assert "head.startswith('적용불가')" in ra and "def expected_count" in ra and "🔴누락" in ra
+    #   📌268차: 누락뿐 아니라 **초과 집계**도 실패다(34회차 B9①)
+    assert "head.startswith('적용불가')" in ra and "def expected_count" in ra and '"누락"' in ra and "초과 집계" in ra
     for extra in ("mut_240b.py", "mut_249b.py"):
         body = rd(_o.path.join("mutations", extra))
         assert "원본이 실패한다" in body and "보충 뮤테이션(266차)" in body, extra
@@ -13688,8 +13715,11 @@ def test_267cha_unverified_items_taken_to_the_originals():
     sec = doc[doc.index("## 267차 — 「확인하지 못한 것」 2건 진행"):]
 
     # ── ① 150차 커밋에 라인 목록이 없다는 것을 git으로 다시 잰다 ────────────
-    show = _sp.run(["git", "show", "57de25b"], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=repo).stdout
-    assert "37,226,888" in show and "1,020,144" not in show and "348,840" not in show, "🔴 150차 커밋에 라인 목록이 있다 — [추정]을 다시 보라"
+    #   📌268차(레드팀 34회차 B7): git 실패(얕은 클론·.git 없음)를 「라인 목록이 있다」로 읽지 않게 반환 코드를 먼저 본다
+    _g = _sp.run(["git", "show", "57de25b"], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=repo)
+    assert _g.returncode == 0 and "37,226,888" in _g.stdout, "🔴 150차 커밋(57de25b)을 git에서 읽지 못했다 — 얕은 클론이거나 .git이 없다"
+    show = _g.stdout
+    assert "1,020,144" not in show and "348,840" not in show, "🔴 150차 커밋에 라인 목록이 있다 — [추정]을 다시 보라"
     assert "git 전 이력에도 없다" in sec and "**[추정]** 그대로 둔다" in sec
     assert "「각」" in sec and "증명은 아니다" in sec
 
@@ -13703,6 +13733,67 @@ def test_267cha_unverified_items_taken_to_the_originals():
         assert bad not in sec, f"🔴 분류 결정 문장 「{bad}」 — D-13은 ★유지로 닫혀 있다"
     assert "★유지로 닫혀 있어 지금은 결정 대상이 아니다" in sec and "⚠️범위" in sec
     assert "**267차**" in rd("릴리스_v1.2_20260928.md") and "다시 열지 않는다" in rd("릴리스_v1.2_20260928.md")
+
+
+def test_268cha_redteam34_corrections_hold():
+    """268차 — 레드팀 34회차(266·267차 대상) 반영이 되돌아가지 않는가.
+
+    A1·A2 A5 관리동은 「별동」이 아니고(개요표 3,027 + 432 = 3,459) 부재 규격은 도면·내역서가 다르다(이견) ·
+    A3 요약 건수 6·1·3 · A6 「텍스트층으로」 · A7·A8 S4 반대 근거 · A5 릴리스 [추정].
+    B1 실행기가 한글 경로를 `-z`로 읽고 복원 실패를 요란하게 낸다 · B2 README 합계 = 행 합.
+    🔴 수는 문서에서 읽어 서로 맞는지 잰다.
+    """
+    import os as _o, io as _io, re as _re, importlib.util as _iu
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    num = lambda x: int(x.replace(",", ""))
+    doc = rd("근거_관리동_실재점검_20260915.md")
+    sec = doc[doc.index("## 267차"):]
+
+    # ── A2 개요표 산술 · 「별동」 부재 ─────────────────────────────────
+    m = _re.search(r"재배 ([\d,]+) \+ 관리동 ([\d,]+) = 온실 \*\*([\d,]+)㎡\*\*", sec)
+    assert m and num(m.group(1)) + num(m.group(2)) == num(m.group(3)) == 3459, m and m.groups()
+    assert "별동으로 실재" not in sec and "「별동」 아님" in sec
+    # ── A1 규격 불일치 — 세 쌍이 적혀 있고 서로 다르다 ─────────────────────
+    assert "규격은 내역서와 하나도 맞지 않는다" in sec and "원문 내부 불일치(이견)" in sec
+    for a, b in (("125×125×3.2", "125×75×3.2"), ("40×40×**2.1**", "40×40×**2.3**")):
+        assert a in sec and b in sec and a != b
+    assert "규격이 내역서 라인과 대응한다" not in sec
+    # ── A3 요약 건수 = 표 구성 ────────────────────────────────────────
+    rows = _re.findall(r"(?m)^\| (A\d+|S\d+(?:·S\d+)?) \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$", sec)
+    #   한 행이 여러 라인을 담는다(A5 3건 · A4 연동 3건) — 행이 아니라 **금액 칸의 금액 수**를 센다
+    n_amounts = sum(len(_re.findall(r"\d{1,3}(?:,\d{3})+", r[2])) for r in rows if "목록의" not in r[1])
+    m3 = _re.search(r"명시하는 것 (\d)건\*\*.*?\*\*분리 불가 (\d)건\*\*.*?\*\*배수 뜻 미상 (\d)건\*\*", sec, _re.S)
+    assert m3 and int(m3.group(1)) + int(m3.group(2)) + int(m3.group(3)) == n_amounts == 10, (m3 and m3.groups(), n_amounts)
+    # ── A6·A7·A8 ─────────────────────────────────────────────────
+    assert "**텍스트층으로 확인할 수 있는 데까지**" in sec and "**원문으로 확인할 수 있는 데까지**" not in sec
+    assert "관리동수평커튼-삼상0.5마력" in sec and "온실 천창 전체용**일 수 있고" in sec
+    rel = rd("릴리스_v1.2_20260928.md")
+    assert "별동으로 실재" not in rel and "150차도 넣었다는 것은 **[추정]**" in rel
+    lg = rd("차수로그.md")
+    assert "실제 **30**" in lg and "「별동」은 거짓" in lg
+
+    # ── B1 실행기 — `-z` · 복원 실패 요란 · 초과 집계 ──────────────────────
+    ra = rd(_o.path.join("mutations", "run_all.py"))
+    assert "'--porcelain', '-uall', '-z'" in ra and "def _checkout(path):" in ra and "_checkout(path); fixed.append(path)" in ra \
+        and "복원 실패" in ra and "초과 집계" in ra
+    spec = _iu.spec_from_file_location("mut_run_all_268", _o.path.join(repo, "mutations", "run_all.py"))
+    mod = _iu.module_from_spec(spec); _cwd = _o.getcwd()
+    try:
+        spec.loader.exec_module(mod)
+        st = mod.git_state()                                   # 한글 경로가 이스케이프 없이 그대로 온다
+        assert all('\\' not in k and not k.startswith('"') for k in st), st
+    finally:
+        _o.chdir(_cwd)
+    # ── B2 README 합계 = 행 합 ───────────────────────────────────────
+    rm = rd(_o.path.join("mutations", "README.md"))
+    body = rm[rm.index("## 268차 재현 결과"):]
+    rws = _re.findall(r"(?m)^\| (\d+b?) \| (\S+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|", body)
+    tot = _re.search(r"\| \*\*합\*\* \| (\d+)개 전부 통과 \| \*\*(\d+)\*\* \| \*\*(\d+)\*\* \| \*\*(\d+)\*\* \| \*\*(\d+)\*\* \|", body)
+    assert rws and tot and int(tot.group(1)) == len(rws), (len(rws), tot and tot.groups())
+    for k, col in zip(range(2, 6), range(2, 6)):
+        assert sum(int(r[col]) for r in rws) == int(tot.group(k)), (col, tot.groups())
+    assert all(int(r[2]) + int(r[3]) + int(r[4]) + int(r[5]) == int(r[6]) for r in rws), "🔴 행의 집계 합이 선언과 다르다"
 
 
 if __name__ == "__main__":

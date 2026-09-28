@@ -88,15 +88,29 @@ def tally(stdout, known):
 
 
 def git_state():
-    out = subprocess.run(['git', 'status', '--porcelain', '-uall'], capture_output=True, text=True,
-                         encoding='utf-8', errors='replace').stdout
+    """`git status` 항목 → {경로: 상태}. **`-z`로 읽는다** — 기본 출력은 한글 경로를 8진 이스케이프(`"\\354…"`)로 내서
+    존재하지 않는 경로가 키가 됐다(레드팀 34회차 B1 — 뮤테이션 대상 대부분이 한글 파일명이라 복원이 헛돌았다)."""
+    r = subprocess.run(['git', 'status', '--porcelain', '-uall', '-z'], capture_output=True)
+    if r.returncode != 0:
+        raise RuntimeError('git status 실패 — 복원 기준을 세울 수 없다: ' + r.stderr.decode('utf-8', 'replace').strip())
     st = {}
-    for ln in out.splitlines():
-        path = ln[3:].strip().strip('"')
-        if ' -> ' in path:
-            path = path.split(' -> ')[-1]
-        st[path] = ln[:2]
+    items = r.stdout.decode('utf-8').split('\0')
+    i = 0
+    while i < len(items):
+        ln = items[i]; i += 1
+        if not ln:
+            continue
+        code, path = ln[:2], ln[3:]
+        if code[0] in 'RC':                 # 이름 변경·복사: 다음 항목이 원래 경로
+            i += 1
+        st[path] = code
     return st
+
+
+def _checkout(path):
+    r = subprocess.run(['git', 'checkout', '--', path], capture_output=True)
+    if r.returncode != 0:
+        raise RuntimeError(f'{path} 복원 실패: ' + r.stderr.decode('utf-8', 'replace').strip())
 
 
 def restore(before, snap):
@@ -110,9 +124,11 @@ def restore(before, snap):
             if not os.path.exists(path) or open(path, 'rb').read() != snap[path]:
                 open(path, 'wb').write(snap[path]); fixed.append(path)
         elif code == '??':                                  # 새로 생긴 파일 — 지운다
-            os.remove(path); fixed.append(path)
-        else:                                               # 깨끗했던 추적 파일 — 커밋 상태로
-            subprocess.run(['git', 'checkout', '--', path], capture_output=True); fixed.append(path)
+            if os.path.exists(path):
+                os.remove(path)
+            fixed.append(path)
+        else:                                               # 깨끗했던 추적 파일 — 커밋 상태로(실패는 요란하게)
+            _checkout(path); fixed.append(path)
     for path, data in snap.items():                         # 원래 있던 파일이 지워진 경우
         if not os.path.exists(path):
             open(path, 'wb').write(data); fixed.append(path)
@@ -164,8 +180,8 @@ def main(argv):
             notes.append(r['error'])
         if r['missed_names']:
             notes.append('; '.join(r['missed_names']))
-        if r['baseline'] == '통과' and seen < r['expected']:
-            notes.append(f'🔴누락 {r["expected"] - seen}(선언 {r["expected"]} · 집계 {seen})')
+        if r['baseline'] == '통과' and seen != r['expected']:
+            notes.append(f'🔴{"누락" if seen < r["expected"] else "초과 집계"} {abs(r["expected"] - seen)}(선언 {r["expected"]} · 집계 {seen})')
         if r['baseline'] == '통과' and r['caught'] == 0:
             notes.append('⚠️살아서 잡는 뮤테이션 0 — 가드를 지금 상태로 다시 재야 한다')
         if r['restored']:
@@ -173,7 +189,7 @@ def main(argv):
         print(f"{os.path.basename(p)[:-3]} | {r['baseline']} | {r['caught']} | {r['missed']} | {r['known']} | {r['stale']} | "
               f"{r['expected']} | {' · '.join(notes)} ({time.time() - t0:.0f}s)", flush=True)
         bad |= (r['baseline'] != '통과' or r['missed'] > 0 or bool(r['error'])
-                or (r['baseline'] == '통과' and seen < r['expected']))
+                or (r['baseline'] == '통과' and seen != r['expected']))
     return 1 if bad else 0
 
 
