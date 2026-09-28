@@ -13085,16 +13085,57 @@ def test_252cha_d8_unclassified_kept_as_decided():
     assert len(closed) == 1 and "43,607,700" in closed[0] and "0.551%" in closed[0], closed
     assert cd.audit(closed[0]) == {}, cd.audit(closed[0])
     assert not _re.search(r"(?m)^\| \*\*D-8\*\* \|", led) and not _re.search(r"(?m)^\| D-8 \|", led)
-    assert "대기 8건 · 닫힘 8건" in led.splitlines()[0]
+    #   📌253차 — 건수를 고정하면 다음 결정마다 깨진다. 건수는 240·207차 가드가 실측으로 대조한다.
+    assert "D-8" in led.splitlines()[0].split("(", 1)[1]
     assert _re.search(r"(?m)^\| \*\*CM1\*\* \|", rd("근거_확인요망대장_20260915.md")), (
         "🔴 CM1이 닫혔다 — D-8 유지는 방제/냉방 귀속에 답하지 않는다")
-    assert "| **★사용자 결정 대기**(대장의 D- 항목) | **8** |" in rd("릴리스_v1.1_20260927.md")
 
     # ── ③ WO-005 = 완료 · ⓐ 기준은 켜지 않음 ───────────────────────
     r = A.audit()
     f = next(x for x in r["files"] if x["id"] == "WO-005")
     assert dict((row[0], row[5]) for row in r["index"])["WO-005"] == "완료"
     assert f["parsed"]["n_confirm_needed"] == 0 and "ⓑ 미분류 유지" in f["parsed"]["sections"][2]["body"]
+    for c in f["parsed"]["criteria"]:
+        if c["text"].startswith("(ⓐ"):
+            assert not c["checked"] and "해당 없음" in c["text"], c["text"]
+
+
+def test_253cha_d13_classification_rule_kept_as_decided():
+    """253차 — ★D-13 유지(사용자 결정 2026-09-28): 부대시설은 독립 공종만, 40,093,200(S1 1건) 그대로.
+
+    🔴 공종 안에 섞인 관리동·작업동 라인은 **원래 공종에 남는다** — 이관 측정(37,226,888 → 77,320,088)은
+       닫힌 행에 이력으로, 146차 정정(독립 공종이 S1 하나뿐은 아니다)도 그대로 유효하다.
+    ⚠️ 대장 건수는 고정하지 않는다(240·207차 가드 몫 — 252차 가드가 건수를 고정했다가 다음 결정에 깨졌다).
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as e
+    import audit_work_orders as A
+    import case_display as cd
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    s1 = next(k for k, v in cd.SOURCE_ALIASES.items() if v == "S1")
+
+    # ── ① 값 불변 — 부대시설은 S1 한 건 ─────────────────────────────
+    aux = {k: v.get("auxiliary_facility") for k, v in e.CAPEX_MAJOR_CASE_CHUNKS.items()
+           if v.get("auxiliary_facility")}
+    assert aux == {s1: 40093200}, aux
+    assert e.CAPEX_MAJOR_EVIDENCE_STATUS["auxiliary_facility"].startswith("실측(1건")
+
+    # ── ② 대장 — 닫힘 · 닫힌 행에 이력 · 146차 정정 유지 · 실명 0 ─────────
+    led = rd("근거_결정대기대장_20260915.md")
+    closed = [ln for ln in led.splitlines() if ln.startswith("| ~~**D-13**~~ ✅**닫힘(253차)** |")]
+    assert len(closed) == 1, closed
+    for mark in ("40,093,200", "37,226,888", "77,320,088", "1.93배", "146차 정정"):
+        assert mark in closed[0], mark
+    assert cd.audit(closed[0]) == {}, cd.audit(closed[0])
+    assert not _re.search(r"(?m)^\| \*\*D-13\*\* \|", led) and not _re.search(r"(?m)^\| D-13 \|", led)
+    assert "D-13" in led.splitlines()[0].split("(", 1)[1]
+
+    # ── ③ WO-007 = 완료 · ⓐ 기준은 켜지 않음 ───────────────────────
+    r = A.audit()
+    f = next(x for x in r["files"] if x["id"] == "WO-007")
+    assert dict((row[0], row[5]) for row in r["index"])["WO-007"] == "완료"
+    assert f["parsed"]["n_confirm_needed"] == 0 and "ⓑ 현행 유지" in f["parsed"]["sections"][2]["body"]
     for c in f["parsed"]["criteria"]:
         if c["text"].startswith("(ⓐ"):
             assert not c["checked"] and "해당 없음" in c["text"], c["text"]
