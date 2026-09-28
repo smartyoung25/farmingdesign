@@ -43,6 +43,8 @@
 - 데이터(케이스·견적비교·레지스트리) 변경 차수는 커밋 전 python audit_traceability.py 실행 — PASS 확인(48차 편입)
 - 산출물 데이터가 바뀐 차수엔 /redteam 스킬 실행 권장(fresh-context 대조 — 3회 실측 발견 20건, 강제 아님)
 - 3개 이상 파일을 건드리는 변경은 계획을 먼저 제시
+- 과제를 단계로 쪼갤 때는 dev-work-order-writer 스킬 양식의 WO로 docs/work-orders/에 쓴다
+  (WO 1건 = 차수 1개. 리포 적용 방식·이견·색인은 docs/work-orders/README.md 한 곳 — 246차)
 - 판단이 갈리면 조용히 고르지 않고 선택지를 제시(프로젝트 관례: 사용자 결정 기록)
 - 요청한 범위만 손댄다. 인접 코드를 "개선"하지 않는다
 

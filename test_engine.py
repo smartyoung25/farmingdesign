@@ -12843,6 +12843,44 @@ def test_244cha_d10_overhead_rates_match_the_source_notes():
     assert "| ~~**D-10**~~ ✅**닫힘(244차)** |" in led
 
 
+def test_246cha_work_order_skill_installed_verbatim_with_repo_mapping():
+    """246차 — WO-001: `dev-work-order-writer` 스킬을 원문 그대로 설치하고 리포 대응표를 한 곳에 둔다.
+
+    🔴 스킬 본문은 **한 글자도 고치지 않는다** — 리포 쪽 해석은 끝의 「이 리포에서」 절과
+       `docs/work-orders/README.md`에만 있다. 원문 sha256은 사용자가 준 zip에서 잰 값이다.
+    🔴 `docs/HANDOFF.md`는 만들지 않는다(단일 착수점은 `작업지시서.md`).
+    """
+    import hashlib as _h, os as _o, re as _re, io as _io
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda *p: _io.open(_o.path.join(repo, *p), encoding="utf-8", newline="").read()
+    lf = lambda s: s.replace(chr(13) + chr(10), chr(10))
+    sha = lambda s: _h.sha256(s.encode("utf-8")).hexdigest()
+
+    # ── ① 원문 보존 ───────────────────────────────────────────────
+    sk = lf(rd(".claude", "skills", "dev-work-order-writer", "SKILL.md"))
+    cut = sk.index(chr(10) + "## 이 리포에서 (FarmingDesign 적용")
+    assert sha(sk[:cut]) == "88a88e091247b925f0dabbd87aa6afb2d0a6619bdbefe495b2e013184344ddfe", (
+        "🔴 설치된 스킬 본문이 원문과 다르다 — 리포 해석은 「이 리포에서」 절에만 둔다")
+    assert sk.count("## 이 리포에서") == 1 and "docs/work-orders/README.md" in sk[cut:]
+    pr = lf(rd(".claude", "skills", "dev-work-order-writer", "tests", "prompts.md"))
+    assert sha(pr) == "bebd99bc4cae8dc513ac69e874593457d443065a1b00c1d9743d4929588c5ed9"
+
+    # ── ② 단일 착수점 ─────────────────────────────────────────────
+    assert not _o.path.exists(_o.path.join(repo, "docs", "HANDOFF.md")), (
+        "🔴 HANDOFF.md가 생겼다 — 인계는 차수로그 + 작업지시서 헤더로 한다(README 대응표)")
+    readme = rd("docs", "work-orders", "README.md")
+    for h in ("## 1. 스킬 규칙 ↔ 이 리포 대응표", "## 2. 이견", "## 4. 색인"):
+        assert h in readme, h
+    assert "docs/work-orders/README.md" in rd("CLAUDE.md")
+
+    # ── ③ 색인 = 폴더 ─────────────────────────────────────────────
+    listed = _re.findall(r"^\| \[(WO-\d{3}(?:-fix\d+)?)\]\(([^)]+)\) \|", readme, _re.M)
+    disk = sorted(f for f in _o.listdir(_o.path.join(repo, "docs", "work-orders"))
+                  if _re.match(r"WO-\d{3}", f) and f.endswith(".md"))
+    assert sorted(p for _i, p in listed) == disk, f"🔴 색인 {listed}와 폴더 {disk}가 다르다"
+    assert all(p.startswith(i + "_") for i, p in listed)
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
