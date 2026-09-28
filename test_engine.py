@@ -13351,8 +13351,13 @@ def test_257cha_v12_release_matches_ledgers_and_work_orders():
     # ── ② WO 칸 = 검사기 ────────────────────────────────────────────
     r = A.audit()
     st = [row[5] for row in r["index"]]
-    frag = "**%d건**(완료 %d · 자료 대기 %d) · 형식 검사(`audit_work_orders.py`) **%s**" % (
-        len(r["files"]), st.count("완료"), st.count("자료 대기"), "PASS" if r["pass"] else "FAIL")
+    #   📌273차 — 상태가 셋이 됐다(WO-010~014 신설). 「대기」를 빼고 세면 합이 안 맞아
+        #   문서가 조용히 낡는다 → 칸에 함께 적는다
+    frag = "**%d건**(완료 %d · 자료 대기 %d · 대기 %d) · 형식 검사(`audit_work_orders.py`) **%s**" % (
+        len(r["files"]), st.count("완료"), st.count("자료 대기"), st.count("대기"),
+        "PASS" if r["pass"] else "FAIL")
+    assert st.count("완료") + st.count("자료 대기") + st.count("대기") == len(r["files"]), (
+        "🔴 WO 상태 합이 파일 수와 다르다 — 새 상태가 생겼다: %r" % sorted(set(st)))
     assert frag in rel, f"🔴 v1.2의 WO 칸이 실측({frag})과 다르다"
 
     # ── ③ 무기명 · 보증 범위 · 포인터 ─────────────────────────────────
@@ -14036,6 +14041,97 @@ def test_272cha_region_to_station_reach_is_measured_not_asserted():
     assert "**새 발견이 아니다**" in doc and "88차" in doc
     assert "별표7의 춘천 **−14.7℃**는 **검색 결과 인용**이고 원문 대조가 아니다" in doc
     assert "어느 쪽이 맞는지는 말하지 않는다" in doc
+
+
+
+def test_273cha_console_inspection_counts_come_from_the_code():
+    """273차 — 콘솔 점검의 수를 **문서가 아니라 코드·파일에서** 다시 만든다.
+
+    🔴 점검 문서가 적은 수(축 개수 · 산출물 배정 · 참조 링크 · 자료 건수)를 믿지 않는다 —
+       상수와 템플릿과 파일 목록에서 다시 세어 문서와 대조한다.
+    🔴 점검은 **축을 만들지 않았다** — 새 축 상수가 생기면 실패(부지·시설·장비는 ★사용자).
+    🔴 쪼갠 WO 5건이 색인에 있고 형식 검사를 통과한다.
+    """
+    import os as _o, io as _io, re as _re, glob as _g
+    import consulting_package as _cp
+    import audit_work_orders as _A
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_콘솔점검_20260929.md")
+    flat = " ".join(doc.split())
+
+    # ── ① 축 네 개 — 개수를 상수에서 다시 센다 ────────────────────────────
+    axes = {"STAGE_ORDER": len(_cp.STAGE_ORDER),
+            "PLATFORM_STAGES": len(_cp.PLATFORM_STAGES),
+            "BENCHMARK_FUNCTIONS": len(_cp.BENCHMARK_FUNCTIONS),
+            "ENTRY_STEPS": len(_cp.ENTRY_STEPS)}
+    assert axes == {"STAGE_ORDER": 6, "PLATFORM_STAGES": 3,
+                    "BENCHMARK_FUNCTIONS": 4, "ENTRY_STEPS": 7}, axes
+    for name, n in axes.items():
+        assert ("`%s` | **%d**" % (name, n)) in doc, f"🔴 축 표의 {name} 칸이 상수와 다르다"
+    #   축이 넷이라는 서술 · 이어 주는 화면이 없다는 서술
+    assert "축이 넷이고, 이어 주는 화면이 없다" in doc
+    assert "같은 D1을 네 이름으로 부른다" in flat
+
+    # ── ② 산출물 27종 배정 — 기능 지표에서 다시 센다 ──────────────────────
+    ix = _cp.function_index()
+    per = {r["fn"]: len(r["docs"]) for r in ix["rows"]}
+    assert ix["total"] == 27 and per == {"F1": 5, "F2": 5, "F3": 8, "F0": 9}, (ix["total"], per)
+    assert "**F1 5 · F2 5 · F3 8 · F0 9**" in doc
+    #   드롭다운이 F0를 건너뛴다는 사실 — 템플릿에서 확인한다
+    #   ⚠️ 낱개 문자열로 재면 한 곳만 지워도 통과한다 — **머리 드롭다운과 푸터 두 곳**을 따로 본다
+    base = rd("webapp_templates/_base.html")
+    svc = base[base.index("<summary>서비스</summary>"):]
+    svc = svc[:svc.index("</details>")]
+    assert "f.fn != 'F0'" in svc, "🔴 서비스 드롭다운의 F0 제외가 사라졌다 — 점검 §2가 낡았다"
+    assert base.count("f.fn != 'F0'") == 2, (
+        "🔴 F0 제외가 %d곳이다 — 점검은 드롭다운·푸터 2곳으로 셌다" % base.count("f.fn != 'F0'"))
+
+    # ── ③ 참조 드롭다운 — 링크 수와 설명 수를 템플릿에서 다시 센다 ──────────
+    drop = base[base.index("<details><summary>참조</summary>"):]
+    drop = drop[:drop.index("</details>")]
+    links = _re.findall(r'<a href="([^"]+)"[^>]*>(.*?)</a>', drop, _re.S)
+    assert len(links) == 7, f"🔴 참조 링크가 {len(links)}개다 — 점검은 7개로 셌다"
+    withsmall = [h for h, t in links if "<small>" in t]
+    assert len(withsmall) == 2, f"🔴 설명 있는 링크가 {len(withsmall)}개다 — 점검은 2개로 셌다"
+    assert "**7 중 2.**" in doc
+
+    # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
+    cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))
+    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 77),
+                          ("법령 원문 `법령_*.pdf`", "법령_*.pdf", 7),
+                          ("고시 원문 `고시_*.pdf`", "고시_*.pdf", 1)):
+        assert cnt(pat) == n, f"🔴 {pat} 가 {cnt(pat)}건이다 — 점검은 {n}건으로 셌다"
+    #   ⚠️ 문서는 점검 시점(76)을 적었고 이 차수가 자기 문서를 더해 77이 됐다 — 그 사실을 적어 뒀는가
+    assert "점검 시점 76건" in doc, "🔴 근거 문서 건수의 시점 표기가 사라졌다"
+
+    # ── ⑤ 🔴 점검은 **축을 만들지 않았다** ────────────────────────────────
+    src = rd("consulting_package.py")
+    for made_up in ("SITE_FACILITY_EQUIPMENT", "OBJECT_AXIS", "부지_시설_장비"):
+        assert made_up not in src, f"🔴 새 축 `{made_up}`이 생겼다 — 축을 세우는 것은 ★사용자다"
+    assert "지금 새로 만들면 다섯 번째 축이 된다" in doc
+    assert "이 문서는 축을 만들지 않는다" in flat
+
+    # ── ⑥ 기입 7단계는 상태기계로 남는다 ──────────────────────────────────
+    assert "매뉴얼이 아니라 상태기계" in doc
+    assert "매뉴얼로 바꾸면 안 된다" in flat
+    assert [k for k, *_ in _cp.ENTRY_STEPS][0] == "case"
+
+    # ── ⑦ 쪼갠 WO 5건 — 색인에 있고 형식 검사를 통과한다 ────────────────────
+    r = _A.audit()
+    assert r["pass"], r["problems"]
+    ids = {f["id"] for f in r["files"]}
+    for wo in ("WO-010", "WO-011", "WO-012", "WO-013", "WO-014"):
+        assert wo in ids, f"🔴 {wo}가 없다"
+        assert ("| **%s** |" % wo) in doc, f"🔴 점검 문서 8절 표에 {wo} 행이 없다"
+    readme = rd("docs/work-orders/README.md")
+    for wo in ("WO-010", "WO-011", "WO-012", "WO-013", "WO-014"):
+        assert ("[%s](" % wo) in readme, f"🔴 {wo}가 README 색인에 없다"
+
+    # ── ⑧ 확인하지 못한 것을 지우지 않았다 ────────────────────────────────
+    assert "**사용성 실측을 하지 않았다**" in doc
+    assert "**사용자 수는 0명이다**" in doc
+    assert "전수로 재지 않았다" in doc
 
 
 if __name__ == "__main__":
