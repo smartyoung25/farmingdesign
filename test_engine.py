@@ -12075,11 +12075,15 @@ def test_207cha_release_note_numbers_are_measured():
     rels = sorted(_g.glob(_o.path.join(repo, "릴리스_v*.md")), key=_ver)
     assert len(rels) >= 2, "🔴 릴리스 문서가 사라졌다"
     REL = _o.path.basename(rels[-1])
-    assert REL == "릴리스_v1.1_20260927.md", f"🔴 현행 릴리스가 {REL}다 — 새 판이면 이 줄을 갱신하라"
+    assert REL == "릴리스_v1.2_20260928.md", f"🔴 현행 릴리스가 {REL}다 — 새 판이면 이 줄을 갱신하라"
     rel = rd(REL)
     v10 = rd("릴리스_v1.0_20260923.md")
     assert "207차 동결 기록" in v10 and "| 회귀 | 3파일 **366 passed**" in v10, (
         "🔴 v1.0이 207차 동결 기록이 아니다 — 지난 판은 고치지 않는다(현행 판이 실측을 진다)")
+    #   📌257차 — v1.1은 **239차 동결 기록**으로 되돌렸다(레드팀 30회차 A10: 「237차」 머리 아래 255차 수치가 섞였다)
+    v11 = rd("릴리스_v1.1_20260927.md")
+    assert "239차 동결 기록" in v11 and "| 회귀 | 3파일 **377 passed**" in v11, (
+        "🔴 v1.1이 239차 동결 기록이 아니다 — 지난 판은 고치지 않는다")
 
     # ── ① 엔진·레지스트리·케이스·산출물·근거를 **다시 센다** ────────
     tree = _ast.parse(rd("smartfarm_engine.py"))
@@ -12164,6 +12168,9 @@ def test_207cha_release_note_numbers_are_measured():
                  "원채원 원문이 리포에 없다",
                  "주입되지 않은\n   엔진 기본값", "원문 범위 밖"):
         f = frag.replace("\n", chr(10))
+        #   📌257차 — 새 판은 무기명 원칙(251차)대로 케이스 코드로 쓴다: 「C2 원문이 리포에 없다」
+        if f == "원채원 원문이 리포에 없다" and "C2 원문이 리포에 없다" in rel:
+            continue
         assert f in rel, (
             f"🔴 릴리스 문서에서 「{f[:24]}…」가 사라졌다 — **보증하지 않는 것**을 "
             "적지 않으면 읽는 사람은 전부 보증된다고 읽는다")
@@ -13311,6 +13318,46 @@ def test_256cha_redteam30_corrections_hold():
     home, basehtml = rd(_o.path.join("webapp_templates", "console_home.html")), rd(_o.path.join("webapp_templates", "_base.html"))
     assert "모든 수치에 근거가 붙는" not in home and "모든 수치에 근거 상태가 붙는" in home
     assert "이 콘솔의 모든 수치는 엔진 호출 결과" not in home and "화면의 수치는 엔진 호출 결과의 표시다" not in basehtml
+
+
+def test_257cha_v12_release_matches_ledgers_and_work_orders():
+    """257차 — v1.2 릴리스(결정 정리·작업지시서 체계)가 대장·WO·포인터와 맞는가.
+
+    🔴 §2 결정 표는 **대장에서 닫힌 결정 전부**를 싣는다(빠지거나 열린 것을 닫힌 척 싣지 않는다).
+    🔴 §1 WO 칸은 검사기 실측이다. 새 판은 무기명이다(251차). 포인터는 전부 v1.2를 가리킨다.
+    """
+    import os as _o, io as _io, re as _re
+    import audit_work_orders as A
+    import case_display as cd
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    rel = rd("릴리스_v1.2_20260928.md")
+
+    # ── ① 결정 표 = 대장의 닫힌 결정(D-5~D-15 구간, 241차 이후) ─────────────
+    led = rd("근거_결정대기대장_20260915.md")
+    closed = {int(d) for d, n in _re.findall(r"(?m)^\| ~~\*\*D-(\d+)\*\*~~ ✅\*\*닫힘\((\d+)차", led)
+              if int(n) >= 241}
+    i = rel.index("## 2."); j = rel.index("## 3.")
+    listed = {int(x) for x in _re.findall(r"D-(\d+)", rel[i:j].split("**작업지시서(WO) 체계**")[0])}
+    assert closed and closed <= listed, f"🔴 대장에서 닫힌 {sorted(closed - listed)}가 v1.2 결정 표에 없다"
+    opened = {int(x) for x in _re.findall(r"(?m)^\| \*\*D-(\d+)\*\* \|", led)}
+    assert not (listed & opened), f"🔴 열린 결정 {sorted(listed & opened)}을 닫힌 표에 실었다"
+    assert "B11" in rel[i:j]
+
+    # ── ② WO 칸 = 검사기 ────────────────────────────────────────────
+    r = A.audit()
+    st = [row[5] for row in r["index"]]
+    frag = "**%d건**(완료 %d · 자료 대기 %d) · 형식 검사(`audit_work_orders.py`) **%s**" % (
+        len(r["files"]), st.count("완료"), st.count("자료 대기"), "PASS" if r["pass"] else "FAIL")
+    assert frag in rel, f"🔴 v1.2의 WO 칸이 실측({frag})과 다르다"
+
+    # ── ③ 무기명 · 보증 범위 · 포인터 ─────────────────────────────────
+    assert cd.audit(rel) == {}, cd.audit(rel)
+    assert "값의 옳음은 보증하지 않는다" in rel and "C2 원문이 리포에 없다" in rel
+    assert "`릴리스_v1.2_20260928.md`다(257차" in rd("릴리스_v1.1_20260927.md")
+    assert "`릴리스_v1.2_20260928.md`다(257차" in rd("릴리스_v1.0_20260923.md")
+    assert "| **`릴리스_v1.2_20260928.md`** | **현행 릴리스" in rd("README.md")
+    assert "현행 릴리스 `릴리스_v1.2_20260928.md`" in rd("작업지시서.md")
 
 
 if __name__ == "__main__":
