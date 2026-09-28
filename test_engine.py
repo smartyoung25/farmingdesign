@@ -5874,8 +5874,9 @@ def test_146cha_redteam27_corrections_hold():
     #   내 설명문에 걸려 통과해 버린다(146차 뮤테이션 M5가 그렇게 빠져나갔다.
     #   131차 자기부풀림·144차 B7과 같은 함정이다).
     rows = [ln for ln in led.splitlines() if ln.lstrip().startswith("|")]
+    #   📌254차 — D-15가 ★이견 유지로 닫혀 `| ~~**D-15**~~`가 됐다. 닫힌 행도 **표 안의 등재**다.
     for tag in ("D-14", "D-15"):
-        assert any(ln.lstrip().startswith("| **%s** |" % tag) for ln in rows), (
+        assert any(ln.lstrip().startswith(("| **%s** |" % tag, "| ~~**%s**~~" % tag)) for ln in rows), (
             f"146차가 올린 {tag}가 대장 **표에서** 사라졌다 — 산문 언급은 등재가 아니다")
     assert "이 대장은 **대기 전량**이다 — 둘은 다르다" not in led, (
         "🔴 '대기 전량'이라는 절대표현이 되살아났다 — 106차의 '전부 동결됐다'와 같은 실수다")
@@ -13136,6 +13137,51 @@ def test_253cha_d13_classification_rule_kept_as_decided():
     f = next(x for x in r["files"] if x["id"] == "WO-007")
     assert dict((row[0], row[5]) for row in r["index"])["WO-007"] == "완료"
     assert f["parsed"]["n_confirm_needed"] == 0 and "ⓑ 현행 유지" in f["parsed"]["sections"][2]["body"]
+    for c in f["parsed"]["criteria"]:
+        if c["text"].startswith("(ⓐ"):
+            assert not c["checked"] and "해당 없음" in c["text"], c["text"]
+
+
+def test_254cha_d15_disagreement_kept_as_decided():
+    """254차 — ★D-15 이견 유지(사용자 결정 2026-09-28): 품셈 [주] 적용 조건은 등재하지 않고 두 원문 문구를 병기한다.
+
+    🔴 닫힌 것은 「무엇을 등재할까」이고 **원문의 이견은 풀리지 않았다** — 두 문구(p.129·p.144)가
+       대장 닫힌 행과 레지스트리에 계속 남아야 한다. 엔진은 어느 쪽도 적용 조건으로 내지 않는다.
+    ⚠️ 대장 건수는 고정하지 않는다(240·207차 가드 몫).
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as e
+    import audit_work_orders as A
+    import case_display as cd
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    # ── ① 엔진 불변 — 적용 조건을 내지 않고 계수 그대로 ─────────────────
+    gl = [i for i in e.PUMSEM_ITEMS if i.category == "온실피복공사"]
+    assert len(gl) == 4
+    for i in gl:
+        out = e.pumsem_labor_days(i.category, i.name, 1.0)
+        assert out and "적용조건" not in out, out
+    tot = sum(sum(i.labor_per_unit.values()) for i in e.PUMSEM_ITEMS)
+    assert abs(tot - 11.9203) < 1e-4, tot
+
+    # ── ② 이견 기록이 두 곳에 남는다 ──────────────────────────────────
+    led = rd("근거_결정대기대장_20260915.md")
+    closed = [ln for ln in led.splitlines() if ln.startswith("| ~~**D-15**~~ ✅**닫힘(254차)** |")]
+    assert len(closed) == 1, closed
+    for mark in ("이견 유지", "p.129", "p.144", "유리닦기 등의 공정이 없는 것으로 조사",
+                 "유리끼우기, 유리닦기 및 마무리 작업을 포함한다", "0.87%"):
+        assert mark in closed[0], mark
+    assert cd.audit(closed[0]) == {}
+    assert not _re.search(r"(?m)^\| \*\*D-15\*\* \|", led) and not _re.search(r"(?m)^\| D-15 \|", led)
+    assert "D-15" in led.splitlines()[0].split("(", 1)[1]
+    assert "유리닦기" in rd("엔진데이터_레지스트리.json"), "🔴 레지스트리의 p.129 ↔ p.144 이견 기록이 사라졌다"
+
+    # ── ③ WO-009 = 완료 · ⓐ·ⓑ 기준은 켜지 않음 ─────────────────────
+    r = A.audit()
+    f = next(x for x in r["files"] if x["id"] == "WO-009")
+    assert dict((row[0], row[5]) for row in r["index"])["WO-009"] == "완료"
+    assert f["parsed"]["n_confirm_needed"] == 0 and "ⓒ 이견 유지" in f["parsed"]["sections"][2]["body"]
     for c in f["parsed"]["criteria"]:
         if c["text"].startswith("(ⓐ"):
             assert not c["checked"] and "해당 없음" in c["text"], c["text"]
