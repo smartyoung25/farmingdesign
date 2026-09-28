@@ -13376,6 +13376,8 @@ def test_258cha_app_layer_counting_is_allowed_only_as_counting():
 
     # ── ① 기록 세 곳 ────────────────────────────────────────────────
     assert "단서(★사용자 결정 2026-09-28, 258차): **항목 건수 집계는 허용**" in rd("CLAUDE.md")
+    #   📌264차(32회차 B8): 261차가 단서를 **콘솔(webapp) 앱 계층**으로 좁혔다 — 그 한정도 지킨다
+    assert "**콘솔(webapp) 앱 계층**에서" in rd("CLAUDE.md"), "🔴 건수 집계 허용 단서의 적용 범위(콘솔)가 풀렸다"
     wi = rd("작업지시서.md")
     assert "★사용자 결정 2026-09-28(258차): 항목 건수 집계" in wi and "엔진 계산값의 재계산·합산·비율은 여전히 금지" in wi
     rel = rd("릴리스_v1.2_20260928.md")
@@ -13391,15 +13393,25 @@ def test_258cha_app_layer_counting_is_allowed_only_as_counting():
         return (isinstance(elt, _ast.Constant) and elt.value == 1) or (
             isinstance(elt, _ast.Call) and getattr(elt.func, "id", None) == "len")
     tree = _ast.parse(rd("webapp.py"))
-    sums = [n for n in _ast.walk(tree) if isinstance(n, _ast.Call) and getattr(n.func, "id", None) == "sum"]
+    #   📌264차(32회차 B4): `np.sum`·`builtins.sum`처럼 속성 호출도 `sum`이다
+    sums = [n for n in _ast.walk(tree) if isinstance(n, _ast.Call)
+            and (getattr(n.func, "id", None) == "sum" or getattr(n.func, "attr", None) == "sum")]
     assert sums, "전제: 홈·기입 허브가 항목을 센다"
     bad = [_ast.unparse(n) for n in sums if not counting(n)]
     #   📌261차(레드팀 31회차 B5): `sum` 밖의 집계 우회 — `reduce`·`fsum`·`mean`과 `+=` 누적 — 도 없어야 한다
-    agg = {"reduce", "fsum", "mean", "fmean", "prod"}
+    agg = {"reduce", "fsum", "mean", "fmean", "prod", "accumulate"}
     bad += [_ast.unparse(n) for n in _ast.walk(tree) if isinstance(n, _ast.Call)
             and (getattr(n.func, "id", None) in agg or getattr(n.func, "attr", None) in agg)]
+    #   `+= 1`·`-= 1`(한 개씩 세기)은 허용 — 32회차 B4가 이것을 실패로 잡는 거짓 양성을 짚었다
+    one = lambda v: isinstance(v, _ast.Constant) and v.value == 1
     bad += [_ast.unparse(n) for n in _ast.walk(tree) if isinstance(n, _ast.AugAssign)
-            and isinstance(n.op, (_ast.Add, _ast.Mult, _ast.Div, _ast.Sub))]
+            and isinstance(n.op, (_ast.Add, _ast.Mult, _ast.Div, _ast.Sub))
+            and not (isinstance(n.op, (_ast.Add, _ast.Sub)) and one(n.value))]
+    #   `tot = tot + v` 꼴 누적(AugAssign이 아닌 대입)
+    bad += [_ast.unparse(n) for n in _ast.walk(tree) if isinstance(n, _ast.Assign) and len(n.targets) == 1
+            and isinstance(n.targets[0], _ast.Name) and isinstance(n.value, _ast.BinOp)
+            and isinstance(n.value.op, (_ast.Add, _ast.Sub)) and isinstance(n.value.left, _ast.Name)
+            and n.value.left.id == n.targets[0].id and not one(n.value.right)]
     assert not bad, f"🔴 앱 계층 `sum()`이 항목 세기가 아니다: {bad} — 258차 허용은 **세기**까지다(엔진 값 합산 금지)"
 
     # ── ③ 화면은 계산 수치와 건수를 구분해 말한다 ──────────────────────
@@ -13483,7 +13495,8 @@ def test_263cha_aux_facility_lines_all_checked_against_originals():
     doc = rd("근거_관리동_실재점검_20260915.md")
     sec = doc[doc.index("## 263차 — 목록 전 라인 원문 대조"):]
     rows = _re.findall(r"(?m)^\| (A\d+|S\d+(?:·S\d+)?) \| ([^|]+) \| ([^|]+) \| ([\d,]+) \|$", sec)
-    assert len(rows) == 15, len(rows)
+    #   📌264차(32회차 B5): 행 수를 고정하지 않는다 — 행이 빠지거나 늘면 아래 합계 대조가 잡는다
+    assert rows, "🔴 263차 표가 사라졌다"
     total = sum(int(a.replace(",", "")) for *_x, a in rows)
     stated = int(_re.search(r"\| \*\*합계\*\* \| \*\*([\d,]+)\*\*", sec).group(1).replace(",", ""))
     assert total == stated, (total, stated)
@@ -13498,12 +13511,55 @@ def test_263cha_aux_facility_lines_all_checked_against_originals():
 
     codes = {c for c, *_x in rows}
     assert codes == {"A2", "A4", "A5", "A6", "A7", "S3", "S4", "S5", "S6·S7", "S9"}, codes
-    assert "S6·S7" in e.CAPEX_MAJOR_CASE_CHUNKS or any(
-        cd.SOURCE_ALIASES.get(k) == "S6" or "·" in cd.scrub(k) for k in e.CAPEX_MAJOR_CASE_CHUNKS), "전제: S6·S7은 표본 1건"
+    #   📌264차(32회차 B6): 「·」가 든 아무 표본이 아니라 **S6·S7 표본 1건**을 직접 잰다
+    shown = [cd.scrub(k) for k in e.CAPEX_MAJOR_CASE_CHUNKS]
+    assert shown.count("S6·S7") == 1 and "S6" not in shown and "S7" not in shown, shown
     assert not any(a == "12,125,520" for *_x, a in rows), "🔴 온실 전체 금액이 표에 들어왔다"
     assert all(s.strip() and s.strip() != "—" for c, s, *_x in rows), "🔴 원문 위치가 빈 행이 있다"
     assert cd.audit(sec) == {}
     assert "**263차 확인**" in rd("릴리스_v1.2_20260928.md")
+
+
+def test_264cha_redteam32_corrections_hold():
+    """264차 — 레드팀 32회차(261~263차 대상) 반영이 되돌아가지 않는가.
+
+    A1 목록 밖 원문 라인은 하나가 아니다(측면 보강대 · 전등 등) · A2 「사재 이중 계산」은 [추정]이다 ·
+    A3 150차 측정은 S5를 포함했다(WO-007 [가정] 발동) · A4 A5 값은 재료비 금액열(합계열 합은 1원씩 절사) ·
+    A6 S9 근거는 사업명·소재지다. 🔴 수는 문서에서 읽어 서로 맞는지 잰다.
+    """
+    import os as _o, io as _io, re as _re
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    num = lambda s: int(s.replace(",", ""))
+    doc = rd("근거_관리동_실재점검_20260915.md")
+    sec = doc[doc.index("## 263차 — 목록 전 라인 원문 대조"):]
+    rows = _re.findall(r"(?m)^\| (A\d+|S\d+(?:·S\d+)?) \| ([^|]+) \| ([^|]+) \| ([\d,]+) \|$", sec)
+    total = sum(num(a) for *_x, a in rows)
+
+    # ── A4 열 — 합계열 기준 합 = 재료비열 합 − 절사 2원 ──────────────────
+    col = num(_re.search(r"합계열로 더하면 \*\*([\d,]+)\*\*", sec).group(1))
+    assert "**재료비 금액열**" in sec and total - col == 2, (total, col)
+    # ── A3 S5 포함 ─────────────────────────────────────────────────
+    s5 = [num(a) for c, *_x, a in rows if c == "S5"]
+    wo_s5 = num(_re.search(r"빼면 \*\*([\d,]+)\*\*", sec).group(1))
+    assert s5 and total - s5[0] == wo_s5, (total, s5, wo_s5)
+    assert "WO-007 [가정]이 발동됐다" in sec and "발동됐다" in rd(_o.path.join("docs", "work-orders", next(
+        f for f in _o.listdir(_o.path.join(repo, "docs", "work-orders")) if f.startswith("WO-007_"))))
+    led = rd("근거_결정대기대장_20260915.md")
+    d13 = next(ln for ln in led.splitlines() if ln.startswith("| ~~**D-13**~~"))
+    assert "S5 관리동커텐 2,817,269를 포함한다" in d13 and "빼면 34,060,779" in d13
+    # ── A1 목록 밖 라인 · 범위 ──────────────────────────────────────────
+    for mark in ("중간보강 5.6m」 **60,453**", "측면 보강대 118.0m」 **543,304**", "전등(관리동) LED 80W 5EA」 **382,500**",
+                 "통로와 섞인 라인", "⚠️범위:"):
+        assert mark in sec, mark
+    assert "넣으면 36,938,501" not in sec, "🔴 목록 밖 라인이 하나뿐인 것처럼 합계를 다시 냈다"
+    # ── A2 [추정] ────────────────────────────────────────────────
+    assert "사재를 두 번 더한 것으로 보인다 [추정]" in sec and "「사재 이중 계산」은 **[추정]**" in d13
+    assert "이중 계산으로 보인다 **[추정]**" in rd("근거_잔여결정8건_감응측정_20260916.md")
+    assert "「사재 이중 계산」은 **[추정]**" in rd("릴리스_v1.2_20260928.md")
+    # ── A6 S9 근거 · A5 쪽 번호 · B7 행 표현 ──────────────────────────────
+    assert "**사업명·소재지**가 같다" in sec and "3,714㎡ — S9 설계도면과 같은 사업" not in sec
+    assert "**모두 PDF보다 1 작다**" in sec and "15행 — S4 행은 원문 7줄의 합산" in sec
 
 
 if __name__ == "__main__":

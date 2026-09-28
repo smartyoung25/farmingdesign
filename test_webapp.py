@@ -2396,12 +2396,14 @@ def test_261cha_redteam31_corrections_hold():
 
     # ── B1 화면 = 파서 ───────────────────────────────────────────
     html = client.get("/workorders").text
-    cells = dict(_re.findall(r'<tr data-wo="([^"]+)">.*?data-applicable="(\d+)"', html, _re.S))
+    #   📌264차(32회차 B9): 행 단위로 잘라 읽는다(비탐욕 정규식이 다음 행 값을 가져갈 수 있었다) · NA 없는 WO도 표시 대조
+    segs = {m.group(1): m.group(0) for m in _re.finditer(r'<tr data-wo="([^"]+)">.*?</tr>', html, _re.S)}
     for f in r["files"]:
         p = f["parsed"]
-        assert cells[f["id"]] == str(p["n_applicable"]), (f["id"], cells[f["id"]], p["n_applicable"])
-        if p["n_na"]:
-            assert f'{p["n_checked"]} / {p["n_applicable"]} <small>(해당 없음 {p["n_na"]})</small>' in html, f["id"]
+        seg = segs[f["id"]]
+        assert f'data-applicable="{p["n_applicable"]}"' in seg, (f["id"], seg[-200:])
+        shown = f'{p["n_checked"]} / {p["n_applicable"]}' + (f' <small>(해당 없음 {p["n_na"]})</small>' if p["n_na"] else "")
+        assert shown + "</td>" in seg, (f["id"], shown)
         h = client.get(f"/workorders/{f['id']}").text
         assert h.count('<span class="chip chip-ref">해당 없음</span>') == p["n_na"], f["id"]
         assert h.count('<span class="chip chip-est">미확인</span>') == p["n_applicable"] - p["n_checked"], f["id"]
@@ -2425,9 +2427,9 @@ def test_261cha_redteam31_corrections_hold():
     assert chk("- [ ] (ⓐ·ⓑ 해당 없음 - ⓒ 선택) 기준 (확인: 같은 명령)")[1][2] == 1
     for bad in ("잘된다", "매우잘 된다", "제대로잘동작"):
         assert any(x.startswith("R2") for x in chk(f"- [x] {bad} (확인: 같은 명령)")[0]), bad
-    for ok in ("잘리지 않는다", "잘립니다", "잘못된 값", "잘라 낸 줄", "잘게 나눈다"):
+    for ok in ("잘리지 않는다", "잘립니다", "잘릴 수 있다", "잘림 없이", "잘못된 값", "잘라 낸 줄", "잘게 나눈다"):
         assert chk(f"- [x] {ok} (확인: 같은 명령)")[0] == [], ok
-    for ph in ("…", "-", "`명령`", "명령"):
+    for ph in ("…", "-", "`명령`", "명령", "`…`", "—", "TBD", "테스트 명령"):
         assert any(x.startswith("R2") for x in chk(f"- [x] 끝난다 (확인: {ph})")[0]), ph
 
     # ── A1·A2·A3·B6 문서 ────────────────────────────────────────────

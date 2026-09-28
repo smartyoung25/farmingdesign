@@ -41,7 +41,8 @@ WORK_TYPES = ("신규 기능", "버그 수정", "리팩터링", "자동화 스�
 #   「잘」(부사)은 앞뒤 글자와 상관없이 잡고(「잘된다」·「매우잘」), 부사가 아닌 낱말만 통과시킨다 —
 #   「잘못」과 동사 「자르다」의 활용(잘라·잘린·잘려·잘랐·잘리·잘립·잘게). 261차(레드팀 31회차 B3):
 #   256차 정규식은 「잘리지·잘립니다」를 금지로 잡고 앞에 한글이 붙은 「매우잘」을 놓쳤다.
-BANNED = (("잘", re.compile(r"잘(?!못|라|린|려|랐|리|립|게)")),
+#   264차(32회차 B2): 「잘릴·잘림」도 자르다 활용이다.
+BANNED = (("잘", re.compile(r"잘(?!못|라|린|려|랐|리|립|릴|림|게)")),
           ("적절히", re.compile("적절히")),
           ("원활하게", re.compile("원활하게")),
           ("빠르게", re.compile("빠르게")),
@@ -56,8 +57,12 @@ NA_OK = re.compile(r"해당\s*없음\s*(—|–|-|:|\()\s*\S")
 # 256차: 「(확인: )」처럼 확인 방법이 빈 것도 확인 방법이 없는 것이다
 CONFIRM_OK = re.compile(r"\(확인:\s*[^)\s]")
 # 261차(31회차 B4): 스킬 템플릿의 자리표시자를 그대로 둔 것도 확인 방법이 없는 것이다
-CONFIRM_PLACEHOLDER = re.compile(r"\(확인:\s*(?:…|\.\.\.|-|`?명령`?|`?테스트 명령`?)\s*\)")
-_re_same = re.compile(r"\(확인:\s*같은 명령\s*\)")
+#   264차(32회차 B3): 백틱 속 말줄임표 · 대시 변형 · TBD도 자리표시자다.
+CONFIRM_PLACEHOLDER = re.compile(r"\(확인:\s*`?(?:…|\.\.\.|-|—|–|명령|테스트 명령|TBD|tbd)`?\s*\)")
+# 264차: 스킬 템플릿 본문의 자리표시자를 그대로 둔 기준(SKILL.md 145행)
+TEMPLATE_PLACEHOLDER = re.compile(r"\[입력/행동\]|\[관찰 가능한 결과\]")
+# 첫 기준이 앞 명령을 가리키는 말 — 「같은 명령」이 확인 칸 어디에 있든(「위와 같은 명령」·「`같은 명령`」 등)
+_re_same = re.compile(r"\(확인:[^)]*같은 명령")
 # 선택되지 않은 분기의 기준 — **분기 표기만** 「(ⓐ 해당 없음 — ⓑ 선택)」(ⓐ·ⓑ처럼 여러 개, 구분자 —·–·-).
 #   261차(31회차 B2): 256차 정규식은 앞머리 괄호 전반을 NA로 세 체크 안 한 적용 기준이 분모에서 빠질 수 있었다.
 NA_CRIT = re.compile(r"^\([ⓐ-ⓩ](?:·[ⓐ-ⓩ])*\s*해당\s*없음\s*[—–-]\s*[ⓐ-ⓩ](?:·[ⓐ-ⓩ])*\s*선택\)")
@@ -193,7 +198,8 @@ def check_wo(text, name, known_ids):
     if not p["criteria"]:
         probs.append("R2 수용기준이 0개다")
     for k, c in enumerate(p["criteria"]):
-        if not CONFIRM_OK.search(c["text"]) or CONFIRM_PLACEHOLDER.search(c["text"]):
+        if (not CONFIRM_OK.search(c["text"]) or CONFIRM_PLACEHOLDER.search(c["text"])
+                or TEMPLATE_PLACEHOLDER.search(c["text"])):
             probs.append(f"R2 「{c['text'][:24]}…」에 확인 방법 「(확인: …)」이 없다")
         # 261차(31회차 B4): 첫 기준이 「같은 명령」이면 가리킬 앞 명령이 없다
         elif k == 0 and _re_same.search(c["text"]):
