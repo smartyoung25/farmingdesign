@@ -13187,6 +13187,52 @@ def test_254cha_d15_disagreement_kept_as_decided():
             assert not c["checked"] and "해당 없음" in c["text"], c["text"]
 
 
+def test_255cha_d11_crew_not_introduced_as_decided():
+    """255차 — ★D-11 도입 안 함(사용자 결정 2026-09-28): 엔진은 품셈 인·일까지만, 공기(일수)는 내지 않는다.
+
+    🔴 크루 인원은 **엔진 상수로도 케이스 입력으로도** 두지 않는다 — 값을 고르는 것이 곧 공기를 정하는
+       것이라(124차 실측 1.0~16.4명 → 16.4배) 판단성이 가장 컸다. 145차 측정은 닫힌 행에 이력으로 남는다.
+    ⚠️ 대장 건수는 고정하지 않는다(240·207차 가드 몫).
+    """
+    import os as _o, io as _io, re as _re, inspect as _in, json as _j
+    import smartfarm_engine as e
+    import audit_work_orders as A
+    import case_display as cd
+    from cases import load_cases
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    # ── ① 엔진·케이스에 크루·공기가 없다 ─────────────────────────────
+    pub = [n for n, o in vars(e).items() if not n.startswith("_") and (callable(o) or n.isupper())]
+    assert not [n for n in pub if _re.search(r"crew|schedule_days|CREW", n)], (
+        "🔴 크루·공기 산정이 엔진에 들어왔다 — D-11은 ★도입 안 함이다")
+    summ = e.pumsem_project_labor_summary({(i.category, i.name): 1.0 for i in e.PUMSEM_ITEMS})
+    assert abs(summ["total_labor_days"] - 11.920) < 0.001
+    assert not [k for k in summ if _re.search(r"day(s)?$|공기|crew", k) and k != "total_labor_days"], list(summ)
+    for c in load_cases():
+        assert "crew" not in _j.dumps(c, ensure_ascii=False).lower(), cd.code(c)
+
+    # ── ② 대장 — 닫힘 · 측정 이력 · ① 비었음 · 실명 0 ─────────────────
+    led = rd("근거_결정대기대장_20260915.md")
+    closed = [ln for ln in led.splitlines() if ln.startswith("| ~~**D-11**~~ ✅**닫힘(255차)** |")]
+    assert len(closed) == 1, closed
+    for mark in ("도입 안 함", "11.920", "1.49일", "0.73일", "16.4배"):
+        assert mark in closed[0], mark
+    assert cd.audit(closed[0]) == {}
+    assert not _re.search(r"(?m)^\| \*\*D-11\*\* \|", led) and not _re.search(r"(?m)^\| D-11 \|", led)
+    i = led.index("### ① 지금 결정할 수 있는 것"); j = led.index("### ✅", i)
+    assert "남은 항목 없음" in led[i:j] and not _re.search(r"(?m)^\| D-\d+ \|", led[i:j])
+
+    # ── ③ WO-006 = 완료 · ⓐ·ⓑ 기준은 켜지 않음 ─────────────────────
+    r = A.audit()
+    f = next(x for x in r["files"] if x["id"] == "WO-006")
+    assert dict((row[0], row[5]) for row in r["index"])["WO-006"] == "완료"
+    assert f["parsed"]["n_confirm_needed"] == 0 and "ⓒ 도입 안 함" in f["parsed"]["sections"][2]["body"]
+    for c in f["parsed"]["criteria"]:
+        if c["text"].startswith(("(ⓐ", "(ⓑ")):
+            assert not c["checked"] and "해당 없음" in c["text"], c["text"]
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
