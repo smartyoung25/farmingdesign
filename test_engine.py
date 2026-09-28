@@ -13360,6 +13360,43 @@ def test_257cha_v12_release_matches_ledgers_and_work_orders():
     assert "현행 릴리스 `릴리스_v1.2_20260928.md`" in rd("작업지시서.md")
 
 
+def test_258cha_app_layer_counting_is_allowed_only_as_counting():
+    """258차 — ★사용자 결정(2026-09-28): 앱 계층 **항목 건수 집계는 허용**한다.
+
+    허용은 `len()`·`Counter`·`sum(1 for …)`·`sum(len(…) for …)`로 **항목을 세는 것**까지다.
+    🔴 결정이 번지지 않게 잰다 — `webapp.py`의 `sum()`은 전부 **세기**여야 한다(엔진 값을 더하면 실패).
+    결정은 CLAUDE.md 1절 · 작업지시서 12절 UI 원칙 4 · 현행 릴리스 세 곳에 같은 뜻으로 있어야 한다.
+    """
+    import os as _o, io as _io, ast as _ast
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+
+    # ── ① 기록 세 곳 ────────────────────────────────────────────────
+    assert "단서(★사용자 결정 2026-09-28, 258차): **항목 건수 집계는 허용**" in rd("CLAUDE.md")
+    wi = rd("작업지시서.md")
+    assert "★사용자 결정 2026-09-28(258차): 항목 건수 집계" in wi and "엔진 계산값의 재계산·합산·비율은 여전히 금지" in wi
+    rel = rd("릴리스_v1.2_20260928.md")
+    assert "258차 — ★앱 계층 건수 집계 허용" in rel
+    i = rel.index("사용자 경계로 남긴 것"); j = rel.index("\n- ", i + 1)
+    assert "1절 「앱 계층 산술」에 드는지" not in rel[i:j], "🔴 확정된 결정을 릴리스가 여전히 경계로 적는다"
+
+    # ── ② `sum()`은 세기뿐이다 ─────────────────────────────────────────
+    def counting(call):
+        if len(call.args) != 1 or not isinstance(call.args[0], _ast.GeneratorExp):
+            return False
+        elt = call.args[0].elt
+        return (isinstance(elt, _ast.Constant) and elt.value == 1) or (
+            isinstance(elt, _ast.Call) and getattr(elt.func, "id", None) == "len")
+    tree = _ast.parse(rd("webapp.py"))
+    sums = [n for n in _ast.walk(tree) if isinstance(n, _ast.Call) and getattr(n.func, "id", None) == "sum"]
+    assert sums, "전제: 홈·기입 허브가 항목을 센다"
+    bad = [_ast.unparse(n) for n in sums if not counting(n)]
+    assert not bad, f"🔴 앱 계층 `sum()`이 항목 세기가 아니다: {bad} — 258차 허용은 **세기**까지다(엔진 값 합산 금지)"
+
+    # ── ③ 화면은 계산 수치와 건수를 구분해 말한다 ──────────────────────
+    assert "계산 수치는 엔진 호출 결과의 표시다 — 건수는" in rd(_o.path.join("webapp_templates", "_base.html"))
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
