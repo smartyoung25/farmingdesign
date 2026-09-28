@@ -13056,6 +13056,50 @@ def test_250cha_d7_area_kept_as_decided():
             assert not c["checked"] and "해당 없음" in c["text"], c["text"]
 
 
+def test_252cha_d8_unclassified_kept_as_decided():
+    """252차 — ★D-8 유지(사용자 결정 2026-09-28): 무인방제 2건(A7·S10)은 미분류 그대로, 대장 D-8 닫힘.
+
+    🔴 CM1(A7 안개분무가 방제인가 냉방인가)은 **닫지 않는다** — D-8은 「기자재로 옮길까」였고
+       유지 결정은 CM1에 답하지 않는다. 닫힌 행 자체에 이관 측정 이력을 남긴다.
+    ⚠️ 엔진 키는 내부 식별자(실명)다 — 183차 경계. 문서 쪽 새 서술은 코드로 쓴다(251차).
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as e
+    import audit_work_orders as A
+    import case_display as cd
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p: _io.open(_o.path.join(repo, p), encoding="utf-8").read()
+    a7 = next(k for k, v in cd.SOURCE_ALIASES.items() if v == "A7")
+    s10 = next(k for k, v in cd.SOURCE_ALIASES.items() if v == "S10")
+
+    # ── ① 값 불변 ────────────────────────────────────────────────
+    U = e.CAPEX_MAJOR_UNCLASSIFIED
+    assert (U[a7], U[s10]) == (68035800, 126032300)
+    for k in (a7, s10):
+        assert not e.CAPEX_MAJOR_CASE_CHUNKS.get(k, {}).get("equipment_procurement"), k
+    assert e.CAPEX_MAJOR_EVIDENCE_STATUS["equipment_procurement"].startswith("미검증")
+
+    # ── ② 대장 — D-8 닫힘 · 닫힌 행에 이력 · CM1 열린 채 · 새 서술은 코드 ────
+    led = rd("근거_결정대기대장_20260915.md")
+    closed = [ln for ln in led.splitlines() if ln.startswith("| ~~**D-8**~~ ✅**닫힘(252차)** |")]
+    assert len(closed) == 1 and "43,607,700" in closed[0] and "0.551%" in closed[0], closed
+    assert cd.audit(closed[0]) == {}, cd.audit(closed[0])
+    assert not _re.search(r"(?m)^\| \*\*D-8\*\* \|", led) and not _re.search(r"(?m)^\| D-8 \|", led)
+    assert "대기 8건 · 닫힘 8건" in led.splitlines()[0]
+    assert _re.search(r"(?m)^\| \*\*CM1\*\* \|", rd("근거_확인요망대장_20260915.md")), (
+        "🔴 CM1이 닫혔다 — D-8 유지는 방제/냉방 귀속에 답하지 않는다")
+    assert "| **★사용자 결정 대기**(대장의 D- 항목) | **8** |" in rd("릴리스_v1.1_20260927.md")
+
+    # ── ③ WO-005 = 완료 · ⓐ 기준은 켜지 않음 ───────────────────────
+    r = A.audit()
+    f = next(x for x in r["files"] if x["id"] == "WO-005")
+    assert dict((row[0], row[5]) for row in r["index"])["WO-005"] == "완료"
+    assert f["parsed"]["n_confirm_needed"] == 0 and "ⓑ 미분류 유지" in f["parsed"]["sections"][2]["body"]
+    for c in f["parsed"]["criteria"]:
+        if c["text"].startswith("(ⓐ"):
+            assert not c["checked"] and "해당 없음" in c["text"], c["text"]
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
