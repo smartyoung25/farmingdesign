@@ -1,0 +1,37 @@
+{% extends "_base.html" %}
+{% set active = "workorders" %}
+{% block title %}작업지시서(WO){% endblock %}
+{% block main %}
+  <style>
+    /* 248차(WO-003) — 작업지시서 색인. 원본은 docs/work-orders/*.md, 수치는 검사기 반환값의 표시 */
+    .wo-scroll { overflow-x:auto; }
+    .wo-scroll table { min-width:640px; }
+    .wo-id { font-family:ui-monospace,Consolas,monospace; font-size:12px; color:var(--green); white-space:nowrap; }
+    .wo-prob { font-size:12px; color:#791F1F; margin-top:4px; }
+    td.num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  </style>
+  <div class="top"><h1>작업지시서(WO)</h1>
+    <div class="actions"><a class="btn" href="/">케이스</a></div></div>
+  <div class="subtitle">과제 1건 = WO 1건 = 차수 1개. 원본은 <code>docs/work-orders/</code>의 파일이고, 이 화면은 읽기만 한다(작성·체크 변경 없음).</div>
+  <div class="banner {{ 'ok' if audit_pass else '' }}">형식 검사(<code>python audit_work_orders.py</code>): <b>{{ 'PASS' if audit_pass else 'FAIL' }}</b> — 스킬 체크리스트 중 기계로 볼 수 있는 항목만 본다. 통과가 곧 내용이 옳다는 뜻은 아니다.</div>
+  {% if problems %}<div class="banner">{% for x in problems %}{{ x }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
+  <div class="card wo-scroll">
+    <table>
+      <thead><tr><th>번호</th><th>작업명</th><th>유형</th><th>차수</th><th>선행</th><th>상태</th><th>수용기준 확인</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+      <tr data-wo="{{ r.id }}">
+        <td><a class="wo-id" href="/workorders/{{ r.id }}">{{ r.id }}</a></td>
+        <td>{{ r.title }}{% for x in r.problems %}<div class="wo-prob">{{ x }}</div>{% endfor %}</td>
+        <td>{{ r.type }}</td>
+        <td>{{ r.round }}</td>
+        <td>{{ r.prereq }}</td>
+        <td><span class="chip {{ 'chip-measured' if r.state == '완료' else 'chip-est' }}">{{ r.state }}</span></td>
+        <td class="num" data-checked="{{ r.checked }}" data-total="{{ r.total }}">{{ r.checked }} / {{ r.total }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="note">새 WO는 <code>dev-work-order-writer</code> 스킬 양식으로 쓴다 — 리포 적용 방식·이견·색인은 <code>docs/work-orders/README.md</code> 한 곳이다. 수용기준 체크는 명령을 실제로 실행한 뒤에만 켠다.</p>
+{% endblock %}

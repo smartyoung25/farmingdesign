@@ -1,0 +1,41 @@
+{% extends "_base.html" %}
+{% set active = "workorders" %}
+{% block title %}{{ p.id }} — {{ p.title }}{% endblock %}
+{% block main %}
+  <style>
+    /* 248차(WO-003) — WO 한 건. 절별 원문 그대로(마크다운 렌더러 없음 — 새 의존성 금지) */
+    .wo-meta { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .wo-sec { margin-bottom:12px; }
+    .wo-sec h2 { font-size:14px; font-weight:700; margin-bottom:6px; }
+    .wo-sec h2 .n { color:var(--green); margin-right:6px; }
+    .wo-body { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:13px; line-height:1.6; margin:0; }
+    .wo-crit { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; }
+    .wo-crit li { font-size:13px; line-height:1.55; display:flex; gap:8px; align-items:flex-start; overflow-wrap:anywhere; }
+    .wo-crit .chip { flex-shrink:0; }
+  </style>
+  <div class="top"><h1>{{ p.id }} · {{ p.title }}</h1>
+    <div class="actions"><a class="btn" href="/workorders">작업지시서 목록</a></div></div>
+  <div class="wo-meta">
+    <span class="chip chip-ref">작성일 {{ p.date }}</span>
+    <span class="chip chip-ref">{{ p.type }}</span>
+    <span class="chip chip-ref">선행 {{ p.prereq }}</span>
+    <span class="chip {{ 'chip-measured' if p.n_checked == p.n_criteria else 'chip-est' }}">수용기준 확인 {{ p.n_checked }} / {{ p.n_criteria }}</span>
+    <span class="chip {{ 'chip-measured' if not f.problems else 'chip-warn' }}">형식 검사 {{ '통과' if not f.problems else '문제 ' ~ (f.problems | length) ~ '건' }}</span>
+  </div>
+  {% for x in f.problems %}<div class="banner">{{ x }}</div>{% endfor %}
+  {% for n, title, body in sections %}
+  <div class="card wo-sec" id="s{{ n }}">
+    <h2><span class="n">{{ n }}.</span>{{ title }}</h2>
+    {% if n == 7 %}
+    <ul class="wo-crit">
+      {% for c in p.criteria %}
+      <li><span class="chip {{ 'chip-measured' if c.checked else 'chip-est' }}">{{ '확인' if c.checked else '미확인' }}</span><span>{{ c.text }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <pre class="wo-body">{{ body }}</pre>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <p class="note">원본: <code>docs/work-orders/{{ f.name }}</code> — 이 화면은 읽기 전용이다.</p>
+{% endblock %}

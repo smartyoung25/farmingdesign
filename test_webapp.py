@@ -2231,6 +2231,77 @@ def test_245cha_agritecture_layout_uses_only_existing_data():
         assert '<footer class="foot">' in h and "<aside>" not in h, u
 
 
+def test_248cha_work_order_screens_show_the_audit_as_is(monkeypatch):
+    """248차 — WO-003: 콘솔 작업지시서 화면(읽기 전용)이 검사기 반환값을 **그대로** 보여 주는가.
+
+    🔴 확인 수/전체는 `parse_wo()`가 센 수다 — 화면이 따로 세지 않는다(앱 계층 산술 0).
+    🔴 경로 값으로 파일을 열지 않는다 — 폴더에 있는 번호만 열리고, 나머지는 404다.
+    """
+    import re as _re, os as _o
+    import audit_work_orders as A
+    r = A.audit()
+    d = _o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), "docs", "work-orders")
+
+    # ── ① 색인 행 = 파일 · 확인 수 = 파서 ────────────────────────────
+    html = client.get("/workorders").text
+    got = _re.findall(r'<tr data-wo="([^"]+)">', html)
+    assert got == [f["id"] for f in r["files"]], got
+    assert len(got) == len([f for f in _o.listdir(d) if A.FILE_RE.match(f)])
+    cnt = dict(zip(got, _re.findall(r'data-checked="(\d+)" data-total="(\d+)"', html)))
+    for f in r["files"]:
+        p = f["parsed"]
+        assert cnt[f["id"]] == (str(p["n_checked"]), str(p["n_criteria"])), f["id"]
+    assert ("PASS" if r["pass"] else "FAIL") in html
+
+    # ── ② 상세 — 9절이 순서대로 · 수용기준 체크 상태 그대로 ──────────────
+    h1 = client.get("/workorders/WO-001").text
+    pos = [h1.find(f'id="s{n}"') for n in range(1, 10)]
+    assert all(x > 0 for x in pos) and pos == sorted(pos), pos
+    for n, t in enumerate(A.SECTION_TITLES, 1):
+        assert t in h1, t
+    p1 = next(f["parsed"] for f in r["files"] if f["id"] == "WO-001")
+    assert h1.count('<span class="chip chip-measured">확인</span>') == p1["n_checked"]
+    #   🔴 완료된 WO는 전부 「확인」이라 **체크를 무시하는 화면도 통과한다** — 임시 폴더에서
+    #      WO-001 수용기준 절반을 풀어 **미확인이 미확인으로** 나오는지 본다.
+    import tempfile as _tf, shutil as _sh, io as _io
+    tmp = _tf.mkdtemp()
+    try:
+        for fn in _o.listdir(d):
+            _sh.copy(_o.path.join(d, fn), tmp)
+        fp = next(_o.path.join(tmp, fn) for fn in _o.listdir(tmp) if fn.startswith("WO-001_"))
+        t = _io.open(fp, encoding="utf-8").read()
+        _io.open(fp, "w", encoding="utf-8").write(t.replace("- [x] ", "- [ ] ", 3))
+        _orig = A.audit
+        monkeypatch.setattr(webapp.awo, "audit", lambda folder=tmp: _orig(folder))
+        h2 = client.get("/workorders/WO-001").text
+        p2 = A.parse_wo(_io.open(fp, encoding="utf-8").read())
+        assert p2["n_checked"] == p1["n_checked"] - 3
+        assert h2.count('<span class="chip chip-est">미확인</span>') == 3
+        assert h2.count('<span class="chip chip-measured">확인</span>') == p2["n_checked"]
+        h3 = client.get("/workorders").text
+        assert f'data-checked="{p2["n_checked"]}" data-total="{p2["n_criteria"]}"' in h3
+    finally:
+        monkeypatch.undo()
+        _sh.rmtree(tmp, ignore_errors=True)
+
+    # ── ③ 경로 조작·없는 번호 ───────────────────────────────────────
+    for u in ("/workorders/WO-999", "/workorders/..%2FCLAUDE", "/workorders/README",
+              "/workorders/WO-001_스킬설치_리포적용.md"):
+        assert client.get(u).status_code == 404, u
+    #   📌 폴더 조회만으로도 404가 나서 **번호 형식 검사를 지워도 통과했다**(등가 변이) —
+    #      형식이 틀린 값은 **폴더를 보기 전에** 형식 사유로 거부되는지 본다.
+    for u in ("/workorders/README", "/workorders/WO-001_스킬설치_리포적용.md", "/workorders/wo-001"):
+        assert "WO 번호 형식이 아니다" in client.get(u).text, u
+    assert "WO 번호 형식이 아니다" not in client.get("/workorders/WO-999").text
+
+    # ── ④ 모든 화면의 참조 메뉴에 링크 ───────────────────────────────
+    #   📌 푸터에도 같은 링크가 있어 href만 보면 **메뉴에서 빠져도 통과한다** — 메뉴 항목 그대로 본다.
+    for u in ("/", "/functions", "/entry", "/case/C1", "/workorders"):
+        h = client.get(u).text
+        assert '<a href="/workorders">작업지시서(WO)<small>' in h, u
+        assert '<a href="/workorders">작업지시서(WO)</a></div>' in h, u
+
+
 def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),

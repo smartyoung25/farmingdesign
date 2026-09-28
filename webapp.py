@@ -32,6 +32,7 @@ import render_report as rr
 import smartfarm_engine as e
 import build_site as bs
 import consulting_package as cpkg
+import audit_work_orders as awo
 
 ROOT = Path(__file__).parent
 app = FastAPI(title="스마트팜 컨설팅 콘솔", docs_url=None, redoc_url=None)
@@ -149,6 +150,44 @@ def rebuild():
     if r.returncode != 0:
         raise HTTPException(500, detail=(r.stderr or r.stdout)[-2000:])
     return RedirectResponse("/", status_code=303)
+
+
+# ── 248차(WO-003): 작업지시서(WO) 화면 — 읽기 전용 ─────────────────────
+#   원본은 `docs/work-orders/*.md` 파일이다. 이 화면은 `audit_work_orders`가 읽은
+#   결과를 **보여 주기만** 한다 — 확인 수/전체도 검사기 반환값이고, 화면에서 쓰지 않는다.
+#   🔴 경로 값으로 파일을 열지 않는다 — 검사기가 폴더에서 찾은 번호만 받는다(경로 조작 차단).
+
+_WO_ID_RE = re.compile(r"^WO-\d{3}(?:-fix\d+)?$")
+
+
+@app.get("/workorders")
+def work_orders(request: Request):
+    r = awo.audit()
+    idx = {row[0]: row for row in r["index"]}
+    rows = []
+    for f in r["files"]:
+        p, ix = f["parsed"], idx.get(f["id"])
+        rows.append({"id": f["id"], "title": p["title"], "type": p["type"],
+                     "round": ix[3] if ix else "—", "prereq": p["prereq"],
+                     "state": ix[5] if ix else "색인 없음",
+                     "checked": p["n_checked"], "total": p["n_criteria"],
+                     "problems": f["problems"]})
+    return templates.TemplateResponse(request, "work_orders.html", {
+        "rows": rows, "audit_pass": r["pass"], "problems": r["problems"]})
+
+
+@app.get("/workorders/{wo_id}")
+def work_order_detail(request: Request, wo_id: str):
+    if not _WO_ID_RE.match(wo_id):
+        raise HTTPException(404, detail=f"{wo_id}는 WO 번호 형식이 아니다")
+    r = awo.audit()
+    f = next((x for x in r["files"] if x["id"] == wo_id), None)
+    if f is None:
+        raise HTTPException(404, detail=f"{wo_id} 없음 — docs/work-orders/에 그 번호의 파일이 없다")
+    p = f["parsed"]
+    return templates.TemplateResponse(request, "work_order_detail.html", {
+        "f": f, "p": p,
+        "sections": [(n, p["sections"][n]["title"], p["sections"][n]["body"]) for n in p["order"]]})
 
 
 @app.get("/health")
