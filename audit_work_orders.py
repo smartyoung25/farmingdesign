@@ -37,9 +37,11 @@ WO_DIR = os.path.join(ROOT, "docs", "work-orders")
 SECTION_TITLES = ("목적", "배경·사용자", "범위", "입력·출력", "기술 조건",
                   "작업 단위", "수용기준", "제약·주의사항", "보고 형식")
 WORK_TYPES = ("신규 기능", "버그 수정", "리팩터링", "자동화 스크립트", "데이터 처리", "테스트 보강")
-# 스킬 Iron Law 2의 금지 표현. 「잘」은 낱말 안의 글자(잘못·잘라)를 잡지 않도록 홀로 선 것만 본다.
-#   256차(레드팀 30회차 B8): 붙여 쓴 「잘된다」·「잘동작」도 잡고, 「잘못·잘라·잘린·잘려·잘랐·잘게」는 통과시킨다.
-BANNED = (("잘", re.compile(r"(?<![가-힣])잘(?!못|라|린|려|랐|게)")),
+# 스킬 Iron Law 2의 금지 표현.
+#   「잘」(부사)은 앞뒤 글자와 상관없이 잡고(「잘된다」·「매우잘」), 부사가 아닌 낱말만 통과시킨다 —
+#   「잘못」과 동사 「자르다」의 활용(잘라·잘린·잘려·잘랐·잘리·잘립·잘게). 261차(레드팀 31회차 B3):
+#   256차 정규식은 「잘리지·잘립니다」를 금지로 잡고 앞에 한글이 붙은 「매우잘」을 놓쳤다.
+BANNED = (("잘", re.compile(r"잘(?!못|라|린|려|랐|리|립|게)")),
           ("적절히", re.compile("적절히")),
           ("원활하게", re.compile("원활하게")),
           ("빠르게", re.compile("빠르게")),
@@ -53,8 +55,12 @@ CODE_LINE = re.compile(r"^\s*(def |async def |class |function |import |from \S+ 
 NA_OK = re.compile(r"해당\s*없음\s*(—|–|-|:|\()\s*\S")
 # 256차: 「(확인: )」처럼 확인 방법이 빈 것도 확인 방법이 없는 것이다
 CONFIRM_OK = re.compile(r"\(확인:\s*[^)\s]")
-# 256차: 선택되지 않은 분기의 기준 — 「(ⓐ 해당 없음 — ⓑ 선택)」. 체크하지 않고 「해당 없음」으로 센다
-NA_CRIT = re.compile(r"^\([^)]*해당\s*없음\s*—[^)]*\)")
+# 261차(31회차 B4): 스킬 템플릿의 자리표시자를 그대로 둔 것도 확인 방법이 없는 것이다
+CONFIRM_PLACEHOLDER = re.compile(r"\(확인:\s*(?:…|\.\.\.|-|`?명령`?|`?테스트 명령`?)\s*\)")
+_re_same = re.compile(r"\(확인:\s*같은 명령\s*\)")
+# 선택되지 않은 분기의 기준 — **분기 표기만** 「(ⓐ 해당 없음 — ⓑ 선택)」(ⓐ·ⓑ처럼 여러 개, 구분자 —·–·-).
+#   261차(31회차 B2): 256차 정규식은 앞머리 괄호 전반을 NA로 세 체크 안 한 적용 기준이 분모에서 빠질 수 있었다.
+NA_CRIT = re.compile(r"^\([ⓐ-ⓩ](?:·[ⓐ-ⓩ])*\s*해당\s*없음\s*[—–-]\s*[ⓐ-ⓩ](?:·[ⓐ-ⓩ])*\s*선택\)")
 
 
 def parse_wo(text):
@@ -103,7 +109,7 @@ def parse_wo(text):
         "tasks": tasks,
         "criteria": criteria,
         "n_criteria": len(criteria),
-        "n_checked": sum(1 for c in criteria if c["checked"]),
+        "n_checked": sum(1 for c in criteria if c["checked"] and not c["na"]),
         "n_na": sum(1 for c in criteria if c["na"]),
         "n_applicable": sum(1 for c in criteria if not c["na"]),
         "n_confirm_needed": text.count("[확인 필요"),
@@ -186,9 +192,15 @@ def check_wo(text, name, known_ids):
     # R2 수용기준
     if not p["criteria"]:
         probs.append("R2 수용기준이 0개다")
-    for c in p["criteria"]:
-        if not CONFIRM_OK.search(c["text"]):
+    for k, c in enumerate(p["criteria"]):
+        if not CONFIRM_OK.search(c["text"]) or CONFIRM_PLACEHOLDER.search(c["text"]):
             probs.append(f"R2 「{c['text'][:24]}…」에 확인 방법 「(확인: …)」이 없다")
+        # 261차(31회차 B4): 첫 기준이 「같은 명령」이면 가리킬 앞 명령이 없다
+        elif k == 0 and _re_same.search(c["text"]):
+            probs.append(f"R2 첫 수용기준이 「같은 명령」을 가리킨다 — 앞에 명령이 없다")
+        # 261차(31회차 B2): 선택되지 않은 분기의 기준은 체크하지 않는다(체크하면 확인 수가 대상 수를 넘는다)
+        if c["na"] and c["checked"]:
+            probs.append(f"R2 「{c['text'][:24]}…」는 해당 없음인데 체크돼 있다")
         for word, rx in BANNED:
             if rx.search(c["text"]):
                 probs.append(f"R2 「{c['text'][:24]}…」에 금지 표현 「{word}」가 있다")

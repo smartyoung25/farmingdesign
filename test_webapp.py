@@ -2376,7 +2376,70 @@ def test_259cha_home_hero_is_the_user_copy():
     assert "실측인지, 추정인지, 확인이 필요한지" in html, "🔴 설명문까지 바뀌었다 — 결정은 제목만이다"
     assert "모든 수치에 근거가 붙는" not in html
     assert "★사용자 결정(2026-09-28): 히어로 제목은 「스마트농업을 디자인하다」" in _io_read("webapp.py")
-    assert "홈 소개 문구는 259차에 ★「스마트농업을 디자인하다」로 확정" in _io_read("릴리스_v1.2_20260928.md")
+    #   📌261차(31회차 A10): 릴리스 표현을 「홈 제목(`<h1>`)」으로 좁혔다 — 사용자 발언은 제목 문구 하나였다
+    assert "홈 **제목(`<h1>`)**은 259차에 ★「스마트농업을 디자인하다」로 확정" in _io_read("릴리스_v1.2_20260928.md")
+
+
+def test_261cha_redteam31_corrections_hold():
+    """261차 — 레드팀 31회차(256~260차 대상) 반영이 되돌아가지 않는가.
+
+    B1 WO 화면이 **대상 수·「해당 없음」 칩**을 파서 값대로 보여 준다(256차 표시를 지키는 가드가 없었다).
+    B2 「해당 없음」은 **분기 표기**만이고, 체크된 해당 없음 기준은 문제다.  B3 「잘」 · B4 자리표시자.
+    A1 C3 면적 2,323은 총표지에만 — 「단가대비표 2,323」은 자재 단가 오독.  A2 결정 기록 위치.
+    A3 확인요망 U2의 철회된 산식 표시.  B6 D-15 인용은 리포 전사본(「공정등이」)과 같다.
+    """
+    import re as _re, os as _o, io as _io
+    import audit_work_orders as A
+    r = A.audit()
+    assert r["pass"], r["problems"]
+
+    # ── B1 화면 = 파서 ───────────────────────────────────────────
+    html = client.get("/workorders").text
+    cells = dict(_re.findall(r'<tr data-wo="([^"]+)">.*?data-applicable="(\d+)"', html, _re.S))
+    for f in r["files"]:
+        p = f["parsed"]
+        assert cells[f["id"]] == str(p["n_applicable"]), (f["id"], cells[f["id"]], p["n_applicable"])
+        if p["n_na"]:
+            assert f'{p["n_checked"]} / {p["n_applicable"]} <small>(해당 없음 {p["n_na"]})</small>' in html, f["id"]
+        h = client.get(f"/workorders/{f['id']}").text
+        assert h.count('<span class="chip chip-ref">해당 없음</span>') == p["n_na"], f["id"]
+        assert h.count('<span class="chip chip-est">미확인</span>') == p["n_applicable"] - p["n_checked"], f["id"]
+        assert f'수용기준 확인 {p["n_checked"]} / {p["n_applicable"]}' in h, f["id"]
+        assert "당시 값" in h
+
+    # ── B2·B3·B4 검사기 ────────────────────────────────────────────
+    d = _o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), "docs", "work-orders")
+    name = next(fn for fn in _o.listdir(d) if fn.startswith("WO-001_"))
+    base = _io.open(_o.path.join(d, name), encoding="utf-8").read()
+    crit = next(ln for ln in base.splitlines() if ln.startswith("- [x] `docs/HANDOFF.md`"))
+    known = {f["id"] for f in r["files"]}
+    def chk(line):
+        s = base.replace(crit, line)
+        p = A.parse_wo(s)
+        return A.check_wo(s, name, known), (p["n_checked"], p["n_applicable"], p["n_na"])
+    probs, cnt = chk("- [ ] (C2 해당 없음 — 온실 없음) 실제 기준 (확인: 같은 명령)")
+    assert cnt[2] == 0, "🔴 분기 표기가 아닌 괄호를 해당 없음으로 셌다"
+    probs, cnt = chk("- [x] (ⓐ 해당 없음 — ⓑ 선택) 기준 (확인: 같은 명령)")
+    assert cnt[2] == 1 and any("해당 없음인데 체크" in x for x in probs) and cnt[0] <= cnt[1]
+    assert chk("- [ ] (ⓐ·ⓑ 해당 없음 - ⓒ 선택) 기준 (확인: 같은 명령)")[1][2] == 1
+    for bad in ("잘된다", "매우잘 된다", "제대로잘동작"):
+        assert any(x.startswith("R2") for x in chk(f"- [x] {bad} (확인: 같은 명령)")[0]), bad
+    for ok in ("잘리지 않는다", "잘립니다", "잘못된 값", "잘라 낸 줄", "잘게 나눈다"):
+        assert chk(f"- [x] {ok} (확인: 같은 명령)")[0] == [], ok
+    for ph in ("…", "-", "`명령`", "명령"):
+        assert any(x.startswith("R2") for x in chk(f"- [x] 끝난다 (확인: {ph})")[0]), ph
+
+    # ── A1·A2·A3·B6 문서 ────────────────────────────────────────────
+    led = _io_read("근거_결정대기대장_20260915.md")
+    d7 = next(ln for ln in led.splitlines() if ln.startswith("| ~~**D-7**~~"))
+    assert "면적 **2,323**은 `총표지 (2)`에만" in d7 and "물가정보 단가 2,323원/EA" in d7
+    cl = _io_read("근거_확인요망대장_20260915.md")
+    assert "표지·단가대비표 2,323과도" not in cl and "149차에 철회된 산식" in cl
+    rel = _io_read("릴리스_v1.2_20260928.md")
+    assert "레지스트리·대장·WO 세 곳" not in rel.replace("「레지스트리·대장·WO 세 곳」", "")
+    assert "**239~244차는 레지스트리에도**" in rel and "**250~255차는 WO에도**" in rel
+    assert "유리닦기 등의 공정이 없는 것으로" not in led and "유리닦기 등의 공정등이 없는 것으로 조사" in led
+    assert "유리닦기 등의 공정등이 없는 것으로 조사" in _io_read("엔진데이터_레지스트리.json")
 
 
 def _io_read(rel):

@@ -13182,7 +13182,7 @@ def test_254cha_d15_disagreement_kept_as_decided():
     led = rd("근거_결정대기대장_20260915.md")
     closed = [ln for ln in led.splitlines() if ln.startswith("| ~~**D-15**~~ ✅**닫힘(254차)** |")]
     assert len(closed) == 1, closed
-    for mark in ("이견 유지", "p.129", "p.144", "유리닦기 등의 공정이 없는 것으로 조사",
+    for mark in ("이견 유지", "p.129", "p.144", "유리닦기 등의 공정등이 없는 것으로 조사",
                  "유리끼우기, 유리닦기 및 마무리 작업을 포함한다", "0.369%", "2품목(천창유리·측면강화유리)"):
         assert mark in closed[0], mark
     assert cd.audit(closed[0]) == {}
@@ -13339,7 +13339,9 @@ def test_257cha_v12_release_matches_ledgers_and_work_orders():
     closed = {int(d) for d, n in _re.findall(r"(?m)^\| ~~\*\*D-(\d+)\*\*~~ ✅\*\*닫힘\((\d+)차", led)
               if int(n) >= 241}
     i = rel.index("## 2."); j = rel.index("## 3.")
-    listed = {int(x) for x in _re.findall(r"D-(\d+)", rel[i:j].split("**작업지시서(WO) 체계**")[0])}
+    #   📌261차(레드팀 31회차 B7): 본문 언급이 아니라 **결정 표의 행**에서 센다(행이 빠져도 언급 하나로 통과했다)
+    listed = {int(x) for row in _re.findall(r"(?m)^\| (D-[^|]+) \|", rel[i:j])
+              for x in _re.findall(r"D-(\d+)", row)}
     assert closed and closed <= listed, f"🔴 대장에서 닫힌 {sorted(closed - listed)}가 v1.2 결정 표에 없다"
     opened = {int(x) for x in _re.findall(r"(?m)^\| \*\*D-(\d+)\*\* \|", led)}
     assert not (listed & opened), f"🔴 열린 결정 {sorted(listed & opened)}을 닫힌 표에 실었다"
@@ -13392,6 +13394,12 @@ def test_258cha_app_layer_counting_is_allowed_only_as_counting():
     sums = [n for n in _ast.walk(tree) if isinstance(n, _ast.Call) and getattr(n.func, "id", None) == "sum"]
     assert sums, "전제: 홈·기입 허브가 항목을 센다"
     bad = [_ast.unparse(n) for n in sums if not counting(n)]
+    #   📌261차(레드팀 31회차 B5): `sum` 밖의 집계 우회 — `reduce`·`fsum`·`mean`과 `+=` 누적 — 도 없어야 한다
+    agg = {"reduce", "fsum", "mean", "fmean", "prod"}
+    bad += [_ast.unparse(n) for n in _ast.walk(tree) if isinstance(n, _ast.Call)
+            and (getattr(n.func, "id", None) in agg or getattr(n.func, "attr", None) in agg)]
+    bad += [_ast.unparse(n) for n in _ast.walk(tree) if isinstance(n, _ast.AugAssign)
+            and isinstance(n.op, (_ast.Add, _ast.Mult, _ast.Div, _ast.Sub))]
     assert not bad, f"🔴 앱 계층 `sum()`이 항목 세기가 아니다: {bad} — 258차 허용은 **세기**까지다(엔진 값 합산 금지)"
 
     # ── ③ 화면은 계산 수치와 건수를 구분해 말한다 ──────────────────────
@@ -13412,7 +13420,8 @@ def test_260cha_old_records_keep_names_as_decided():
     rel = rd("릴리스_v1.2_20260928.md")
     i = rel.index("사용자 경계로 남긴 것"); j = rel.index("\n- ", i + 1)
     blk = rel[i:j]
-    assert blk.startswith("사용자 경계로 남긴 것**: 없음.") and "260차에 ★「그대로 둔다」로 확정" in blk, blk[:120]
+    #   📌261차(31회차 A9): 「없음」 뒤에 범위(256차 ⑦ 3건 기준)가 붙었다 — 「없음」으로 시작하는지만 본다
+    assert blk.startswith("사용자 경계로 남긴 것**: 없음") and "260차에 ★「그대로 둔다」로 확정" in blk, blk[:120]
     assert "새로 쓰는 공유 산출물" in blk
 
 
