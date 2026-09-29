@@ -14121,7 +14121,7 @@ def test_273cha_console_inspection_counts_come_from_the_code():
 
     # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
     cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))
-    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 83),   # 📌279·282·283·284·285차 각 +1 · 286차 +1(작기·작형 소재)
+    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 84),   # 📌279·282~286차 각 +1 · 287차 +1(S-1 의존 지도)
                           ("법령 원문 `법령_*.pdf`", "법령_*.pdf", 7),
                           ("고시 원문 `고시_*.pdf`", "고시_*.pdf", 1)):
         assert cnt(pat) == n, f"🔴 {pat} 가 {cnt(pat)}건이다 — 점검은 {n}건으로 셌다"
@@ -14583,7 +14583,7 @@ def test_283cha_ks_x_3268_3269_existence_is_recorded_with_its_controls():
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (sec_name, cnt, seen)
         total += seen
     files = len(_g.glob(_o.path.join(repo, "근거_*.md")))
-    assert total == files == 83, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
+    assert total == files == 84, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
 
 
 def test_284cha_management_fee_absence_is_measured_not_asserted():
@@ -14692,7 +14692,7 @@ def test_284cha_management_fee_absence_is_measured_not_asserted():
     if cur:
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
         tot += seen
-    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 83, tot
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 84, tot
 
 
 def test_285cha_ks_standard_bodies_are_stored_and_are_a_different_axis():
@@ -14806,7 +14806,7 @@ def test_285cha_ks_standard_bodies_are_stored_and_are_a_different_axis():
     if cur:
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
         tot += seen
-    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 83, tot
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 84, tot
 
 
 def test_286cha_cropping_calendar_source_is_located_but_not_registered():
@@ -14899,4 +14899,117 @@ def test_286cha_cropping_calendar_source_is_located_but_not_registered():
     if cur:
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
         tot += seen
-    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 83, tot
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 84, tot
+
+
+def test_287cha_s1_dependency_is_measured_and_the_106cha_correction_holds():
+    """287차 — S-1(C2 원문)이 **무엇을 푸는지**를 재고, 106차 정정이 다시 되살아나지 않는가.
+
+    🔴 착수점이 적은 귀속을 믿지 않는다 — C3(원문 보유 전례)의 provenance를 **읽어서**
+       「원문이 와도 안 채워지는 칸」을 확인하고, 그 결론이 문서와 같은지 본다.
+    🔴 **밴드 재산정은 S-1이 아니라 B9(=S-2)다**(106차). 두 곳이 갈라지면 실패.
+    🔴 회귀 기준은 C2인데 원문이 없다 — 그 사실이 사라지면 실패.
+    """
+    import os as _o, io as _io, json as _j, re as _re, glob as _g
+    import smartfarm_engine as _e
+    import case_display as _cd
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_S1없이_갈수있는곳_20260930.md")
+    flat = " ".join(doc.split())
+    wo = rd("작업지시서.md")
+
+    # ── ① 🔴 C3 전례를 **읽어서** 잰다 — 원문이 있어도 못 채운 칸 ────────────
+    c3 = _j.loads(rd(_o.path.join("cases", "uminjae.json")))["provenance"]
+    c2 = _j.loads(rd(_o.path.join("cases", "wonchaewon.json")))["provenance"]
+    assert c3["area_m2"]["status"] == "실측", c3["area_m2"]
+    assert c3["total_construction_cost"]["status"] == "실측"
+    for k, st in (("surface_area_m2", "추정"), ("fr", "확인요망"), ("fitness_pct", "추정")):
+        assert c3[k]["status"] == st, (
+            "🔴 C3의 %s 가 %s가 아니다 — 287차 결론(원문이 와도 못 채운다)을 다시 써야 한다"
+            % (k, st))
+    assert "t_target" not in c3, "🔴 C3에 t_target 근거가 생겼다 — 결론을 다시 써야 한다"
+    #   문서가 그 표를 같은 값으로 적었는가
+    assert "「경량철골온실(내재해형) 2,323㎡」" in doc
+    assert "557,152,000원(도급 556,202,000 + 재해예방기술지도비 950,000)" in doc
+    assert "C2 원문이 푸는 것은 `area_m2` 2칸(C1·C2)뿐이다" in flat
+
+    # ── ② 🔴 C2는 여전히 원문이 없다 — 회귀 기준인데 ────────────────────────
+    tcc = c2["total_construction_cost"]
+    assert tcc["status"] == "미검증", "🔴 C2 공사비가 격상됐다 — 원문이 들어왔다면 이 문서를 다시 써야 한다"
+    assert "원문 미보유" in tcc["source"]
+    assert "source_refs" not in tcc, "🔴 C2에 source_refs가 붙었다"
+    assert _cd.ALIASES["wonchaewon"]["code"] == "C2"
+    assert "관통 회귀 기준" in _cd.ALIASES["wonchaewon"]["note"]
+    #   63차 상시 승인과 ⑤ 안전장치가 살아 있는가
+    assert "확보 시 진행 상시 승인" in tcc["source"]
+    assert "불일치 시 값 변경 금지" in tcc["source"], "🔴 값 우선 변경 금지 장치가 사라졌다"
+    assert "702,030,000" in tcc["source"] and "3,456" in tcc["source"]
+    assert "**702,030,000원 · 면적 3,456㎡**" in doc
+
+    # ── ③ 🔴 106차 정정이 **두 곳에서** 지켜지는가 ──────────────────────────
+    #   B1 행(원래 정정이 적힌 곳)
+    assert "밴드의 차단점은 **B9**다" in wo, "🔴 106차 정정이 한계 대장에서 사라졌다"
+    #   11-B ⓐ S-1 행(280차가 되살렸던 곳)
+    s1 = [l for l in wo.splitlines() if l.startswith("| **S-1**")]
+    assert len(s1) == 1, s1
+    assert "밴드 재산정은 여기가 아니라 B9" in s1[0], (
+        "🔴 S-1 행이 다시 「밴드 재산정」을 제 것이라 적는다 — 106차 정정이 되살아났다")
+    assert _re.search(r"^\|\s*밴드 재산정 ·", s1[0]) is None
+    assert "밴드 재산정 · B1 · A3 · B8" not in wo, "🔴 정정 이전 문구가 남아 있다"
+    #   S-2 쪽은 그대로 밴드를 제 것이라 적는다
+    s2 = [l for l in wo.splitlines() if l.startswith("| **S-2**")]
+    assert len(s2) == 1 and "밴드" in s2[0], s2
+
+    # ── ④ 🔴 값을 바꾸지 않았다 · 회귀 기준은 주입값으로 선다 ────────────────
+    assert len(_e.ACTUALS) == 9
+    names = [r[0] for r in _e.ACTUALS]
+    assert len(set(names)) == 9
+    assert ("원채원", 3456, 702030000) == tuple(
+        next(r for r in _e.ACTUALS if r[0] == "원채원")[:3])
+    assert "원문은 **대조**를 위한 것이지 **계산을 위한 것이 아니다**" in flat
+
+    # ── ⑤ 🔴 값싼 요청 넷으로 쪼갰다 — 하나로 뭉뚱그리지 않았다 ──────────────
+    s4 = doc[doc.index("### 4-c."):doc.index("## 5.")]
+    reqs = [l for l in s4.splitlines() if l.startswith("| **")]
+    assert len(reqs) == 4, "🔴 요청이 %d개다 — 넷으로 쪼갠 것이 뭉쳐졌다" % len(reqs)
+    assert "C2의 시군구 이름" in s4 and "한 줄" in s4
+    assert "**S-2 `SmartFarm_엔진데이터.md`**" in s4 and "**S-1 아님**" in s4
+    #   시군구가 실제로 거친가 — 케이스에서 확인한다(문서 주장을 믿지 않는다)
+    case2 = _j.loads(rd(_o.path.join("cases", "wonchaewon.json")))
+    assert case2["input"]["region"] == "충남", case2["input"]["region"]
+    assert case2["site"]["region_name"] == "충남"
+    #   케이스 자신이 「시군구 미기재라 조회가 안 된다」고 적는다 — 요청이 한 줄인 근거다
+    assert "시군구 미기재" in case2["site"]["design_load_source"]
+    assert _e.siting_design_load("충남") is None, "🔴 '충남'으로 조회가 된다 — 요청 크기를 다시 재야 한다"
+    assert c2["wind_ms"]["status"] == "확인요망"
+    assert "시군구 특정 시" in c2["wind_ms"]["source"]
+
+    # ── ⑥ 한계·번호 겹침을 적었다 ──────────────────────────────────────────
+    assert "번호가 두 체계에서 겹친다" in doc
+    assert "**겹침 자체는 고치지 않았다**" in doc
+    for frag in ("C2 원문이 어떤 형식인지 모른다", "그 영향 범위를 이 차수는 계산하지 않았다",
+                 "원문을 **구하러 가지 않았다**"):
+        assert frag in flat, frag
+    #   🔴「지금이 최대치다」를 적되 **더 갈 데가 있다고 단정하지 않는다**
+    assert "🔴 **결론 — 지금이 최대치다**" in doc
+    for bad in ("원문 없이도 실측으로 격상할 수 있다", "회귀 기준을 바꾼다", "값을 먼저 고친다"):
+        assert bad not in doc, "🔴 단정문 「%s」" % bad
+
+    # ── ⑦ 지도 등재 · 절 머리 = 행 수 ──────────────────────────────────────
+    mp = rd("근거지도_20260923.md")
+    assert "`근거_S1없이_갈수있는곳_20260930.md`" in mp
+    cur, cnt, seen, tot = None, 0, 0, 0
+    for ln in mp.splitlines():
+        m = _re.match(r"^## (.+?) \((\d+)건\)\s*$", ln)
+        if m or (ln.startswith("## ") and cur):
+            if cur:
+                assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
+                tot += seen
+            cur, cnt, seen = (m.group(1), int(m.group(2)), 0) if m else (None, 0, 0)
+        elif cur and ln.startswith("| `근거_"):
+            seen += 1
+    if cur:
+        assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
+        tot += seen
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 84, tot
