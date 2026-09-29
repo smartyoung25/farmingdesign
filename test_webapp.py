@@ -2695,7 +2695,8 @@ def test_277cha_guide_covers_every_console_screen():
     listed = {s["path"] for s in g["screens"]} | {x["path"] for x in g["not_screens"]}
     assert got == listed, (
         "🔴 안내에 빠진 화면 %r · 안내에만 있는 경로 %r" % (sorted(got - listed), sorted(listed - got)))
-    assert len(g["screens"]) == 17 and len(g["not_screens"]) == 3, g["counts"]
+    #   📌278차(WO-014)에 관점별 화면 2개가 늘어 17 → 19가 됐다
+    assert len(g["screens"]) == 19 and len(g["not_screens"]) == 3, g["counts"]
     #   화면마다 네 칸이 다 있다(빈칸으로 넘어가지 않는다)
     for s in g["screens"]:
         for k in ("name", "what", "input", "output", "why_empty"):
@@ -2704,7 +2705,8 @@ def test_277cha_guide_covers_every_console_screen():
     # ── ② 화면 링크가 실제로 열린다 ───────────────────────────────────────
     codes = [c["code"] for c in [{"code": "C1"}, {"code": "C2"}]]
     for s in g["screens"]:
-        p_ = s["path"].replace("{display_code}", codes[0]).replace("{wo_id}", "WO-001")
+        p_ = (s["path"].replace("{display_code}", codes[0])
+              .replace("{wo_id}", "WO-001").replace("{name}", "농업인"))
         assert client.get(p_).status_code == 200, (s["path"], p_)
 
     # ── ③ 답에 출처가 붙고, 출처가 실재한다 ───────────────────────────────
@@ -2745,7 +2747,7 @@ def test_277cha_guide_covers_every_console_screen():
     assert r.status_code == 200
     html = r.text
     assert _cd.audit(html) == {}, _cd.audit(html)
-    assert html.count('class="scr"') == 17
+    assert html.count('class="scr"') == 19
     assert html.count("확인 필요") >= len(need)
     for bad in ("추천", "권장합니다", "최적", "이것이 맞다"):
         assert bad not in html, f"🔴 안내에 판정 어휘 「{bad}」"
@@ -2760,4 +2762,112 @@ def test_277cha_guide_covers_every_console_screen():
     assert "수치를 새로 적지 않는다" in g["note"], "🔴 note의 수치 금지 경계가 사라졌다"
     assert "**「확인 필요」**가 정답이다" in src
     assert "리포 안 출처가 있는 것만" in g["note"]
+
+
+def test_278cha_perspective_entries_are_a_view_not_a_verdict(monkeypatch):
+    """278차(WO-014) — 관점별 입구가 **입구이지 판정이 아닌가**.
+
+    🔴 배정은 상수 한 곳에 있고 화면은 읽기만 한다 — 화면이 코드를 새로 고르지 않는다.
+    🔴 27종이 적어도 한 관점에 들어가고, 어디에도 없으면 **화면에 드러난다**.
+    🔴 가점 대조표는 **지침 원문 인용**이고 대응이 없으면 **없다고 적는다** —
+       「가점을 받는다」고 단정하면 실패.
+    🔴 공통·근거 9종이 메뉴에 **이름으로 나온다**(273차 §2가 연 것).
+    """
+    import os as _o, io as _io
+    import consulting_package as _cp
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd_ = lambda p_: _io.open(_o.path.join(root, p_), encoding="utf-8").read()
+    ix = _cp.perspective_index()
+
+    # ── ① 배정 — 27종 전부, 고아 0, 상수와 한 글자도 다르지 않다 ────────────
+    assert ix["total"] == 27 and len(_cp.PACKAGE_SPEC) == 27
+    names = [n for n, _a, _c in _cp.PERSPECTIVES]
+    assert names == ["농업인", "투자자", "공공기관"], names
+    assert [r["name"] for r in ix["rows"]] == names
+    for r, (n, ask, codes) in zip(ix["rows"], _cp.PERSPECTIVES):
+        assert r["name"] == n and r["ask"] == ask
+        assert [d["code"] for d in r["docs"]] == list(codes), (n, codes)
+    assigned = {c for _n, _a, cs in _cp.PERSPECTIVES for c in cs}
+    assert assigned == {s["code"] for s in _cp.PACKAGE_SPEC}, (
+        "🔴 배정 밖 코드 %r" % sorted({s["code"] for s in _cp.PACKAGE_SPEC} - assigned))
+    assert ix["orphan"] == [] and ix["assigned"] == 27
+    #   🔴 지금 고아가 0건이라 위 단언은 비어 있다 — **하나를 빼서** 드러나는지 본다
+    cut = tuple((n, a, tuple(c for c in cs if c != "D21")) for n, a, cs in _cp.PERSPECTIVES)
+    monkeypatch.setattr(_cp, "PERSPECTIVES", cut)
+    holed = _cp.perspective_index()
+    assert [o["code"] for o in holed["orphan"]] == ["D21"], holed["orphan"]
+    assert "D21" in client.get("/for").text
+    monkeypatch.undo()
+    #   제목·이유는 기존 상수에서 온 것이다(화면이 짓지 않는다)
+    spec_by = {s["code"]: s for s in _cp.PACKAGE_SPEC}
+    for r in ix["rows"]:
+        for d in r["docs"]:
+            assert d["title"] == spec_by[d["code"]].get("title", "")
+            assert d["why"] == _cp.FUNCTION_OF_CODE[d["code"]][1]
+
+    # ── ② 가점 대조 — 원문 인용 · 대응 없으면 없다고 적는다 ─────────────────
+    assert len(ix["score"]) == 5, len(ix["score"])
+    kinds = {x["kind"] for x in ix["score"]}
+    assert kinds == {"우선지원(가점)", "후순위(감점)"}, kinds
+    withdocs = [x for x in ix["score"] if x["codes"]]
+    assert len(withdocs) == 1, [x["text"][:20] for x in withdocs]
+    assert withdocs[0]["codes"] == ["D2", "D4", "D6", "D7"], withdocs[0]
+    assert "설계도서(도면, 내역서, 시방서, 구조계산서, 부하계산서 등)가 준비된 경우" in withdocs[0]["text"]
+    #   ⚠️ 상수로만 비교하면 **빈 문자열로 바꿔 숨겨도** 통과한다 — 글자로 못 박는다
+    assert _cp.PERSPECTIVE_NONE == "대응 산출물 없음", _cp.PERSPECTIVE_NONE
+    for x in ix["score"]:
+        if not x["codes"]:
+            assert x["note"] == "대응 산출물 없음", x
+    #   원문이 근거 문서에 실재한다
+    #   ⚠️ 근거 문서는 인용을 **줄바꿈해 적는다** — 공백을 눌러 비교한다
+    #      인용문이 **블록인용(`>`)**이라 줄머리 기호도 벗긴다
+    doc = " ".join(w for ln in rd_("근거_외부수집_기능공백_20260924.md").splitlines()
+                   for w in ln.lstrip("> ").split())
+    for x in ix["score"]:
+        assert " ".join(x["text"].split()) in doc, (
+            "🔴 가점 항목이 근거 문서 원문에 없다: %s" % x["text"][:24])
+    assert _cp.GUIDELINE_SCORE_SOURCE.split()[0] == "근거_외부수집_기능공백_20260924.md"
+
+    # ── ③ 🔴 단정하지 않는다 ──────────────────────────────────────────────
+    src = rd_("consulting_package.py")
+    assert "단정하지 않는다" in src and "심사 주체의 몫" in src
+    assert "입구이지 판정이 아니다" in ix["note"]
+    #   ⚠️ 소스에는 *「…고 단정하지 않는다」*처럼 **부정문 속 인용**이 있다 —
+    #      낱개 낱말로 소스를 재면 그 인용이 걸린다. **화면**에서 잰다.
+    pub = client.get("/for/공공기관").text
+    for bad in ("가점을 받는다", "가점을 준다", "가점 대상이다"):
+        assert bad not in pub, f"🔴 화면이 단정한다: 「{bad}」"
+    #   ⚠️ 배너(note)와 대조표 머리말 **두 곳**이다 — 한 곳만 지워도 통과하면 안 된다
+    assert pub.count("심사 주체") == 2, (
+        "🔴 「심사 주체」가 %d곳이다 — 배너·대조표 머리말 2곳이다" % pub.count("심사 주체"))
+
+    # ── ④ 화면 — 전체·관점 3개 200 · 없는 관점 404 ─────────────────────────
+    all_ = client.get("/for")
+    assert all_.status_code == 200
+    #   🔴 질문(ask)이 **화면에 그대로** 나온다 — 화면이 새로 짓지 않는다
+    for _n, ask_, _c in _cp.PERSPECTIVES:
+        assert ask_ in all_.text, f"🔴 「{_n}」의 질문이 화면에 없다"
+    for n in names:
+        r = client.get("/for/" + n)
+        assert r.status_code == 200, n
+        html = r.text
+        assert _cd.audit(html) == {}, _cd.audit(html)
+        for bad in ("추천", "권장", "최적", "우선순위"):
+            assert bad not in html, f"🔴 {n} 화면에 판정 어휘 「{bad}」"
+    assert client.get("/for/없는관점").status_code == 404
+    #   공공기관 화면에만 가점 대조표가 붙는다
+    assert "가·감점 항목" in client.get("/for/공공기관").text
+    assert "가·감점 항목" not in client.get("/for/농업인").text
+
+    # ── ⑤ 🔴 공통·근거 9종이 메뉴에 이름으로 나온다 ────────────────────────
+    base = rd_("webapp_templates/_base.html")
+    assert "f.fn != 'F0'" not in base, "🔴 F0 제외가 되살아났다"
+    home = client.get("/").text
+    f0 = next(r for r in _cp.function_index()["rows"] if r["fn"] == "F0")
+    assert len(f0["docs"]) == 9, len(f0["docs"])
+    assert f0["name"] in home, "🔴 공통·근거 기능 이름이 메뉴에 없다"
+    for page in ("/", "/functions", "/entry"):
+        c_ = client.get(page).text.count('href="/for"')
+        assert c_ == 2, f"🔴 {page}의 관점별 링크가 {c_}곳이다(머리·푸터 2곳)"
 

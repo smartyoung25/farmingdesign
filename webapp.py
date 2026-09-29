@@ -229,6 +229,27 @@ def function_map(request: Request):
     })
 
 
+# ── 278차(WO-014): 관점별 입구 — 보는 사람의 질문으로 묶는다(분류뿐) ────────
+#   🔴 입구이지 판정이 아니다 — 「당신에겐 이것이 맞다」를 말하지 않는다.
+_PERSPECTIVE_NAMES = [n for n, _a, _c in cpkg.PERSPECTIVES]
+
+
+@app.get("/for")
+def perspectives(request: Request):
+    return templates.TemplateResponse(request, "perspective.html",
+                                      {"ix": cpkg.perspective_index(),
+                                       "all_names": _PERSPECTIVE_NAMES})
+
+
+@app.get("/for/{name}")
+def perspective_one(request: Request, name: str):
+    ix = cpkg.perspective_index(name)
+    if not ix:
+        raise HTTPException(status_code=404, detail=f"관점이 없다: {name}")
+    return templates.TemplateResponse(request, "perspective.html",
+                                      {"ix": ix, "all_names": _PERSPECTIVE_NAMES})
+
+
 # ── 277차(WO-013): 사용 안내 — 화면별 설명 · FAQ · Q&A ────────────────────
 #   🔴 기입 7단계(`ENTRY_STEPS`)는 **상태기계로 그대로 둔다** — 여기가 대신하지 않는다.
 @app.get("/guide")

@@ -1,0 +1,86 @@
+{% extends "_base.html" %}
+{% set active = "perspective" %}
+{% block title %}{{ ix.one.name if ix.one else "관점별 입구" }}{% endblock %}
+{% block main %}
+  <style>
+    .pbar { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 16px; }
+    .pbar a { border:1px solid var(--line); border-radius:9px; padding:8px 13px;
+              font-size:13px; text-decoration:none; color:inherit; }
+    .pbar a.on { border-color:var(--green); }
+    .pbar a b { display:block; font-size:13.5px; }
+    .pbar a small { color:var(--sub); font-size:11.5px; }
+    .grp { background:var(--card); border:1px solid var(--line); border-radius:12px;
+           padding:16px 18px; margin-bottom:14px; }
+    .grp > h2 { font-size:15px; font-weight:500; margin-bottom:2px; }
+    .grp > h2 .cnt { float:right; font-size:12px; color:var(--mut); font-weight:400; }
+    .grp > .d { font-size:12.5px; color:var(--sub); margin-bottom:12px; }
+    .dgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr)); gap:8px; }
+    .d1 { border:1px solid var(--line); border-radius:9px; padding:9px 12px; }
+    .d1 .c { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; color:var(--green); }
+    .d1 .t { font-size:13px; font-weight:500; }
+    .d1 .w { font-size:11.5px; color:var(--sub); line-height:1.45; margin-top:3px; }
+    .d1 .s { font-size:11px; color:var(--mut); margin-top:3px; }
+    .sc { border-bottom:1px solid var(--line); padding:9px 0; }
+    .sc:last-child { border-bottom:none; }
+    .sc .k { font-size:11px; color:var(--mut); }
+    .sc .t { font-size:12.5px; line-height:1.55; margin-top:2px; }
+    .sc .m { font-size:11.5px; margin-top:4px; }
+    .sc .m code { font-size:11px; color:var(--green); }
+    .sc .none { color:var(--mut); font-style:italic; font-size:11.5px; margin-top:4px; }
+  </style>
+
+  <div class="top"><h1>{{ ix.one.name if ix.one else "관점별 입구" }}</h1>
+    <div class="actions"><a class="btn" href="/axes">축 대응표</a><a class="btn" href="/">케이스</a></div></div>
+  <div class="subtitle">{% if ix.one %}{{ ix.one.ask }}{% else %}같은 산출물 {{ ix.total }}종을 <b>보는 사람의 질문</b>으로 묶는다{% endif %}</div>
+  <div class="banner">{{ ix.note }}</div>
+
+  <div class="pbar">
+    {% for r in all_names %}
+    <a class="{% if ix.one and ix.one.name == r %}on{% endif %}" href="/for/{{ r }}"><b>{{ r }}</b></a>
+    {% endfor %}
+    <a href="/for">전체</a>
+  </div>
+
+  {% for r in ix.rows %}
+  <div class="grp">
+    <h2>{{ r.name }}<span class="cnt">{{ r.count }}종</span></h2>
+    <div class="d">{{ r.ask }}</div>
+    <div class="dgrid">
+      {% for d in r.docs %}
+      <div class="d1">
+        <div class="c">{{ d.code }}</div>
+        <div class="t">{{ d.title }}</div>
+        <div class="w">{{ d.why }}</div>
+        <div class="s">{{ d.stage }} · {{ d.function }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if ix.orphan %}
+  <div class="grp">
+    <h2>어느 관점에도 없는 산출물<span class="cnt">{{ ix.orphan | length }}종</span></h2>
+    <div class="d">숨기지 않고 적는다 — 배정이 빠진 것인지 정말 그런 것인지는 사람이 본다</div>
+    <div class="dgrid">
+      {% for o in ix.orphan %}<div class="d1"><div class="c">{{ o.code }}</div><div class="t">{{ o.title }}</div></div>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not ix.one or ix.one.name == "공공기관" %}
+  <div class="grp">
+    <h2>지침 가·감점 항목과 우리 산출물의 이름 대응<span class="cnt">{{ ix.score | length }}항목</span></h2>
+    <div class="d">🔴 <b>지침 원문 인용</b>이다 — 가점을 주는 것은 심사 주체이고, 여기는 <b>이름 대응까지만</b> 적는다</div>
+    {% for x in ix.score %}
+    <div class="sc">
+      <div class="k">{{ x.kind }}</div>
+      <div class="t">“{{ x.text }}”</div>
+      {% if x.codes %}<div class="m">대응 산출물: {% for c in x.codes %}<code>{{ c }}</code>{% if not loop.last %} · {% endif %}{% endfor %}</div>
+      {% else %}<div class="none">{{ x.note }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="d" style="margin-top:10px">출처: <code>{{ ix.score_source }}</code></div>
+  </div>
+  {% endif %}
+{% endblock %}

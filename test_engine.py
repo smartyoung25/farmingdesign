@@ -14082,13 +14082,13 @@ def test_273cha_console_inspection_counts_come_from_the_code():
     assert ix["total"] == 27 and per == {"F1": 5, "F2": 5, "F3": 8, "F0": 9}, (ix["total"], per)
     assert "**F1 5 · F2 5 · F3 8 · F0 9**" in doc
     #   드롭다운이 F0를 건너뛴다는 사실 — 템플릿에서 확인한다
-    #   ⚠️ 낱개 문자열로 재면 한 곳만 지워도 통과한다 — **머리 드롭다운과 푸터 두 곳**을 따로 본다
+    #   🔴278차(WO-014)에 **F0 제외가 걷혔다** — 드롭다운·푸터 모두 네 기능을 다 보여 준다.
+    #      273차 문서의 「건너뛴다」는 **그때의 상태**이고 그 기록은 지우지 않는다.
     base = rd("webapp_templates/_base.html")
-    svc = base[base.index("<summary>서비스</summary>"):]
-    svc = svc[:svc.index("</details>")]
-    assert "f.fn != 'F0'" in svc, "🔴 서비스 드롭다운의 F0 제외가 사라졌다 — 점검 §2가 낡았다"
-    assert base.count("f.fn != 'F0'") == 2, (
-        "🔴 F0 제외가 %d곳이다 — 점검은 드롭다운·푸터 2곳으로 셌다" % base.count("f.fn != 'F0'"))
+    assert "f.fn != 'F0'" not in base, (
+        "🔴 F0 제외가 되살아났다 — 278차가 걷은 것이다")
+    assert base.count("nav_functions()") == 2, (
+        "🔴 기능 메뉴가 %d곳이다 — 드롭다운·푸터 2곳이다" % base.count("nav_functions()"))
 
     # ── ③ 참조 드롭다운 — 링크 수와 설명 수를 템플릿에서 다시 센다 ──────────
     drop = base[base.index("<details><summary>참조</summary>"):]

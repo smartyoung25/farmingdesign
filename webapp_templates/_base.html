@@ -108,12 +108,13 @@
       <div class="drop">
         <a href="/functions">기능 지도<small>산출물 27종을 기능으로 묶은 지도</small></a>
         <a href="/axes">축 대응표<small>같은 산출물을 부르는 네 이름을 한 줄에</small></a>
-        {% for f in nav_functions() %}{% if f.fn != 'F0' %}
+        {% for f in nav_functions() %}
         <a href="/functions#{{ f.fn }}" title="{{ f.desc }}">{{ f.name }}<small>{{ f.desc }}</small></a>
-        {% endif %}{% endfor %}
+        {% endfor %}
       </div></details>
     <a class="{% if active == 'cases' %}active{% endif %}" href="/#cases">케이스</a>
     <a class="{% if active == 'entry' %}active{% endif %}" href="/entry">기입</a>
+    <a class="{% if active == 'perspective' %}active{% endif %}" href="/for">관점별</a>
     <a class="{% if active == 'guide' %}active{% endif %}" href="/guide">사용 안내</a>
     <details><summary>참조</summary>
       <div class="drop">
@@ -137,9 +138,9 @@
 </main>
 <footer class="foot"><div class="in">
   <div class="col"><b>서비스</b><a href="/functions">기능 지도</a><a href="/axes">축 대응표</a>
-    {% for f in nav_functions() %}{% if f.fn != 'F0' %}<a href="/functions#{{ f.fn }}">{{ f.name }}</a>{% endif %}{% endfor %}</div>
+    {% for f in nav_functions() %}<a href="/functions#{{ f.fn }}">{{ f.name }}</a>{% endfor %}</div>
   <div class="col"><b>작업</b><a href="/#cases">케이스</a><a href="/entry">기입 워크플로</a><a href="/entry/newcase">새 케이스</a><a href="/workorders">작업지시서(WO)</a></div>
-  <div class="col"><b>참조</b><a href="/guide">사용 안내</a><a href="/refs">참조 카탈로그</a><a href="/pages/SmartFarm_근거대장.html">근거대장</a><a href="/pages/SmartFarm_벤치마크비교.html">벤치마크</a>
+  <div class="col"><b>참조</b><a href="/for">관점별 입구</a><a href="/guide">사용 안내</a><a href="/refs">참조 카탈로그</a><a href="/pages/SmartFarm_근거대장.html">근거대장</a><a href="/pages/SmartFarm_벤치마크비교.html">벤치마크</a>
     <a href="/pages/SmartFarm_CAPEX분해.html">CAPEX 분해</a><a href="/pages/SmartFarm_케이스비교.html">케이스 비교뷰</a><a href="/pages/index.html">정적 사이트(index)</a></div>
   <div class="col" style="flex:1; min-width:220px">{% block foot %}계산은 전부 엔진(smartfarm_engine) — 앱 내 산술 없음{% endblock %}
     <span>계산 수치는 엔진 호출 결과의 표시다 — 건수는 레지스트리·케이스·WO 파일을 센 것이다</span></div>
