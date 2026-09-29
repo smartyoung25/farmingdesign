@@ -11335,8 +11335,8 @@ def test_198cha_code_pointers_to_documents_resolve():
     #    실재 확인함(이 가드의 앞 절이 파일 존재를 이미 잰다).
     # 🔴223차 — `consulting_package.py`가 `근거_사업기획서_컨셉적용_20260921.md`를
     #    인용해 46→47이 됐다(플랫폼 3단계 축의 출처). 실재 확인함.
-    assert len(cited) == 49, (
-        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종 · 211차 45종 · 212차 46종(`consulting_package.py`가 외부수집 근거 문서를 인용) · 223차 47종(같은 파일이 사업기획서 컨셉 적용 문서를 인용) · 247차 49종(`audit_work_orders.py`가 WO 색인 `README.md`와 스킬 `SKILL.md`를 인용 — 둘 다 실재). "
+    assert len(cited) == 50, (
+        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종 · 211차 45종 · 212차 46종(`consulting_package.py`가 외부수집 근거 문서를 인용) · 223차 47종(같은 파일이 사업기획서 컨셉 적용 문서를 인용) · 247차 49종(`audit_work_orders.py`가 WO 색인 `README.md`와 스킬 `SKILL.md`를 인용 — 둘 다 실재) · 276차 50종(`consulting_package.py`가 `근거지도_20260923.md`를 인용 — 실재). "
         "늘었다면 **새 인용이 실재하는지** 방금 확인한 것이고, 줄었다면 인용이 "
         "사라진 것이니 어느 쪽인지 적고 갱신하라")
 
@@ -14094,10 +14094,13 @@ def test_273cha_console_inspection_counts_come_from_the_code():
     drop = base[base.index("<details><summary>참조</summary>"):]
     drop = drop[:drop.index("</details>")]
     links = _re.findall(r'<a href="([^"]+)"[^>]*>(.*?)</a>', drop, _re.S)
-    assert len(links) == 7, f"🔴 참조 링크가 {len(links)}개다 — 점검은 7개로 셌다"
+    #   🔴276차(WO-012)에 참조 카탈로그가 들어가 **8개 중 3개**가 됐다.
+    #      273차 문서의 「7 중 2」는 **그때의 수**이고 그 기록은 지우지 않는다.
+    assert len(links) == 8, f"🔴 참조 링크가 {len(links)}개다 — 276차 실측은 8개다"
     withsmall = [h for h, t in links if "<small>" in t]
-    assert len(withsmall) == 2, f"🔴 설명 있는 링크가 {len(withsmall)}개다 — 점검은 2개로 셌다"
+    assert len(withsmall) == 3, f"🔴 설명 있는 링크가 {len(withsmall)}개다 — 276차 실측은 3개다"
     assert "**7 중 2.**" in doc
+    assert "276차" in doc, "🔴 점검 문서에 276차 갱신 기록이 없다"
 
     # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
     cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))

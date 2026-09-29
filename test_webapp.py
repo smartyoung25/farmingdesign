@@ -2537,3 +2537,139 @@ def test_275cha_axes_map_flattens_existing_axes_without_making_one():
     assert "새 축을 만들지 않는다" in src
     assert "없는 대응을 만들어 채우면" in src
 
+
+def test_276cha_refs_catalog_is_recounted_from_the_files(monkeypatch):
+    """276차(WO-012) — 참조 카탈로그가 **파일에서 다시 센 것**인가.
+
+    🔴 건수를 문서에서 옮기지 않는다 — 이 가드가 glob으로 다시 세어 화면과 맞춘다.
+    🔴 설명을 지어내지 않는다 — `근거지도`·`source_refs`에서 온 것이고, 없으면
+       「설명 없음(등재 필요)」으로 **드러난다**(빈칸으로 숨지 않는다).
+    🔴 status를 새로 매기지 않는다 — 레지스트리 값과 한 글자도 다르지 않다.
+    """
+    import os as _o, io as _io, glob as _g, json as _json
+    import consulting_package as _cp
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    cat = _cp.refs_catalog()
+
+    # ── ① 갈래별 건수를 glob으로 다시 센다 ────────────────────────────────
+    by = {g["key"]: g for g in cat["groups"]}
+    assert list(by) == ["docs", "originals", "outputs", "wos"], list(by)
+    n = lambda pat: len(_g.glob(_o.path.join(root, pat)))
+    assert by["docs"]["count"] == n("근거_*.md"), by["docs"]["count"]
+    assert by["outputs"]["count"] == n("SmartFarm_*.html") + n("index.html")
+    assert by["wos"]["count"] == n(_o.path.join("docs", "work-orders", "WO-*.md"))
+    assert cat["total"] == sum(g["count"] for g in cat["groups"])
+    #   원문 갈래 = 레지스트리가 지목한 비-md 파일 ∪ 법령·고시
+    reg = _json.loads(_io.open(_o.path.join(root, "엔진데이터_레지스트리.json"),
+                               encoding="utf-8").read())["constants"]
+    cited = {r["file"] for v in reg.values() for r in (v.get("source_refs") or [])
+             if r.get("file") and not r["file"].endswith(".md")}
+    cited |= {_o.path.basename(p) for p in _g.glob(_o.path.join(root, "법령_*.pdf"))}
+    cited |= {_o.path.basename(p) for p in _g.glob(_o.path.join(root, "고시_*.pdf"))}
+    assert by["originals"]["count"] == len(cited), (by["originals"]["count"], len(cited))
+
+    # ── ② 설명은 옮긴 것이다 — 지도 행과 글자가 같다 ───────────────────────
+    mp = _cp._refs_map_rows(root)
+    for x in by["docs"]["items"]:
+        if x["name"] in mp:
+            assert x["desc"] == mp[x["name"]][0], x["name"]
+            assert x["extra"] == ""
+        else:
+            assert x["desc"] == _cp.REFS_NO_DESC and x["extra"] == _cp.REFS_NOT_IN_MAP, x
+    assert cat["not_in_map"] == sum(1 for x in by["docs"]["items"]
+                                    if x["extra"] == _cp.REFS_NOT_IN_MAP)
+
+    # ── ③ 없는 것을 숨기지 않는다 ─────────────────────────────────────────
+    real_missing = [x["name"] for x in by["originals"]["items"]
+                    if not _o.path.exists(_o.path.join(root, x["name"]))]
+    flagged = [x["name"] for x in by["originals"]["items"]
+               if x["extra"] == _cp.REFS_NOT_IN_REPO]
+    assert sorted(real_missing) == sorted(flagged), (real_missing, flagged)
+    assert cat["missing"] == len(flagged)
+    #   🔴 설명은 **옮긴 것**이다 — note가 있으면 그 note, 없으면 「설명 없음」.
+    #      기본값을 지어내면(예: 「원문 자료」) 여기서 걸린다.
+    note_of = {}
+    for _v in reg.values():
+        for _r in (_v.get("source_refs") or []):
+            f_ = _r.get("file")
+            if f_ and f_ not in note_of and _r.get("note"):
+                note_of[f_] = _r["note"]
+    for x in by["originals"]["items"]:
+        assert x["desc"] == note_of.get(x["name"], _cp.REFS_NO_DESC), (
+            "🔴 %s의 설명이 옮긴 것이 아니다: %r" % (x["name"], x["desc"][:40]))
+    #   설명 없는 항목은 **정말로 아무 상수도 가리키지 않는 것**이어야 한다
+    for g in cat["groups"]:
+        for x in g["items"]:
+            if x["desc"] == _cp.REFS_NO_DESC and g["key"] == "originals":
+                assert not x["consts"], (x["name"], x["consts"])
+
+    # ── ④ status는 레지스트리 값이다(새로 매기지 않는다) ────────────────────
+    st_of = {k: (v.get("status") or "") for k, v in reg.items()}
+    for g in cat["groups"]:
+        for x in g["items"]:
+            want = sorted({st_of[c] for c in x["consts"] if c in st_of and st_of[c]})
+            assert x["statuses"] == want, (x["name"], x["statuses"], want)
+
+    # ── ⑤ 화면 — 200 · 전수 · 실명 0 · 죽은 링크 0 · 메뉴 2곳 ───────────────
+    r = client.get("/refs")
+    assert r.status_code == 200
+    html = r.text
+    assert html.count('class="it"') == cat["total"], (html.count('class="it"'), cat["total"])
+    assert _cd.audit(html) == {}, _cd.audit(html)
+    for x in by["outputs"]["items"]:
+        assert client.get(x["href"]).status_code == 200, x["href"]
+    for page in ("/", "/functions", "/entry"):
+        c_ = client.get(page).text.count('href="/refs"')
+        assert c_ == 2, f"🔴 {page}의 참조 카탈로그 링크가 {c_}곳이다(머리·푸터 2곳)"
+
+    # ── ⑥ 269·270차 자료가 이름으로 찾힌다 ────────────────────────────────
+    docnames = {x["name"] for x in by["docs"]["items"]}
+    for want in ("근거_외부수집_기능공백_20260924.md",
+                 "근거_지역정규화_기상지점_20260929.md",
+                 "근거_콘솔점검_20260929.md"):
+        assert want in docnames, f"🔴 {want}가 카탈로그에 없다"
+
+    # ── ⑦ 경계 문구를 지우지 않았다 ───────────────────────────────────────
+    src = _io.open(_o.path.join(root, "consulting_package.py"), encoding="utf-8").read()
+    assert "설명을 지어내지 않는다" in src and "status를 새로 매기지 않는다" in src
+    assert "세어서 낸다" in src
+    assert "지어내지 않는다" in cat["note"] and "리포에 없음" in cat["note"]
+
+    # ── ⑧ 🔴 표시 문구를 **글자로 못 박는다** — 상수와 함께 바뀌면 가드가 데이터를
+    #      따라간다(211·212차 교훈). 빈 문자열로 바꿔 숨기는 것을 여기서 잡는다.
+    assert _cp.REFS_NO_DESC == "설명 없음(등재 필요)", _cp.REFS_NO_DESC
+    assert _cp.REFS_NOT_IN_REPO == "리포에 없음", _cp.REFS_NOT_IN_REPO
+    assert _cp.REFS_NOT_IN_MAP == "지도 미등재", _cp.REFS_NOT_IN_MAP
+
+    # ── ⑨ 🔴 지금 0건인 가지를 **일부러 만들어** 작동하는지 본다 ────────────
+    #      (지도 미등재 0 · 리포에 없음 0이라 위 단언만으로는 비어 있다)
+    monkeypatch.setattr(_cp, "_refs_map_rows", lambda root: {})
+    blind = _cp.refs_catalog()
+    bd = next(g for g in blind["groups"] if g["key"] == "docs")
+    assert blind["not_in_map"] == bd["count"] > 0
+    assert all(x["extra"] == "지도 미등재" and x["desc"] == "설명 없음(등재 필요)"
+               for x in bd["items"]), "🔴 지도에 없는 문서가 드러나지 않는다"
+    monkeypatch.undo()
+
+    #   없는 원문을 레지스트리에 심어 「리포에 없음」이 뜨는지 본다
+    real = _cp._refs_read
+    ghost = "없는원문_가드시험_20260929.pdf"
+    def fake(path):
+        t = real(path)
+        if path.endswith("엔진데이터_레지스트리.json"):
+            d = _json.loads(t)
+            d["constants"]["_GUARD_PROBE"] = {
+                "status": "추정",
+                "source_refs": [{"file": ghost, "note": "가드가 심은 것"}]}
+            return _json.dumps(d, ensure_ascii=False)
+        return t
+    monkeypatch.setattr(_cp, "_refs_read", fake)
+    probed = _cp.refs_catalog()
+    po = next(g for g in probed["groups"] if g["key"] == "originals")
+    hit = [x for x in po["items"] if x["name"] == ghost]
+    assert len(hit) == 1 and hit[0]["extra"] == "리포에 없음", hit
+    assert hit[0]["desc"] == "가드가 심은 것", hit
+    assert probed["missing"] == 1, probed["missing"]
+    monkeypatch.undo()
+

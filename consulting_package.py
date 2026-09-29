@@ -445,6 +445,125 @@ def axis_map() -> dict:
                      "기입 축의 세 단계(케이스 생성·문서 제출·근거 대조)는 **산출물 대응이 "
                      "없다** — 없는 대응을 만들지 않는다")}
 
+# ─────────────────────────────────────────────────────────────
+# 276차 — **참조 전수 카탈로그**(WO-012). 273차 점검 3절: 참조 메뉴 링크 7개 중
+#   설명이 2개고, 리포가 쥔 자료(근거 문서·법령·고시·생성 산출물)가 콘솔에서 안 닿았다.
+#   🔴 **세어서 낸다.** 건수는 파일 목록에서 만들고, 문서에 적힌 수를 믿지 않는다.
+#   🔴 **설명을 지어내지 않는다.** 근거 문서의 한 줄은 `근거지도_20260923.md`가 적은 것,
+#      원문 파일의 한 줄은 레지스트리 `source_refs`의 `note`를 옮긴 것이다.
+#      어느 쪽에도 없으면 **「설명 없음(등재 필요)」**이라 적는다.
+#   🔴 **status를 새로 매기지 않는다** — 레지스트리 값을 옮긴다.
+#   ⚠️ 개인 이름은 이 계층이 가리지 않는다 — **표시 계층(webapp)이 scrub**한다(183·184차).
+# ─────────────────────────────────────────────────────────────
+REFS_NO_DESC: str = "설명 없음(등재 필요)"
+REFS_NOT_IN_REPO: str = "리포에 없음"
+REFS_NOT_IN_MAP: str = "지도 미등재"
+_REFS_MAP_DOC: str = "근거지도_20260923.md"
+
+
+def _refs_read(path) -> str:
+    import io as _io
+    return _io.open(path, encoding="utf-8").read()
+
+
+def _refs_map_rows(root) -> dict:
+    """`근거지도`의 표를 {파일명: (한 줄, 묶인 상수)}로 읽는다(지도가 원본이다)."""
+    import os as _os
+    import re as _re
+    try:
+        txt = _refs_read(_os.path.join(root, _REFS_MAP_DOC))
+    except OSError:
+        return {}
+    out = {}
+    for ln in txt.splitlines():
+        m = _re.match(r"^\|\s*`([^`]+\.md)`\s*\|([^|]*)\|([^|]*)\|", ln)
+        if m:
+            consts = [c.strip(" `") for c in m.group(3).split("·") if c.strip(" `—")]
+            out[m.group(1)] = (m.group(2).strip(), consts)
+    return out
+
+
+def refs_catalog() -> dict:
+    """참조 자료 전수 — 갈래별 목록·건수. 세기만 한다(판정·계산 없음)."""
+    import glob as _glob
+    import json as _json
+    import os as _os
+    root = _os.path.dirname(_os.path.abspath(__file__))
+    j = lambda *a: _os.path.join(root, *a)
+    names = lambda pat: sorted(_os.path.basename(p) for p in _glob.glob(j(pat)))
+
+    reg = _json.loads(_refs_read(j("엔진데이터_레지스트리.json")))["constants"]
+    #   status는 **레지스트리 값을 옮긴다** — 새로 매기지 않는다
+    status_of = {k: (v.get("status") or "") for k, v in reg.items()}
+    ref_note, ref_by = {}, {}
+    for cname, v in reg.items():
+        for r in (v.get("source_refs") or []):
+            f = r.get("file")
+            if not f:
+                continue
+            ref_by.setdefault(f, []).append(cname)
+            if f not in ref_note and r.get("note"):
+                ref_note[f] = r["note"]
+
+    # ① 근거 문서 — 지도가 한 줄과 상수를 쥔다
+    mapped = _refs_map_rows(root)
+    docs = []
+    for n in names("근거_*.md"):
+        desc, consts = mapped.get(n, (None, []))
+        docs.append({"name": n, "desc": desc or REFS_NO_DESC,
+                     "extra": "" if n in mapped else REFS_NOT_IN_MAP,
+                     "consts": consts, "in_repo": True, "href": None,
+                     "statuses": sorted({status_of[c] for c in consts
+                                         if c in status_of and status_of[c]})})
+
+    # ② 원문 파일 — 레지스트리가 지목한 것 + 법령·고시. 없으면 없다고 적는다
+    cited = {f for f in ref_by if not f.endswith(".md")}
+    for pat in ("법령_*.pdf", "고시_*.pdf"):
+        cited |= set(names(pat))
+    originals = []
+    for f in sorted(cited):
+        exists = _os.path.exists(j(f))
+        cs_ = sorted(set(ref_by.get(f) or []))
+        originals.append({"name": f, "desc": ref_note.get(f) or REFS_NO_DESC,
+                          "extra": "" if exists else REFS_NOT_IN_REPO,
+                          "consts": cs_, "in_repo": exists, "href": None,
+                          "statuses": sorted({status_of[c] for c in cs_
+                                              if c in status_of and status_of[c]})})
+
+    # ③ 생성 산출물 — 콘솔이 /pages 로 연다
+    outputs = [{"name": n, "desc": "build_site.py가 만든 산출물", "extra": "",
+                "consts": [], "in_repo": True, "href": "/pages/" + n, "statuses": []}
+               for n in names("SmartFarm_*.html") + names("index.html")]
+
+    # ④ 작업지시서
+    wos = [{"name": n, "desc": "작업지시서(WO) — 과제 1건의 지시·수용기준", "extra": "",
+            "consts": [], "in_repo": True, "href": "/workorders", "statuses": []}
+           for n in sorted(_os.path.basename(p)
+                           for p in _glob.glob(j("docs", "work-orders", "WO-*.md")))]
+
+    groups = [
+        {"key": "docs", "name": "근거 문서", "why": "개별 수치·결정이 어디서 왔는지 적은 조사 기록",
+         "source": _REFS_MAP_DOC, "items": docs},
+        {"key": "originals", "name": "원문 파일", "why": "레지스트리가 지목한 원문 + 법령·고시",
+         "source": "엔진데이터_레지스트리.json (source_refs)", "items": originals},
+        {"key": "outputs", "name": "생성 산출물", "why": "엔진이 낸 보고서·비교표",
+         "source": "build_site.py", "items": outputs},
+        {"key": "wos", "name": "작업지시서", "why": "과제별 지시서와 수용기준",
+         "source": "docs/work-orders/", "items": wos},
+    ]
+    for g in groups:
+        g["count"] = len(g["items"])
+        g["missing"] = sum(1 for x in g["items"] if not x["in_repo"])
+        g["no_desc"] = sum(1 for x in g["items"] if x["desc"] == REFS_NO_DESC)
+    return {"groups": groups,
+            "total": sum(g["count"] for g in groups),
+            "missing": sum(g["missing"] for g in groups),
+            "not_in_map": sum(1 for x in docs if x["extra"] == REFS_NOT_IN_MAP),
+            "note": ("🔴건수는 **파일 목록에서 세었다** — 문서에 적힌 수를 옮기지 않았다. "
+                     "설명은 `근거지도`와 레지스트리 `source_refs`가 적은 것을 그대로 옮기고, "
+                     "어느 쪽에도 없으면 **「설명 없음(등재 필요)」**이라 적는다 — 지어내지 않는다. "
+                     "열 수 없는 원문은 **「리포에 없음」**으로 드러낸다")}
+
 JUDGMENT_CODES: tuple = ("D25", "D26", "D27")
 
 

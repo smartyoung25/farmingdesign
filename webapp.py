@@ -229,6 +229,18 @@ def function_map(request: Request):
     })
 
 
+# ── 276차(WO-012): 참조 전수 카탈로그 — 무엇·어디서·어느 상수에 걸리는가 ─────
+#   🔴 개인 이름은 **이 계층이 가린다**(183·184차 표시 계층) — 조립은 원본을 낸다.
+@app.get("/refs")
+def refs_catalog(request: Request):
+    cat = cpkg.refs_catalog()
+    for g in cat["groups"]:
+        g["items"] = [{**x, "name": cdsp.scrub(x["name"]),
+                       "desc": cdsp.scrub(x["desc"])} for x in g["items"]]
+    return templates.TemplateResponse(request, "refs_catalog.html",
+                                      {"cat": cat, "no_desc": cpkg.REFS_NO_DESC})
+
+
 # ── 275차(WO-011): 축 대응표 — 네 축을 한 줄에 둔다(분류뿐) ──────────────
 @app.get("/axes")
 def axis_map(request: Request):

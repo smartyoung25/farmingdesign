@@ -1,0 +1,58 @@
+{% extends "_base.html" %}
+{% set active = "refs" %}
+{% block title %}참조 카탈로그{% endblock %}
+{% block main %}
+  <style>
+    .gbar { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 16px; }
+    .gbar a { border:1px solid var(--line); border-radius:9px; padding:7px 12px;
+              font-size:12.5px; text-decoration:none; color:inherit; }
+    .gbar a b { font-size:14px; }
+    .grp { background:var(--card); border:1px solid var(--line); border-radius:12px;
+           padding:16px 18px; margin-bottom:14px; }
+    .grp > h2 { font-size:15px; font-weight:500; margin-bottom:2px; }
+    .grp > h2 .cnt { float:right; font-size:12px; color:var(--mut); font-weight:400; }
+    .grp > .d { font-size:12.5px; color:var(--sub); margin-bottom:4px; }
+    .grp > .src { font-size:11.5px; color:var(--mut); margin-bottom:12px; }
+    .it { border-bottom:1px solid var(--line); padding:8px 0; }
+    .it:last-child { border-bottom:none; }
+    .it .n { font-family:ui-monospace,Consolas,monospace; font-size:12px; word-break:break-all; }
+    .it .n a { color:var(--green); }
+    .it .w { font-size:11.5px; color:var(--sub); line-height:1.5; margin-top:3px; }
+    .it .k { font-size:11px; color:var(--mut); margin-top:3px; }
+    .it .k code { font-size:10.5px; }
+    .flag { display:inline-block; font-size:10.5px; border-radius:6px; padding:1px 6px;
+            margin-left:6px; border:1px solid #D9B9B9; background:#FDF6F6; color:#791F1F; }
+    .nod { color:var(--mut); font-style:italic; }
+  </style>
+
+  <div class="top"><h1>참조 카탈로그</h1>
+    <div class="actions"><a class="btn" href="/">케이스</a></div></div>
+  <div class="subtitle">리포가 쥔 참조 자료 <b>{{ cat.total }}건</b> 전수 — 무엇·어디서·어느 상수에 걸리는가</div>
+  <div class="banner">{{ cat.note }}</div>
+  {% if cat.missing or cat.not_in_map %}
+  <div class="banner">리포에 없음 <b>{{ cat.missing }}</b>건 · 지도 미등재 <b>{{ cat.not_in_map }}</b>건 — 숨기지 않고 아래에 표시한다</div>
+  {% endif %}
+
+  <div class="gbar">
+    {% for g in cat.groups %}
+    <a href="#{{ g.key }}"><b>{{ g.name }} {{ g.count }}</b>{% if g.no_desc %} · 설명 없음 {{ g.no_desc }}{% endif %}</a>
+    {% endfor %}
+  </div>
+
+  {% for g in cat.groups %}
+  <div class="grp" id="{{ g.key }}">
+    <h2>{{ g.name }}<span class="cnt">{{ g.count }}건</span></h2>
+    <div class="d">{{ g.why }}</div>
+    <div class="src">출처: <code>{{ g.source }}</code></div>
+    {% for x in g["items"] %}
+    <div class="it">
+      <div class="n">{% if x.href %}<a href="{{ x.href }}">{{ x.name }}</a>{% else %}{{ x.name }}{% endif %}
+        {% if x.extra %}<span class="flag">{{ x.extra }}</span>{% endif %}</div>
+      <div class="w{% if x.desc == no_desc %} nod{% endif %}">{{ x.desc }}</div>
+      {% if x.statuses %}<div class="k">status: {% for st in x.statuses %}<code>{{ st }}</code>{% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+      {% if x.consts %}<div class="k">묶인 상수: {% for c in x.consts %}<code>{{ c }}</code>{% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+{% endblock %}
