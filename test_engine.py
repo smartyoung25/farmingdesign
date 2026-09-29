@@ -4997,7 +4997,7 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 112, "partial": 57, "near": 17}, (
+    assert dist == {"exact": 113, "partial": 58, "near": 17}, (
         f"등급 분포가 {dist}로 바뀌었다 — 244차 실측은 exact 112 / partial 57 / near 17이다(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10))"
         "(+ 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
@@ -5063,7 +5063,7 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 17 and ledger.count("[부분]") == 57, (
+    assert ledger.count("[근접]") == 17 and ledger.count("[부분]") == 58, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
         "230차 실측(17·57 — 188차 15에 `KSFID_NUMBER_SPEC` near 2)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
         "(137차 확정 8·50 → 151차 partial +3 → 161차 near +1"
@@ -5265,7 +5265,7 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 74, (
+    assert len(rows) == 75, (
         f"partial·near가 {len(rows)}건이다 — 230차 실측은 74건(188차 72 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1 + `REGION_DESIGN_LOAD` 2 "
         "+ 🔴173차 감리 절차의 세 번째 시방서 사본 1)")
@@ -6012,7 +6012,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 112, "partial": 57, "near": 17}, (
+    assert dist == {"exact": 113, "partial": 58, "near": 17}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10))"
         "(+ 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
@@ -6512,7 +6512,7 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 186, (
+    assert a["counts"]["source_refs"] == 188, (
         f"source_refs가 {a['counts']['source_refs']}다 — 244차 실측은 186건(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10)) · 230차 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(177차 173 + 🔴178차 OPEX 비목 대조 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
@@ -6632,7 +6632,7 @@ def test_152cha_blind_spot_classes_are_declared_not_guessed():
         "🔴 게이트 순서(build_site를 pytest **앞에**)가 근거문서에서 사라졌다 — "
         "151차에 실제로 낡은 HTML로 배지 가드가 통과했다")
     ledger = rd("SmartFarm_근거대장.html")
-    assert ledger.count("[부분]") == 57, (
+    assert ledger.count("[부분]") == 58, (
         f"근거대장 [부분] 배지가 {ledger.count('[부분]')}다 — build_site를 먼저 돌렸는지 보라")
 
     # ── ⑦ 이 차수가 하지 않은 것 ──────────────────────────────────────
@@ -7609,7 +7609,7 @@ def test_163cha_design_load_byepyo_registered():
     # 🔴178차 — `OPEX_ITEM_CATEGORIES`가 풀려 3건 → 2건이 됐다(조사표 비목 대조)
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 178차 실측은 2건이다")
-    assert a["counts"]["source_refs"] == 186, (
+    assert a["counts"]["source_refs"] == 188, (
         f"source_refs가 {a['counts']['source_refs']}건이다 — 244차 실측은 186건(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10)) · 230차 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
@@ -7822,7 +7822,7 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴213차 — 공개 함수 71→74(procurement_route·warranty_bond_requirement·
     #    quote_count_requirement). ★결정으로 열린 등재라 대기 대장에는 가지 않는다.
     # 🔴241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다)
-    assert len(pub) == 75 and len(cls) == 30, (
+    assert len(pub) == 76 and len(cls) == 30, (
         f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 241차 실측은 75·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
@@ -8134,7 +8134,7 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
     # 🔴241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다) — 서비스설계 §5 부지×공종설계에 배치
-    assert len(cited) == 75 and len(missing) == 0, (
+    assert len(cited) == 76 and len(missing) == 0, (
         f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 241차 실측은 75/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
@@ -8429,8 +8429,9 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     # 🔴241차 — `WEATHER_STATION_ALIASES` 등재로 72 → 73(★D-5·D-6 결정)
     # 🔴244차 — `PUMSEM_OVERHEAD_RATES` 등재로 73 → 74(★D-10 — 원문 [주] 전사)
     # 🔴274차 — `WEATHER_MATCH_RULE` 등재로 74 → 75(★괄호 규칙 — 241차 D-5의 잔여 구멍)
-    assert len(reg["constants"]) == 75, (
-        "🔴 레지스트리 상수가 75개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+    # 🔴279차 — `GUIDELINE_FEE_RATE_BASIS`·`GUIDELINE_FEE_RATE_TABLE` 등재로 75 → 77(★D-17 닫힘)
+    assert len(reg["constants"]) == 77, (
+        "🔴 레지스트리 상수가 77개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
@@ -9267,7 +9268,7 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    if n.returns is not None else "")
             pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
     marked = sorted(f for f in pub if pub[f])
-    assert len(pub) == 75, f"🔴 공개 함수가 {len(pub)}개다 — 241차 실측은 75다(241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다))"
+    assert len(pub) == 76, f"🔴 공개 함수가 {len(pub)}개다 — 241차 실측은 75다(241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다))"
     # 🔴187차 — ★ 등급 부여로 `ksfid_grade`가 신설돼 15 → 16이 됐다.
     # 🔴188차 — `guarantee_assessment`·`progress_certification`이 신설돼 16 → 18.
     # 🔴208차 — ★②의 `service_life_index()`가 `rows`·`counts`를 내므로 18 → 19다.
@@ -9349,7 +9350,10 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
 
     # ── ⑥ 칸 밖 함수가 **조용히 늘지 않았는가** ──────────────────────
     outside = sorted(set(pub) - {f for fns in assign.values() for f in fns})
-    assert outside == ["consulting_fee_estimate", "guarantee_fee", "ksfid_number",
+    #   📌279차 — `guideline_fee_reference`(D-17 닫힘)가 늘었다. 3×6은 **컨설팅 대상×단계**
+    #      축이라 대가 산출 계열은 원래 칸 밖이다(`consulting_fee_estimate`와 같은 자리).
+    assert outside == ["consulting_fee_estimate", "guarantee_fee",
+                       "guideline_fee_reference", "ksfid_number",
                        "ksfid_validity", "m2_to_py", "py_to_m2",
                        "revenue_won"], (
         f"🔴 3×6 칸에 배정되지 않은 함수가 {outside}다 — 188차 실측은 6개다"
@@ -9413,7 +9417,7 @@ def test_181cha_package_layer_assembles_without_calculating():
     assert len(codes) == 27 and len(set(codes)) == 27, (
         f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D27이어야 한다")
     cov = cp.coverage()
-    assert len(cov["declared"]) == 73, (
+    assert len(cov["declared"]) == 74, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
         "241차 실측은 73종이다(213차 72 + D1 `weather_station`)")
     ghost = sorted(f for f in cov["declared"] if f not in pub)
@@ -9510,14 +9514,16 @@ def test_181cha_package_layer_assembles_without_calculating():
         for fn in pub:
             if (fn + "(") in b:
                 reached.add(fn)
-    assert len(reached) == 18, (
+    #   📌279차 19 — `build_site`가 `guideline_fee_reference`를 부른다(표시 계층이
+    #      산식을 복제하지 않고 **엔진을 부른** 것이다 — 192차와 같은 이유).
+    assert len(reached) == 19, (
         f"🔴 기존 산출물 4파일이 직접 부르는 함수가 {len(reached)}개다 — "
         "192차 실측은 18개다(181차 17 + `revenue_won` — 🔴**늘어난 이유가 중요하다**: "
         "표시 계층이 **산식을 복제하던 것을 엔진 호출로 바꾼** 것이지 배선이 헐거워진 "
         "것이 아니다)")
     together = reached.union(cov["declared"])
     # 🔴241차 — ★D-5·D-6으로 `weather_station` 신설 + D1이 부른다 → 75 / 75(도달 사각 0 유지)
-    assert len(together) == len(pub) == 75, (
+    assert len(together) == len(pub) == 76, (
         f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 241차 실측은 **75 / 75**다"
         "(패키지 이전 17 · 181차 46 · 182차 62 · 187차 65 · 🔴188차 성능보증 4함수)")
     # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
@@ -10769,7 +10775,7 @@ def test_192cha_presentation_layer_does_not_calculate():
     assert "신기능이 아니라 회수" in design, (
         "🔴 설계서에서 **`revenue_won()`이 왜 늘었는지**가 사라졌다 — 함수 수가 "
         "69 → 70으로 늘어난 것을 **기능이 늘었다**고 읽으면 측정이 오독된다")
-    assert "칸 밖 함수 7개" in design
+    assert "칸 밖 함수 8개" in design
 
 
 def test_193cha_named_sources_were_actually_looked_for():
@@ -10859,7 +10865,8 @@ def test_193cha_named_sources_were_actually_looked_for():
     #    84 → 85(레드팀 29회차 A1·A6 반영). 이 가드의 앞 절이 실재를 확인했다.
     # 🔴241차 — `WEATHER_STATION_ALIASES` source가 `근거_결정대기대장_20260915.md`를 인용해 85 → 86
     # 🔴274차 — `WEATHER_MATCH_RULE` source가 `근거_지역정규화_기상지점_20260929.md`를 인용해 86 → 87
-    assert len(cited) == 87, (
+    # 🔴279차 — `GUIDELINE_FEE_RATE_*` source가 `법령_엔지니어링대가기준_별표1`과 `근거_설계감리요율_원문대조_20260929.md`를 인용해 87 → 89
+    assert len(cited) == 89, (
         f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 274차 실측은 87종이다(241차 86 + 지역정규화 근거). "
         "늘었다면 **새 인용이 실재하는지** 이 가드가 방금 확인한 것이고, "
         "줄었다면 인용이 사라진 것이니 어느 쪽인지 적고 갱신하라")
@@ -13842,18 +13849,17 @@ def test_269cha_the_2026_guideline_was_opened_and_nothing_was_registered():
     for cell in ("9.52", "6.16", "1.66", "1.7", "1.32", "2.73"):
         assert cell in sec, f"🔴 요율표 칸 {cell} 이 근거 문서에서 사라졌다"
     esrc = rd("smartfarm_engine.py")
-    #   ⚠️ 낱개 수로 재면 안 된다 — `ridge_height_m=6.16` 같은 규격값이 먼저 걸린다.
-    #      요율표가 들어왔다면 **한 줄에 여러 칸**이 같이 온다. 그 조합으로 잰다.
-    cells = ("9.52", "8.57", "7.54", "6.88", "6.16", "5.47", "4.67", "4.15",
-             "1.66", "1.53", "1.48", "1.41", "1.57", "1.52", "1.42", "1.32",
-             "3.36", "2.87", "2.73")
-    for ln in esrc.splitlines():
-        if ln.lstrip().startswith("#"):
-            continue
-        hits = [c for c in cells if c in ln]
-        assert len(hits) < 2, f"🔴 지침 요율 {hits} 이 엔진 **코드** 한 줄에 함께 등재됐다 — D-17은 대기다: {ln.strip()[:120]}"
-    assert len(_e.SUPERVISION_FEE_RATE_TABLE) == 17, "🔴 건축사대가기준 표(17구간)가 바뀌었다"
-    assert "결정 대기 D-17" in esrc and "값은 **바꾸지 않았다**" in esrc
+    #   ✅**279차에 D-17이 닫혀 요율표가 등재됐다**(사용자 결정 2026-09-29).
+    #      269차는 「등재하지 않았다」를 잰 차수이고 그 기록은 근거 문서에 남는다.
+    #      지금 재는 것은 **등재된 값이 지침 표와 같은가**다.
+    assert [r[1] for r in _e.GUIDELINE_FEE_RATE_TABLE] == [6.16, 5.47, 5.1, 4.67, 4.15]
+    assert [r[2] for r in _e.GUIDELINE_FEE_RATE_TABLE] == [1.66, 1.53, 1.48, 1.45, 1.41]
+    assert [r[3] for r in _e.GUIDELINE_FEE_RATE_TABLE] == [1.7, 1.57, 1.52, 1.42, 1.32]
+    #   소계는 지침 표가 적은 값과 맞는다(세 요율의 합)
+    assert [round(sum(r[1:]), 2) for r in _e.GUIDELINE_FEE_RATE_TABLE] == [9.52, 8.57, 8.1, 7.54, 6.88]
+    assert len(_e.SUPERVISION_FEE_RATE_TABLE) == 17, "🔴 건축사대가기준 표가 바뀌었다"
+    #   🔴 건축사대가기준은 **지우지 않는다** — 적용 사업이 다르다
+    assert "279차에 닫혔다" in esrc and "적용 사업이 다르다" in esrc
 
     # ── ④ D-17이 대장에 있고 굵은 번호가 겹치지 않는다 ─────────────────────
     led = rd("근거_결정대기대장_20260915.md")
@@ -13868,7 +13874,8 @@ def test_269cha_the_2026_guideline_was_opened_and_nothing_was_registered():
     assert bold.count("D-17") == 1, f"🔴 D-17이 대장 본문 행에서 사라졌거나 겹쳤다: {bold}"
     #   ⚠️ 전체 유일성은 재지 않는다 — D-3·D-7은 **269차 이전부터** 굵은 행이 두 번씩이다
     #      (HEAD 9224d45에서 확인). 내 차수가 만든 것이 아니라 여기서 고치지 않는다.
-    assert "지금 대기 6건 · 닫힘 11건" in led and "어느 목록에도 없던 것 (**9건**" in led
+    #   📌279차 — D-17이 닫혀 대기 6 → 5 · 닫힘 11 → 12가 됐다(ⓒ 건수는 그대로 9)
+    assert "지금 대기 5건 · 닫힘 12건" in led and "어느 목록에도 없던 것 (**9건**" in led
 
     # ── ⑤ ★2022-104 준거 불변 · 가점 목록에 내재해형이 없다 ────────────────
     assert "221차 ★결정(2022-104호 준거)이 **최신 지침에서도 그대로 서 있다**" in sec
@@ -14104,7 +14111,7 @@ def test_273cha_console_inspection_counts_come_from_the_code():
 
     # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
     cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))
-    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 77),
+    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 78),   # 📌279차 +1(설계감리요율 대조)
                           ("법령 원문 `법령_*.pdf`", "법령_*.pdf", 7),
                           ("고시 원문 `고시_*.pdf`", "고시_*.pdf", 1)):
         assert cnt(pat) == n, f"🔴 {pat} 가 {cnt(pat)}건이다 — 점검은 {n}건으로 셌다"
@@ -14227,6 +14234,104 @@ def test_274cha_bracket_rule_blocks_only_province_qualifiers():
         assert row in doc, f"🔴 두 뜻 표의 행이 사라졌다: {row}"
     assert "103지역은 잇지 않는다" in doc
     assert "위 수는 272차 시점이다" in doc, "🔴 272차 수의 시점 표기가 사라졌다"
+
+
+
+def test_279cha_guideline_fee_rates_are_reread_from_the_annex():
+    """279차(D-17 닫힘) — 지침 요율표가 **원문에서 다시 읽어도** 같은가.
+
+    🔴 등재값을 문서와 대조하지 않는다 — `법령_엔지니어링대가기준_별표1_건설부문요율.pdf`를
+       **열어서 숫자를 다시 뽑아** 엔진 상수와 맞춘다(설계비=실시설계·도로, 공사감리비=공사감리).
+    🔴 **사업관리비는 원문을 확보하지 못했다** — [확인요망]과 사슬 기록이 사라지면 실패.
+    🔴 **보간하지 않는다** · 표 밖은 None과 사유 · 건축사대가기준은 **지우지 않는다**.
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    _pp = __import__("importlib").util.find_spec("pdfplumber")
+    if _pp is None:                                  # 의존성 가드(환경 유실 대응)
+        import pytest as _pt
+        _pt.skip("pdfplumber 없음 — 원문 재판독 불가")
+    import pdfplumber as _pdf
+
+    # ── ① 원문에서 다시 뽑는다 ────────────────────────────────────────────
+    path = _o.path.join(repo, "법령_엔지니어링대가기준_별표1_건설부문요율.pdf")
+    assert _o.path.exists(path), "🔴 별표1 원문이 리포에서 사라졌다"
+    with _pdf.open(path) as pdf:
+        txt = "\n".join((p.extract_text() or "") for p in pdf.pages)
+    #   ⚠️ 「가. 기본설계」가 먼저 나온다 — **절을 먼저 잘라야** 실시설계를 읽는다
+    assert "나. 실시설계" in txt and "다. 공사감리" in txt
+    sil = txt[txt.index("나. 실시설계"):txt.index("다. 공사감리")]
+    def row(seg, label, n):
+        m = _re.search(r"(?m)^%s 이하\s+([\d.\s]+)$" % _re.escape(label), seg)
+        assert m, "🔴 「%s 이하」 행을 찾지 못했다" % label
+        return [float(x) for x in m.group(1).split()][:n]
+    # 나. 실시설계 — 열 순서 도로·철도·항만·상수도·하천 → 첫 열이 도로
+    design = [row(sil, l, 5)[0] for l in ("10억원", "20억원", "30억원", "50억원", "100억원")]
+    assert design == [6.16, 5.47, 5.10, 4.67, 4.15], design
+
+    # ── ② 엔진 상수가 원문과 같은가 ───────────────────────────────────────
+    tbl = _e.GUIDELINE_FEE_RATE_TABLE
+    assert [r[0] for r in tbl] == [1_000_000_000, 2_000_000_000, 3_000_000_000,
+                                   5_000_000_000, 10_000_000_000]
+    assert [r[1] for r in tbl] == design, "🔴 설계비가 별표1 실시설계(도로)와 다르다"
+    assert [r[2] for r in tbl] == [1.66, 1.53, 1.48, 1.45, 1.41]
+    #   공사감리 열은 원문에 그대로 있다(두 칸씩 나뉜 표라 값 존재만 확인)
+    for v in ("1.66", "1.53", "1.48", "1.45", "1.41"):
+        assert v in txt, "🔴 별표1 공사감리 %s 가 원문에 없다" % v
+    #   비고가 「도로 적용」과 「비상주 감리」를 적는다 — 온실이 도로 열을 쓰는 근거다
+    flat = " ".join(txt.split())
+    assert "요율표가 작성되지 않은 다른 분야는 도로분야의 요율을 적용한다" in flat
+    assert "공사감리" in flat and "비상주 감리를 말한다" in flat
+
+    # ── ③ 🔴 사업관리비는 원문을 확보하지 못했다 ──────────────────────────
+    assert [r[3] for r in tbl] == [1.7, 1.57, 1.52, 1.42, 1.32]
+    chain = _e.GUIDELINE_FEE_RATE_BASIS["mgmt_origin_chain"]
+    for tok in ("농어촌정비법 시행규칙 제60조", "제2024-92호", "기획재정부 편성지침", "원문 미확보"):
+        assert tok in chain, "🔴 사업관리비 사슬에서 「%s」가 사라졌다" % tok
+    ref = _e.guideline_fee_reference(1_000_000_000)
+    assert ref["사업관리비_주의"].startswith("[확인요망]"), ref["사업관리비_주의"][:40]
+    doc = rd("근거_설계감리요율_원문대조_20260929.md")
+    assert "사업관리비는 원문을 **확보하지 못했다**" in doc
+    assert "기획재정부 「예산안 편성 및 기금운용계획안 작성 세부지침」" in doc
+    #   근거 문서도 **원문 인용을 그대로** 담는다(PDF만 보면 문서가 조용히 낡는다)
+    dflat = " ".join(doc.split())
+    assert "요율표가 작성되지 않은 다른 분야는 **도로분야의 요율을 적용**한다" in dflat, (
+        "🔴 근거 문서에서 별표1 비고 5 인용이 사라졌다")
+    assert "비상주 감리" in dflat
+
+    # ── ④ 보간하지 않는다 · 표 밖은 None ──────────────────────────────────
+    mid = _e.guideline_fee_reference(2_500_000_000)
+    assert mid["적용구간_상한_원"] == 3_000_000_000
+    assert mid["요율_pct"]["설계비"] == 5.10, "🔴 사이 값을 보간했다"
+    over = _e.guideline_fee_reference(12_000_000_000)
+    assert over["요율_pct"] is None and "지어내지 않는다" in over["사유"]
+    #   소계는 지침 표가 적은 값과 맞는다
+    assert [round(sum(r[1:]), 2) for r in tbl] == [9.52, 8.57, 8.1, 7.54, 6.88]
+
+    # ── ⑤ 건축사대가기준을 지우지 않았다 — 두 표는 갈린다 ──────────────────
+    assert len(_e.SUPERVISION_FEE_RATE_TABLE) == 17
+    arch = _e.design_supervision_fee_reference(1_000_000_000)["요율_pct"]
+    assert max(arch.values()) < tbl[0][2], (
+        "🔴 두 표가 갈린다는 전제가 깨졌다 — 건축사 %r vs 지침 %s" % (arch, tbl[0][2]))
+    assert _e.GUIDELINE_FEE_RATE_BASIS["applies_to"] == "스마트팜 ICT 융복합확산(온실신축) 사업"
+    assert "건축사대가기준" in _e.GUIDELINE_FEE_RATE_BASIS["not_applies"]
+
+    # ── ⑥ D-17이 닫혔다는 기록 ────────────────────────────────────────────
+    led = rd("근거_결정대기대장_20260915.md")
+    assert "~~**D-17**~~ ✅**닫힘(279차)**" in led
+    assert "지금 대기 5건 · 닫힘 12건" in led
+    rel = rd("릴리스_v1.2_20260928.md")
+    assert "| D-17 설계·감리·사업관리비 요율 조회처 |" in rel
+    #   조립 계층·보고서가 **둘 다** 낸다
+    src = rd("consulting_package.py")
+    assert '"지침 요율(온실신축)"' in src and "건축사대가기준 — 다른 사업용" in src
+    assert "guideline_fee_reference" in rd("build_site.py")
+
+    # ── ⑦ 확인하지 못한 것을 지우지 않았다 ────────────────────────────────
+    assert "지침이 왜 감리만 비상주 계열을 골랐는지" in doc
+    assert "시행일·고시번호**를 PDF 안에서 확인하지 못했다" in doc
 
 
 if __name__ == "__main__":

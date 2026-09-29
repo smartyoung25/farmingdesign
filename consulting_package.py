@@ -86,7 +86,8 @@ PACKAGE_SPEC = [
      "engine": ["env_fitness", "yield_adjustment", "production_kg",
                 "opex_breakdown", "improvement_roi"]},
     {"code": "D22", "title": "컨설팅 대가 산출", "stage": "④타당성검증", "targets": ["시설"],
-     "engine": ["consulting_fee_estimate", "design_supervision_fee_reference"]},
+     "engine": ["consulting_fee_estimate", "design_supervision_fee_reference",
+                "guideline_fee_reference"]},
     # 🔴185차 — 사업기획서(투자검증·설계보증 플랫폼)의 1·3단계를 3×6에 얹는다.
     #   2단계(설계 적정성 검증)는 이미 D4·D13·D14·D15가 덮는다(대응표는 설계서 §0-c).
     {"code": "D23", "title": "투자 실사 카드(6영역)", "stage": "④타당성검증",
@@ -1428,8 +1429,12 @@ def build_package(case: dict, injections: dict = None) -> dict:
                                "OPEX 잔차는 `unclassified`로 **남긴다**"))
 
         elif code == "D22":
-            d = {"감리 대가 참고": e.design_supervision_fee_reference(
-                 inp.total_construction_cost)}
+            # 🔴279차(D-17 닫힘) — 온실신축은 **지침 요율표**가 조회처다.
+            #    건축사대가기준은 **다른 사업용**이라 지우지 않고 함께 낸다.
+            d = {"지침 요율(온실신축)": e.guideline_fee_reference(
+                     inp.total_construction_cost),
+                 "감리 대가 참고(건축사대가기준 — 다른 사업용)":
+                     e.design_supervision_fee_reference(inp.total_construction_cost)}
             fi = inj.get("fee_inputs")
             if fi:
                 d["실비정액가산 산출"] = e.consulting_fee_estimate(**fi)

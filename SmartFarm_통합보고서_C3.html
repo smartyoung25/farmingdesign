@@ -158,6 +158,14 @@ a.step .w{color:var(--muted);font-size:.9em}
       계산은 전 지표 엔진 재호출. 어느 시나리오의 실현을 판정하지 않으며 확률·기대값은 모델링하지 않는다.</p>
     <p class='note'>대출조건 미제공 — 케이스에 financing 블록(대출금액·금리·전체/거치기간·상환방식)을 넣으면 연차별 상환표가 자동 생성된다(엔진 loan_amortization, 가공 조건은 채우지 않음).</p>
     
+    <h2 style="margin-top:16px">설계·감리·사업관리비 — 온실신축 지침 요율(CAPEX 불산입)</h2>
+    <table><thead><tr><th>항목</th><th class='num'>요율</th>
+      <th class='num'>대가 추정(원)</th></tr></thead>
+    <tbody><tr><td>설계비</td><td class='num'>6.16%</td><td class='num'>34,320,563</td></tr><tr><td>공사감리비</td><td class='num'>1.66%</td><td class='num'>9,248,723</td></tr><tr><td>사업관리비</td><td class='num'>1.70%</td><td class='num'>9,471,584</td></tr></tbody></table>
+    <p class='note'>적용 사업: 스마트팜 ICT 융복합확산(온실신축) 사업 · 구간 상한 1,000,000,000원
+      (보간하지 않는다). 원문: 엔지니어링사업대가의 기준 [별표1] 건설부문의 요율 — 실시설계(도로)·공사감리.<br>
+      [확인요망] 농어촌정비법 시행규칙 제60조 → 농식품부고시 제2024-92호 제3조제2항 → 기획재정부 편성지침의 시설부대경비 요율(원문 미확보)<br>보간하지 않는다(구간 「이하」 적용) · CAPEX 합계에 산입하지 않는 참고 표시다 · 실계약액과 종별 선택은 판단성이라 고르지 않는다</p>
+    
     <h2 style="margin-top:16px">설계·감리비 참고(법정요율 — CAPEX 불산입)</h2>
     <table><thead><tr><th>종별(별표3 난이도)</th><th class='num'>요율</th>
       <th class='num'>감리비 추정(원)</th></tr></thead>
@@ -174,5 +182,5 @@ a.step .w{color:var(--muted);font-size:.9em}
     <p class="note">2026-07-16 사용자 제안 13분류(총사업비 관점) 채택 후 재청킹. 근거 없는 7개(부대시설·축열보온·기자재구매·설계감리비·부지조성비·예비비·부지매입비)는 0 — smartfarm_engine.capex_major_breakdown(CAPEX_MAJOR_CASE_CHUNKS[&#x27;C3&#x27;], known_total=456158140)로 재현 가능</p>
   </section>
   <p><a class="report-link" href="index.html"><span class="t">← 목록으로</span></a></p>
-<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-09-29 14:48</div>
+<div class="note">계산 출처: smartfarm_engine 단일 · 벤치마크는 실측 ACTUALS 기준 · 생성 2026-09-29 16:09</div>
 </div></body></html>

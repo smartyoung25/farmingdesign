@@ -744,7 +744,7 @@ def test_traceability_audit_gate_green_and_backlog_pinned():
     # 🔴231차 — `MATERIAL_APPROVAL_ALIASES` 등재로 상수 71→72(결정 — 파일 ref 없음, refs 불변)
     # 🔴241차 — `WEATHER_STATION_ALIASES` 등재로 상수 72→73(★D-5·D-6 결정 — 파일 ref 없음)
     # 🔴244차 — `PUMSEM_OVERHEAD_RATES` 등재로 상수 73→74 · refs 184→186(exact 2, ★D-10)
-    assert a["counts"]["registry_constants"] == 75 and a["counts"]["source_refs"] == 186
+    assert a["counts"]["registry_constants"] == 77 and a["counts"]["source_refs"] == 188
     # 감사기 자체의 실재 검사 동작(red 자기검증)
     assert at._ref_ok({"file": "없는폴더/없는파일.pdf"}) is False
     # 감사자는 계산 참여자가 아니다 — 엔진 계층이 audit를 참조하지 않음

@@ -557,6 +557,25 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
         financing_detail = ("<p class='note'>대출조건 미제공 — 케이스에 financing 블록(대출금액·금리·"
                             "전체/거치기간·상환방식)을 넣으면 연차별 상환표가 자동 생성된다"
                             "(엔진 loan_amortization, 가공 조건은 채우지 않음).</p>")
+    # 279차(D-17 닫힘) — 온실신축의 조회처는 **지침 요율표**다(사용자 결정 2026-09-29).
+    #   건축사대가기준은 다른 사업용이라 아래에 함께 남긴다.
+    gfee = e.guideline_fee_reference(case["input"]["total_construction_cost"])
+    if gfee and gfee.get("요율_pct"):
+        g_rows = "".join(
+            f"<tr><td>{esc(k)}</td><td class='num'>{gfee['요율_pct'][k]:.2f}%</td>"
+            f"<td class='num'>{gfee['대가_원'][k]:,.0f}</td></tr>"
+            for k in e.GUIDELINE_FEE_ITEMS)
+        guideline_fee_detail = f"""
+    <h2 style="margin-top:16px">설계·감리·사업관리비 — 온실신축 지침 요율(CAPEX 불산입)</h2>
+    <table><thead><tr><th>항목</th><th class='num'>요율</th>
+      <th class='num'>대가 추정(원)</th></tr></thead>
+    <tbody>{g_rows}</tbody></table>
+    <p class='note'>적용 사업: {esc(gfee['적용_사업'])} · 구간 상한 {gfee['적용구간_상한_원']:,}원
+      (보간하지 않는다). 원문: {esc(gfee['원문'])}.<br>
+      {esc(gfee['사업관리비_주의'])}<br>{esc(gfee['주의'])}</p>"""
+    else:
+        guideline_fee_detail = ("<p class='note'>온실신축 지침 요율 — "
+                                + esc((gfee or {}).get('사유', '산출 불가')) + "</p>")
     # P1-6 잔여 해소(2026-08-18, 사용자 결정: 참고 표시 전용 — CAPEX 불산입)
     sup = e.design_supervision_fee_reference(case["input"]["total_construction_cost"])
     if sup:
@@ -593,6 +612,7 @@ def consulting_report_page(case: dict, res: dict, inp) -> str:
       가정값 주입 시 아래 렌더(2026-08-18 편입), 대출상환표는 P3-18 편입 — 각 섹션 참고.</p>
     {scenario_detail}
     {financing_detail}
+    {guideline_fee_detail}
     {supervision_detail}
     {capex_detail}
   </section>"""
