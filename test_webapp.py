@@ -2450,3 +2450,90 @@ def _io_read(rel):
     import io as _i, os as _o
     return _i.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)), rel),
                    encoding="utf-8").read()
+
+
+def test_275cha_axes_map_flattens_existing_axes_without_making_one():
+    """275차(WO-011) — 축 대응표가 **있는 매핑을 펴기만** 하는가.
+
+    🔴 축 값은 전부 상수에서 온 그대로다 — 화면·조립 함수가 축 이름을 새로 짓지 않는다.
+    🔴 기입 축의 대응은 `entry_steps()` **원문에서 다시 센다** — 그 함수가 이름을 대는
+       산출물 코드가 늘면 `ENTRY_STEP_OF_CODE`도 늘어야 한다(갈리면 실패).
+    🔴 대응이 없는 칸은 **「대응 없음」**으로 나온다. 없는 대응을 채우면 다섯 번째 축이다.
+    """
+    import re as _re, inspect as _inspect
+    import consulting_package as _cp
+
+    ix = _cp.axis_map()
+
+    # ── ① 27행 · 코드 집합이 기능 배정과 같다 ─────────────────────────────
+    codes = [r["code"] for r in ix["rows"]]
+    assert len(codes) == 27 and len(set(codes)) == 27, len(codes)
+    assert set(codes) == set(_cp.FUNCTION_OF_CODE), (
+        set(codes) ^ set(_cp.FUNCTION_OF_CODE))
+    assert ix["total"] == 27
+
+    # ── ② 축 값이 상수에서 온 그대로다(새 이름 0) ──────────────────────────
+    stages = set(_cp.STAGE_ORDER)
+    fns = {"%s %s" % (f, n) for f, n, _d in _cp.BENCHMARK_FUNCTIONS}
+    plats = {"%s %s" % (k, n) for k, n, _s, _d, _b in _cp.PLATFORM_STAGES}
+    steps = {n for _k, n, _w, _j in _cp.ENTRY_STEPS}
+    #   ⚠️ 「목록 안에 있나」로만 재면 **전부 같은 값을 넣어도** 통과한다 —
+    #      플랫폼은 **그 행의 단계에서 유도된 것**인지 본다
+    plat_of_stage = {st: "%s %s" % (k, n)
+                     for k, n, sts, _d, _b in _cp.PLATFORM_STAGES for st in sts}
+    for r in ix["rows"]:
+        assert r["stage"] in stages, r
+        assert r["platform"] == plat_of_stage[r["stage"]], (
+            "🔴 %s의 플랫폼이 단계에서 유도되지 않았다: %r" % (r["code"], r))
+        assert r["function"] in fns, r
+        for e in r["entry"]:
+            assert e in steps, r
+    #   축 목록도 상수 길이를 그대로 낸다
+    assert ix["axes"] == [("단계", "STAGE_ORDER", 6), ("플랫폼", "PLATFORM_STAGES", 3),
+                          ("기능", "BENCHMARK_FUNCTIONS", 4), ("기입", "ENTRY_STEPS", 7)], ix["axes"]
+
+    # ── ③ 🔴 기입 대응을 `entry_steps()` 원문에서 다시 센다 ─────────────────
+    named = sorted(set(_re.findall(r"D\d+", _inspect.getsource(_cp.entry_steps))))
+    assert named == sorted(_cp.ENTRY_STEP_OF_CODE), (
+        "🔴 `entry_steps()`가 이름을 대는 코드 %r와 ENTRY_STEP_OF_CODE %r가 갈라졌다"
+        % (named, sorted(_cp.ENTRY_STEP_OF_CODE)))
+    assert named == ["D25"], named
+    #   D25만 세 단계를 더 받는다
+    for r in ix["rows"]:
+        extra = [e for e in r["entry"] if e != "엔진 검증"]
+        assert (extra != []) == (r["code"] == "D25"), (r["code"], r["entry"])
+
+    # ── ④ 대응 없는 단계는 숨지 않는다 ────────────────────────────────────
+    empty = [s["key"] for s in ix["by_step"] if not s["codes"]]
+    assert empty == list(_cp.ENTRY_STEP_NO_CODE), (empty, _cp.ENTRY_STEP_NO_CODE)
+    for s in ix["by_step"]:
+        if not s["codes"]:
+            assert s["note"] == _cp.AXIS_NONE, s
+    assert len(ix["by_step"]) == 7
+    #   「엔진 검증」은 산출물 전체를 받는다
+    eng = next(s for s in ix["by_step"] if s["key"] == "engine")
+    assert set(eng["codes"]) == set(codes)
+
+    # ── ⑤ 화면 — 200 · 27행 · 판정 어휘 0 · 메뉴 링크 ──────────────────────
+    r = client.get("/axes")
+    assert r.status_code == 200
+    html = r.text
+    assert html.count('<td class="c">') == 27, html.count('<td class="c">')
+    assert html.count("대응 없음") >= 3
+    for bad in ("추천", "권장", "최적", "우선순위", "순위", "등급이 높"):
+        assert bad not in html, f"🔴 축 대응표에 판정 어휘 「{bad}」"
+    assert "분류이지 판정이 아니다" in html
+    #   ⚠️ 머리 메뉴와 푸터 **두 곳**이다 — 한 곳만 지워도 통과하면 안 된다
+    for page in ("/", "/functions", "/entry"):
+        n_link = client.get(page).text.count('href="/axes"')
+        assert n_link == 2, f"🔴 {page}의 축 대응표 링크가 {n_link}곳이다(머리·푸터 2곳)"
+
+    # ── ⑥ 🔴 새 축을 만들지 않았다 ────────────────────────────────────────
+    import os as _o, io as _io
+    src = _io.open(_o.path.join(_o.path.dirname(_o.path.abspath(webapp.__file__)),
+                                "consulting_package.py"), encoding="utf-8").read()
+    for made_up in ("SITE_FACILITY_EQUIPMENT", "OBJECT_AXIS", "부지_시설_장비"):
+        assert made_up not in src, f"🔴 새 축 `{made_up}`이 생겼다 — 축을 세우는 것은 ★사용자다"
+    assert "새 축을 만들지 않는다" in src
+    assert "없는 대응을 만들어 채우면" in src
+

@@ -107,6 +107,7 @@
     <details class="{% if active == 'functions' %}active{% endif %}"><summary>서비스</summary>
       <div class="drop">
         <a href="/functions">기능 지도<small>산출물 27종을 기능으로 묶은 지도</small></a>
+        <a href="/axes">축 대응표<small>같은 산출물을 부르는 네 이름을 한 줄에</small></a>
         {% for f in nav_functions() %}{% if f.fn != 'F0' %}
         <a href="/functions#{{ f.fn }}" title="{{ f.desc }}">{{ f.name }}<small>{{ f.desc }}</small></a>
         {% endif %}{% endfor %}
@@ -133,7 +134,7 @@
 {% block main %}{% endblock %}
 </main>
 <footer class="foot"><div class="in">
-  <div class="col"><b>서비스</b><a href="/functions">기능 지도</a>
+  <div class="col"><b>서비스</b><a href="/functions">기능 지도</a><a href="/axes">축 대응표</a>
     {% for f in nav_functions() %}{% if f.fn != 'F0' %}<a href="/functions#{{ f.fn }}">{{ f.name }}</a>{% endif %}{% endfor %}</div>
   <div class="col"><b>작업</b><a href="/#cases">케이스</a><a href="/entry">기입 워크플로</a><a href="/entry/newcase">새 케이스</a><a href="/workorders">작업지시서(WO)</a></div>
   <div class="col"><b>참조</b><a href="/pages/SmartFarm_근거대장.html">근거대장</a><a href="/pages/SmartFarm_벤치마크비교.html">벤치마크</a>

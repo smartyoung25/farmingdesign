@@ -229,6 +229,13 @@ def function_map(request: Request):
     })
 
 
+# ── 275차(WO-011): 축 대응표 — 네 축을 한 줄에 둔다(분류뿐) ──────────────
+@app.get("/axes")
+def axis_map(request: Request):
+    return templates.TemplateResponse(request, "axis_map.html",
+                                      {"ix": cpkg.axis_map()})
+
+
 # ── 6단계(210차): 케이스 상세 — 산출물이 콘솔에서 닿는다 ────────────────
 #   🔴 **실측이 결함을 정했다**: 산출물 **21건 중 9건**이 콘솔 어디에서도 닿지
 #      않았다 — 케이스당 **4축 리포트 · 컨설팅 패키지 · 판정 부록**(3종 × 3케이스).

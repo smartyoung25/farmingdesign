@@ -375,6 +375,76 @@ def function_index() -> dict:
                      "(F2 시방이 ①·②·⑥에 흩어져 있다)")}
 
 
+# ─────────────────────────────────────────────────────────────
+# 275차 — **축 대응표**(WO-011). 273차 점검이 센 것: 축이 넷인데 이어 주는 화면이 없다.
+#   🔴 **새 축을 만들지 않는다.** 네 축 상수를 읽어 **펴기만** 한다 —
+#      단계(`STAGE_ORDER`) · 플랫폼(`PLATFORM_STAGES`) · 기능(`FUNCTION_OF_CODE`) ·
+#      기입(`ENTRY_STEPS`). 값·순위·추천을 만들지 않는다(211·223차와 같은 경계).
+#   🔴 **기입 축만 산출물 대응이 없었다.** `entry_steps()`가 코드 이름을 대는 것은
+#      **D25 하나**뿐이고(가드가 그 함수 원문에서 다시 센다), 나머지는 케이스 파일·주입
+#      슬롯·provenance를 본다 — 그래서 세 단계는 **산출물 대응이 없다**고 적는다.
+#      없는 대응을 만들어 채우면 그 순간 **다섯 번째 축**이 된다.
+# ─────────────────────────────────────────────────────────────
+ENTRY_STEP_OF_CODE: dict = {"D25": ("rules", "issue", "renew")}
+ENTRY_STEP_ALL_CODES: tuple = ("engine",)        # 산출물 전체가 함께 걸리는 단계
+ENTRY_STEP_NO_CODE: tuple = ("case", "docs", "evidence")   # 산출물 대응이 없는 단계
+AXIS_NONE: str = "대응 없음"
+
+
+def axis_map() -> dict:
+    """산출물 코드 ↔ 네 축(단계·플랫폼·기능·기입). 분류뿐 — 계산·판정 없음.
+
+    반환의 모든 이름은 **상수에서 온 그대로**다. 이 함수는 이름을 짓지 않는다.
+    """
+    fn_name = {f: n for f, n, _d in BENCHMARK_FUNCTIONS}
+    entry_name = {k: n for k, n, _w, _j in ENTRY_STEPS}
+    platform_of_stage = {}
+    for key, name, stages, _desc, _bench in PLATFORM_STAGES:
+        for st in stages:
+            platform_of_stage[st] = (key, name)
+
+    rows = []
+    for spec in PACKAGE_SPEC:
+        code = spec["code"]
+        stage = spec.get("stage", "")
+        fn, why = FUNCTION_OF_CODE[code]
+        pk, pn = platform_of_stage.get(stage, (None, None))
+        steps = tuple(ENTRY_STEP_ALL_CODES) + tuple(ENTRY_STEP_OF_CODE.get(code, ()))
+        rows.append({
+            "code": code,
+            "title": spec.get("title", ""),
+            "stage": stage or AXIS_NONE,
+            "platform": AXIS_NONE if pk is None else f"{pk} {pn}",
+            "function": f"{fn} {fn_name[fn]}",
+            "why": why,
+            "entry": [entry_name[k] for k in steps] or [AXIS_NONE],
+            "appendix": code in JUDGMENT_CODES,
+        })
+
+    # 역방향 — 기입 단계에서 본 산출물(대응이 없는 칸을 숨기지 않는다)
+    by_step = []
+    for k, n, who, jas in ENTRY_STEPS:
+        if k in ENTRY_STEP_ALL_CODES:
+            codes, note = [r["code"] for r in rows], "산출물 전체"
+        elif k in ENTRY_STEP_NO_CODE:
+            codes, note = [], AXIS_NONE
+        else:
+            codes = sorted(c for c, ks in ENTRY_STEP_OF_CODE.items() if k in ks)
+            note = "" if codes else AXIS_NONE
+        by_step.append({"key": k, "name": n, "who": who, "jas": jas,
+                        "codes": codes, "note": note})
+
+    return {"rows": rows, "by_step": by_step,
+            "axes": [("단계", "STAGE_ORDER", len(STAGE_ORDER)),
+                     ("플랫폼", "PLATFORM_STAGES", len(PLATFORM_STAGES)),
+                     ("기능", "BENCHMARK_FUNCTIONS", len(BENCHMARK_FUNCTIONS)),
+                     ("기입", "ENTRY_STEPS", len(ENTRY_STEPS))],
+            "total": len(rows),
+            "note": ("🔴분류이지 판정이 아니다 — 어떤 축도 더 낫다고 하지 않는다. "
+                     "네 축은 각 상수에서 읽어 펴기만 했고 이 표가 이름을 짓지 않는다. "
+                     "기입 축의 세 단계(케이스 생성·문서 제출·근거 대조)는 **산출물 대응이 "
+                     "없다** — 없는 대응을 만들지 않는다")}
+
 JUDGMENT_CODES: tuple = ("D25", "D26", "D27")
 
 
