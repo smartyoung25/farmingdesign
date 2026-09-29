@@ -2673,3 +2673,91 @@ def test_276cha_refs_catalog_is_recounted_from_the_files(monkeypatch):
     assert probed["missing"] == 1, probed["missing"]
     monkeypatch.undo()
 
+
+def test_277cha_guide_covers_every_console_screen():
+    """277차(WO-013) — 사용 안내가 **콘솔 화면 전부**를 덮는가.
+
+    🔴 라우트를 앱에서 읽어 목록과 대조한다 — 새 화면이 생기면 **빠진 채로 통과하지 않는다**.
+    🔴 답에는 **리포 안 출처**가 붙고, 출처가 가리키는 파일·속성이 **실재**한다.
+    🔴 확인 안 된 질문은 **「확인 필요」**로 남는다 — 지어낸 답이 0이다.
+    🔴 기입 7단계는 **상태기계로 남는다** — 안내가 그것을 대신하지 않는다.
+    """
+    import os as _o, io as _io
+    import consulting_package as _cp
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd = lambda p_: _io.open(_o.path.join(root, p_), encoding="utf-8").read()
+    g = _cp.guide_index()
+
+    # ── ① 앱의 GET 라우트 = 화면 목록 + 화면 아닌 경로 ────────────────────
+    got = {r.path for r in webapp.app.routes
+           if "GET" in (getattr(r, "methods", None) or set())}
+    listed = {s["path"] for s in g["screens"]} | {x["path"] for x in g["not_screens"]}
+    assert got == listed, (
+        "🔴 안내에 빠진 화면 %r · 안내에만 있는 경로 %r" % (sorted(got - listed), sorted(listed - got)))
+    assert len(g["screens"]) == 17 and len(g["not_screens"]) == 3, g["counts"]
+    #   화면마다 네 칸이 다 있다(빈칸으로 넘어가지 않는다)
+    for s in g["screens"]:
+        for k in ("name", "what", "input", "output", "why_empty"):
+            assert s[k] and s[k].strip(), (s["path"], k)
+
+    # ── ② 화면 링크가 실제로 열린다 ───────────────────────────────────────
+    codes = [c["code"] for c in [{"code": "C1"}, {"code": "C2"}]]
+    for s in g["screens"]:
+        p_ = s["path"].replace("{display_code}", codes[0]).replace("{wo_id}", "WO-001")
+        assert client.get(p_).status_code == 200, (s["path"], p_)
+
+    # ── ③ 답에 출처가 붙고, 출처가 실재한다 ───────────────────────────────
+    import re as _re
+    for item in g["faq"] + g["qa"]:
+        assert item["src"].strip(), item["q"]
+        for tok in _re.findall(r"[\w가-힣_.]+\.(?:md|py|json)", item["src"]):
+            assert _o.path.exists(_o.path.join(root, tok)), (
+                "🔴 출처 파일이 없다: %s (%s)" % (tok, item["q"]))
+        #   ⚠️ `consulting_package.py`처럼 **파일 확장자**가 붙은 것은 이름이 아니다
+        import smartfarm_engine as _e
+        for attr in _re.findall(r"(?:smartfarm_engine|consulting_package)\.(\w+)", item["src"]):
+            if attr in ("py", "md", "json"):
+                continue
+            assert hasattr(_cp, attr) or hasattr(_e, attr), (
+                "🔴 출처가 가리키는 이름이 없다: %s" % attr)
+
+    # ── ④ 확인 필요를 지우지 않았다 ───────────────────────────────────────
+    need = [x for x in g["qa"] if not x["answered"]]
+    assert len(need) == g["counts"]["need_check"] >= 1
+    for x in need:
+        assert "확인 필요" in x["a"], (
+            "🔴 「확인 필요」로 표시했는데 답이 그렇게 말하지 않는다: %s" % x["q"])
+    #   답이 있다고 표시한 것은 **확인 필요라고 말하지 않는다**
+    for x in g["qa"]:
+        if x["answered"]:
+            assert "확인 필요" not in x["a"], x["q"]
+
+    # ── ⑤ 기입 7단계는 상태기계로 남는다 ──────────────────────────────────
+    assert len(_cp.ENTRY_STEPS) == 7
+    assert [k for k, *_ in _cp.ENTRY_STEPS][0] == "case"
+    src = rd("consulting_package.py")
+    assert "기입 7단계(`ENTRY_STEPS`)는 그대로 둔다" in src
+    assert "매뉴얼로 바꾸면 「어디까지 했는가」를 잃는다" in src
+
+    # ── ⑥ 화면 — 실명 0 · 판정 어휘 0 · 메뉴 2곳 ──────────────────────────
+    r = client.get("/guide")
+    assert r.status_code == 200
+    html = r.text
+    assert _cd.audit(html) == {}, _cd.audit(html)
+    assert html.count('class="scr"') == 17
+    assert html.count("확인 필요") >= len(need)
+    for bad in ("추천", "권장합니다", "최적", "이것이 맞다"):
+        assert bad not in html, f"🔴 안내에 판정 어휘 「{bad}」"
+    for page in ("/", "/functions", "/entry"):
+        c_ = client.get(page).text.count('href="/guide"')
+        assert c_ == 2, f"🔴 {page}의 사용 안내 링크가 {c_}곳이다(머리·푸터 2곳)"
+
+    # ── ⑦ 수치를 새로 적지 않았다 — 경계 문구 존속 ────────────────────────
+    #   ⚠️ 같은 문구가 주석과 note 두 곳에 있다 — **따로** 본다(한 곳만 지워도 잡히게)
+    head = src[:src.index("GUIDE_SCREENS: tuple")]
+    assert "수치를 새로 적지 않는다" in head, "🔴 주석의 수치 금지 경계가 사라졌다"
+    assert "수치를 새로 적지 않는다" in g["note"], "🔴 note의 수치 금지 경계가 사라졌다"
+    assert "**「확인 필요」**가 정답이다" in src
+    assert "리포 안 출처가 있는 것만" in g["note"]
+

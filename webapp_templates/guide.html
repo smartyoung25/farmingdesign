@@ -1,0 +1,86 @@
+{% extends "_base.html" %}
+{% set active = "guide" %}
+{% block title %}사용 안내{% endblock %}
+{% block main %}
+  <style>
+    .sec { background:var(--card); border:1px solid var(--line); border-radius:12px;
+           padding:16px 18px; margin-bottom:14px; }
+    .sec > h2 { font-size:15px; font-weight:500; margin-bottom:2px; }
+    .sec > h2 .cnt { float:right; font-size:12px; color:var(--mut); font-weight:400; }
+    .sec > .d { font-size:12.5px; color:var(--sub); margin-bottom:12px; }
+    .scr { border-bottom:1px solid var(--line); padding:10px 0; }
+    .scr:last-child { border-bottom:none; }
+    .scr .h { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; }
+    .scr .h .n { font-size:13.5px; font-weight:500; }
+    .scr .h a { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; color:var(--green); }
+    .scr .w { font-size:12.5px; color:var(--sub); margin-top:3px; line-height:1.5; }
+    .kv { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));
+          gap:6px 14px; margin-top:6px; }
+    .kv div { font-size:11.5px; line-height:1.5; }
+    .kv b { color:var(--mut); font-weight:400; }
+    .qa { border-bottom:1px solid var(--line); padding:10px 0; }
+    .qa:last-child { border-bottom:none; }
+    .qa .q { font-size:13px; font-weight:500; }
+    .qa .a { font-size:12.5px; color:var(--sub); line-height:1.6; margin-top:4px; }
+    .qa .s { font-size:11px; color:var(--mut); margin-top:4px; }
+    .tag { display:inline-block; font-size:10.5px; border-radius:6px; padding:1px 6px;
+           margin-left:6px; border:1px solid var(--line); }
+    .tag.need { border-color:#D9B9B9; background:#FDF6F6; color:#791F1F; }
+    .ns { font-size:11.5px; color:var(--mut); line-height:1.6; }
+    .ns code { font-size:11px; }
+  </style>
+
+  <div class="top"><h1>사용 안내</h1>
+    <div class="actions"><a class="btn" href="/">케이스</a><a class="btn" href="/axes">축 대응표</a></div></div>
+  <div class="subtitle">화면 <b>{{ g.counts.screens }}</b>개 · 자주 막히는 자리 <b>{{ g.counts.faq }}</b>건 ·
+    묻고 답함 <b>{{ g.counts.qa }}</b>건(그중 <b>확인 필요 {{ g.counts.need_check }}</b>건)</div>
+  <div class="banner">{{ g.note }}</div>
+
+  <div class="sec">
+    <h2>화면별 안내<span class="cnt">{{ g.counts.screens }}개</span></h2>
+    <div class="d">무엇을 하는 화면인가 · 무엇을 넣나 · 무엇이 나오나 · 안 나오면 왜</div>
+    {% for s in g.screens %}
+    <div class="scr">
+      <div class="h"><span class="n">{{ s.name }}</span><a href="{{ s.path }}">{{ s.path }}</a></div>
+      <div class="w">{{ s.what }}</div>
+      <div class="kv">
+        <div><b>넣는 것</b> · {{ s.input }}</div>
+        <div><b>나오는 것</b> · {{ s.output }}</div>
+        <div><b>안 나오면</b> · {{ s.why_empty }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="sec">
+    <h2>화면이 아닌 경로<span class="cnt">{{ g.counts.not_screens }}개</span></h2>
+    <div class="d">빠뜨린 것이 아니라 <b>화면이 아니어서</b> 여기 없다</div>
+    {% for x in g.not_screens %}
+    <div class="ns"><code>{{ x.path }}</code> — {{ x.why }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="sec">
+    <h2>자주 막히는 자리 (FAQ)<span class="cnt">{{ g.counts.faq }}건</span></h2>
+    <div class="d">답마다 <b>리포 안 출처</b>를 단다</div>
+    {% for f in g.faq %}
+    <div class="qa">
+      <div class="q">{{ f.q }}</div>
+      <div class="a">{{ f.a }}</div>
+      <div class="s">출처: <code>{{ f.src }}</code></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="sec">
+    <h2>묻고 답함 (Q&amp;A)<span class="cnt">{{ g.counts.qa }}건</span></h2>
+    <div class="d">답할 수 있는 것과 <b>확인 필요한 것</b>을 가른다 — 지어내지 않는다</div>
+    {% for x in g.qa %}
+    <div class="qa">
+      <div class="q">{{ x.q }}{% if not x.answered %}<span class="tag need">확인 필요</span>{% else %}<span class="tag">근거 있음</span>{% endif %}</div>
+      <div class="a">{{ x.a }}</div>
+      <div class="s">출처: <code>{{ x.src }}</code></div>
+    </div>
+    {% endfor %}
+  </div>
+{% endblock %}

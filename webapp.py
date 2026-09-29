@@ -229,6 +229,14 @@ def function_map(request: Request):
     })
 
 
+# ── 277차(WO-013): 사용 안내 — 화면별 설명 · FAQ · Q&A ────────────────────
+#   🔴 기입 7단계(`ENTRY_STEPS`)는 **상태기계로 그대로 둔다** — 여기가 대신하지 않는다.
+@app.get("/guide")
+def guide(request: Request):
+    return templates.TemplateResponse(request, "guide.html",
+                                      {"g": cpkg.guide_index()})
+
+
 # ── 276차(WO-012): 참조 전수 카탈로그 — 무엇·어디서·어느 상수에 걸리는가 ─────
 #   🔴 개인 이름은 **이 계층이 가린다**(183·184차 표시 계층) — 조립은 원본을 낸다.
 @app.get("/refs")

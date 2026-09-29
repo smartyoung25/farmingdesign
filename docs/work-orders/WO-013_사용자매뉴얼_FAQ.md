@@ -40,13 +40,13 @@
 - T3: 가드 + 차수 기록 — 완료 조건: 7절 전부 통과
 
 ## 7. 수용기준
-- [ ] 콘솔의 **읽기 화면 라우트 전부**가 매뉴얼에 항목으로 있다(빠지면 실패) (확인: `python -m pytest test_webapp.py -q -k guide`)
-- [ ] `ENTRY_STEPS` 7단계가 **상태기계로 남아 있고** 매뉴얼이 그 이름을 그대로 쓴다 (확인: 같은 명령)
-- [ ] FAQ·Q&A의 모든 답에 **리포 안 출처**(파일명·화면명)가 붙는다 (확인: 같은 명령)
-- [ ] 답이 확인되지 않은 질문은 **「확인 필요」**로 남고 지어낸 답이 0이다 (확인: 같은 명령)
-- [ ] 판정·추천 어휘가 0회다 (확인: 같은 명령)
-- [ ] 회귀 3파일 통과, C2 ROI 14.2% · Payback 7.1년 · 실질ROI 28.3% (확인: `python -m pytest test_engine.py test_registry.py test_cases.py -q`)
-- [ ] 5파일 회귀 통과, skip 0 (확인: `python -m pytest test_engine.py test_registry.py test_cases.py test_chunking_v2.py test_webapp.py -q`)
+- [x] 콘솔의 **읽기 화면 라우트 전부**가 매뉴얼에 항목으로 있다(빠지면 실패) (확인: `python -m pytest test_webapp.py -q -k guide`)
+- [x] `ENTRY_STEPS` 7단계가 **상태기계로 남아 있고** 매뉴얼이 그 이름을 그대로 쓴다 (확인: 같은 명령)
+- [x] FAQ·Q&A의 모든 답에 **리포 안 출처**(파일명·화면명)가 붙는다 (확인: 같은 명령)
+- [x] 답이 확인되지 않은 질문은 **「확인 필요」**로 남고 지어낸 답이 0이다 (확인: 같은 명령)
+- [x] 판정·추천 어휘가 0회다 (확인: 같은 명령)
+- [x] 회귀 3파일 통과, C2 ROI 14.2% · Payback 7.1년 · 실질ROI 28.3% (확인: `python -m pytest test_engine.py test_registry.py test_cases.py -q`)
+- [x] 5파일 회귀 통과, skip 0 (확인: `python -m pytest test_engine.py test_registry.py test_cases.py test_chunking_v2.py test_webapp.py -q`)
 
 ## 8. 제약·주의사항
 - `CLAUDE.md` 1절 전체 적용 — 매뉴얼이 **수치를 새로 적지 않는다**(화면이 내는 값을 가리키기만 한다).

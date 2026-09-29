@@ -11335,8 +11335,8 @@ def test_198cha_code_pointers_to_documents_resolve():
     #    실재 확인함(이 가드의 앞 절이 파일 존재를 이미 잰다).
     # 🔴223차 — `consulting_package.py`가 `근거_사업기획서_컨셉적용_20260921.md`를
     #    인용해 46→47이 됐다(플랫폼 3단계 축의 출처). 실재 확인함.
-    assert len(cited) == 50, (
-        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종 · 211차 45종 · 212차 46종(`consulting_package.py`가 외부수집 근거 문서를 인용) · 223차 47종(같은 파일이 사업기획서 컨셉 적용 문서를 인용) · 247차 49종(`audit_work_orders.py`가 WO 색인 `README.md`와 스킬 `SKILL.md`를 인용 — 둘 다 실재) · 276차 50종(`consulting_package.py`가 `근거지도_20260923.md`를 인용 — 실재). "
+    assert len(cited) == 53, (
+        f"🔴 비-테스트 코드의 `.md` 인용이 {len(cited)}종이다 — 198차 실측은 44종 · 211차 45종 · 212차 46종(`consulting_package.py`가 외부수집 근거 문서를 인용) · 223차 47종(같은 파일이 사업기획서 컨셉 적용 문서를 인용) · 247차 49종(`audit_work_orders.py`가 WO 색인 `README.md`와 스킬 `SKILL.md`를 인용 — 둘 다 실재) · 276차 50종(`consulting_package.py`가 `근거지도_20260923.md`를 인용 — 실재) · 277차 53종(같은 파일의 FAQ·Q&A 출처가 `근거_지역정규화_기상지점`·`근거_콘솔점검`·`근거_결정대기대장`을 인용 — 셋 다 실재). "
         "늘었다면 **새 인용이 실재하는지** 방금 확인한 것이고, 줄었다면 인용이 "
         "사라진 것이니 어느 쪽인지 적고 갱신하라")
 
