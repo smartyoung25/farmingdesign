@@ -13952,10 +13952,17 @@ def test_270cha_the_ict_standard_list_was_opened_and_counted_from_the_rows():
     assert "22 = 13 + 9 · 19 = 8 + 7 + 4" in sec
     assert 13 + 9 == 22 and 8 + 7 + 4 == 19
 
-    # ── ⑤ KS X 3268·3269는 **[미확인]** — 있다고도 없다고도 단정하지 않는다 ──
+    # ── ⑤ 270차의 관찰은 그대로 두고, 283차 해소를 **가리키게** 한다 ────────
+    #   🔴283차에 실재가 확인됐다. 그래도 이 절은 270차의 기록이라 본문을 고치지 않았다 —
+    #      270차가 적은 관찰(게시판에 없다)과 그때의 판단([미확인])이 둘 다 남아야 하고,
+    #      그 옆에 해소 포인터가 붙어야 한다. 셋 중 하나만 사라져도 실패.
     assert "**KOAT 게시판 55건에 KS X 3268·3269는 없다**" in sec
     assert "**[미확인]으로 남긴다.**" in sec
-    for bad in ("3268·3269는 제정됐다", "3268·3269는 폐지됐다", "3268·3269는 존재하지 않는다"):
+    assert "🔴 **283차 해소 — 위 [미확인]은 270차 시점의 것이다.**" in sec, (
+        "🔴 283차 해소 포인터가 없다 — [미확인]만 남으면 리포가 낡은 상태를 말한다")
+    assert "근거_KSX3268_3269_실재확인_20260929.md" in sec
+    #   여전히 금지: 없다고 단정하는 것 · 폐지됐다고 하는 것(둘 다 원문과 어긋난다)
+    for bad in ("3268·3269는 폐지됐다", "3268·3269는 존재하지 않는다"):
         assert bad not in sec, f"🔴 단정문 「{bad}」"
 
     # ── ⑥ 막힌 이유가 바뀌었다 — 목록은 구했고 **등재만 남았다** ────────────
@@ -14113,7 +14120,7 @@ def test_273cha_console_inspection_counts_come_from_the_code():
 
     # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
     cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))
-    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 79),   # 📌279차 +1 · 282차 +1(시설작목수량)
+    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 80),   # 📌279차 +1 · 282차 +1(시설작목수량) · 283차 +1(KS X 3268·3269)
                           ("법령 원문 `법령_*.pdf`", "법령_*.pdf", 7),
                           ("고시 원문 `고시_*.pdf`", "고시_*.pdf", 1)):
         assert cnt(pat) == n, f"🔴 {pat} 가 {cnt(pat)}건이다 — 점검은 {n}건으로 셌다"
@@ -14473,3 +14480,103 @@ def test_271cha_runner_restores_only_what_the_script_can_touch():
     assert "스크립트가 손댈 수 있는 경로" in rm and "외부 변경" in rm and "269차 ⑩" in rm
     lg = rd("차수로그.md")
     assert "271차" in lg and "손댈 수 있는 경로" in lg
+
+
+
+def test_283cha_ks_x_3268_3269_existence_is_recorded_with_its_controls():
+    """283차(N-6) — 두 번호의 실재를 **통제와 함께** 적었는가.
+
+    🔴 「0건이니 없다」는 통제 없이는 말이 안 된다 — 근거 문서가 **검색이 작동함을
+       보인 통제 3건**을 함께 적지 않으면 실패한다(270차의 DNS 실패가 남긴 교훈).
+    🔴 **왜 e나라에 없는지는 캐지 않았다** — 이견으로 남긴 문장이 사라지거나,
+       *「국가표준이 아니다」*로 굳으면 실패.
+    🔴 **등재하지 않았다** — 표준 번호가 엔진에 들어오면 실패(그건 ★결정 N-5다).
+    """
+    import os as _o, io as _io, re as _re
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_KSX3268_3269_실재확인_20260929.md")
+    flat = " ".join(doc.split())
+
+    # ── ① 여섯 번호가 **표의 행으로** 있고, 행에서 다시 센다 ────────────────
+    rows = {}
+    for ln in doc.splitlines():
+        m = _re.match(r"^\|\s*\*\*KS X (\d{4})\*\*\s*\|(.+)$", ln.strip())
+        if m:
+            cols = [c.strip().strip("*") for c in m.group(2).split("|")]
+            rows[m.group(1)] = cols
+    assert sorted(rows) == ["3265", "3266", "3267", "3268", "3269", "3279"], sorted(rows)
+    for no, cols in rows.items():
+        assert cols[1] == "정보기술", (no, cols)
+        assert cols[3] == "무" and cols[4] == "유지", (no, cols)
+        assert cols[2] == ("2024-12-27" if no == "3279" else "2022-01-11"), (no, cols)
+    assert rows["3268"][0] == "스마트 온실 구동기 메타데이터", rows["3268"]
+    assert rows["3269"][0] == "스마트 온실 센서 메타데이터", rows["3269"]
+
+    # ── ② 🔴 통제 없이 0건을 「없다」로 읽지 않는다 ─────────────────────────
+    for control in ("통제①", "통제②", "통제③"):
+        assert control in doc, "🔴 %s이 사라졌다 — 통제 없는 0건은 근거가 아니다" % control
+    assert "표준번호 칸은 **부분 일치**다(0건이 「없다」를 뜻한다)" in flat
+    assert "검색이 작동한다" in doc
+
+    # ── ③ 🔴 이견을 남겼다 — 왜 없는지는 캐지 않았다 ───────────────────────
+    assert "**왜 없는지**" in flat and "**확인하지 못했다**" in flat
+    assert "이것은 **이견**으로 남긴다" in flat
+    assert "*「국가표준이 아니다」*라고 **적지 않는다**" in flat
+    for bad in ("국가표준이 아님이 확인됐다", "국가표준에서 폐지됐다", "e나라가 틀렸다"):
+        assert bad not in doc, "🔴 단정문 「%s」" % bad
+
+    # ── ④ 🔴 본문을 열지 않았다 · 첨부를 내려받지 않았다 ────────────────────
+    assert "**첨부는 내려받지 않았다.**" in doc
+    assert "표준 **본문은 하나도 열지 않았다**" in flat
+    assert "원문 오타를 그대로 옮긴 것이다" in doc, "🔴 인용 오타를 고쳐 적었는지 알 수 없다"
+
+    # ── ⑤ 270차 기록을 **고치지 않고** 가리킨다 ────────────────────────────
+    old = rd("근거_외부수집_기능공백_20260924.md")
+    assert "**KOAT 게시판 55건에 KS X 3268·3269는 없다**" in old, "🔴 270차 관찰이 지워졌다"
+    assert "**[미확인]으로 남긴다.**" in old, "🔴 270차 판단이 지워졌다 — 기록은 고치지 않는다"
+    assert old.count("근거_KSX3268_3269_실재확인_20260929.md") >= 2, (
+        "🔴 §7-g·§7-i 두 곳에서 283차를 가리켜야 한다")
+    assert "**283차에 해소**" in old and "270차 시점의 것이다" in old
+
+    # ── ⑥ 🔴 등재하지 않았다 — 번호가 엔진에 들어오면 실패 ──────────────────
+    esrc = rd("smartfarm_engine.py")
+    code = chr(10).join(l for l in esrc.splitlines() if not l.lstrip().startswith("#"))
+    for no in ("3265", "3266", "3267", "3268", "3269", "3279"):
+        assert ("KS X " + no) not in code and ("KSX" + no) not in code, (
+            "🔴 표준 번호 %s 가 엔진에 등재됐다 — 그건 ★결정(N-5)이고 이 차수가 아니다" % no)
+    assert not [a for a in dir(_e) if a.isupper() and "KS_X" in a]
+
+    # ── ⑦ 막힌 이유는 바뀌었으나 **★는 그대로 남는다** ─────────────────────
+    g2 = [g for g in _cp.FUNCTION_GAPS if g["name"] == "ICT 기자재 KS/SPS/TTAS 사양"]
+    assert len(g2) == 1
+    b = g2[0]["blocked"]
+    assert b.startswith("★ 표준번호 등재"), "🔴 ★가 사라졌다 — 등재는 여전히 사용자 결정이다"
+    assert "실재를 확인했다" in b and "국립전파연구원" in b
+    assert "미확인" not in b, "🔴 blocked가 아직 미확인이라고 적는다"
+    assert "이견으로 남긴다" in b, "🔴 e나라 0건의 까닭을 단정했다"
+    #   건수 표기는 여전히 조립 계층에 두지 않는다(212차 계약 · 270차 가드와 겹쳐 지킨다)
+    for n in ("55건", "68건", "23건", "29건"):
+        assert n not in b, "🔴 표준 건수 표기 「%s」이 조립 계층에 적혔다" % n
+
+    # ── ⑧ 근거지도 — 절 머리의 건수가 **행 수와 같은가**(283차에 어긋남 1건 정정) ──
+    mp = rd("근거지도_20260923.md")
+    assert "`근거_KSX3268_3269_실재확인_20260929.md`" in mp, "🔴 지도에 등재되지 않았다"
+    import glob as _g
+    sec_name, cnt, seen, total = None, 0, 0, 0
+    for ln in mp.splitlines():
+        m = _re.match(r"^## (.+?) \((\d+)건\)\s*$", ln)
+        if m or (ln.startswith("## ") and sec_name):
+            if sec_name:
+                assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (sec_name, cnt, seen)
+                total += seen
+            sec_name, cnt, seen = (m.group(1), int(m.group(2)), 0) if m else (None, 0, 0)
+        elif sec_name and ln.startswith("| `근거_"):
+            seen += 1
+    if sec_name:
+        assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (sec_name, cnt, seen)
+        total += seen
+    files = len(_g.glob(_o.path.join(repo, "근거_*.md")))
+    assert total == files == 80, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
