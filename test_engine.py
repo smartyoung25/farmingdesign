@@ -14334,6 +14334,74 @@ def test_279cha_guideline_fee_rates_are_reread_from_the_annex():
     assert "시행일·고시번호**를 PDF 안에서 확인하지 못했다" in doc
 
 
+
+def test_280cha_worklist_section_matches_the_ledgers():
+    """280차 — 착수점 11-B절이 **대장·검사기에서 다시 센 수**와 맞는가.
+
+    🔴 손으로 적은 수를 믿지 않는다 — 결정 대기·WO 상태·기상 도달률·평단가 커버리지를
+       전부 **다시 만들어** 절의 문장과 대조한다.
+    🔴 「사용성을 재지 않았다」·「대응표는 없다」 같은 한계 문장이 사라지면 실패.
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as _e
+    import audit_work_orders as _A
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    ji = rd("작업지시서.md")
+    i = ji.index("### 🔴 11-B. 280차 현재")
+    sec = ji[i:ji.index("## 12. 웹앱 트랙", i)]
+    flat = " ".join(sec.split())
+
+    # ── ① WO — 검사기에서 다시 센다 ──────────────────────────────────────
+    r = _A.audit()
+    st = [row[5] for row in r["index"]]
+    assert r["pass"], r["problems"]
+    assert ("**%d건 전부 종결**(완료 %d · 자료 대기 %d). 대기 %d."
+            % (len(r["files"]), st.count("완료"), st.count("자료 대기"),
+               st.count("대기"))) in flat, "🔴 WO 칸이 검사기 실측과 다르다"
+
+    # ── ② 결정 대기 — 대장에서 다시 센다 ─────────────────────────────────
+    led = rd("근거_결정대기대장_20260915.md")
+    open_d = sorted({int(x) for x in _re.findall(r"(?m)^\| \*\*D-(\d+)\*\* \|", led)})
+    assert open_d == [1, 2, 3, 4, 14], open_d
+    assert "결정**(D-1~D-4 · D-14, %d건)" % len(open_d) in sec
+    assert "지금 대기 5건 · 닫힘 12건" in led
+    #   자료 4건
+    for s_ in ("S-1", "S-2", "S-3", "S-4"):
+        assert ("**%s**" % s_) in sec, s_
+
+    # ── ③ 🔴 도달률·커버리지를 엔진에서 다시 만든다 ───────────────────────
+    regions = set(_e.REGION_DESIGN_LOAD)
+    reach = {x for x in regions if _e.design_outdoor_temp(x) is not None}
+    assert "기상 4표 도달 **%d/%d**(%.1f%%)" % (
+        len(reach), len(regions), 100 * len(reach) / len(regions)) in sec, (
+        "🔴 도달률이 실측과 다르다: %d/%d" % (len(reach), len(regions)))
+    assert "나머지 %d지역" % (len(regions) - len(reach)) in sec
+    #   ⚠️ 조건부로 두면 속성이 사라질 때 **조용히 건너뛴다** — 없으면 실패시킨다
+    assert hasattr(_e, "SPEC_TABLE"), "🔴 SPEC_TABLE이 없다 — 커버리지를 잴 수 없다"
+    specs = _e.SPEC_TABLE
+    ok = sum(1 for sp in specs if _e.greenhouse_total_estimate(sp.name, 1000) is not None)
+    assert "평단가 개산은 %d규격 중 %d규격" % (len(specs), ok) in sec, (
+        "🔴 평단가 커버리지가 실측과 다르다: %d/%d" % (ok, len(specs)))
+
+    # ── ④ 새로 연 것 N-1~N-6이 전부 적혀 있다 ─────────────────────────────
+    ns = _re.findall(r"\*\*(N-\d)\*\*", sec)
+    assert sorted(set(ns)) == ["N-1", "N-2", "N-3", "N-4", "N-5", "N-6"], sorted(set(ns))
+
+    # ── ⑤ 🔴 한계 문장을 지우지 않았다 ────────────────────────────────────
+    for must in ("공식 「시군구 → 관측지점」 대응표는 **없다**",
+                 "지어내지 않는다",
+                 "「구조 기본설계」까지",
+                 "사용자 인터뷰 0명 · 사용성 실측 0회",
+                 "읽혀 보지 않았다"):
+        assert must in flat, f"🔴 한계 문장이 사라졌다: {must}"
+
+    # ── ⑥ 11절 본문(P0~P3)은 손대지 않았다 ────────────────────────────────
+    head = ji[ji.index("## 11. 향후 과제 목록"):i]
+    assert "P0 — 즉시" in head and "P3 — 확장·전략" in head
+    assert "권고 착수 순서" in head, "🔴 11절 본문이 지워졌다 — 11-B는 더하는 절이지 대체가 아니다"
+
+
 if __name__ == "__main__":
     import sys, traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
