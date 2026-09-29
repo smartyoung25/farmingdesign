@@ -14121,7 +14121,7 @@ def test_273cha_console_inspection_counts_come_from_the_code():
 
     # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
     cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))
-    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 81),   # 📌279차 +1 · 282차 +1(시설작목수량) · 283차 +1(KS X 3268·3269) · 284차 +1(편성지침 추적)
+    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 82),   # 📌279·282·283·284차 각 +1 · 285차 +1(KS X 표준 내용 성격)
                           ("법령 원문 `법령_*.pdf`", "법령_*.pdf", 7),
                           ("고시 원문 `고시_*.pdf`", "고시_*.pdf", 1)):
         assert cnt(pat) == n, f"🔴 {pat} 가 {cnt(pat)}건이다 — 점검은 {n}건으로 셌다"
@@ -14583,7 +14583,7 @@ def test_283cha_ks_x_3268_3269_existence_is_recorded_with_its_controls():
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (sec_name, cnt, seen)
         total += seen
     files = len(_g.glob(_o.path.join(repo, "근거_*.md")))
-    assert total == files == 81, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
+    assert total == files == 82, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
 
 
 def test_284cha_management_fee_absence_is_measured_not_asserted():
@@ -14692,4 +14692,118 @@ def test_284cha_management_fee_absence_is_measured_not_asserted():
     if cur:
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
         tot += seen
-    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 81, tot
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 82, tot
+
+
+def test_285cha_ks_standard_bodies_are_stored_and_are_a_different_axis():
+    """285차 — 보관한 표준 본문 6건을 **열어서** 「다른 값」임을 다시 잰다.
+
+    🔴 문서의 주장을 믿지 않는다 — `.docx`를 풀어 본문을 읽고 **엔진 축 낱말이 0회**인지
+       직접 센다. 하나라도 나오면 실패(그때는 결론을 다시 써야 한다).
+    🔴 **겹쳐 보이는 숫자**(풍속 0~40 m/s)가 **센서 측정범위**라는 경고가 사라지면 실패.
+    🔴 **등재하지 않았다** — 표준 번호·규격이 엔진에 들어오면 실패(★는 사용자 몫이다).
+    """
+    import os as _o, io as _io, re as _re, zipfile as _z, glob as _g
+    import xml.etree.ElementTree as _ET
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_KSX표준_내용성격_원문보관_20260929.md")
+    flat = " ".join(doc.split())
+    NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+    # ── ① 🔴 원문 7건이 실재한다 — 이름만이 아니라 **열어서** 확인 ──────────
+    pdf = _o.path.join(repo, "근거_기재부_2026예산안편성세부지침_20250527.pdf")
+    assert _o.path.exists(pdf), "🔴 편성지침 원문이 리포에 없다"
+    assert _o.path.getsize(pdf) > 5_000_000, _o.path.getsize(pdf)
+    ks = sorted(_g.glob(_o.path.join(repo, "근거_국립전파연구원_KSX*.docx")))
+    assert len(ks) == 6, "🔴 표준 본문이 %d건이다 — 6건이어야 한다" % len(ks)
+    nums = sorted(_re.search(r"KSX(\d+)", f).group(1) for f in ks)
+    assert nums == ["3265", "3266", "3267", "3268", "3269", "3279"], nums
+
+    bodies = {}
+    for f in ks:
+        assert open(f, "rb").read(4) == b"PK\x03\x04", "🔴 %s 가 docx가 아니다" % _o.path.basename(f)
+        with _z.ZipFile(f) as z:
+            root = _ET.fromstring(z.read("word/document.xml"))
+        ps = [("".join(n.text or "" for n in p.iter(NS + "t"))).strip()
+              for p in root.iter(NS + "p")]
+        bodies[_re.search(r"KSX(\d+)", f).group(1)] = "\n".join(p for p in ps if p)
+    #   표지가 자기 번호를 적는다 — 파일 이름과 내용이 어긋나면 실패
+    for no, body in bodies.items():
+        assert ("KS X " + no) in body, "🔴 %s 본문이 제 번호를 적지 않는다" % no
+
+    # ── ② 🔴 엔진 축 낱말이 **0회** — 본문에서 직접 센다 ────────────────────
+    AXIS = ("적설", "하중", "설계기준", "단가", "공사비", "요율",
+            "수량", "소득", "경제성", "ROI", "내용연수", "감가", "보조금")
+    for kw in AXIS:
+        n = sum(b.count(kw) for b in bodies.values())
+        assert n == 0, ("🔴 표준 본문에 엔진 축 낱말 「%s」가 %d회 나온다 — "
+                        "「다른 값」이라는 285차 결론을 다시 써야 한다" % (kw, n))
+    #   🔴원문만 보면 **근거 문서가 그 사실을 적었는지**는 안 재진다 — 결론 문장과 표도 본다
+    assert "이 표준들이 담은 값은 「다른 값」이다" in flat, "🔴 결론 문장이 사라졌다"
+    assert "🔴 **한 번도 나오지 않는다.**" in doc
+    for row in ("| 적설 · 하중 · 설계기준 | **0** |", "| 단가 · 공사비 · 요율 | **0** |",
+                "| 수량 · 소득 · 경제성 · ROI | **0** |", "| 내용연수 · 감가 · 보조금 | **0** |"):
+        assert row in doc, "🔴 축 낱말 0회 표에서 「%s」가 사라졌다" % row
+
+    # ── ③ 🔴 겹쳐 보이는 숫자는 **센서 측정범위**다 ─────────────────────────
+    s3266 = bodies["3266"]
+    assert "0 m/s ~ 40 m/s" in s3266, "🔴 원문의 풍속 측정범위 표기가 바뀌었다"
+    assert "`0 m/s ~ 40 m/s`" in doc, "🔴 근거 문서의 측정범위 인용이 원문과 달라졌다"
+    assert "측정 범위" in s3266
+    #   엔진의 설계풍속과 **다른 것**이다 — 범위가 겹치는지도 잰다(같은 단위라 위험하다)
+    wl = [v["wind_ms"] for v in _e.REGION_DESIGN_LOAD.values()]
+    assert (min(wl), max(wl)) == (24, 53), (min(wl), max(wl))
+    over = sum(1 for w in wl if w >= 40)
+    assert over == 16, "🔴 설계풍속이 40 이상인 지역이 %d곳이다" % over
+    #   🔴근거 문서가 적은 수는 **엔진에서 다시 만든 수와 같아야 한다**
+    assert "**24 ~ 53 m/s**" in doc and "**172지역 중 16곳은 설계풍속이 40을 넘어**" in doc
+    assert "재는 범위**와 **버텨야 하는 값**은 다른 것이다" in flat
+    assert "**40을 설계값으로 읽으면 조용히 틀린다.**" in doc
+
+    # ── ④ 🔴 등재하지 않았다 — 번호도 규격도 엔진에 없다 ────────────────────
+    esrc = rd("smartfarm_engine.py")
+    code = chr(10).join(l for l in esrc.splitlines() if not l.lstrip().startswith("#"))
+    for no in nums:
+        assert ("KS X " + no) not in code and ("KSX" + no) not in code, (
+            "🔴 표준 번호 %s 가 엔진에 등재됐다 — ★는 사용자 결정이다" % no)
+    assert "IP 코드" not in code and "모드버스" not in code, "🔴 표준 규격이 엔진에 흘러들었다"
+
+    # ── ⑤ 막힌 이유가 바뀌었다 — ★는 그대로 남고 **질문이 달라진다** ────────
+    g2 = [g for g in _cp.FUNCTION_GAPS if g["name"] == "ICT 기자재 KS/SPS/TTAS 사양"]
+    assert len(g2) == 1
+    b = g2[0]["blocked"]
+    assert b.startswith("★ 표준번호 등재"), "🔴 ★가 사라졌다"
+    assert "엔진에 넣을 「값」이 없다" in b and "참조 카탈로그에 어떻게 올릴까" in b
+    assert "목록은 확보했다" in b          # 270차 가드와 겹쳐 지킨다
+    assert "이 차수는 고르지 않고 사용자에게 되돌린다" in flat
+
+    # ── ⑥ 🔴 3279는 **개정본**을 받았다(구판 아님) ─────────────────────────
+    assert "**개정본(file_seq=5)을" in doc and "0바이트" in doc
+    assert "2024-12-27" in rd("근거_KSX3268_3269_실재확인_20260929.md")
+
+    # ── ⑦ 한계를 적었다 ───────────────────────────────────────────────────
+    for frag in ("표준 본문을 전문 검토하지 않았다", "레지스터 맵과 메타데이터 엘리먼트 표는 **열지 않았다**",
+                 "**SPS(KOAT 단체표준) 본문**은 하나도 열지 않았다"):
+        assert frag in " ".join(doc.split()) or frag in doc, frag
+    assert "★를 대신 고르지 않는다" in doc
+
+    # ── ⑧ 지도 등재 · 절 머리 = 행 수(283·284차 가드와 겹쳐 지킨다) ────────
+    mp = rd("근거지도_20260923.md")
+    assert "`근거_KSX표준_내용성격_원문보관_20260929.md`" in mp, "🔴 지도에 등재되지 않았다"
+    cur, cnt, seen, tot = None, 0, 0, 0
+    for ln in mp.splitlines():
+        m = _re.match(r"^## (.+?) \((\d+)건\)\s*$", ln)
+        if m or (ln.startswith("## ") and cur):
+            if cur:
+                assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
+                tot += seen
+            cur, cnt, seen = (m.group(1), int(m.group(2)), 0) if m else (None, 0, 0)
+        elif cur and ln.startswith("| `근거_"):
+            seen += 1
+    if cur:
+        assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
+        tot += seen
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 82, tot
