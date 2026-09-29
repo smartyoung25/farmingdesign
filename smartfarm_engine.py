@@ -1327,12 +1327,51 @@ _HDH_SET_TEMPS = (8, 12, 16, 20)
 #   ⚠️알려진 한계: 부분 일치는 **글자 포함**이라 광역 힌트가 다른 동명 지명(예: 경기 「광주」 ↔
 #     광주 관측소)을 가려내지 못한다. 그래서 조회 결과에 **어느 지점을 썼는지**를 드러낸다
 #     (`weather_station`) — 사람이 보고 틀리면 region을 지점명으로 고쳐 넣으면 된다.
+#   🔴**274차 — 그 한계를 막았다**(사용자 결정 2026-09-29, WO-010): 괄호 안이
+#     **광역자치단체명**이면 부분 일치를 쓰지 않는다(`WEATHER_MATCH_RULE`).
+#     「광주(경기)」는 이제 None이고 도달 행정구역은 69→**68**이다. 위 한계 문장은
+#     **지우지 않는다** — 241차가 무엇을 알고도 골랐는지가 기록이다.
 # ─────────────────────────────────────────────────────────────
 WEATHER_STATION_ALIASES = {"마산": "창원", "창원": "마산"}
 
+# 기상 지점 부분 일치의 안전장치 (274차 신설 — WO-010)
+#   사용자 결정 2026-09-29: **애매하면 안 준다**(레지스트리 `WEATHER_MATCH_RULE` status 결정).
+#   241차 결정은 *「후보 둘 이상이면 None」*이었는데 **광역 한정자를 담지 못했다** —
+#   「광주(경기)」의 괄호는 *「같은 이름이 둘 있다」*는 표시인데 지점 표엔 하나뿐이라
+#   후보가 1개가 되고, 그래서 광주 관측소 값을 받았다(272차 실측). 그 자리를 막는다.
+#   🔴**첫 규칙은 「괄호가 있으면 막는다」였고 케이스 둘을 깼다** — 괄호가 **두 뜻**으로
+#   쓰이고 있었다: 「광주(경기)」는 **광역 한정자**(동명이지 구분)지만 「강원(춘천)」의
+#   괄호는 **하위 지명**(지점 이름)이고 「충남 천안(성환읍)」은 **읍면동**이다.
+#   그래서 **괄호 안이 광역자치단체명일 때만** 막는다.
+#   ⚠️ 막는 것은 **부분 일치 경로뿐**이다 — 정확한 키·별칭은 애매하지 않아 그대로 간다.
+#   ⚠️ 설계하중(`siting_design_load`)의 매칭 규칙은 **손대지 않았다**(다른 표·다른 결정).
+#   ⚠️ 광역 약칭 17개는 **행정구역 체계**이지 이 리포가 만든 값이 아니다.
+WEATHER_MATCH_RULE = {
+    "skip_when_bracket_is_province": True,
+    "provinces": ("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+                  "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"),
+    "bracket_pairs": (("(", ")"), ("（", "）")),
+}
 
-def _weather_key(table: dict, region) -> Optional[str]:
-    """기상 표 하나에서 region에 해당하는 키(241차 규칙) — 없거나 애매하면 None."""
+
+def _bracket_texts(region: str, pairs) -> list:
+    """region 안 괄호 내용만 뽑는다(중첩 없음 — 행정구역명에 중첩 괄호는 없다)."""
+    out = []
+    for lo, hi in pairs:
+        part = region
+        while lo in part and hi in part[part.index(lo):]:
+            i = part.index(lo)
+            j = part.index(hi, i)
+            out.append(part[i + 1:j].strip())
+            part = part[j + 1:]
+    return out
+
+
+def _weather_key(table: dict, region, rule: Optional[dict] = None) -> Optional[str]:
+    """기상 표 하나에서 region에 해당하는 키(241차 규칙 + 274차 괄호 장치) — 없거나 애매하면 None.
+
+    rule: `WEATHER_MATCH_RULE`을 덮어쓸 때만 넘긴다(주입 — 엔진이 고르지 않는다).
+    """
     if not region:
         return None
     region = str(region)
@@ -1341,18 +1380,23 @@ def _weather_key(table: dict, region) -> Optional[str]:
     alias = WEATHER_STATION_ALIASES.get(region)
     if alias in table:
         return alias
+    r = WEATHER_MATCH_RULE if rule is None else rule
+    if r.get("skip_when_bracket_is_province"):
+        prov = set(r.get("provinces", ()))
+        if any(t in prov for t in _bracket_texts(region, r.get("bracket_pairs", ()))):
+            return None  # 괄호 안이 광역 = 동명이지 구분 → 부분 일치를 쓰지 않는다(274차)
     cands = {k for k in table if k in region}
     cands |= {a for k, a in WEATHER_STATION_ALIASES.items() if k in region and a in table}
     return next(iter(cands)) if len(cands) == 1 else None
 
 
-def weather_station(region: str) -> Optional[str]:
+def weather_station(region: str, rule: Optional[dict] = None) -> Optional[str]:
     """region → 기상 4표 조회에 쓰는 **관측지점명**(241차 D-5·D-6). 없거나 애매하면 None.
 
     [표3-3-38] 설계외기온 표 기준으로 푼다(풍속표에서는 별칭으로 같은 지점이 된다).
     조회 결과를 보여 줄 때 **어느 지점을 썼는지** 함께 드러내기 위한 함수다.
     """
-    return _weather_key(DESIGN_OUTDOOR_TEMP_TAC, region)
+    return _weather_key(DESIGN_OUTDOOR_TEMP_TAC, region, rule)
 
 
 def design_outdoor_temp(region: str, tac: str = "1%") -> Optional[float]:

@@ -8428,8 +8428,9 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     # 🔴231차 — `MATERIAL_APPROVAL_ALIASES` 등재로 71 → 72(첨부 서류명 별칭 · 결정)
     # 🔴241차 — `WEATHER_STATION_ALIASES` 등재로 72 → 73(★D-5·D-6 결정)
     # 🔴244차 — `PUMSEM_OVERHEAD_RATES` 등재로 73 → 74(★D-10 — 원문 [주] 전사)
-    assert len(reg["constants"]) == 74, (
-        "🔴 레지스트리 상수가 69개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+    # 🔴274차 — `WEATHER_MATCH_RULE` 등재로 74 → 75(★괄호 규칙 — 241차 D-5의 잔여 구멍)
+    assert len(reg["constants"]) == 75, (
+        "🔴 레지스트리 상수가 75개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
@@ -10857,8 +10858,9 @@ def test_193cha_named_sources_were_actually_looked_for():
     # 🔴238차 — `MATERIAL_APPROVAL_ALIASES` source가 시방서 원문(`시방서.hwp`)을 근거로 인용해
     #    84 → 85(레드팀 29회차 A1·A6 반영). 이 가드의 앞 절이 실재를 확인했다.
     # 🔴241차 — `WEATHER_STATION_ALIASES` source가 `근거_결정대기대장_20260915.md`를 인용해 85 → 86
-    assert len(cited) == 86, (
-        f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 241차 실측은 86종이다(238차 85 + 결정대기대장). "
+    # 🔴274차 — `WEATHER_MATCH_RULE` source가 `근거_지역정규화_기상지점_20260929.md`를 인용해 86 → 87
+    assert len(cited) == 87, (
+        f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 274차 실측은 87종이다(241차 86 + 지역정규화 근거). "
         "늘었다면 **새 인용이 실재하는지** 이 가드가 방금 확인한 것이고, "
         "줄었다면 인용이 사라진 것이니 어느 쪽인지 적고 갱신하라")
     assert len(ABSENT) == 4, "🔴 부재 선언이 4건이 아니다"
@@ -13994,8 +13996,10 @@ def test_272cha_region_to_station_reach_is_measured_not_asserted():
     assert len(regions) == 172, len(regions)
     assert len(stations) == 69, len(stations)
     assert len(same) == 66, len(same)
-    assert len(reach) == 69, f"🔴 도달 행정구역이 {len(reach)}개다 — 272차 실측은 69다"
-    assert len(regions) - len(reach) == 103
+    #   🔴274차에 괄호 장치가 들어가 69 → 68이 됐다(광주(경기) 차단). 272차 문서의 69는
+    #   **그때의 수**이고, 문서가 그 사실을 적었는지를 아래 ③이 본다.
+    assert len(reach) == 68, f"🔴 도달 행정구역이 {len(reach)}개다 — 274차 실측은 68이다"
+    assert len(regions) - len(reach) == 104
 
     # 문서 표가 **같은 수**를 적고 있는가 — 갈라지면 실패
     for row in ("| `REGION_DESIGN_LOAD`(설계하중) | **172** |",
@@ -14011,19 +14015,18 @@ def test_272cha_region_to_station_reach_is_measured_not_asserted():
     paren = sorted(r for r in regions if "(" in r)
     assert paren == ["고성(강원)", "고성(경남)", "광주(경기)"], paren
     assert not [k for k in stations if "(" in k], "🔴 관측지점에 괄호가 생겼다 — 아래 판단이 흔들린다"
-    assert _e.weather_station("고성(강원)") is None
-    assert _e.weather_station("고성(경남)") is None
+    for r_ in paren:
+        assert _e.weather_station(r_) is None, f"🔴 {r_}가 아직 지점을 받는다(274차 규칙)"
 
-    # ── ③ 🔴 241차 ★결정을 바꾸지 않았다 ──────────────────────────────────
-    #   광주(경기)와 광주광역시가 **같은 지점·같은 값**을 받는 현행 동작을 고정한다.
-    #   막는 쪽으로 바꾸려면 ★사용자 결정이 먼저다(근거 문서 §4).
-    assert _e.weather_station("광주(경기)") == "광주"
-    assert _e.weather_station("광주광역시") == "광주"
-    assert _e.design_outdoor_temp("광주(경기)") == _e.design_outdoor_temp("광주광역시") == -7.2
-    #   설계하중은 둘을 구분한다 — 그래서 기상값만 같은 것이 드러난다
-    assert _e.REGION_DESIGN_LOAD["광주(경기)"] != _e.REGION_DESIGN_LOAD["광주광역시"]
+    # ── ③ 272차가 **무엇을 쟀는지**는 기록으로 남는다(동작은 274차에 바뀌었다) ──
+    #   🔴274차(★사용자 결정 2026-09-29, WO-010)에 괄호 장치가 들어가 광주(경기)는 None이다.
+    #   272차 문서는 **그때의 상태**를 적은 것이고 그 기록을 지우지 않는다 —
+    #   대신 §4가 「닫힘」으로 갱신됐는지를 본다.
+    assert _e.REGION_DESIGN_LOAD["광주(경기)"] != _e.REGION_DESIGN_LOAD["광주광역시"], (
+        "🔴 설계하중이 둘을 구분하지 않는다 — 272차 관찰의 전제가 사라졌다")
     assert "**272차는 아무것도 바꾸지 않았다.**" in doc
     assert "결함이 아니라 결정의 대가" in doc
+    assert "274차" in doc, "🔴 272차 문서에 274차 닫힘 기록이 없다"
 
     # ── ④ 241차 주석이 한계를 **먼저** 적어 두었다는 사실을 지우지 않았다 ────
     esrc = rd("smartfarm_engine.py")
@@ -14132,6 +14135,95 @@ def test_273cha_console_inspection_counts_come_from_the_code():
     assert "**사용성 실측을 하지 않았다**" in doc
     assert "**사용자 수는 0명이다**" in doc
     assert "전수로 재지 않았다" in doc
+
+
+
+def test_274cha_bracket_rule_blocks_only_province_qualifiers():
+    """274차(WO-010) — 괄호 장치가 **광역 한정자만** 막는가.
+
+    🔴 첫 규칙은 「괄호가 있으면 막는다」였고 **C1·C3의 기상 지점을 함께 죽였다**.
+       괄호가 두 뜻(광역 한정자 / 하위 지명)으로 쓰이고 있었다. 그 회귀를 다시 잡는다 —
+       하위 지명 괄호가 None이 되면 실패.
+    🔴 규칙은 상수로 드러나고 **주입으로 덮어쓸 수 있다**(엔진이 고르지 않는다).
+    🔴 설계하중 매칭은 손대지 않았다.
+    """
+    import os as _o, io as _io, json as _json
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+
+    # ── ① 막는 것 — 괄호 안이 광역 ────────────────────────────────────────
+    for r in ("광주(경기)", "고성(강원)", "고성(경남)"):
+        assert _e.weather_station(r) is None, f"🔴 {r}가 아직 지점을 받는다"
+        assert _e.design_outdoor_temp(r) is None, r
+
+    # ── ② 🔴 막으면 안 되는 것 — 괄호 안이 하위 지명(첫 규칙이 깬 자리) ─────
+    assert _e.weather_station("강원(춘천)") == "춘천", (
+        "🔴 C1의 기상 지점이 죽었다 — 괄호 안 「춘천」은 광역이 아니라 지점 이름이다")
+    assert _e.weather_station("충남 천안(성환읍)") == "천안", (
+        "🔴 C3의 기상 지점이 죽었다 — 괄호 안 「성환읍」은 광역이 아니라 읍면동이다")
+    assert _e.design_outdoor_temp("강원(춘천)") == -15.5
+    assert _e.design_outdoor_temp("충남 천안(성환읍)") == -13.0
+    #   괄호 없는 동명 지역은 그대로 간다
+    assert _e.weather_station("광주광역시") == "광주"
+    assert _e.design_outdoor_temp("광주광역시") == -7.2
+    #   별칭 경로도 그대로
+    assert _e.weather_station("마산") == "창원" and _e.weather_station("창원") == "창원"
+
+    # ── ③ 도달 수를 다시 만든다 ───────────────────────────────────────────
+    regions = set(_e.REGION_DESIGN_LOAD)
+    reach = {r for r in regions if _e.design_outdoor_temp(r) is not None}
+    assert len(regions) == 172 and len(reach) == 68, (len(regions), len(reach))
+
+    # ── ④ 규칙이 상수로 드러나고 주입으로 덮어쓸 수 있다 ────────────────────
+    rule = _e.WEATHER_MATCH_RULE
+    assert rule["skip_when_bracket_is_province"] is True
+    assert len(rule["provinces"]) == 17, len(rule["provinces"])
+    for p_ in ("경기", "강원", "경남", "충남", "제주"):
+        assert p_ in rule["provinces"], p_
+    for not_p in ("춘천", "성환읍", "천안"):
+        assert not_p not in rule["provinces"], f"🔴 {not_p}가 광역 목록에 들어갔다"
+    off = {"skip_when_bracket_is_province": False}
+    assert _e.weather_station("광주(경기)", off) == "광주", "🔴 주입으로 끌 수 없다"
+
+    # ── ⑤ 설계하중 매칭은 손대지 않았다 ───────────────────────────────────
+    assert _e.siting_design_load("광주(경기)") == _e.REGION_DESIGN_LOAD["광주(경기)"]
+    #   ⚠️ `강원(춘천)`은 설계하중 표의 키가 아니다 — 그쪽 부분 매칭이 춘천으로 푼다
+    assert _e.siting_design_load("강원(춘천)") == _e.REGION_DESIGN_LOAD["춘천"], (
+        "🔴 설계하중 매칭이 바뀌었다 — 274차는 기상 조회만 건드렸다")
+    assert _e.REGION_DESIGN_LOAD["광주(경기)"] != _e.REGION_DESIGN_LOAD["광주광역시"]
+
+    # ── ⑥ 레지스트리 — status 결정 · 값이 엔진과 같다 ──────────────────────
+    reg = _json.loads(rd("엔진데이터_레지스트리.json"))["constants"]
+    ent = reg["WEATHER_MATCH_RULE"]
+    assert ent["status"] == "결정" and "2026-09-29" in ent["status_note"]
+    #   ⚠️ status와 status_note가 갈리면 둘 중 하나가 거짓이다 — 말머리도 본다
+    assert ent["status_note"].startswith("결정("), (
+        "🔴 status는 `결정`인데 status_note가 다른 말을 한다: %r" % ent["status_note"])
+    assert ent["value"]["skip_when_bracket_is_province"] is True
+    assert list(ent["value"]["provinces"]) == list(rule["provinces"])
+    assert "근거_지역정규화_기상지점_20260929.md" in ent["source"]
+
+    # ── ⑦ 241차 한계 주석을 지우지 않았고 막았다는 기록이 붙었다 ────────────
+    esrc = rd("smartfarm_engine.py")
+    assert "알려진 한계: 부분 일치는 **글자 포함**이라" in esrc, "🔴 241차 한계 문장이 지워졌다"
+    assert "274차 — 그 한계를 막았다" in esrc
+    #   ⚠️ 엔진 주석에 ★를 쓰지 않는다(146차 ★ 줄 수 가드가 센다)
+    i = esrc.index("WEATHER_MATCH_RULE = {")
+    blk = esrc[max(0, i - 1600):i]
+    assert "★" not in blk, "🔴 엔진 주석에 ★가 들어갔다 — ★는 레지스트리·대장에만"
+
+    # ── ⑧ 근거 문서 — 첫 규칙이 깬 사실과 두 뜻 표가 남는다 ─────────────────
+    doc = rd("근거_지역정규화_기상지점_20260929.md")
+    assert "✅**274차에 닫혔다**" in doc
+    assert "첫 규칙이 케이스 둘을 깼다" in doc
+    assert "괄호가 두 뜻으로 쓰이고 있었다" in " ".join(doc.split())
+    for row in ("| `광주(경기)` | 경기 | **광역 한정자**(동명이지 구분) | **그렇다** |",
+                "| `강원(춘천)` | 춘천 | **하위 지명**(지점 이름) | 아니다 |",
+                "| `충남 천안(성환읍)` | 성환읍 | **읍면동** | 아니다 |"):
+        assert row in doc, f"🔴 두 뜻 표의 행이 사라졌다: {row}"
+    assert "103지역은 잇지 않는다" in doc
+    assert "위 수는 272차 시점이다" in doc, "🔴 272차 수의 시점 표기가 사라졌다"
 
 
 if __name__ == "__main__":
