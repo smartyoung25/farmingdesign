@@ -623,6 +623,10 @@ GUIDE_SCREENS: tuple = (
     ("/workorders/{wo_id}", "작업지시서 상세", "WO 1건의 9절을 절별로 읽는다",
      "WO 번호", "9절 본문과 수용기준 체크 상태",
      "없는 번호는 404다 — 색인에 있는 번호만 연다"),
+    ("/design", "기본설계", "주소·품목·면적만 받아 구조 기본설계까지 낸다",
+     "주소(시·군·구 포함) · 품목 · 면적(㎡) — **케이스 파일이 필요 없다**",
+     "재해 조건 · 조건을 통과하는 규격과 형식별 최소사양 · 개산 · 인허가 · **낼 수 없는 것**",
+     "기상값이 비면 그 지역이 관측지점에 안 닿는 것이고, 개산이 비면 평단가 미등재다 — 둘 다 화면이 말한다"),
     ("/for", "관점별 입구", "같은 산출물을 보는 사람의 질문으로 묶어 본다",
      "넣는 것 없음(읽기)", "농업인·투자자·공공기관별 묶음과 이유 · 어느 관점에도 없는 산출물",
      "관점은 **입구이지 판정이 아니다** — 무엇을 고르라고 말하지 않는다"),
@@ -801,6 +805,137 @@ def perspective_index(name: str = None) -> dict:
         out["rows"] = one
         out["one"] = one[0]
     return out
+# ─────────────────────────────────────────────────────────────
+# 281차 — **기본설계 입구**(N-1). 작업지시서 11-B ⓒ: 엔진은 이미 내는데 **화면이 없었다**.
+#   주소·품목·면적 셋만 받아 F1 계열이 낼 수 있는 것을 낸다. **케이스 파일이 필요 없다** —
+#   `siting_lookup`·`select_specs`·`site_permit_checklist`는 순수 함수다(280차 확인).
+#   🔴 **고르지 않는다.** 규격은 *「지역 조건을 통과하는 것」*을 세고 형식별 최소사양을
+#      **참고로** 낼 뿐이다 — 어느 규격이 낫다고 하지 않는다(`select_specs` docstring:
+#      *「최종 선택은 사용자 몫」*).
+#   🔴 **못 내는 것을 함께 낸다.** 11-B ⓓ의 한계가 여기서 그대로 드러난다 —
+#      기상 도달 68/172 · 평단가 18/249. 빈칸으로 두면 «없는 것»이 «0»으로 읽힌다.
+#   ⚠️ 이 입구는 **「구조 기본설계」까지**다. 난방부하·경제면적·작기는 N-2·N-3과
+#      주입이 들어와야 선다(11-B ⓓ).
+# ─────────────────────────────────────────────────────────────
+BASIC_DESIGN_FORMS: tuple = ("연동", "단동", "광폭")
+BASIC_DESIGN_NONE: str = "낼 수 없다"
+
+
+def basic_design(addr: str = None, crop: str = None, area_m2: float = None) -> dict:
+    """주소·품목·면적 → 구조 기본설계 묶음. 분류·조회뿐 — 판정·추천 없음.
+
+    셋 중 없는 것이 있으면 그만큼만 낸다(빈칸을 지어내지 않는다).
+    """
+    out = {"input": {"주소": addr or "", "품목": crop or "", "면적_m2": area_m2},
+           "site": None, "specs": None, "estimate": None, "permit": None,
+           "cannot": [], "note": (
+               "🔴**고르지 않는다** — 규격은 지역 조건을 통과하는 것을 세고 형식별 "
+               "최소사양을 **참고로** 낼 뿐이다(최종 선택은 사용자 몫). "
+               "⚠️이 입구는 **「구조 기본설계」까지**다 — 난방부하·경제면적·작기는 "
+               "자료·주입이 들어와야 선다")}
+    cannot = out["cannot"]
+
+    # ── ① 입지 ────────────────────────────────────────────────────────
+    site = e.siting_lookup(addr) if addr else None
+    if addr and site is None:
+        cannot.append({"무엇": "입지 진단", "왜": (
+            "설계하중 표에서 지역을 찾지 못했다 — 시군구 이름을 포함해 적으면 잡힌다"
+            "(표는 행정구역 %d개)" % len(e.REGION_DESIGN_LOAD))})
+    if site:
+        st = e.weather_station(addr)
+        w = None
+        if st:
+            hdh = e.heating_degree_hours(addr, 12)
+            w = {"지점": st,
+                 "설계외기온_C": e.design_outdoor_temp(addr),
+                 "난방도일_12C": hdh.get("value"),
+                 "월별풍속": e.monthly_mean_wind(addr),
+                 "월별일조": e.monthly_sunshine(addr)}
+        else:
+            cannot.append({"무엇": "기상값(설계외기온·난방도일·풍속·일조)", "왜": (
+                "이 지역은 기상 4표의 관측지점에 닿지 않는다 — 설계하중은 **행정구역 %d개**, "
+                "기상 4표는 **관측지점 %d개**로 체계가 다르다. 공식 대응표가 없어 "
+                "**잇지 않고 주입**받기로 했다(사용자 결정 2026-09-29)"
+                % (len(e.REGION_DESIGN_LOAD), len(e.DESIGN_OUTDOOR_TEMP_TAC)))})
+        out["site"] = {"지역명": site["region_name"],
+                       "적설심_cm": site["region_snow_cm"],
+                       "풍속_ms": site["region_wind_ms"],
+                       "기상": w,
+                       "출처": "내재해형 시설규격 고시 제2022-104호 별표(★준거 221차)"}
+
+    # ── ② 적합 규격 ───────────────────────────────────────────────────
+    if site:
+        snow, wind = site["region_snow_cm"], site["region_wind_ms"]
+        base = e.select_specs(snow, wind)
+        withc = e.select_specs(snow, wind, crop=crop) if crop else base
+        crops = e.spec_crops()
+        if crop and crop not in crops:
+            crop_note = ("이 작목의 **특화형 규격이 등록돼 있지 않다** — 일반형만 본다"
+                         "(등록된 작목: %s)" % " · ".join(crops))
+        elif crop and len(withc["candidates"]) == len(base["candidates"]):
+            crop_note = ("이 작목의 특화형이 **이 지역 조건을 통과하지 못했다** — "
+                         "일반형만 남았다(오류가 아니다)")
+        elif crop:
+            #   ⚠️ 두 수를 **빼지 않는다** — 조립 계층의 산술은 1절이 금한다
+            #      (258차 단서는 **건수 집계**까지다). 둘을 나란히 적는다.
+            crop_note = ("일반형 %d · 이 작목 포함 %d"
+                         % (len(base["candidates"]), len(withc["candidates"])))
+        else:
+            crop_note = "품목 미지정 — 작물특화형은 제외하고 일반형만 본다(P1-11 결정)"
+        out["specs"] = {
+            "조건": "설계적설심 ≥ %scm AND 설계풍속 ≥ %sm/s" % (snow, wind),
+            "통과_규격수": len(withc["candidates"]),
+            "전체_규격수": len(e.SPEC_TABLE),
+            "작목_주": crop_note,
+            "형식별_최소사양": {f: {"이름": s.name, "폭_m": s.width_m,
+                             "설계적설심_cm": s.snow_cm, "설계풍속_ms": s.wind_ms,
+                             "서까래": s.rafter_spec, "등록연도": s.registered_year}
+                        for f, s in sorted(withc["min_by_form"].items())},
+            "주의": "최소사양은 **참고**다 — 어느 규격이 낫다고 하지 않는다",
+        }
+
+    # ── ③ 개산 ────────────────────────────────────────────────────────
+    if site and area_m2:
+        py = e.m2_to_py(area_m2)
+        per = {}
+        missing = []
+        for f, s in sorted(out["specs"]["형식별_최소사양"].items()) if out["specs"] else []:
+            v = e.greenhouse_total_estimate(s["이름"], py)
+            per[f] = v
+            if v is None:
+                missing.append("%s(%s)" % (f, s["이름"]))
+        out["estimate"] = {
+            "면적_평": round(py, 2),
+            "온실_전체_개산_원": per,
+            "골조_단독_개산_원": round(e.structure_only_estimate(py)),
+            "주의": ("개산은 **평단가표에 등재된 규격**만 낸다 — `None`은 미등재이고 "
+                   "**지어내지 않는다**. 금액은 시세성이라 실제 견적은 주입받는다"),
+        }
+        if missing:
+            cannot.append({"무엇": "온실 전체 개산 — " + " · ".join(missing), "왜": (
+                "그 규격은 평단가표에 없다(등재 %d / 전체 %d)"
+                % (sum(1 for s_ in e.SPEC_TABLE
+                       if e.greenhouse_total_estimate(s_.name, 1000) is not None),
+                   len(e.SPEC_TABLE)))})
+
+    # ── ④ 인허가 ──────────────────────────────────────────────────────
+    if area_m2:
+        out["permit"] = e.site_permit_checklist(area_m2)
+
+    # ── ⑤ 이 입구가 낼 수 없는 것(자료·주입이 먼저) ─────────────────────
+    cannot.append({"무엇": "난방부하·연료량", "왜": (
+        "기상값과 피복·목표온도가 있어야 선다 — 피복·온도는 **판단성**이라 "
+        "엔진이 고르지 않는다(주입)")})
+    cannot.append({"무엇": "경제성(ROI·회수기간)·경제면적", "왜": (
+        "수량(kg/㎡)이 **등재돼 있지 않고**(작업지시서 11-B N-2) 단가는 **시세성**이라 "
+        "주입 전용이다")})
+    cannot.append({"무엇": "적정작기·작형", "왜": (
+        "자료도 등재도 없다 — 엔진에 그 낱말이 주석 한 줄뿐이다(11-B N-3)")})
+    cannot.append({"무엇": "작목 적합 판정", "왜": (
+        "작목 선정은 **판단성**이라 1절이 금한다 — 규격이 그 작목을 지원하는지까지만 낸다")})
+    return out
+
+
 JUDGMENT_CODES: tuple = ("D25", "D26", "D27")
 
 

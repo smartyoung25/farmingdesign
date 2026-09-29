@@ -2696,7 +2696,8 @@ def test_277cha_guide_covers_every_console_screen():
     assert got == listed, (
         "🔴 안내에 빠진 화면 %r · 안내에만 있는 경로 %r" % (sorted(got - listed), sorted(listed - got)))
     #   📌278차(WO-014)에 관점별 화면 2개가 늘어 17 → 19가 됐다
-    assert len(g["screens"]) == 19 and len(g["not_screens"]) == 3, g["counts"]
+    #   📌281차(N-1)에 기본설계 화면이 늘어 19 → 20이 됐다
+    assert len(g["screens"]) == 20 and len(g["not_screens"]) == 3, g["counts"]
     #   화면마다 네 칸이 다 있다(빈칸으로 넘어가지 않는다)
     for s in g["screens"]:
         for k in ("name", "what", "input", "output", "why_empty"):
@@ -2747,7 +2748,7 @@ def test_277cha_guide_covers_every_console_screen():
     assert r.status_code == 200
     html = r.text
     assert _cd.audit(html) == {}, _cd.audit(html)
-    assert html.count('class="scr"') == 19
+    assert html.count('class="scr"') == 20
     assert html.count("확인 필요") >= len(need)
     for bad in ("추천", "권장합니다", "최적", "이것이 맞다"):
         assert bad not in html, f"🔴 안내에 판정 어휘 「{bad}」"
@@ -2870,4 +2871,105 @@ def test_278cha_perspective_entries_are_a_view_not_a_verdict(monkeypatch):
     for page in ("/", "/functions", "/entry"):
         c_ = client.get(page).text.count('href="/for"')
         assert c_ == 2, f"🔴 {page}의 관점별 링크가 {c_}곳이다(머리·푸터 2곳)"
+
+
+def test_281cha_basic_design_entry_answers_only_what_it_can():
+    """281차(N-1) — 기본설계 입구가 **낼 수 있는 것만** 내는가.
+
+    🔴 케이스 파일이 필요 없다 — 순수 함수 셋으로만 선다.
+    🔴 **고르지 않는다** — 최소사양은 참고이고 판정·추천 어휘가 0이다.
+    🔴 **못 내는 것을 숨기지 않는다** — 기상 미도달·평단가 미등재·난방/경제/작기는
+       화면이 이유와 함께 말한다. 빈칸으로 두면 실패.
+    """
+    import os as _o, io as _io
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd = lambda p_: _io.open(_o.path.join(root, p_), encoding="utf-8").read()
+
+    # ── ① 기상에 닿는 지역 / 닿지 않는 지역 — 둘 다 잰다 ──────────────────
+    hit = _cp.basic_design("전북 군산시", "수박", 5000)
+    assert hit["site"]["적설심_cm"] == _e.REGION_DESIGN_LOAD["군산"]["snow_cm"]
+    assert hit["site"]["기상"]["지점"] == "군산"
+    assert hit["site"]["기상"]["설계외기온_C"] == _e.design_outdoor_temp("군산")
+    miss = _cp.basic_design("충청남도 논산시 연무읍", "딸기", 3300)
+    assert miss["site"] is not None, "🔴 설계하중은 닿아야 한다(부분 매칭)"
+    assert miss["site"]["기상"] is None
+    why = [c["왜"] for c in miss["cannot"] if "기상값" in c["무엇"]]
+    assert len(why) == 1 and "잇지 않고 주입" in why[0], why
+
+    # ── ② 규격 — 엔진을 직접 불러 같은 수가 나오는가 ───────────────────────
+    s = hit["site"]
+    want = _e.select_specs(s["적설심_cm"], s["풍속_ms"], crop="수박")
+    assert hit["specs"]["통과_규격수"] == len(want["candidates"])
+    #   🔴 품목이 후보를 **늘리는** 자리에서도 재야 한다 — 늘지 않는 지역만 보면
+    #      crop 인자를 빼도 통과한다(군산 34/38은 수박 특화형이 전부 탈락한다)
+    warm = _cp.basic_design("충청남도 논산시 연무읍", "수박", 3300)
+    base_n = len(_e.select_specs(28, 28)["candidates"])
+    crop_n = len(_e.select_specs(28, 28, crop="수박")["candidates"])
+    assert crop_n > base_n, (base_n, crop_n)
+    assert warm["specs"]["통과_규격수"] == crop_n, (
+        "🔴 품목 특화형이 후보에 더해지지 않았다: %s vs %s"
+        % (warm["specs"]["통과_규격수"], crop_n))
+    #   🔴 조립 계층은 두 수를 **빼지 않는다**(1절) — 나란히 적었는지 본다
+    assert "일반형 %d · 이 작목 포함 %d" % (base_n, crop_n) in warm["specs"]["작목_주"]
+    assert "빼지 않는다" in rd("consulting_package.py")
+    assert hit["specs"]["전체_규격수"] == len(_e.SPEC_TABLE) == 249
+    assert set(hit["specs"]["형식별_최소사양"]) == set(want["min_by_form"])
+    for f, row in hit["specs"]["형식별_최소사양"].items():
+        assert row["이름"] == want["min_by_form"][f].name
+    #   🔴 고르지 않는다
+    assert "어느 규격이 낫다고 하지 않는다" in hit["specs"]["주의"]
+
+    # ── ③ 품목 — 특화형이 없을 때 **없다고 적는다** ────────────────────────
+    none_crop = _cp.basic_design("전북 군산시", "배추", 5000)
+    assert "특화형 규격이 등록돼 있지 않다" in none_crop["specs"]["작목_주"], (
+        none_crop["specs"]["작목_주"])
+    assert "수박" in _e.spec_crops() and "배추" not in _e.spec_crops()
+
+    # ── ④ 개산 — None은 None으로 두고 이유를 낸다 ─────────────────────────
+    est = miss["estimate"]
+    assert est["면적_평"] == round(_e.m2_to_py(3300), 2)
+    assert est["골조_단독_개산_원"] == round(_e.structure_only_estimate(_e.m2_to_py(3300)))
+    assert any(v is None for v in est["온실_전체_개산_원"].values())
+    assert "지어내지 않는다" in est["주의"]
+    assert any("평단가표에 없다" in c["왜"] for c in miss["cannot"]), miss["cannot"]
+
+    # ── ⑤ 낼 수 없는 것 — 네 가지가 늘 붙는다 ─────────────────────────────
+    always = {"난방부하·연료량", "경제성(ROI·회수기간)·경제면적", "적정작기·작형", "작목 적합 판정"}
+    for b in (hit, miss, _cp.basic_design()):
+        got = {c["무엇"] for c in b["cannot"]}
+        assert always <= got, (sorted(always - got))
+
+    # ── ⑥ 셋이 없어도 선다(케이스 파일 없이) ──────────────────────────────
+    empty = _cp.basic_design()
+    assert empty["site"] is None and empty["specs"] is None and empty["estimate"] is None
+    assert empty["cannot"], "🔴 빈 조회에서도 한계는 말해야 한다"
+
+    # ── ⑦ 화면 — 200 · 잘못된 면적은 400 · 실명 0 · 판정 어휘 0 ────────────
+    r = client.get("/design", params={"addr": "전북 군산시", "crop": "수박", "area_m2": "5000"})
+    assert r.status_code == 200
+    html = r.text
+    assert _cd.audit(html) == {}, _cd.audit(html)
+    assert client.get("/design").status_code == 200
+    assert client.get("/design", params={"area_m2": "abc"}).status_code == 400
+    assert client.get("/design", params={"area_m2": "-3"}).status_code == 400
+    for bad in ("추천", "권장", "최적", "이 규격을 쓰"):
+        assert bad not in html, f"🔴 기본설계 화면에 판정 어휘 「{bad}」"
+    assert "낼 수 없는 것" in html and html.count('class="can"') >= 4
+    for page in ("/", "/functions", "/entry"):
+        c_ = client.get(page).text.count('href="/design"')
+        assert c_ == 2, f"🔴 {page}의 기본설계 링크가 {c_}곳이다(머리·푸터 2곳)"
+
+    # ── ⑧ 경계 문구를 지우지 않았다 ───────────────────────────────────────
+    src = rd("consulting_package.py")
+    #   ⚠️ 같은 문구가 **주석과 note 두 곳**에 있다 — 한 곳만 지워도 잡히게 수를 센다
+    assert "**고르지 않는다.**" in src
+    assert src.count("「구조 기본설계」까지") == 2, (
+        "🔴 「구조 기본설계」까지가 %d곳이다 — 주석·note 2곳이다"
+        % src.count("「구조 기본설계」까지"))
+    assert "빈칸으로 두면 «없는 것»이 «0»으로 읽힌다" in src
+    #   사용 안내에도 이 화면이 올라 있다(277차 가드와 겹쳐 지킨다)
+    assert any(x["path"] == "/design" for x in _cp.guide_index()["screens"])
 

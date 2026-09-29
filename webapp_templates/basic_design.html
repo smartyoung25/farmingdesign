@@ -1,0 +1,125 @@
+{% extends "_base.html" %}
+{% set active = "design" %}
+{% block title %}기본설계{% endblock %}
+{% block main %}
+  <style>
+    .fm { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:16px 18px; margin-bottom:14px; }
+    .fm .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));
+               gap:10px; align-items:end; }
+    .fm label { display:block; font-size:12px; color:var(--sub); margin-bottom:4px; }
+    .fm input { width:100%; box-sizing:border-box; padding:8px 10px; font-size:13px;
+                border:1px solid var(--line); border-radius:8px; background:var(--bg);
+                color:inherit; }
+    .fm .hint { font-size:11.5px; color:var(--mut); margin-top:8px; line-height:1.5; }
+    .grp { background:var(--card); border:1px solid var(--line); border-radius:12px;
+           padding:16px 18px; margin-bottom:14px; }
+    .grp > h2 { font-size:15px; font-weight:500; margin-bottom:8px; }
+    .kv { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));
+          gap:8px 14px; }
+    .kv div { font-size:12.5px; line-height:1.55; }
+    .kv b { color:var(--mut); font-weight:400; }
+    .sp { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr)); gap:8px; }
+    .sp1 { border:1px solid var(--line); border-radius:9px; padding:9px 12px; }
+    .sp1 .f { font-size:13px; font-weight:500; }
+    .sp1 .n { font-family:ui-monospace,Consolas,monospace; font-size:11.5px; color:var(--green); }
+    .sp1 .d { font-size:11.5px; color:var(--sub); line-height:1.5; margin-top:3px; }
+    .can { border:1px dashed #D9B9B9; background:#FDF6F6; border-radius:9px;
+           padding:9px 12px; margin-bottom:7px; }
+    .can .t { font-size:12.5px; font-weight:500; color:#791F1F; }
+    .can .w { font-size:11.5px; color:#8A4A4A; line-height:1.5; margin-top:3px; }
+    .none { color:var(--mut); font-style:italic; }
+    .steps { font-size:12px; line-height:1.6; }
+    .steps li { margin-bottom:3px; }
+  </style>
+
+  <div class="top"><h1>기본설계</h1>
+    <div class="actions"><a class="btn" href="/for/농업인">농업인 관점</a><a class="btn" href="/">케이스</a></div></div>
+  <div class="subtitle">주소·품목·면적 셋만 넣으면 <b>구조 기본설계</b>까지 낸다 — 케이스 파일이 필요 없다</div>
+
+  <form class="fm" method="get" action="/design">
+    <div class="row">
+      <div><label for="addr">주소(시·군·구가 들어가게)</label>
+        <input id="addr" name="addr" value="{{ bd.input['주소'] }}" placeholder="충청남도 논산시 연무읍"></div>
+      <div><label for="crop">품목</label>
+        <input id="crop" name="crop" value="{{ bd.input['품목'] }}" placeholder="딸기"></div>
+      <div><label for="area_m2">면적(㎡)</label>
+        <input id="area_m2" name="area_m2" value="{{ bd.input['면적_m2'] if bd.input['면적_m2'] else '' }}" placeholder="3300"></div>
+      <div><button class="btn" type="submit">조회</button></div>
+    </div>
+    <div class="hint">{{ bd.note }}</div>
+  </form>
+
+  {% if bd.site %}
+  <div class="grp">
+    <h2>입지 — 재해 조건</h2>
+    <div class="kv">
+      <div><b>지역</b> · {{ bd.site['지역명'] }}</div>
+      <div><b>설계적설심</b> · {{ bd.site['적설심_cm'] }} cm</div>
+      <div><b>설계풍속</b> · {{ bd.site['풍속_ms'] }} m/s</div>
+      {% if bd.site['기상'] %}
+      <div><b>기상 지점</b> · {{ bd.site['기상']['지점'] }}</div>
+      <div><b>설계외기온</b> · {{ bd.site['기상']['설계외기온_C'] }} ℃</div>
+      <div><b>난방도일(12℃)</b> · {{ bd.site['기상']['난방도일_12C'] }} ℃·h</div>
+      {% else %}
+      <div><b>기상값</b> · <span class="none">이 지역은 관측지점에 닿지 않는다</span></div>
+      {% endif %}
+    </div>
+    <div class="hint">출처: {{ bd.site['출처'] }}</div>
+  </div>
+  {% endif %}
+
+  {% if bd.specs %}
+  <div class="grp">
+    <h2>적합 규격 — 조건을 통과하는 것</h2>
+    <div class="kv">
+      <div><b>조건</b> · {{ bd.specs['조건'] }}</div>
+      <div><b>통과</b> · {{ bd.specs['통과_규격수'] }} / {{ bd.specs['전체_규격수'] }} 규격</div>
+      <div><b>품목</b> · {{ bd.specs['작목_주'] }}</div>
+    </div>
+    <div class="sp" style="margin-top:10px">
+      {% for f, s in bd.specs['형식별_최소사양'].items() %}
+      <div class="sp1">
+        <div class="f">{{ f }} <span class="n">{{ s['이름'] }}</span></div>
+        <div class="d">폭 {{ s['폭_m'] }}m · 설계 {{ s['설계적설심_cm'] }}cm / {{ s['설계풍속_ms'] }}m/s<br>
+          서까래 {{ s['서까래'] }} · {{ s['등록연도'] }}년 등록</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="hint">{{ bd.specs['주의'] }}</div>
+  </div>
+  {% endif %}
+
+  {% if bd.estimate %}
+  <div class="grp">
+    <h2>개산 — 참고 금액</h2>
+    <div class="kv">
+      <div><b>면적</b> · {{ bd.estimate['면적_평'] }} 평</div>
+      {% for f, v in bd.estimate['온실_전체_개산_원'].items() %}
+      <div><b>{{ f }} 전체</b> · {% if v %}{{ "{:,.0f}".format(v) }} 원{% else %}<span class="none">평단가 미등재</span>{% endif %}</div>
+      {% endfor %}
+      <div><b>골조 단독</b> · {{ "{:,.0f}".format(bd.estimate['골조_단독_개산_원']) }} 원</div>
+    </div>
+    <div class="hint">{{ bd.estimate['주의'] }}</div>
+  </div>
+  {% endif %}
+
+  {% if bd.permit %}
+  <div class="grp">
+    <h2>인허가 — 착공 전 확인</h2>
+    <ol class="steps">
+      {% for s in bd.permit['steps'] %}
+      <li><b>{{ s['item'] }}</b> — {{ s['timing'] }} · {{ s['clause'] }}</li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+
+  <div class="grp">
+    <h2>이 입구가 <b>낼 수 없는 것</b></h2>
+    <div class="subtitle" style="margin-bottom:8px">빈칸으로 두지 않는다 — 없는 것이 0으로 읽히면 안 된다</div>
+    {% for c in bd.cannot %}
+    <div class="can"><div class="t">{{ c['무엇'] }}</div><div class="w">{{ c['왜'] }}</div></div>
+    {% endfor %}
+  </div>
+{% endblock %}

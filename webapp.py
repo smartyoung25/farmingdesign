@@ -229,6 +229,20 @@ def function_map(request: Request):
     })
 
 
+# ── 281차(N-1): 기본설계 입구 — 주소·품목·면적만 받는다 ────────────────────
+#   🔴 읽기 전용이라 GET이다(저장하지 않는다). 셋 중 없는 것이 있으면 그만큼만 낸다.
+@app.get("/design")
+def basic_design(request: Request, addr: str = "", crop: str = "", area_m2: str = ""):
+    try:
+        area = float(area_m2) if str(area_m2).strip() else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"면적은 숫자여야 한다: {area_m2!r}")
+    if area is not None and area <= 0:
+        raise HTTPException(status_code=400, detail=f"면적은 양수여야 한다: {area}")
+    bd = cpkg.basic_design(addr.strip() or None, crop.strip() or None, area)
+    return templates.TemplateResponse(request, "basic_design.html", {"bd": bd})
+
+
 # ── 278차(WO-014): 관점별 입구 — 보는 사람의 질문으로 묶는다(분류뿐) ────────
 #   🔴 입구이지 판정이 아니다 — 「당신에겐 이것이 맞다」를 말하지 않는다.
 _PERSPECTIVE_NAMES = [n for n, _a, _c in cpkg.PERSPECTIVES]
