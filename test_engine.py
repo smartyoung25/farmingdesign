@@ -10868,7 +10868,8 @@ def test_193cha_named_sources_were_actually_looked_for():
     # 🔴241차 — `WEATHER_STATION_ALIASES` source가 `근거_결정대기대장_20260915.md`를 인용해 85 → 86
     # 🔴274차 — `WEATHER_MATCH_RULE` source가 `근거_지역정규화_기상지점_20260929.md`를 인용해 86 → 87
     # 🔴279차 — `GUIDELINE_FEE_RATE_*` source가 `법령_엔지니어링대가기준_별표1`과 `근거_설계감리요율_원문대조_20260929.md`를 인용해 87 → 89
-    assert len(cited) == 89, (
+    # 🔴284차 — `GUIDELINE_FEE_RATE_TABLE` status_note가 `근거_기재부편성지침_사업관리비추적_20260929.md`를 인용해 89 → 90
+    assert len(cited) == 90, (
         f"🔴 이름을 댄 출처가 {len(cited)}종이다 — 274차 실측은 87종이다(241차 86 + 지역정규화 근거). "
         "늘었다면 **새 인용이 실재하는지** 이 가드가 방금 확인한 것이고, "
         "줄었다면 인용이 사라진 것이니 어느 쪽인지 적고 갱신하라")
@@ -14120,7 +14121,7 @@ def test_273cha_console_inspection_counts_come_from_the_code():
 
     # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
     cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))
-    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 80),   # 📌279차 +1 · 282차 +1(시설작목수량) · 283차 +1(KS X 3268·3269)
+    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 81),   # 📌279차 +1 · 282차 +1(시설작목수량) · 283차 +1(KS X 3268·3269) · 284차 +1(편성지침 추적)
                           ("법령 원문 `법령_*.pdf`", "법령_*.pdf", 7),
                           ("고시 원문 `고시_*.pdf`", "고시_*.pdf", 1)):
         assert cnt(pat) == n, f"🔴 {pat} 가 {cnt(pat)}건이다 — 점검은 {n}건으로 셌다"
@@ -14297,8 +14298,11 @@ def test_279cha_guideline_fee_rates_are_reread_from_the_annex():
     # ── ③ 🔴 사업관리비는 원문을 확보하지 못했다 ──────────────────────────
     assert [r[3] for r in tbl] == [1.7, 1.57, 1.52, 1.42, 1.32]
     chain = _e.GUIDELINE_FEE_RATE_BASIS["mgmt_origin_chain"]
-    for tok in ("농어촌정비법 시행규칙 제60조", "제2024-92호", "기획재정부 편성지침", "원문 미확보"):
+    #   🔴284차 — 사슬의 끝(편성지침)을 **열었다**. 값이 거기 없다는 사실이 사슬에 적혀야 한다
+    for tok in ("농어촌정비법 시행규칙 제60조", "제2024-92호", "기획재정부 편성지침",
+                "284차", "그 안에 없다"):
         assert tok in chain, "🔴 사업관리비 사슬에서 「%s」가 사라졌다" % tok
+    assert "원문 미확보" not in chain, "🔴 사슬이 아직 「미확보」라고 적는다 — 284차에 열었다"
     ref = _e.guideline_fee_reference(1_000_000_000)
     assert ref["사업관리비_주의"].startswith("[확인요망]"), ref["사업관리비_주의"][:40]
     doc = rd("근거_설계감리요율_원문대조_20260929.md")
@@ -14579,4 +14583,113 @@ def test_283cha_ks_x_3268_3269_existence_is_recorded_with_its_controls():
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (sec_name, cnt, seen)
         total += seen
     files = len(_g.glob(_o.path.join(repo, "근거_*.md")))
-    assert total == files == 80, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
+    assert total == files == 81, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
+
+
+def test_284cha_management_fee_absence_is_measured_not_asserted():
+    """284차(N-4) — 「편성지침에 사업관리비가 없다」를 **문서가 아니라 리포에서 다시 잰다**.
+
+    🔴 부재는 단정하기 쉬운 주장이다 — 그래서 ①리포에 있는 별표1 PDF를 **다시 열어**
+       다섯 자리가 없음을 재고 ②근거 문서가 **방법과 한계**(전수 기준 · CID 깨짐 ·
+       열 이름 미판독)를 적었는지 본다.
+    🔴 **값을 바꾸지 않았다** — 사업관리비 다섯 자리와 소계가 그대로여야 한다.
+    🔴 **`[확인요망]`을 떼지 않았다** — 근거를 못 찾았는데 떼면 실패.
+    """
+    import os as _o, io as _io, re as _re
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_기재부편성지침_사업관리비추적_20260929.md")
+    flat = " ".join(doc.split())
+    FIVE = ("1.70", "1.57", "1.52", "1.42", "1.32")
+
+    # ── ① 🔴 값을 바꾸지 않았다 ────────────────────────────────────────────
+    tbl = _e.GUIDELINE_FEE_RATE_TABLE
+    assert [r[3] for r in tbl] == [1.7, 1.57, 1.52, 1.42, 1.32], "🔴 사업관리비가 움직였다"
+    assert [round(sum(r[1:]), 2) for r in tbl] == [9.52, 8.57, 8.1, 7.54, 6.88]
+    ref = _e.guideline_fee_reference(1_000_000_000)
+    assert ref["사업관리비_주의"].startswith("[확인요망]"), "🔴 근거를 못 찾았는데 표기를 뗐다"
+
+    # ── ② 🔴 사슬이 「미확보」가 아니라 「열었고 거기 없다」로 적힌다 ────────
+    chain = _e.GUIDELINE_FEE_RATE_BASIS["mgmt_origin_chain"]
+    assert "원문 미확보" not in chain
+    #   🔴낱개 토큰으로 재면 「…있다 그 안에 없다」로도 통과한다 — **문장 전체**로 잰다
+    for tok in ("284차", "기획재정부 편성지침",
+                "사업관리비 다섯 자리가 그 안에 없다"):
+        assert tok in chain, tok
+    note = _e.GUIDELINE_FEE_RATE_TABLE and rd("엔진데이터_레지스트리.json")
+    import json as _j
+    ent = _j.loads(note)["constants"]["GUIDELINE_FEE_RATE_TABLE"]
+    assert "열었고 거기 없다" in ent["status_note"], ent["status_note"][-60:]
+    #   🔴같은 이유로 레지스트리도 **표기 문구 그대로** 본다(뒤에 나오는 딴 [확인요망]에 속지 않는다)
+    assert "**사업관리비만 [확인요망]**" in ent["status_note"], ent["status_note"][:80]
+
+    # ── ③ 🔴 리포의 별표1을 **다시 열어** 부재를 잰다(279차 결론 재확인) ────
+    import importlib.util as _iu
+    import pytest as _pt
+    if _iu.find_spec("pdfplumber") is None:
+        _pt.skip("pdfplumber 없음 — 원문 재판독 불가")
+    import pdfplumber as _pdf
+    pdf_path = _o.path.join(repo, "법령_엔지니어링대가기준_별표1_건설부문요율.pdf")
+    assert _o.path.exists(pdf_path)
+    with _pdf.open(pdf_path) as pdf:
+        pages = [(pg.extract_text() or "") for pg in pdf.pages]
+    #   다섯 자리가 **한 쪽에 4개 이상** 모이는 쪽이 없다 = 그 열이 없다
+    worst = max(sum(1 for v in FIVE if v in t) for t in pages)
+    assert worst < 4, "🔴 별표1에 사업관리비 열이 있다 — %d개가 한 쪽에 모였다" % worst
+    #   반대로 공사감리 다섯 자리는 **한 쪽에 전부** 있다(측정법이 무디지 않다는 증거)
+    SUPER = ("1.66", "1.53", "1.48", "1.45", "1.41")
+    assert any(all(v in t for v in SUPER) for t in pages), (
+        "🔴 공사감리 다섯 자리가 한 쪽에 없다 — 이 측정법은 열을 못 잡는다")
+
+    # ── ④ 🔴 근거 문서가 **방법과 한계**를 적었는가 ────────────────────────
+    assert "**426쪽**" in doc and "2025-05-27" in doc
+    assert "다섯 중 **4개 이상**이 한 쪽에 나오는 쪽" in doc, "🔴 측정 기준이 없다"
+    assert "| 다섯 중 3개 (최대) | 인쇄 306 · 337 |" in doc
+    assert "**CID 깨짐**" in doc, "🔴 판독 한계를 적지 않았다"
+    assert "*「이 열이 곧 공사감리비다」*라고" in flat and "**단정하지 않는다**" in flat
+    assert "리포에 넣지 않았다" in doc, "🔴 원문 미보관 사실이 빠졌다"
+    #   우연 일치를 **우연이라고** 적었다
+    assert "둘 다 다른 행·다른 열의 우연" in doc
+    assert "「가. 기본설계」의 2,000억·3,000억 행" in doc
+
+    # ── ⑤ 🔴 남은 갈래를 **고르지 않는다** ─────────────────────────────────
+    assert "어느 것인지 **이 차수는 판정하지 않는다**" in flat
+    for bad in ("사업관리비는 편성지침에서 왔다", "값이 틀렸다", "지침이 잘못 적었다"):
+        assert bad not in doc, "🔴 단정문 「%s」" % bad
+    #   §6 절 안에서 갈래 줄을 **센다** — 낱개 토큰으로 재면 다른 절이 걸린다
+    s6 = doc[doc.index("## 6. 남은 가능성"):doc.index("## 7. 확인하지 못한 것")]
+    cand = [l for l in s6.splitlines() if l.startswith("- ")]
+    assert len(cand) == 4, "🔴 남은 갈래가 %d개다 — 하나로 좁히면 그건 판정이다" % len(cand)
+
+    # ── ⑥ ✅ 279차의 둘째 미확인 항목이 닫혔다 — 근거 인용이 있어야 한다 ────
+    assert "비상주 감리를 의미함" in doc, "🔴 편성지침 인용이 없다"
+    old = rd("근거_설계감리요율_원문대조_20260929.md")
+    assert "✅ **284차에 닫혔다 — 근거는 편성지침에 있었다.**" in old
+    assert "**그 선택의 근거는 지침이 적지 않는다**[확인요망]." in old, (
+        "🔴 279차가 적은 관찰을 지웠다 — 기록은 고치지 않고 포인터만 붙인다")
+    assert old.count("근거_기재부편성지침_사업관리비추적_20260929.md") >= 2
+    #   §5 「확인하지 못한 것」에서 두 줄이 취소선으로 바뀌었다
+    assert "~~**기재부 편성지침의 시설부대경비 요율 원문**(§3)~~" in old
+    assert "~~**지침이 왜 감리만 비상주 계열을 골랐는지**(§3 📌)~~" in old
+    #   🔴 그래도 **최종 근거는 못 찾았다**고 남아 있어야 한다
+    assert "최종 근거는 **여전히 못 찾았다**" in old
+
+    # ── ⑦ 지도 등재 · 절 머리 = 행 수(283차 가드와 겹쳐 지킨다) ─────────────
+    mp = rd("근거지도_20260923.md")
+    assert "`근거_기재부편성지침_사업관리비추적_20260929.md`" in mp
+    import glob as _g
+    tot, cur, cnt, seen = 0, None, 0, 0
+    for ln in mp.splitlines():
+        m = _re.match(r"^## (.+?) \((\d+)건\)\s*$", ln)
+        if m or (ln.startswith("## ") and cur):
+            if cur:
+                assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
+                tot += seen
+            cur, cnt, seen = (m.group(1), int(m.group(2)), 0) if m else (None, 0, 0)
+        elif cur and ln.startswith("| `근거_"):
+            seen += 1
+    if cur:
+        assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
+        tot += seen
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 81, tot
