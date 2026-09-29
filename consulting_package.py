@@ -84,7 +84,8 @@ PACKAGE_SPEC = [
     #   어느 산출물에도 붙어 있지 않았다. 두 칸을 채운다.
     {"code": "D21", "title": "운영 진단표", "stage": "⑤운영", "targets": ["시설", "기자재"],
      "engine": ["env_fitness", "yield_adjustment", "production_kg",
-                "opex_breakdown", "improvement_roi"]},
+                "opex_breakdown", "improvement_roi",
+                "facility_yield", "facility_yield_crops"]},
     {"code": "D22", "title": "컨설팅 대가 산출", "stage": "④타당성검증", "targets": ["시설"],
      "engine": ["consulting_fee_estimate", "design_supervision_fee_reference",
                 "guideline_fee_reference"]},
@@ -926,9 +927,23 @@ def basic_design(addr: str = None, crop: str = None, area_m2: float = None) -> d
     cannot.append({"무엇": "난방부하·연료량", "왜": (
         "기상값과 피복·목표온도가 있어야 선다 — 피복·온도는 **판단성**이라 "
         "엔진이 고르지 않는다(주입)")})
+    #   🔴282차(N-2) — 수량은 등재됐다. **남은 것은 단가**이고 그것은 시세성이다.
+    #      작목 이름을 **고르지 않는다** — 낱말이 들어가는 후보를 나열만 한다
+    #      (토경/수경 중 무엇인지는 케이스가 정한다).
+    if crop:
+        hits = [n for n in e.facility_yield_crops() if crop in n]
+        out["yield_ref"] = {
+            "찾은_이름": hits,
+            "수량_kg_m2": {n: e.facility_yield(n)["수량_kg_m2"] for n in hits},
+            "원문_기준": e.FACILITY_YIELD_BASIS["unit"] + " — 위 값은 ㎡당으로 환산한 것",
+            "출처": e.FACILITY_YIELD_BASIS["source"],
+            "주의": ("**전국 평균**이고 **고르지 않는다** — 토경·수경 중 무엇을 쓸지는 "
+                   "케이스가 정한다. 이름이 없으면 그 작목은 표에 없는 것이다"),
+        }
     cannot.append({"무엇": "경제성(ROI·회수기간)·경제면적", "왜": (
-        "수량(kg/㎡)이 **등재돼 있지 않고**(작업지시서 11-B N-2) 단가는 **시세성**이라 "
-        "주입 전용이다")})
+        "수량은 282차에 등재됐다(전국 평균 · 시설 계열 %d종) — 그런데 **단가가 시세성**이라 "
+        "주입 전용이고, 그것 없이는 총수입이 서지 않는다"
+        % len(e.FACILITY_YIELD_KG_10A))})
     cannot.append({"무엇": "적정작기·작형", "왜": (
         "자료도 등재도 없다 — 엔진에 그 낱말이 주석 한 줄뿐이다(11-B N-3)")})
     cannot.append({"무엇": "작목 적합 판정", "왜": (

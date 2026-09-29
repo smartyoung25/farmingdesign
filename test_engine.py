@@ -4997,7 +4997,7 @@ def test_137cha_every_ref_records_its_match_grade():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 113, "partial": 58, "near": 17}, (
+    assert dist == {"exact": 114, "partial": 60, "near": 17}, (
         f"등급 분포가 {dist}로 바뀌었다 — 244차 실측은 exact 112 / partial 57 / near 17이다(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10))"
         "(+ 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(163차 90/55/9 → 🔴173차 **exact +4 · partial +1** = 공사시방서 3종에 전사한 "
@@ -5063,7 +5063,7 @@ def test_137cha_every_ref_records_its_match_grade():
         "그 서술이 근거대장으로 렌더돼 배지 집계를 부풀린다(137차 실측)")
 
     ledger = open(_o.path.join(repo, "SmartFarm_근거대장.html"), encoding="utf-8").read()
-    assert ledger.count("[근접]") == 17 and ledger.count("[부분]") == 58, (
+    assert ledger.count("[근접]") == 17 and ledger.count("[부분]") == 60, (
         f"근거대장 배지가 [근접] {ledger.count('[근접]')}·[부분] {ledger.count('[부분]')}다 — "
         "230차 실측(17·57 — 188차 15에 `KSFID_NUMBER_SPEC` near 2)과 어긋난다. build_site.py를 다시 돌렸는지 확인하라"
         "(137차 확정 8·50 → 151차 partial +3 → 161차 near +1"
@@ -5265,7 +5265,7 @@ def test_140cha_partial_and_near_refs_carry_criteria():
 
     consts = vr.load_registry()
     rows = vr.soft_refs(consts)
-    assert len(rows) == 75, (
+    assert len(rows) == 77, (
         f"partial·near가 {len(rows)}건이다 — 230차 실측은 74건(188차 72 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(140차 58 + `OVERHEAD_RATES` 3 + `FR_TABLE` 1 + `REGION_DESIGN_LOAD` 2 "
         "+ 🔴173차 감리 절차의 세 번째 시방서 사본 1)")
@@ -6012,7 +6012,7 @@ def test_147cha_drawing_refs_carry_criteria():
     for k, v in C.items():
         for r in (v.get("source_refs") or []):
             dist[r["match"]] = dist.get(r["match"], 0) + 1
-    assert dist == {"exact": 113, "partial": 58, "near": 17}, (
+    assert dist == {"exact": 114, "partial": 60, "near": 17}, (
         f"등급 분포가 {dist}로 바뀌었다 — 147차는 note만 채웠고 등급은 건드리지 않았다(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10))"
         "(+ 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(151차에 `OVERHEAD_RATES` partial 3건이 더해져 50 → 53, "
@@ -6512,7 +6512,7 @@ def test_151cha_overhead_refs_and_blind_spot_classes():
 
     # ── ④ 사각이 6건이고, 그중 2건은 구조상 0이다 ─────────────────────
     a = at.audit()
-    assert a["counts"]["source_refs"] == 188, (
+    assert a["counts"]["source_refs"] == 191, (
         f"source_refs가 {a['counts']['source_refs']}다 — 244차 실측은 186건(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10)) · 230차 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))"
         "(177차 173 + 🔴178차 OPEX 비목 대조 1건)")
     # `refless_measured`는 (상수명, status) 쌍을 준다 — 이름만 뽑는다
@@ -6632,7 +6632,7 @@ def test_152cha_blind_spot_classes_are_declared_not_guessed():
         "🔴 게이트 순서(build_site를 pytest **앞에**)가 근거문서에서 사라졌다 — "
         "151차에 실제로 낡은 HTML로 배지 가드가 통과했다")
     ledger = rd("SmartFarm_근거대장.html")
-    assert ledger.count("[부분]") == 58, (
+    assert ledger.count("[부분]") == 60, (
         f"근거대장 [부분] 배지가 {ledger.count('[부분]')}다 — build_site를 먼저 돌렸는지 보라")
 
     # ── ⑦ 이 차수가 하지 않은 것 ──────────────────────────────────────
@@ -7609,7 +7609,7 @@ def test_163cha_design_load_byepyo_registered():
     # 🔴178차 — `OPEX_ITEM_CATEGORIES`가 풀려 3건 → 2건이 됐다(조사표 비목 대조)
     assert blocked == {"SPEC_COUNT", "SPEC_TABLE"}, (
         f"🔴 남은 사각 명단이 바뀌었다: {sorted(blocked)} — 178차 실측은 2건이다")
-    assert a["counts"]["source_refs"] == 188, (
+    assert a["counts"]["source_refs"] == 191, (
         f"source_refs가 {a['counts']['source_refs']}건이다 — 244차 실측은 186건(🔴244차 **exact +2** = `PUMSEM_OVERHEAD_RATES`(원문 PDF · 주석 전수 기록, ★D-10)) · 230차 184건(188차 182 + 🔴230차 **near +2** = `KSFID_NUMBER_SPEC`(벤치마킹출처 검증 · 사업기획서 §5.2))")
 
     # ── ④ 값은 바뀌지 않았다 ─────────────────────────────────────────
@@ -7822,7 +7822,7 @@ def test_166cha_service_design_claims_are_measured():
     # 🔴213차 — 공개 함수 71→74(procurement_route·warranty_bond_requirement·
     #    quote_count_requirement). ★결정으로 열린 등재라 대기 대장에는 가지 않는다.
     # 🔴241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다)
-    assert len(pub) == 76 and len(cls) == 30, (
+    assert len(pub) == 78 and len(cls) == 30, (
         f"🔴 엔진 공개 함수 {len(pub)}개·클래스 {len(cls)}개다 — 241차 실측은 75·30이다. "
         "서비스 설계 문서의 커버리지 표가 이 수를 전제로 쓰였으니 함께 갱신하라")
     assert "공개 함수 53개·데이터 클래스 30개" in doc  # 166차 시점의 실측 기록
@@ -8134,7 +8134,7 @@ def test_169cha_critique_numbers_are_recomputed_not_asserted():
     missing = sorted(pub - cited)
     # 🔴172차 — 신설 함수를 §3-c에 배치했으므로 인용 49 → 50, 미인용은 4 그대로다
     # 🔴241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다) — 서비스설계 §5 부지×공종설계에 배치
-    assert len(cited) == 76 and len(missing) == 0, (
+    assert len(cited) == 78 and len(missing) == 0, (
         f"🔴 인용 {len(cited)} · 미인용 {len(missing)}이다 — 241차 실측은 75/0이다: {missing}")
     assert "service_life_reference" in cited
     assert {"site_permit_checklist", "equipment_reconcile"} <= cited, (
@@ -8430,8 +8430,8 @@ def test_172cha_consulting_fee_keeps_the_injection_boundary():
     # 🔴244차 — `PUMSEM_OVERHEAD_RATES` 등재로 73 → 74(★D-10 — 원문 [주] 전사)
     # 🔴274차 — `WEATHER_MATCH_RULE` 등재로 74 → 75(★괄호 규칙 — 241차 D-5의 잔여 구멍)
     # 🔴279차 — `GUIDELINE_FEE_RATE_BASIS`·`GUIDELINE_FEE_RATE_TABLE` 등재로 75 → 77(★D-17 닫힘)
-    assert len(reg["constants"]) == 77, (
-        "🔴 레지스트리 상수가 77개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
+    assert len(reg["constants"]) == 79, (
+        "🔴 레지스트리 상수가 79개가 아니다 — 172차 과금 상수는 등재하지 않았고, "
         "173차 감리 2 · 174차 하자 1 · 175차 P2·P4 3 · 🔴176차 내용연수 1상수는 "
         "**등재했다**(원문이 리포에 있다)")
     for tok in ("OVERHEAD_RATE_RANGE", "TECH_FEE_RATE_RANGE"):
@@ -9268,7 +9268,7 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
                    if n.returns is not None else "")
             pub[n.name] = bool((keys & MARK) or (dcf.get(ann, set()) & MARK))
     marked = sorted(f for f in pub if pub[f])
-    assert len(pub) == 76, f"🔴 공개 함수가 {len(pub)}개다 — 241차 실측은 75다(241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다))"
+    assert len(pub) == 78, f"🔴 공개 함수가 {len(pub)}개다 — 241차 실측은 75다(241차 ★D-5·D-6 — `weather_station` 신설(기상 지점을 드러낸다))"
     # 🔴187차 — ★ 등급 부여로 `ksfid_grade`가 신설돼 15 → 16이 됐다.
     # 🔴188차 — `guarantee_assessment`·`progress_certification`이 신설돼 16 → 18.
     # 🔴208차 — ★②의 `service_life_index()`가 `rows`·`counts`를 내므로 18 → 19다.
@@ -9352,6 +9352,8 @@ def test_180cha_matrix_is_recomputed_from_the_assignment_table():
     outside = sorted(set(pub) - {f for fns in assign.values() for f in fns})
     #   📌279차 — `guideline_fee_reference`(D-17 닫힘)가 늘었다. 3×6은 **컨설팅 대상×단계**
     #      축이라 대가 산출 계열은 원래 칸 밖이다(`consulting_fee_estimate`와 같은 자리).
+    #   📌282차 — `facility_yield`·`facility_yield_crops`(N-2)는 **시설×운영 칸에** 배정했다
+    #      (수량 조회는 운영 축이다) — 그래서 칸 밖 목록은 그대로 8개다.
     assert outside == ["consulting_fee_estimate", "guarantee_fee",
                        "guideline_fee_reference", "ksfid_number",
                        "ksfid_validity", "m2_to_py", "py_to_m2",
@@ -9417,7 +9419,7 @@ def test_181cha_package_layer_assembles_without_calculating():
     assert len(codes) == 27 and len(set(codes)) == 27, (
         f"🔴 산출물 카탈로그가 {len(codes)}종이다 — 설계서 §4와 같은 D1~D27이어야 한다")
     cov = cp.coverage()
-    assert len(cov["declared"]) == 74, (
+    assert len(cov["declared"]) == 76, (
         f"🔴 패키지가 이름을 댄 엔진 함수가 {len(cov['declared'])}종이다 — "
         "241차 실측은 73종이다(213차 72 + D1 `weather_station`)")
     ghost = sorted(f for f in cov["declared"] if f not in pub)
@@ -9523,7 +9525,7 @@ def test_181cha_package_layer_assembles_without_calculating():
         "것이 아니다)")
     together = reached.union(cov["declared"])
     # 🔴241차 — ★D-5·D-6으로 `weather_station` 신설 + D1이 부른다 → 75 / 75(도달 사각 0 유지)
-    assert len(together) == len(pub) == 76, (
+    assert len(together) == len(pub) == 78, (
         f"🔴 패키지를 더한 도달 범위가 {len(together)}개다 — 241차 실측은 **75 / 75**다"
         "(패키지 이전 17 · 181차 46 · 182차 62 · 187차 65 · 🔴188차 성능보증 4함수)")
     # 🔴 182차에 **0이 됐다**. 0을 주장하려면 세어서 0이어야 한다 — 이름을 나열한다.
@@ -14111,7 +14113,7 @@ def test_273cha_console_inspection_counts_come_from_the_code():
 
     # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
     cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))
-    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 78),   # 📌279차 +1(설계감리요율 대조)
+    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 79),   # 📌279차 +1 · 282차 +1(시설작목수량)
                           ("법령 원문 `법령_*.pdf`", "법령_*.pdf", 7),
                           ("고시 원문 `고시_*.pdf`", "고시_*.pdf", 1)):
         assert cnt(pat) == n, f"🔴 {pat} 가 {cnt(pat)}건이다 — 점검은 {n}건으로 셌다"

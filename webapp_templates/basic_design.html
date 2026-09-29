@@ -104,6 +104,22 @@
   </div>
   {% endif %}
 
+  {% if bd.yield_ref %}
+  <div class="grp">
+    <h2>수량 참고 — 농진청 소득자료집</h2>
+    {% if bd.yield_ref['찾은_이름'] %}
+    <div class="kv">
+      {% for n, v in bd.yield_ref['수량_kg_m2'].items() %}
+      <div><b>{{ n }}</b> · {{ v }} ㎏/㎡</div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="none">이 작목은 표에 없다 — 시설 계열만 등재했다</div>
+    {% endif %}
+    <div class="hint">{{ bd.yield_ref['주의'] }}<br>출처: {{ bd.yield_ref['출처'] }} · {{ bd.yield_ref['원문_기준'] }}</div>
+  </div>
+  {% endif %}
+
   {% if bd.permit %}
   <div class="grp">
     <h2>인허가 — 착공 전 확인</h2>

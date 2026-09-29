@@ -2973,3 +2973,143 @@ def test_281cha_basic_design_entry_answers_only_what_it_can():
     #   사용 안내에도 이 화면이 올라 있다(277차 가드와 겹쳐 지킨다)
     assert any(x["path"] == "/design" for x in _cp.guide_index()["screens"])
 
+
+
+def test_282cha_facility_yield_is_reread_from_the_income_book():
+    """282차(N-2) — 시설 작목 수량이 **원문에서 다시 읽어도** 같은가.
+
+    🔴 등재값을 문서와 대조하지 않는다 — 소득자료집 PDF를 **열어서** 수량 열을 다시 뽑아
+       엔진 상수와 맞춘다(279차 패턴).
+    🔴 **금액을 등재하지 않았다** — 같은 표의 총수입·경영비·소득이 엔진 코드에 들어오면
+       실패한다(1절: 시세성은 주입 전용).
+    🔴 **시설장미는 뺐다**(원문 단위가 「본」) · **케이스 값을 바꾸지 않았다**.
+    """
+    import os as _o, io as _io, re as _re, importlib.util as _iu
+    import pytest as _pt
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+
+    # ── ① 원문에서 표를 다시 뽑는다(이름이 두·세 줄로 끊긴 행 포함) ──────────
+    if _iu.find_spec("pdfplumber") is None:
+        _pt.skip("pdfplumber 없음 — 원문 재판독 불가")
+    import pdfplumber as _pdf
+    path = _o.path.join(repo, "근거_농진청_소득자료집2024_전국.pdf")
+    assert _o.path.exists(path), "🔴 소득자료집 원문이 리포에서 사라졌다"
+    with _pdf.open(path) as pdf:
+        t12 = pdf.pages[17].extract_text() or ""
+        t13 = pdf.pages[18].extract_text() or ""
+    assert "(기준 : 년 1기작/10a)" in t12 and "수량 총수입 경영비 소 득 소득률" in t12, (
+        "🔴 원문 표머리가 바뀌었다 — 아래 재추출이 다른 표를 읽고 있다")
+
+    #   표 한 행 = 수량 + 금액 3열 + 소득률. 이름은 앞줄, 괄호 한정자는 뒷줄에 온다
+    _lead = _re.compile(r"^[가-힣]\s+")          # 「채 」「소 」 같은 세로쓰기 분류 글자
+    _tail = r"([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+[\d.]+$"
+    NAMED = _re.compile(r"^(\S[^\d]*?)\s+([\d,]+)(?:\(본\))?\s+" + _tail)
+    BARE = _re.compile(r"^([\d,]+)(?:\(본\))?\s+" + _tail)
+    num = lambda s: int(s.replace(",", ""))
+
+    def table(txt):
+        out, lines = {}, [l.strip() for l in txt.splitlines()]
+        for k, l in enumerate(lines):
+            m = NAMED.match(l)
+            if m and "평균" not in m.group(1):
+                out[_lead.sub("", m.group(1)).strip()] = tuple(num(x) for x in m.groups()[1:])
+                continue
+            m = BARE.match(l)
+            if not m:
+                continue
+            name = _lead.sub("", lines[k - 1]).strip() if k else ""
+            nxt = _lead.sub("", lines[k + 1]).strip() if k + 1 < len(lines) else ""
+            out[name + (nxt if nxt.startswith("(") else "")] = tuple(num(x) for x in m.groups())
+        return out
+    src = table(t12)
+    src.update(table(t13))
+    assert len(src) >= 30, "🔴 원문에서 %d행밖에 못 뽑았다 — 파서가 표를 놓쳤다" % len(src)
+
+    # ── ② 엔진 상수가 원문과 같은가(18종 전부, 한 종씩) ────────────────────
+    tbl = _e.FACILITY_YIELD_KG_10A
+    assert len(tbl) == 18, len(tbl)
+    for name, v in tbl.items():
+        assert name in src, "🔴 등재 이름 「%s」가 원문에서 안 잡힌다" % name
+        assert src[name][0] == v, "🔴 %s: 등재 %s ≠ 원문 %s" % (name, v, src[name][0])
+    assert sum(tbl.values()) == 107_956, sum(tbl.values())
+    assert min(tbl.values()) == 1_528 and max(tbl.values()) == 14_310
+    assert _e.facility_yield("시설토마토(수경)")["수량_kg_m2"] == 14.31
+
+    # ── ③ 🔴 시설장미는 뺐다 — 원문 단위가 「본」이다 ──────────────────────
+    assert not [n for n in tbl if "장미" in n], "🔴 시설장미가 들어왔다 — 단위가 ㎏이 아니다"
+    assert "65,840(본)" in t13, "🔴 원문의 「본」 표기가 사라졌다 — 제외 이유의 근거다"
+    assert "단위가 ㎏이 아니다" in rd("근거_시설작목수량_등재_20260929.md")
+    #   노지도 아니다 — 같은 원문의 노지 작목이 하나라도 들어오면 실패
+    for noji in ("사과", "배", "복숭아", "노지포도", "노지감귤", "단감", "블루베리", "자두"):
+        assert noji not in tbl, "🔴 노지 작목 「%s」가 등재됐다 — 시설 계열만 결정이다" % noji
+
+    # ── ④ 🔴 금액을 등재하지 않았다(원문 금액을 엔진 코드에서 찾는다) ───────
+    esrc = rd("smartfarm_engine.py")
+    #   주석은 빼고 **코드만** 본다. 숫자 구분자만 지운다(칸을 지우면 서로 다른 수가 붙는다)
+    code = chr(10).join(l for l in esrc.splitlines() if not l.lstrip().startswith("#"))
+    code = code.replace("_", "")
+    money = sorted({m for row in src.values() for m in row[1:]})
+    assert len(money) >= 60, "🔴 금액을 %d개밖에 못 모았다 — 대조가 헐겁다" % len(money)
+    for m in money:
+        for form in (str(m), "{:,}".format(m)):
+            assert form not in code, (
+                "🔴 소득자료집 금액 %s 이 엔진 코드에 들어왔다 — 시세성은 주입 전용이다" % m)
+    assert "금액은 등재하지 않는다" in esrc
+    #   🔴 이름으로도 막는다 — 같은 표의 다른 열이 **두 번째 상수**로 들어오면 실패
+    fac = sorted(a for a in dir(_e) if a.isupper() and "FACILITY" in a)
+    assert fac == ["FACILITY_YIELD_BASIS", "FACILITY_YIELD_KG_10A"], fac
+    crops = set(_e.FACILITY_YIELD_KG_10A)
+    for a in dir(_e):
+        v = getattr(_e, a)
+        if a.isupper() and isinstance(v, dict) and set(map(str, v)) & crops:
+            assert a == "FACILITY_YIELD_KG_10A", (
+                "🔴 시설 작목을 키로 쓰는 두 번째 표 「%s」가 엔진에 있다" % a)
+    #   조회 반환도 금액을 내지 않는다
+    assert set(_e.facility_yield("시설딸기")) == {
+        "작목", "수량_kg_10a", "수량_kg_m2", "기준", "출처", "주의"}
+
+    # ── ⑤ 없는 이름은 None — 비슷한 이름을 골라 주지 않는다 ────────────────
+    for miss in ("딸기", "토마토", "배추", "시설장미", "", None):
+        assert _e.facility_yield(miss) is None, miss
+    assert _e.facility_yield_crops() == sorted(tbl) and len(_e.facility_yield_crops()) == 18
+
+    # ── ⑥ 🔴 케이스 값을 바꾸지 않았다 ────────────────────────────────────
+    import cases as _C
+    c2 = next(c for c in _C.load_cases() if c["case_id"] == "wonchaewon")
+    assert c2["input"]["base_yield_kg_m2"] == 38.5, "🔴 케이스 수량이 바뀌었다 — 회귀가 움직인다"
+    doc = rd("근거_시설작목수량_등재_20260929.md")
+    for phrase in ("케이스 값을 바꾸지 않았다", "2.7배 차이다", "판정하지 않는다"):
+        assert phrase in doc, phrase
+
+    # ── ⑦ 기본설계 화면이 **고르지 않는다** ───────────────────────────────
+    import consulting_package as _cp
+    bd = _cp.basic_design("전북 군산시", "딸기", 3300)
+    assert bd["yield_ref"]["찾은_이름"] == ["시설딸기", "시설딸기(수경)"], bd["yield_ref"]
+    assert "고르지 않는다" in bd["yield_ref"]["주의"]
+    assert _cp.basic_design("전북 군산시", "배추", 3300)["yield_ref"]["찾은_이름"] == []
+    assert "yield_ref" not in _cp.basic_design()
+    r = client.get("/design", params={"addr": "전북 군산시", "crop": "딸기", "area_m2": "3300"})
+    assert r.status_code == 200 and "2.893" in r.text and "3.292" in r.text
+    #   화면이 둘 중 하나를 고르지 않는다
+    for bad in ("추천", "권장", "최적"):
+        assert bad not in r.text, "🔴 수량 참고에 판정 어휘 「%s」" % bad
+    #   경제성을 못 내는 이유가 **바뀌었다** — 수량이 아니라 단가다
+    eco = next(c for c in bd["cannot"] if "경제성" in c["무엇"])
+    assert "단가가 시세성" in eco["왜"] and "수량은 282차에 등재됐다" in eco["왜"], eco
+
+    # ── ⑧ 레지스트리에 status와 함께 올라 있다 ────────────────────────────
+    import json as _j
+    ent = _j.loads(rd("엔진데이터_레지스트리.json"))["constants"]
+    for k in ("FACILITY_YIELD_KG_10A", "FACILITY_YIELD_BASIS"):
+        assert k in ent, "🔴 %s 미등재" % k
+        assert ent[k]["source_refs"], k
+        assert any(r_["file"] == "근거_시설작목수량_등재_20260929.md"
+                   for r_ in ent[k]["source_refs"]), k
+    assert ent["FACILITY_YIELD_KG_10A"]["status"] == "공공기준"
+    assert any(r_["file"] == "근거_농진청_소득자료집2024_전국.pdf" and r_["match"] == "exact"
+               for r_ in ent["FACILITY_YIELD_KG_10A"]["source_refs"]), "🔴 원문 exact 참조가 없다"
+    assert ent["FACILITY_YIELD_BASIS"]["status"] == "결정"
+    #   레지스트리 사본과 엔진이 같은가 — 한쪽만 고치면 잡힌다
+    assert ent["FACILITY_YIELD_KG_10A"]["value"] == tbl, "🔴 레지스트리 사본이 엔진과 다르다"
