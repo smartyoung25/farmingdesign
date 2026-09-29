@@ -14121,7 +14121,7 @@ def test_273cha_console_inspection_counts_come_from_the_code():
 
     # ── ④ 자료 건수 — 파일 목록에서 다시 센다 ─────────────────────────────
     cnt = lambda pat: len(_g.glob(_o.path.join(repo, pat)))
-    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 82),   # 📌279·282·283·284차 각 +1 · 285차 +1(KS X 표준 내용 성격)
+    for label, pat, n in (("근거 문서 `근거_*.md`", "근거_*.md", 83),   # 📌279·282·283·284·285차 각 +1 · 286차 +1(작기·작형 소재)
                           ("법령 원문 `법령_*.pdf`", "법령_*.pdf", 7),
                           ("고시 원문 `고시_*.pdf`", "고시_*.pdf", 1)):
         assert cnt(pat) == n, f"🔴 {pat} 가 {cnt(pat)}건이다 — 점검은 {n}건으로 셌다"
@@ -14583,7 +14583,7 @@ def test_283cha_ks_x_3268_3269_existence_is_recorded_with_its_controls():
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (sec_name, cnt, seen)
         total += seen
     files = len(_g.glob(_o.path.join(repo, "근거_*.md")))
-    assert total == files == 82, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
+    assert total == files == 83, "🔴 지도 행 %d · 리포 파일 %d" % (total, files)
 
 
 def test_284cha_management_fee_absence_is_measured_not_asserted():
@@ -14692,7 +14692,7 @@ def test_284cha_management_fee_absence_is_measured_not_asserted():
     if cur:
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
         tot += seen
-    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 82, tot
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 83, tot
 
 
 def test_285cha_ks_standard_bodies_are_stored_and_are_a_different_axis():
@@ -14806,4 +14806,97 @@ def test_285cha_ks_standard_bodies_are_stored_and_are_a_different_axis():
     if cur:
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
         tot += seen
-    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 82, tot
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 83, tot
+
+
+def test_286cha_cropping_calendar_source_is_located_but_not_registered():
+    """286차(N-3) — 작기·작형 **자료의 소재**만 적고 **등재하지 않았는가**.
+
+    🔴 자료를 찾았다고 등재해 버리면 라이선스를 넘는다 — 시기 표기(「9월 상순」 등)와
+       작형 이름이 엔진·레지스트리에 들어오면 실패.
+    🔴 **라이선스 문구가 사라지면 실패** — 막는 것이 자료 부재가 아니라 이것이다.
+    🔴 대응 규칙을 **정했다고 적으면 실패** — 이름도 열도 1:1이 아니다.
+    """
+    import os as _o, io as _io, re as _re, json as _j, glob as _g
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    rd = lambda p_: _io.open(_o.path.join(repo, p_), encoding="utf-8").read()
+    doc = rd("근거_작기작형_자료소재_20260929.md")
+    flat = " ".join(doc.split())
+
+    # ── ① 소재를 **표로** 적었는가 — 행에서 다시 센다 ──────────────────────
+    ids = _re.findall(r"\|\s*(\d{5})\s*\|", doc)
+    assert len(ids) == 18, "🔴 cntntsNo가 %d건이다 — 18건이어야 한다" % len(ids)
+    assert len(set(ids)) == 18, "🔴 cntntsNo에 중복이 있다"
+    for must in ("30610", "30636", "30646", "30649"):   # 딸기(촉성)·오이·토마토·파프리카
+        assert must in ids, must
+    #   🔴낱말이 여러 곳에 나오면 한 곳만 지워도 통과한다 — **절마다** 본다
+    s2 = doc[doc.index("## 2."):doc.index("## 3.")]
+    s7 = doc[doc.index("## 7."):]
+    for sec, nm in ((s2, "§2 소재"), (s7, "§7 출처")):
+        assert "workScheduleDtl.ps" in sec, "🔴 %s에 상세 주소 형식이 없다" % nm
+    assert "menuId=PS00087" in s2
+
+    # ── ② 🔴 라이선스가 막는 것이다 ────────────────────────────────────────
+    s4 = doc[doc.index("## 4."):doc.index("## 5.")]
+    s5 = doc[doc.index("## 5."):doc.index("## 6.")]
+    head = doc[:doc.index("## 1.")]          # 머리말의 「결론 세 줄」도 본다
+    for sec, nm in ((head, "머리말"), (s4, "§4 라이선스"), (s5, "§5 무엇이 바뀌나")):
+        assert "공공누리" in sec and "제2유형" in sec, "🔴 %s에 라이선스 표기가 없다" % nm
+    assert "출처표시+상업적 이용금지" in doc, "🔴 라이선스 원문 표기가 사라졌다"
+    assert "**법적·사업적 판단**이다" in doc
+    assert "**나는 이 판단을 하지 않는다.**" in doc
+    #   선택지를 넷 다 적어 두었는가(하나로 좁히면 그건 판정이다)
+    assert s4.count("ⓐ") == s4.count("ⓑ") == s4.count("ⓒ") == s4.count("ⓓ") == 1, "🔴 선택지가 줄었다"
+
+    # ── ③ 🔴 등재하지 않았다 — 엔진·레지스트리에 값이 없다 ──────────────────
+    esrc = rd("smartfarm_engine.py")
+    code = chr(10).join(l for l in esrc.splitlines() if not l.lstrip().startswith("#"))
+    reg = rd("엔진데이터_레지스트리.json")
+    for blob, where in ((code, "엔진"), (reg, "레지스트리")):
+        for tok in ("촉성재배", "반촉성재배", "억제재배", "성출하기", "아주심기"):
+            assert tok not in blob, "🔴 작형 표기 「%s」가 %s에 들어왔다" % (tok, where)
+    #   「월 상/중/하순」 형태의 시기 표기도 들어오면 안 된다
+    assert not _re.search(r"\d+월\s*[상중하]순", code), "🔴 순(旬) 시기 표기가 엔진에 들어왔다"
+    assert not [a for a in dir(_e) if a.isupper() and ("CROP_CALENDAR" in a or "JAKHYEONG" in a)]
+
+    # ── ④ 막는 이유가 **바뀌었다** — 자료 부재가 아니다 ─────────────────────
+    bd = _cp.basic_design("전북 군산시", "딸기", 3300)
+    why = next(c["왜"] for c in bd["cannot"] if "적정작기" in c["무엇"])
+    assert "자료는 있다" in why and "라이선스" in why, why[:60]
+    assert "공공누리 제2유형" in why
+    assert "자료도 등재도 없다" not in why, "🔴 사유가 아직 낡았다"
+    #   그래도 **못 낸다는 사실**은 그대로 남는다
+    assert any("적정작기" in c["무엇"] for c in bd["cannot"]), "🔴 한계가 사라졌다"
+
+    # ── ⑤ 🔴 대응 규칙을 정했다고 적지 않았다 ───────────────────────────────
+    assert "**그대로 이어지지 않는다**" in doc
+    assert "열 대응을 정해야 하고, 그것도 결정이다" in flat
+    assert "이 문서는 정하지 않는다" in doc
+    for bad in ("대응 규칙을 정했다", "토마토,방울토마토는 시설방울토마토다", "열을 통일했다"):
+        assert bad not in doc, "🔴 단정문 「%s」" % bad
+
+    # ── ⑥ 리포부터 봤다는 기록 — 그리고 그 한계 ─────────────────────────────
+    assert "본문에 든 청크 265개" in doc
+    assert "**그러나 전부 연구 서술이다**" in doc
+    assert "인덱스는 **검색 계층**이라" in doc, "🔴 인덱스의 한계를 적지 않았다"
+    assert "원문 전수 판독이 아니다" in doc
+
+    # ── ⑦ 지도 등재 · 절 머리 = 행 수 ──────────────────────────────────────
+    mp = rd("근거지도_20260923.md")
+    assert "`근거_작기작형_자료소재_20260929.md`" in mp
+    cur, cnt, seen, tot = None, 0, 0, 0
+    for ln in mp.splitlines():
+        m = _re.match(r"^## (.+?) \((\d+)건\)\s*$", ln)
+        if m or (ln.startswith("## ") and cur):
+            if cur:
+                assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
+                tot += seen
+            cur, cnt, seen = (m.group(1), int(m.group(2)), 0) if m else (None, 0, 0)
+        elif cur and ln.startswith("| `근거_"):
+            seen += 1
+    if cur:
+        assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
+        tot += seen
+    assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 83, tot
