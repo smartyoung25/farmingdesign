@@ -16,6 +16,29 @@ import webapp
 client = TestClient(webapp.app)
 
 
+def _vis(html):
+    """화면에 **보이는 글자**만 남긴다.
+
+    🔴 297차(WO-020) — `finalize` 훅이 인라인 마크다운을 태그로 바꾸므로, 날것 표기를
+    HTML에서 찾던 단언은 더 이상 맞지 않는다. 지우지 않고 **보이는 글자**를 재게 옮긴다.
+    이 쪽이 원래 의도에 가깝다 — 가드가 묻던 것은 *사용자가 그것을 보는가*였다.
+    """
+    import html as _h
+    import re as _r
+    t = _r.sub("<(?:style|script)[^>]*>.*?</(?:style|script)>", " ", html,
+               flags=_r.S | _r.I)
+    #   🔴 문자 참조를 **되돌린다** — 태그만 떼면 작은따옴표가 글자로 남아
+    #   「Manufacturer's」가 안 맞는다. `md()`와 Jinja의 이스케이프 표기가 달라서
+    #   어느 쪽 표기를 단언하든 한쪽이 깨진다 — 되돌리면 표기에 묶이지 않는다.
+    return _h.unescape(_r.sub("<[^>]+>", "", t))
+
+
+def _plain(s):
+    """서술의 인라인 마크다운 표기를 뗀다 — 보이는 글자와 맞추기 위해서다."""
+    return str(s).replace("**", "").replace("`", "").replace("~~", "")
+
+
+
 def test_home_lists_every_case_with_chips():
     r = client.get("/")
     assert r.status_code == 200
@@ -756,7 +779,7 @@ def test_211cha_ia_menu_matches_the_code():
     for g in _cp.FUNCTION_GAPS:        # 🔴212차에 dict로 바뀌었다(출처·막는 것이 붙었다)
         fn, name, why = g["fn"], g["name"], g["why"]
         assert fn in fns, f"🔴 미구축 {name!r}이 없는 기능 {fn!r}에 달렸다"
-        assert name in html, (
+        assert _plain(name) in _vis(html), (
             f"🔴 기능 지도가 미구축 「{name}」을 감췄다 — 벤치마킹이 이름을 대는데 "
             "우리에게 없다는 사실은 **메뉴에 보여야** 한다")
         assert why.strip(), f"🔴 미구축 「{name}」에 사유가 없다"
@@ -938,7 +961,7 @@ def test_212cha_collected_sources_did_not_become_engine_values():
     html = client.get("/functions").text
     assert DOC in html, "🔴 기능 지도가 근거 문서를 가리키지 않는다"
     for g in _cp.FUNCTION_GAPS:
-        assert g["where"][:24] in html, (
+        assert _plain(g["where"])[:24] in _vis(html), (
             f"🔴 화면이 「{g['name']}」의 **어디를 보면 있나**를 감췄다")
     assert html.count("막는 것:") == len(_cp.FUNCTION_GAPS)
 
@@ -2125,7 +2148,7 @@ def test_231cha_docs_form_shows_normalization_and_unrecognized(tmp_cases):
     #      화면은 맞고 **비교가 날것**이었다 → Jinja와 같은 `markupsafe.escape`로 잰다.
     from markupsafe import escape as _esc
     for a, c in _e.MATERIAL_APPROVAL_ALIASES.items():
-        assert f"{_esc(a)}→{_esc(c)}" in pv, f"🔴 양식 안내에 등재 별칭 {a}→{c}가 없다"
+        assert f"{a}→{c}" in _vis(pv), f"🔴 양식 안내에 등재 별칭 {a}→{c}가 없다"
 
     assert client.post("/entry/docs/C2/save", data=form, follow_redirects=False).status_code == 303
     saved = json.loads(path.read_text(encoding="utf-8"))
@@ -3760,3 +3783,114 @@ def test_295cha_structure_only_amount_tracks_area_not_address():
     assert _mci2._MONEY.search(_re2.sub(r"<[^>]+>", " ", body)), (
         "🔴 측정기의 결과 표본으로 부른 기본설계 화면에 금액이 없다 — 표본이 "
         "결과를 내지 못하면 M9는 빈 화면을 재는 것이 된다")
+
+
+def test_297cha_inline_markdown_renders_at_every_output_point():
+    """297차(WO-020) — 날것 마크다운이 **출력 지점 전부**에서 렌더되는가.
+
+    🔴 148차가 `build_site.md()`로 정적 사이트의 리터럴 마크다운을 3,833 → 2로 닫았으나
+    그 작업은 **콘솔을 범위에 두지 않았다**(근거 문서에 「webapp」·「콘솔」 0회).
+    그래서 별표 552 · 백틱 196이 글자 그대로 나가고 있었다.
+
+    📌 출력 지점이 **605곳**이라 필터를 손으로 붙이면 하나만 빠뜨려도 조용히 남는다.
+    Jinja의 `finalize`는 지점을 고르지 않는다 — 그래서 **같은 함수 하나**로 닫힌다.
+
+    ⚠️ 못 하는 것: 렌더가 **보기 좋은지**는 재지 않는다. 날것 표기가 남지 않는가와
+    치수 표기가 깨지지 않는가까지다.
+    """
+    import measure_console_ia as _mci
+
+    got = _mci.measure()
+
+    # ── ① 날것 표기가 하나도 남지 않았는가 ──────────────────────────
+    #    남았으면 **어느 화면에 몇 개**인지 인쇄한다 — 값 두 개에 걸쳐 열리고 닫힌
+    #    별표를 다음 차수가 바로 찾게 하기 위해서다.
+    assert got["M3_raw_stars"] == 0, (
+        "🔴 별표가 %d개 남았다 — 화면별: %s. 값 두 개에 걸쳐 열리고 닫힌 표기는 "
+        "출력 지점마다 거는 방식으로는 잡히지 않는다"
+        % (got["M3_raw_stars"], {k: v["stars"] for k, v in got["M3_detail"].items()
+                                 if v["stars"]}))
+    assert got["M4_raw_backticks"] == 0, (
+        "🔴 백틱이 %d개 남았다 — 화면별: %s"
+        % (got["M4_raw_backticks"], {k: v["backticks"] for k, v in got["M3_detail"].items()
+                                     if v["backticks"]}))
+
+    # ── ② 렌더가 실제로 **일어났는가**(수가 0인 것만으로는 구별되지 않는다) ──
+    #    글자가 사라진 것이 아니라 **태그가 된 것**이어야 한다.
+    html = client.get("/flow").text
+    assert "<b>" in html, (
+        "🔴 굵게 태그가 화면에 하나도 없다 — 별표가 0인 것이 **렌더 때문이 아니라 "
+        "글자가 사라진 것**일 수 있다")
+
+    # ── ③ 두 벌을 만들지 않았는가 ───────────────────────────────────
+    import build_site as _bs
+    import webapp as _wa
+    assert _wa.bs.md is _bs.md, (
+        "🔴 콘솔이 정적 사이트와 **다른 렌더 함수**를 쓴다 — 두 벌이 되면 한쪽만 "
+        "고쳐지는 자리가 생긴다(1절)")
+    src = _io_read("webapp.py")
+    assert "templates.env.finalize" in src, (
+        "🔴 `finalize` 훅이 사라졌다 — 출력 지점 605곳에 손으로 붙이는 방식으로 "
+        "돌아가면 빠뜨린 곳이 조용히 남는다")
+    #   🔴 뮤테이션 M4가 찾은 구멍: 「__html__」은 **주석에도** 있어서 코드 줄을
+    #   지워도 낱말 검사는 통과했다. 코드 줄 전문을 단언한다(이 세션 여섯 번째 계열).
+    for guard in ('if hasattr(value, "__html__"):',
+                  "    if isinstance(value, str):",
+                  "        return Markup(bs.md(value))"):
+        assert guard in src, (
+            "🔴 훅의 안전장치 「%s」가 사라졌다 — 안전 표시된 값을 다시 변환하면 태그가 "
+            "깨지고, 문자열이 아닌 값까지 건드리면 화면이 달라지고, 감싸지 않으면 "
+            "이중 이스케이프가 된다" % guard)
+
+    #   🔴 뮤테이션 M20이 찾은 구멍: 별표가 0이 된 뒤에는 **어느 상태를 재든 0**이라
+    #   측정 상태를 빈 폼으로 되돌려도 수로는 구별되지 않는다. 정의를 글자로 못 박는다.
+    mci_src = _io_read("measure_console_ia.py")
+    assert "t = _text_of(get(RESULT_SAMPLES.get(p, p))[1])" in mci_src, (
+        "🔴 날것 표기를 **빈 폼**에서 재고 있다 — M9는 결과가 나온 화면을 재므로 같은 "
+        "측정기 안에서 두 지표가 다른 상태를 보게 된다(297차에 통일했다)")
+    prd = _io_read("PRD_콘솔_UIUX재설계_20261002.md")
+    assert "🔴 **M3·M4 통일(297차)**" in prd, (
+        "🔴 PRD 2절의 M3·M4 통일 기록이 사라졌다 — 534에서 552로 **올라간 이유**가 "
+        "없으면 작업이 수를 늘린 것으로 읽힌다")
+
+    # ── ④ 치수 표기가 깨지지 않았는가 ───────────────────────────────
+    #    단일 별표를 이탤릭으로 읽으면 `ㅁ60*60*2.3T`가 사라진다(148·156차).
+    probe = "규격 ㅁ60*60*2.3T 와 ㅁ75*45*2.1T"
+    out = _bs.md(probe)
+    for tok in ("60*60*2.3T", "75*45*2.1T"):
+        assert tok in out, (
+            "🔴 치수 표기 「%s」가 렌더에서 사라졌다 — 단일 별표를 이탤릭으로 읽으면 "
+            "규격이 깨진다(148차·156차에 두 번 확인한 자리)" % tok)
+
+    # ── ⑤ 열리지 않는 링크가 없는가 · 규칙이 하나인가 ───────────────
+    assert got["M2_broken_guide_links"] == 0, (
+        "🔴 열리지 않는 링크가 %d개다: %s"
+        % (got["M2_broken_guide_links"], got["M2_detail"]))
+    g = _io_read("webapp_templates/guide.html")
+    assert g.count('"{" in s.path') >= 2, (
+        "🔴 자리표시자 규칙이 두 곳에 없다 — 안내 화면은 등재 경로를 **두 자리**에서 "
+        "링크한다. 한 곳만 고치면 나머지가 404로 남는다")
+    assert "코드를 골라야 열린다" in g, (
+        "🔴 링크를 걸지 않은 자리에 사유가 없다 — 링크가 사라진 것과 설명이 함께 "
+        "사라지면 사용자는 길이 없다고 읽는다")
+
+    # ── ⑥ 자기 모순이 없는가 · 문장이 **반환에서 파생**되는가 ───────
+    assert got["M8_contradictions"] == 0, got["M8_detail"]
+    cp_src = _io_read("consulting_package.py")
+    assert '_nd = screen_stage_map()["needs_decision"]' in cp_src, (
+        "🔴 공백 설명이 반환에서 파생되지 않는다 — 상수에 문장을 박으면 292차처럼 "
+        "반환이 바뀌어도 문장이 따라오지 않는다")
+    # 양쪽을 **주입으로** 확인한다 — 항목이 생기면 그 항목을 적어야 한다
+    import consulting_package as _cp3
+    _real = _cp3.screen_stage_map
+    try:
+        _cp3.screen_stage_map = lambda: {"needs_decision": ["/zzz"], "rows": [],
+                                         "stage_total": 0}
+        why = _cp3.service_flow()["gaps"][0]["왜"]
+        assert "/zzz" in why and "확인 필요" in why, (
+            "🔴 반환에 항목이 생겼는데 문장이 그것을 적지 않는다: %s" % why[-90:])
+    finally:
+        _cp3.screen_stage_map = _real
+    why0 = _cp3.service_flow()["gaps"][0]["왜"]
+    assert "확인 필요" not in why0, (
+        "🔴 반환이 비었는데 문장이 「확인 필요」라 적는다: %s" % why0[-90:])

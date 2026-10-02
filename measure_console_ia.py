@@ -111,10 +111,14 @@ def measure(fetch=None, flow=None, ssm=None) -> dict:
     m2 = len(m2_broken)
 
     # ── M3·M4 화면에 날것으로 나가는 마크다운 ───────────────────────
+    #   🔴 297차 — 결과가 나오는 화면으로 **통일**했다. 종전에는 M3·M4가 빈 폼을,
+    #   M9가 결과가 나온 화면을 재서 같은 측정기 안에서 두 지표가 **다른 상태**를
+    #   보고 있었다(기본설계 화면이 빈 폼 20 · 결과 38). 사용자가 보는 것은
+    #   결과가 나온 화면이다.
     stars = backticks = 0
     per_screen = {}
     for p in READ_SCREENS:
-        t = _text_of(get(p)[1])
+        t = _text_of(get(RESULT_SAMPLES.get(p, p))[1])
         s, b = t.count("**"), t.count("`")
         per_screen[p] = {"stars": s, "backticks": b}
         stars += s

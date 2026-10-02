@@ -49,12 +49,15 @@
       {% if t.screens %}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:6px">
         {% for s in t.screens %}
-        <a href="{{ s.path }}" style="display:block;border:1px solid var(--line);border-radius:8px;padding:7px 10px;text-decoration:none;color:inherit;background:var(--card)">
+        {# 297차(WO-020) — 주소에 자리표시자가 있으면 링크를 걸지 않는다.
+           등재 경로를 그대로 href에 쓰면 /case/{display_code} 같은 글자가 주소로 나가
+           404가 된다(여덟 곳). 어느 케이스를 고를지는 판단이므로 임의로 고르지 않는다. #}
+        <{% if "{" in s.path %}div{% else %}a href="{{ s.path }}"{% endif %} style="display:block;border:1px solid var(--line);border-radius:8px;padding:7px 10px;text-decoration:none;color:inherit;background:var(--card)">
           <div style="font-size:12.5px;font-weight:500">{{ s.name }}
             <span style="font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--mut)">{{ s.path }}</span></div>
           <div style="font-size:11px;color:var(--sub);line-height:1.5;margin-top:2px">{{ s.what }}</div>
           <div style="font-size:10.5px;color:var(--mut);line-height:1.45;margin-top:3px">넣는 것 · {{ s.input }}</div>
-        </a>
+        </{% if "{" in s.path %}div{% else %}a{% endif %}>
         {% endfor %}
       </div>
       {% else %}<div style="font-size:12px;color:var(--mut);font-style:italic">해당 화면 없음</div>{% endif %}
@@ -71,7 +74,7 @@
     <div class="d">무엇을 하는 화면인가 · 무엇을 넣나 · 무엇이 나오나 · 안 나오면 왜</div>
     {% for s in g.screens %}
     <div class="scr">
-      <div class="h"><span class="n">{{ s.name }}</span><a href="{{ s.path }}">{{ s.path }}</a></div>
+      <div class="h"><span class="n">{{ s.name }}</span>{% if "{" in s.path %}<span style="color:var(--mut)">{{ s.path }} — 코드를 골라야 열린다</span>{% else %}<a href="{{ s.path }}">{{ s.path }}</a>{% endif %}</div>
       <div class="w">{{ s.what }}</div>
       <div class="kv">
         <div><b>넣는 것</b> · {{ s.input }}</div>

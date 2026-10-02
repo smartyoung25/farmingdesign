@@ -26,6 +26,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
+from markupsafe import Markup
 
 import cases as C
 import render_report as rr
@@ -37,6 +38,32 @@ import audit_work_orders as awo
 ROOT = Path(__file__).parent
 app = FastAPI(title="스마트팜 컨설팅 콘솔", docs_url=None, redoc_url=None)
 templates = Jinja2Templates(directory=str(ROOT / "webapp_templates"))
+
+
+# -------------------------------------------------------------
+# 297차(WO-020) — 인라인 마크다운을 **출력 지점에서** 렌더한다.
+#   148차가 `build_site.md()`로 정적 사이트의 리터럴 마크다운을 3,833 -> 2로 닫았으나
+#   그 작업은 콘솔을 범위에 두지 않았다(근거 문서에 「webapp」·「콘솔」 0회).
+#   그래서 콘솔 화면에 별표 552 · 백틱 196이 **글자 그대로** 나가고 있었다.
+#
+#   템플릿 출력 지점이 **605곳**이라 손으로 필터를 붙이면 하나만 빠뜨려도 조용히
+#   남는다. Jinja의 `finalize`는 **모든 출력 지점**에 걸리므로 지점을 고르지 않는다.
+#   두 벌을 만들지 않는다 — 정적 사이트와 **같은 `md()`**를 쓴다(1절).
+#
+#   지켜야 할 것 셋:
+#     1. 문자열만 건드린다 — `None`을 빈칸으로 바꾸면 화면이 달라진다
+#     2. `__html__`을 가진 값(안전 표시된 결과)은 건너뛴다 — 다시 변환하면 태그가 깨진다
+#     3. `md()`가 이미 escape했으므로 `Markup`으로 감싸 자동 이스케이프를 끈다
+# -------------------------------------------------------------
+def _render_inline(value):
+    if hasattr(value, "__html__"):
+        return value
+    if isinstance(value, str):
+        return Markup(bs.md(value))
+    return value
+
+
+templates.env.finalize = _render_inline
 
 
 def _nav_functions() -> list:
