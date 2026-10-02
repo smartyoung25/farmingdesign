@@ -3581,3 +3581,100 @@ def test_293cha_trade_stage_stays_a_draft_until_the_user_confirms():
         assert bad not in html, "🔴 공종×단계 절에 확정·판정 어휘 「%s」" % bad
     #   초안 아홉이 화면에서 **초안으로 표시**된다
     assert html.count("초안") >= t["draft_n"], html.count("초안")
+
+
+def test_294cha_prd_baseline_is_remeasured_not_asserted():
+    """294차 — PRD 2절 표의 수를 **실제로 다시 재서** 대조한다.
+
+    🔴 드리프트가 양방향으로 막힌다: 「미착수」 행은 **기준선과** 같아야 하고,
+    「완료 NNN차」 행은 **목표와** 같아야 한다. 그래서
+      · 고치지 않았는데 기준선을 바꿔 적으면 실패하고,
+      · 고쳤는데 표를 갱신하지 않으면 실패하고,
+      · 고친 것이 되돌아가면(회귀) 실패한다.
+
+    ⚠️ 못 하는 것: 목표가 사용자에게 **좋은지**는 재지 않는다. 수는 링크·글자·화면의
+    건수이고, 사용성 실측은 0회다(PRD 8절).
+    """
+    import io as _io
+    import os as _o
+    import re as _re
+
+    import measure_console_ia as _mci
+
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    t = _io.open(_o.path.join(repo, "PRD_콘솔_UIUX재설계_20261002.md"),
+                 encoding="utf-8").read()
+    rows = _re.findall(
+        r"^\| (M\d) \| ([^|]+?) \| (\d+) \| (\d+) \| ([^|]+?) \|$", t, _re.M)
+    assert len(rows) == len(_mci.METRIC_LABELS), len(rows)
+
+    got = _mci.measure()
+    for i, (mid, _name, base, goal, state) in enumerate(rows):
+        key = _mci.METRIC_LABELS[i][0]
+        assert key in got, "🔴 측정기가 %s를 돌려주지 않는다" % key
+        done = state.strip() != "미착수"
+        want = int(goal) if done else int(base)
+        detail = got.get(key.split("_")[0] + "_detail")
+        assert got[key] == want, (
+            "🔴 %s 실측 %d ≠ %s %d (상태 「%s」)%s — 고친 차수는 PRD 2절 표의 상태를 "
+            "같은 커밋에서 갱신한다. 되돌아간 것이면 회귀다"
+            % (mid, got[key], "목표" if done else "기준선", want, state.strip(),
+               "" if detail is None else " · 내역: %s" % (detail,)))
+
+    # 🔴 숫자만 박아 넣는 것을 막는다 — 각 지표의 **내역과 수가 맞아야** 한다.
+    #   (뮤테이션이 찾은 구멍: 측정기가 기준선을 그대로 돌려주면 위 대조는 통과한다)
+    assert len(got["M2_detail"]) == got["M2_broken_guide_links"], got["M2_detail"]
+    assert len(got["M5_detail"]) == got["M5_home_unlinked_screens"], got["M5_detail"]
+    assert len(got["M6_detail"]) == got["M6_map_screens"], got["M6_detail"]
+    assert len(got["M7_detail"]) == got["M7_entry_screens"], got["M7_detail"]
+    assert len(got["M8_detail"]) == got["M8_contradictions"], got["M8_detail"]
+    per = got["M3_detail"]
+    assert sum(d["stars"] for d in per.values()) == got["M3_raw_stars"], per
+    assert sum(d["backticks"] for d in per.values()) == got["M4_raw_backticks"], per
+    assert len(per) == len(_mci.READ_SCREENS), (
+        "🔴 날것 마크다운을 재는 화면이 %d개다 — 목록에서 화면을 빼면 수가 조용히 "
+        "줄어든다" % len(per))
+
+    # ── 🔴 **합성 화면 자기검사** — 지표가 입력에서 나오는가 ────────
+    #   뮤테이션 M23·M24가 찾은 구멍: 측정기가 **현재 실측치와 같은 수**를 박아
+    #   넣으면 위의 기준선 대조도, 내역↔합 교차 검사도 통과한다. 그래서 가드가
+    #   **아는 답을 가진 합성 화면**을 먹여 지표가 그 답을 내는지 본다(152차 전례:
+    #   위반이 0건이면 검사가 도는지 구별되지 않는다 → 주입점과 red self-test).
+    pages = {
+        "/guide": '<main><a href="/axes">a</a><a href="/zz">b</a></main>',
+        "/": '<main><a href="/design">d</a><a href="/refs">r</a></main>',
+        "/refs": "<main>** 하나 ** 둘 ** 셋 `a` `b`</main>",
+    }
+    #   자리표시자는 측정기가 실제 값으로 바꿔 부른다 — 죽은 주소도 그 모양으로 적는다
+    dead = {"/zz", "/for/농업인"}
+
+    def _fake(path):
+        if path in dead:
+            return 404, ""
+        return 200, pages.get(path, "<main>x</main>")
+
+    syn = _mci.measure(
+        fetch=_fake,
+        ssm={"needs_decision": []},
+        flow={"gaps": [{"무엇": "ㄱ", "왜": "확인 필요로 남아 있다"}], "lenses": []})
+    assert syn["M2_broken_guide_links"] == 1, (
+        "🔴 합성 화면의 열리지 않는 링크가 1인데 %d이 나왔다 — 404를 세는 자리가 "
+        "입력을 보지 않는다" % syn["M2_broken_guide_links"])
+    assert syn["M3_raw_stars"] == 3, (
+        "🔴 합성 화면의 별표가 3인데 %d이 나왔다 — 수가 **입력에서 나오지 않는다**"
+        % syn["M3_raw_stars"])
+    #   백틱은 **문자 단위**로 센다 — `a` `b`는 네 개다(쌍이 아니라 글자다)
+    assert syn["M4_raw_backticks"] == 4, (
+        "🔴 합성 화면의 백틱 문자가 4인데 %d이 나왔다" % syn["M4_raw_backticks"])
+    assert syn["M5_home_unlinked_screens"] == 2, (
+        "🔴 합성 홈이 1층 넷 중 둘을 링크하는데 미링크가 %d이다"
+        % syn["M5_home_unlinked_screens"])
+    assert syn["M6_map_screens"] == 4, (
+        "🔴 합성 지도 다섯 중 하나가 404인데 살아 있는 것이 %d이다"
+        % syn["M6_map_screens"])
+    assert syn["M8_contradictions"] == 1, (
+        "🔴 합성 입력의 모순이 1건인데 %d이 나왔다 — 모순 수가 입력에서 나오지 않는다"
+        % syn["M8_contradictions"])
+
+    # 한 행도 없는 표는 통과가 아니다
+    assert len(rows) >= 8, "🔴 지표가 %d개뿐이다 — 294차 기준은 여덟이다" % len(rows)

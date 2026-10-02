@@ -15013,3 +15013,98 @@ def test_287cha_s1_dependency_is_measured_and_the_106cha_correction_holds():
         assert seen == cnt, "🔴 지도 「%s」 머리 %d ≠ 행 %d" % (cur, cnt, seen)
         tot += seen
     assert tot == len(_g.glob(_o.path.join(repo, "근거_*.md"))) == 84, tot
+
+
+def test_294cha_prd_is_a_measured_plan_not_a_wish():
+    """294차 — **콘솔 UI·UX 재설계 PRD**가 재는 계획인가.
+
+    🔴 왜 가드가 필요한가: 재설계 계획은 *「쉽게 만든다」*처럼 적으면 **판정할 수 없다**.
+    155차가 닫은 것과 같은 함정이다 — 세는 규칙이 없으면 그 수는 검산되지 않는다.
+    그래서 PRD 2절은 **여덟 지표의 기준선과 목표**를 표로 담고, 측정기는
+    `measure_console_ia.py` 한 줄이다. 이 가드는 **표가 측정기와 어긋나지 않는지**를 본다.
+
+    ⚠️ 못 하는 것: 목표가 **옳은 목표인지**는 재지 않는다. 사용성 실측 0회라는 사실은
+    PRD 8절이 적고, 이 가드는 **그 문장이 지워지지 않았는지**까지만 본다.
+    """
+    import io as _io
+    import os as _o
+    import re as _re
+
+    import case_display as _cdsp
+    import measure_console_ia as _mci
+
+    repo = _o.path.dirname(_o.path.abspath(__file__))
+    PRD = "PRD_콘솔_UIUX재설계_20261002.md"
+    path = _o.path.join(repo, PRD)
+    assert _o.path.exists(path), "🔴 PRD가 없다: %s" % PRD
+    t = _io.open(path, encoding="utf-8").read()
+
+    # ── ① 지표 표가 측정기와 같은 순서·이름인가 ─────────────────────
+    rows = _re.findall(
+        r"^\| (M\d) \| ([^|]+?) \| (\d+) \| (\d+) \| ([^|]+?) \|$", t, _re.M)
+    assert len(rows) == len(_mci.METRIC_LABELS), (
+        "🔴 PRD 지표 행 %d개 ≠ 측정기 지표 %d개 — 표와 측정기가 갈라지면 "
+        "어느 쪽이 기준인지 알 수 없다" % (len(rows), len(_mci.METRIC_LABELS)))
+    for i, (mid, name, base, goal, state) in enumerate(rows):
+        key, label = _mci.METRIC_LABELS[i]
+        assert mid == "M%d" % (i + 1), "🔴 지표 번호가 어긋난다: %s" % mid
+        assert name.strip() == label, (
+            "🔴 %s의 이름이 측정기와 다르다: PRD 「%s」 vs 측정기 「%s」 — "
+            "이름이 갈라지면 같은 수를 두 뜻으로 읽는다" % (mid, name.strip(), label))
+        assert key.startswith(mid + "_"), "🔴 측정기 키 「%s」가 %s가 아니다" % (key, mid)
+        # 기준선과 목표가 같으면 그것은 목표가 아니다
+        assert int(base) != int(goal), (
+            "🔴 %s의 기준선과 목표가 같다(%s) — 고칠 것이 없는 행은 표에 둘 이유가 없다"
+            % (mid, base))
+        # 상태 어휘는 둘뿐이다 — 「미착수」 또는 「완료 NNN차」
+        assert state.strip() == "미착수" or _re.match(r"^완료 \d+차$", state.strip()), (
+            "🔴 %s의 상태 「%s」가 「미착수」도 「완료 NNN차」도 아니다 — 어휘가 늘면 "
+            "실측 대조 가드가 어느 값과 비교할지 고르지 못한다" % (mid, state.strip()))
+
+    # ── ② 측정 명령이 문서에 적혀 있는가 ────────────────────────────
+    assert "python measure_console_ia.py" in t, (
+        "🔴 PRD가 측정 명령을 적지 않았다 — 적지 않으면 기준선은 서술이 된다")
+
+    # ── ③ 목표 구조가 아홉인가 · WO 다섯이 실재하고 가리켜지는가 ────
+    wos = ("WO-016", "WO-017", "WO-018", "WO-019", "WO-020")
+    wo_dir = _o.path.join(repo, "docs", "work-orders")
+    disk = _o.listdir(wo_dir)
+    # 🔴 **표의 행**으로 확인한다 — 뮤테이션이 찾은 구멍: 낱말 「WO-020」은 문서에 세 번
+    #   있어서 분해 표의 행을 지워도 「t에 있는가」는 통과했다(둔한 토큰).
+    wo_rows = set(_re.findall(r"^\| (WO-\d{3}) \|", t, _re.M))
+    for w in wos:
+        assert any(f.startswith(w + "_") for f in disk), "🔴 %s 파일이 없다" % w
+        assert w in wo_rows, (
+            "🔴 PRD 6절 분해 표에 %s 행이 없다 — 분해가 표에 없으면 추적되지 않는다" % w)
+    assert t.startswith("# PRD — 콘솔 UI·UX 재설계 (화면 21 → 9)"), (
+        "🔴 PRD 제목이 목표 화면 수를 적지 않았다 — 제목 줄이 그 수의 단일 출처다")
+
+    # ── ④ ★결정 셋이 살아 있는가 ───────────────────────────────────
+    #   판단성 결정은 사용자가 내린 것이다 — 문장이 사라지면 내가 고른 것이 된다.
+    #   🔴 **결정 줄 전문**으로 확인한다 — 뮤테이션이 찾은 구멍: 「전면」·「진행 중
+    #   사업장」은 문서에 두세 번 있어서 결정 줄을 지워도 낱말 검사는 통과했다.
+    for mark in ("1. **범위** — 「구조도대로 전면(21→9)」",
+                 "2. **질문 배정** — 「셋 다 기본설계로」",
+                 "3. **홈 첫 갈래** — 「진행 중 사업장」이 위"):
+        assert mark in t, (
+            "🔴 ★사용자 결정 줄이 PRD에서 사라졌다: 「%s」 — 결정의 출처가 지워지면 "
+            "배정을 내가 고른 것이 된다(1절: 판단성 값은 초안·참고까지만)" % mark)
+    assert "★사용자 결정 2026-10-02" in t, "🔴 결정 날짜가 없다"
+
+    # ── ⑤ 1절 제약이 PRD 안에 다시 적혀 있는가 ──────────────────────
+    for con in ("엔진이 유일한 계산 출처", "판정·추천 자동화 금지",
+                "테스트를 지우지 않는다", "회귀 벤치마크 불변"):
+        assert con in t, "🔴 PRD 7절에 제약 「%s」가 없다" % con
+    assert "14.2%" in t and "7.1년" in t and "28.3%" in t, (
+        "🔴 PRD가 회귀 벤치마크 값을 적지 않았다")
+
+    # ── ⑥ 측정하지 않은 것을 적었는가(미검증을 통과로 세지 않는다) ──
+    assert "인터뷰 0명" in t and "실측 0회" in t, (
+        "🔴 PRD 8절의 「사용성 근거 0」 고백이 사라졌다 — 여덟 지표는 전부 링크·글자 "
+        "수이고 사용자가 무엇을 먼저 찾는지는 재지 않았다. 지우면 측정한 적 없는 것이 "
+        "측정한 것으로 읽힌다")
+
+    # ── ⑦ 실명 0건 ─────────────────────────────────────────────────
+    leaked = _cdsp.audit(t)
+    assert not leaked, "🔴 PRD에 실명이 있다(해당 코드 %s)" % sorted(
+        set(_cdsp.scrub(n) for n in leaked))
