@@ -52,7 +52,7 @@
 
   {% if bd.site %}
   <div class="grp">
-    <h2>입지 — 재해 조건</h2>
+    <h2>D1 입지 진단 — 재해 조건</h2>
     <div class="kv">
       <div><b>지역</b> · {{ bd.site['지역명'] }}</div>
       <div><b>설계적설심</b> · {{ bd.site['적설심_cm'] }} cm</div>
@@ -71,7 +71,7 @@
 
   {% if bd.specs %}
   <div class="grp">
-    <h2>적합 규격 — 조건을 통과하는 것</h2>
+    <h2>D3 설계 대안 — 조건을 통과하는 규격</h2>
     <div class="kv">
       <div><b>조건</b> · {{ bd.specs['조건'] }}</div>
       <div><b>통과</b> · {{ bd.specs['통과_규격수'] }} / {{ bd.specs['전체_규격수'] }} 규격</div>
@@ -122,7 +122,7 @@
 
   {% if bd.permit %}
   <div class="grp">
-    <h2>인허가 — 착공 전 확인</h2>
+    <h2>D18 인허가 체크리스트 — 착공 전 확인</h2>
     <ol class="steps">
       {% for s in bd.permit['steps'] %}
       <li><b>{{ s['item'] }}</b> — {{ s['timing'] }} · {{ s['clause'] }}</li>

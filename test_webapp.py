@@ -3433,7 +3433,8 @@ def test_291cha_screen_stage_is_derived_from_templates_not_stored():
     assert [b["stage"] for b in ss["by_stage"]] == list(_cp.STAGE_ORDER)
 
     # ── ③ 🔴 실측 — 단계 안 5 · 단계 밖 16 ─────────────────────────────────
-    assert ss["in_stage"] == 5 and ss["out_of_stage"] == 16, (ss["in_stage"], ss["out_of_stage"])
+    #   📌292차 ★결정(`/design` → D1·D3·D18)으로 5 → 6이 됐다
+    assert ss["in_stage"] == 6 and ss["out_of_stage"] == 15, (ss["in_stage"], ss["out_of_stage"])
     assert ss["in_stage"] + ss["out_of_stage"] == ss["total"]
     got = {r["path"]: r["codes"] for r in ss["rows"] if r["codes"]}
     assert got["/case/{display_code}"] == ["D23", "D24", "D25", "D26", "D27"], got
@@ -3444,12 +3445,29 @@ def test_291cha_screen_stage_is_derived_from_templates_not_stored():
     assert len(case["stages"]) == 5, case["stages"]
     assert case["template"] == "case_detail.html"
 
-    # ── ④ 🔴 확인 필요 한 건을 숨기지 않는다 ───────────────────────────────
-    assert ss["needs_decision"] == ["/design"], ss["needs_decision"]
+    # ── ④ 🔴 292차 ★결정 — `/design`이 닫혔고 확인 필요가 **0**이다 ────────
+    assert ss["needs_decision"] == [], (
+        "🔴 확인 필요가 남아 있다 — 새로 생겼다면 그 화면의 산출물을 ★로 되돌려야 한다: %s"
+        % ss["needs_decision"])
     d = next(r for r in ss["rows"] if r["path"] == "/design")
-    assert d["needs_decision"] and not d["codes"]
-    assert d["basis"] == _cp.SCREEN_OUT_OF_STAGE[_cp.SCREEN_NEEDS_DECISION]
-    assert "확인 필요" in d["basis"]
+    assert d["codes"] == ["D1", "D3", "D18"], d["codes"]
+    assert d["stages"] == ["①공종설계"], d["stages"]
+    assert d["basis"] == "템플릿이 적은 코드" and not d["needs_decision"]
+    #   🔴규칙 자체는 살아 있어야 한다 — 다음에 같은 화면이 생기면 다시 걸려야 한다
+    assert _cp.SCREEN_NEEDS_DECISION in _cp.SCREEN_OUT_OF_STAGE
+    assert "확인 필요" in _cp.SCREEN_OUT_OF_STAGE[_cp.SCREEN_NEEDS_DECISION]
+    #   🔴규칙이 **작동하는지**까지 잰다 — 빈 목록이면 「항상 False」와 구분이 안 된다.
+    #      코드를 뗀 화면을 **일부러 만들어** 다시 걸리는지 본다
+    import types as _t
+    real = _cp._template_codes
+    try:
+        _cp._template_codes = lambda tpl: ([] if tpl == "basic_design.html" else real(tpl))
+        again = _cp.screen_stage_map()
+    finally:
+        _cp._template_codes = real
+    assert again["needs_decision"] == ["/design"], (
+        "🔴 코드를 뗐는데도 확인 필요로 안 걸린다 — 규칙이 죽었다: %s" % again["needs_decision"])
+    assert again["in_stage"] == 5 and again["out_of_stage"] == 16
 
     # ── ⑤ 「단계 밖」을 성격으로 적는다 — 억지 배정 0 ───────────────────────
     kinds = {r["basis"] for r in ss["rows"] if not r["codes"]}
@@ -3474,7 +3492,9 @@ def test_291cha_screen_stage_is_derived_from_templates_not_stored():
     html = r.text
     assert _cd.audit(html) == {}, _cd.audit(html)
     assert "화면 ↔ 단계 — 어느 화면이 어느 단계에 서나" in html
-    assert "아직 정하지 못한 화면" in html and "/design" in html
+    #   🔴292차에 확인 필요가 0이 되어 그 블록은 **사라져야 한다**(빈 채로 남으면 안 된다)
+    assert "아직 정하지 못한 화면" not in html, "🔴 확인 필요 0인데 블록이 남아 있다"
+    assert "/design" in html and "D1 · D3 · D18" in html
     assert "배정표를 저장하지 않는다" in html
     for bad in ("추천", "권장", "최적", "가장 중요한 화면"):
         assert bad not in html, "🔴 화면↔단계 절에 판정 어휘 「%s」" % bad
