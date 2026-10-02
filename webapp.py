@@ -291,6 +291,15 @@ def axis_map(request: Request):
                                       {"ix": cpkg.axis_map()})
 
 
+# ── 288차: 서비스 흐름 — 척추(6단계)에 산출물·대상·기능을 잇는다 ──────────
+#   🔴 **축을 새로 만들지 않는다.** 설계서가 정한 3대상 × 6단계를 화면으로 옮길 뿐이고
+#      나머지 축은 **렌즈**로 둔다. 분류와 건수만 낸다(1절 258차 단서).
+@app.get("/flow")
+def service_flow(request: Request):
+    return templates.TemplateResponse(request, "service_flow.html",
+                                      {"flow": cpkg.service_flow()})
+
+
 # ── 6단계(210차): 케이스 상세 — 산출물이 콘솔에서 닿는다 ────────────────
 #   🔴 **실측이 결함을 정했다**: 산출물 **21건 중 9건**이 콘솔 어디에서도 닿지
 #      않았다 — 케이스당 **4축 리포트 · 컨설팅 패키지 · 판정 부록**(3종 × 3케이스).

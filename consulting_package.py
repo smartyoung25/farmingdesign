@@ -586,6 +586,9 @@ GUIDE_SCREENS: tuple = (
     ("/", "홈", "케이스 목록과 일하는 방식·서비스·근거 현황을 한 화면에",
      "넣는 것 없음(읽기)", "케이스 카드 · 숫자 띠 · 플랫폼 3단계 · 기능 4갈래 · status 분포",
      "케이스가 없으면 카드가 비어 있다 — `cases/*.json`이 원본이다"),
+    ("/flow", "서비스 흐름", "척추인 6단계에 산출물·대상·기능을 잇는다(설계서 3대상 × 6단계)",
+     "넣는 것 없음(읽기)", "단계 레일 6 · 3대상 × 6단계 매트릭스 · 렌즈 4 · 아직 못 이은 것",
+     "칸의 수는 **산출물 건수**다 — 한 산출물이 여러 대상에 걸리면 여러 번 센다. 화면이 어느 단계인지는 **정의돼 있지 않다**"),
     ("/functions", "기능 지도", "산출물 27종을 벤치마킹 기능 축으로 묶어 본다",
      "넣는 것 없음(읽기)", "F1·F2·F3·F0별 산출물과 **아직 없는 것**",
      "「없는 것」은 자료가 없는 게 아니라 **★등재가 안 된 것**일 수 있다 — 각 항목의 `blocked`를 보라"),
@@ -965,6 +968,95 @@ def basic_design(addr: str = None, crop: str = None, area_m2: float = None) -> d
 
 
 JUDGMENT_CODES: tuple = ("D25", "D26", "D27")
+
+
+# ─────────────────────────────────────────────────────────────
+# 288차 — **서비스 흐름(척추 1 · 렌즈 4)**. 사용자 지시 — *「화면스토리보드를
+#   최적화하고 흐름을 세부적으로 연계하고 기능을 구체적으로 매칭하라」*.
+#   🔴 **축을 새로 만들지 않는다.** 전부 기존 구조를 **잇기만** 한다 —
+#      `STAGE_ORDER`(척추) · `PACKAGE_SPEC`(산출물·대상·엔진함수) ·
+#      `PLATFORM_STAGES` · `FUNCTION_OF_CODE` · `ENTRY_STEP_*` · `GUIDE_SCREENS`.
+#   🔴 **계산하지 않는다** — 분류와 **건수**뿐이다(1절 258차 단서: 항목 건수 집계 허용).
+#   🔴 **척추를 내가 고르지 않았다** — 서비스 설계서가 3대상 × 6단계로 설계했고
+#      `STAGE_ORDER`가 그 순서다. 이 함수는 그 설계를 화면으로 옮길 뿐이다.
+#   ⚠️ **화면 ↔ 단계 대응은 리포에 없다.** 지어내지 않고 `gaps`로 드러낸다.
+# ─────────────────────────────────────────────────────────────
+FLOW_TARGETS: tuple = ("부지", "시설", "기자재")      # 설계서 §1의 3대상(순서 그대로)
+FLOW_NO_LINK: str = "대응 정의 없음"
+
+
+def service_flow() -> dict:
+    """6단계 척추에 산출물·대상·기능·플랫폼·기입을 **잇는다**(결정론 · 판정 없음)."""
+    plat_of = {}
+    for key, name, stages, desc, bench in PLATFORM_STAGES:
+        for st in stages:
+            plat_of[st] = {"key": key, "name": name, "desc": desc, "bench": bench}
+
+    spine = []
+    for st in STAGE_ORDER:
+        docs = []
+        for sp in PACKAGE_SPEC:
+            if sp["stage"] != st:
+                continue
+            fn = FUNCTION_OF_CODE.get(sp["code"])
+            steps = list(ENTRY_STEP_ALL_CODES) + list(
+                ENTRY_STEP_OF_CODE.get(sp["code"], ()))
+            docs.append({
+                "code": sp["code"], "title": sp["title"],
+                "targets": list(sp.get("targets") or []),
+                "fn": (fn or [FLOW_NO_LINK, ""])[0],
+                "fn_why": (fn or ["", FLOW_NO_LINK])[1],
+                "engine_n": len(sp.get("engine") or []),
+                "entry_steps": steps,
+                "appendix": sp["code"] in JUDGMENT_CODES,
+            })
+        spine.append({
+            "stage": st, "platform": plat_of.get(st),
+            "docs": docs, "n": len(docs),
+            "targets": [(t, sum(1 for d in docs if t in d["targets"])) for t in FLOW_TARGETS],
+            "engine_n": sum(d["engine_n"] for d in docs),
+        })
+
+    # 3대상 × 6단계 — 설계서 §2 커버리지 매트릭스를 **카탈로그에서 다시 센다**
+    matrix = {"targets": list(FLOW_TARGETS),
+              "rows": [{"stage": r["stage"],
+                        "cells": [n for _t, n in r["targets"]],
+                        "total": r["n"]} for r in spine],
+              "col_total": [sum(1 for sp in PACKAGE_SPEC if t in (sp.get("targets") or []))
+                            for t in FLOW_TARGETS]}
+
+    # 렌즈 — 척추를 **다르게 보는 축**들. 각자 제 화면이 있다
+    by_path = {s[0]: s[1] for s in GUIDE_SCREENS}
+    lenses = [
+        ("4축", "/axes", "입지·설계·운영·경제성 — 엔진이 계산하는 축"),
+        ("기능", "/functions", "F0~F3 — 고객이 무엇을 받는가로 묶은 것"),
+        ("관점", "/for", "농업인·투자자·공공기관 — 누가 읽는가"),
+        ("참조", "/refs", "리포가 쥔 자료 — 수치가 어디서 왔는가"),
+    ]
+    lenses = [{"name": n, "path": p, "label": by_path.get(p, FLOW_NO_LINK), "why": w}
+              for n, p, w in lenses]
+
+    gaps = [
+        {"무엇": "화면 ↔ 단계 대응", "왜": (
+            "어느 화면이 어느 단계에 속하는지는 **리포 어디에도 정의돼 있지 않다**. "
+            "배정하는 것은 판단이라 이 함수가 만들지 않는다 — 지금은 **산출물까지만** 잇는다")},
+        {"무엇": "대상별 진입", "왜": (
+            "3대상(부지·시설·기자재)으로 들어가는 화면이 없다. 매트릭스는 **건수**를 보일 뿐 "
+            "대상 하나를 골라 따라가는 길은 아직 없다")},
+        {"무엇": "단계 게이트", "왜": (
+            "설계서 §8의 단계 게이트(무엇이 통과·대기인가)는 **문서에만** 있다 — "
+            "케이스마다 달라서 이 화면은 케이스 없이 선다")},
+    ]
+    return {
+        "spine": spine, "matrix": matrix, "lenses": lenses, "gaps": gaps,
+        "doc_total": len(PACKAGE_SPEC), "stage_total": len(STAGE_ORDER),
+        "source": "서비스설계_컨설팅_3대상x6단계_20260920.md §1·§2·§4",
+        "note": ("🔴**척추는 6단계다** — 서비스 설계서가 3대상 × 6단계로 설계했고 이 화면은 "
+                 "그 순서(`STAGE_ORDER`)를 그대로 옮긴다. 나머지 축은 **렌즈**이고 각자 제 화면이 있다. "
+                 "🔴**이 화면은 분류와 건수만 낸다** — 값·등급·순위를 만들지 않고 "
+                 "어떤 단계도 더 중요하다고 하지 않는다"),
+    }
+
 
 
 def judgment_split(items: list) -> dict:

@@ -1,0 +1,112 @@
+{% extends "_base.html" %}
+{% set active = "flow" %}
+{% block title %}서비스 흐름{% endblock %}
+{% block main %}
+  <style>
+    .fl { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:16px 18px; margin-bottom:14px; }
+    .fl > h2 { font-size:15px; font-weight:500; margin-bottom:4px; }
+    .fl .sub { font-size:11.5px; color:var(--mut); line-height:1.55; margin-bottom:10px; }
+    .stage { border:1px solid var(--line); border-radius:11px; padding:12px 14px;
+             margin-bottom:10px; background:var(--bg); }
+    .stage > .hd { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline;
+                   margin-bottom:8px; }
+    .stage .no { font-size:14px; font-weight:600; }
+    .stage .pf { font-size:11px; color:var(--green); border:1px solid var(--line);
+                 border-radius:999px; padding:1px 8px; }
+    .stage .tl { font-size:11.5px; color:var(--sub); }
+    .stage .bn { font-size:11px; color:var(--mut); }
+    .dgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));
+             gap:7px; }
+    .d1 { border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--card); }
+    .d1 .cd { font-family:ui-monospace,Consolas,monospace; font-size:11px; color:var(--green); }
+    .d1 .tt { font-size:12.5px; font-weight:500; }
+    .d1 .mt { font-size:11px; color:var(--sub); line-height:1.5; margin-top:3px; }
+    .tag { display:inline-block; font-size:10.5px; border:1px solid var(--line);
+           border-radius:999px; padding:0 6px; margin-right:3px; color:var(--mut); }
+    table.mx { border-collapse:collapse; font-size:12.5px; width:100%; }
+    table.mx th, table.mx td { border:1px solid var(--line); padding:5px 9px; text-align:right; }
+    table.mx th:first-child, table.mx td:first-child { text-align:left; }
+    table.mx thead th { background:var(--bg); font-weight:500; }
+    table.mx tfoot td { font-weight:600; background:var(--bg); }
+    .lens { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr)); gap:8px; }
+    .lens a { display:block; border:1px solid var(--line); border-radius:9px;
+              padding:9px 12px; text-decoration:none; color:inherit; }
+    .lens .n { font-size:13px; font-weight:500; }
+    .lens .w { font-size:11.5px; color:var(--sub); line-height:1.5; margin-top:3px; }
+    .gap { border:1px dashed #D9B9B9; background:#FDF6F6; border-radius:9px;
+           padding:9px 12px; margin-bottom:7px; }
+    .gap .t { font-size:12.5px; font-weight:500; color:#791F1F; }
+    .gap .w { font-size:11.5px; color:#8A4A4A; line-height:1.5; margin-top:3px; }
+    .note { font-size:11.5px; color:var(--mut); line-height:1.6; }
+  </style>
+
+  <div class="top"><h1>서비스 흐름</h1>
+    <div class="actions"><a class="btn" href="/design">기본설계</a><a class="btn" href="/">케이스</a></div></div>
+  <div class="subtitle">척추는 <b>6단계</b>, 나머지 축은 <b>렌즈</b> — 단계마다 어떤 산출물이 서고
+    어느 기능·대상에 걸리는지 한 줄로 잇습니다</div>
+
+  <div class="fl">
+    <h2>단계 레일 — {{ flow.stage_total }}단계 · 산출물 {{ flow.doc_total }}종</h2>
+    <div class="sub">{{ flow.note }}</div>
+    {% for r in flow.spine %}
+    <div class="stage">
+      <div class="hd">
+        <span class="no">{{ r.stage }}</span>
+        {% if r.platform %}<span class="pf">{{ r.platform.key }} {{ r.platform.name }}</span>{% endif %}
+        <span class="tl">산출물 {{ r.n }}종 · 엔진 함수 {{ r.engine_n }}회 호출</span>
+        <span class="tl">{% for t, n in r.targets %}{{ t }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+      </div>
+      {% if r.platform %}<div class="bn" style="margin-bottom:7px">{{ r.platform.desc }} · 준거 {{ r.platform.bench }}</div>{% endif %}
+      <div class="dgrid">
+        {% for d in r.docs %}
+        <div class="d1">
+          <div><span class="cd">{{ d.code }}</span> <span class="tt">{{ d.title }}</span>{% if d.appendix %} <span class="tag">판정 부록</span>{% endif %}</div>
+          <div class="mt">
+            <span class="tag">{{ d.fn }}</span>{% for t in d.targets %}<span class="tag">{{ t }}</span>{% endfor %}
+            <span class="tag">엔진 {{ d.engine_n }}</span><br>
+            {{ d.fn_why }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="fl">
+    <h2>3대상 × 6단계 — 산출물이 어디에 걸리나</h2>
+    <div class="sub">🔴 칸의 수는 <b>산출물 건수</b>다 — 한 산출물이 여러 대상에 걸리면 여러 번 센다.
+      <b>어느 칸이 더 낫다고 하지 않는다.</b> 출처: {{ flow.source }}</div>
+    <div style="overflow-x:auto">
+    <table class="mx">
+      <thead><tr><th>단계</th>{% for t in flow.matrix.targets %}<th>{{ t }}</th>{% endfor %}<th>산출물</th></tr></thead>
+      <tbody>
+        {% for row in flow.matrix.rows %}
+        <tr><td>{{ row.stage }}</td>{% for c in row.cells %}<td>{{ c if c else '·' }}</td>{% endfor %}<td>{{ row.total }}</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td>합</td>{% for c in flow.matrix.col_total %}<td>{{ c }}</td>{% endfor %}<td>{{ flow.doc_total }}</td></tr></tfoot>
+    </table>
+    </div>
+  </div>
+
+  <div class="fl">
+    <h2>렌즈 — 같은 산출물을 다르게 보는 축</h2>
+    <div class="sub">척추는 하나이고 아래는 <b>보는 방법</b>입니다 — 축을 새로 만들지 않았습니다</div>
+    <div class="lens">
+      {% for l in flow.lenses %}
+      <a href="{{ l.path }}"><div class="n">{{ l.name }} <span class="cd" style="color:var(--mut);font-size:11px">{{ l.path }}</span></div>
+        <div class="w">{{ l.why }}</div></a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="fl">
+    <h2>아직 <b>잇지 못한 것</b></h2>
+    <div class="sub">빈칸으로 두지 않습니다 — 없는 연결이 「있는 것」으로 읽히면 안 됩니다</div>
+    {% for g in flow.gaps %}
+    <div class="gap"><div class="t">{{ g['무엇'] }}</div><div class="w">{{ g['왜'] }}</div></div>
+    {% endfor %}
+  </div>
+{% endblock %}

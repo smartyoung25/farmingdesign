@@ -2697,7 +2697,8 @@ def test_277cha_guide_covers_every_console_screen():
         "🔴 안내에 빠진 화면 %r · 안내에만 있는 경로 %r" % (sorted(got - listed), sorted(listed - got)))
     #   📌278차(WO-014)에 관점별 화면 2개가 늘어 17 → 19가 됐다
     #   📌281차(N-1)에 기본설계 화면이 늘어 19 → 20이 됐다
-    assert len(g["screens"]) == 20 and len(g["not_screens"]) == 3, g["counts"]
+    #   📌288차에 서비스 흐름 화면이 늘어 20 → 21이 됐다
+    assert len(g["screens"]) == 21 and len(g["not_screens"]) == 3, g["counts"]
     #   화면마다 네 칸이 다 있다(빈칸으로 넘어가지 않는다)
     for s in g["screens"]:
         for k in ("name", "what", "input", "output", "why_empty"):
@@ -2748,7 +2749,7 @@ def test_277cha_guide_covers_every_console_screen():
     assert r.status_code == 200
     html = r.text
     assert _cd.audit(html) == {}, _cd.audit(html)
-    assert html.count('class="scr"') == 20
+    assert html.count('class="scr"') == 21     # 📌288차 +1(서비스 흐름)
     assert html.count("확인 필요") >= len(need)
     for bad in ("추천", "권장합니다", "최적", "이것이 맞다"):
         assert bad not in html, f"🔴 안내에 판정 어휘 「{bad}」"
@@ -3113,3 +3114,98 @@ def test_282cha_facility_yield_is_reread_from_the_income_book():
     assert ent["FACILITY_YIELD_BASIS"]["status"] == "결정"
     #   레지스트리 사본과 엔진이 같은가 — 한쪽만 고치면 잡힌다
     assert ent["FACILITY_YIELD_KG_10A"]["value"] == tbl, "🔴 레지스트리 사본이 엔진과 다르다"
+
+
+def test_288cha_service_flow_joins_existing_axes_and_invents_none():
+    """288차 — 서비스 흐름이 **기존 축을 잇기만** 하는가(새 축 0 · 계산 0).
+
+    🔴 **축을 세우는 것은 ★사용자다**(273차) — 3대상도 `PACKAGE_SPEC`이 이미 쓰는 값이라야
+       한다. 내가 만든 목록이면 실패.
+    🔴 **계산하지 않는다** — 모든 수를 `PACKAGE_SPEC`에서 다시 세어 화면 값과 맞춘다.
+    🔴 **화면↔단계 대응을 지어내지 않았다** — 없는 연결은 `gaps`로 드러나야 한다.
+    """
+    import os as _o, io as _io, re as _re
+    import consulting_package as _cp
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd = lambda p_: _io.open(_o.path.join(root, p_), encoding="utf-8").read()
+    f = _cp.service_flow()
+    spec = _cp.PACKAGE_SPEC
+
+    # ── ① 🔴 새 축이 아니다 — 3대상은 **카탈로그가 이미 쓰는 값**이다 ────────
+    used = set()
+    for sp in spec:
+        used |= set(sp.get("targets") or [])
+    assert set(_cp.FLOW_TARGETS) == used, (
+        "🔴 FLOW_TARGETS %s 가 PACKAGE_SPEC이 쓰는 대상 %s 와 다르다 — "
+        "축을 새로 만든 것이다(273차: 축을 세우는 것은 ★사용자)" % (_cp.FLOW_TARGETS, sorted(used)))
+    #   척추도 내가 고르지 않았다 — STAGE_ORDER 그대로다
+    assert [r["stage"] for r in f["spine"]] == list(_cp.STAGE_ORDER)
+    assert f["stage_total"] == len(_cp.STAGE_ORDER) == 6
+
+    # ── ② 🔴 모든 수를 카탈로그에서 **다시 센다** ───────────────────────────
+    assert f["doc_total"] == len(spec) == 27
+    assert sum(r["n"] for r in f["spine"]) == len(spec), "🔴 레일이 산출물을 흘렸다"
+    for r in f["spine"]:
+        want = [x for x in spec if x["stage"] == r["stage"]]
+        assert r["n"] == len(want), (r["stage"], r["n"], len(want))
+        assert [d["code"] for d in r["docs"]] == [x["code"] for x in want]
+        assert r["engine_n"] == sum(len(x.get("engine") or []) for x in want)
+        for t, n in r["targets"]:
+            assert n == sum(1 for x in want if t in (x.get("targets") or [])), (r["stage"], t)
+    #   매트릭스 열합계도 카탈로그에서 다시 센다
+    assert f["matrix"]["col_total"] == [
+        sum(1 for x in spec if t in (x.get("targets") or [])) for t in _cp.FLOW_TARGETS]
+    assert f["matrix"]["col_total"] == [4, 23, 12], f["matrix"]["col_total"]
+    assert [row["total"] for row in f["matrix"]["rows"]] == [r["n"] for r in f["spine"]]
+
+    # ── ③ 기능·플랫폼·기입이 **기존 매핑 그대로** 붙었다 ────────────────────
+    for r in f["spine"]:
+        for d in r["docs"]:
+            assert d["fn"] == _cp.FUNCTION_OF_CODE[d["code"]][0], d["code"]
+            assert d["fn_why"] == _cp.FUNCTION_OF_CODE[d["code"]][1]
+            assert d["appendix"] == (d["code"] in _cp.JUDGMENT_CODES)
+            assert d["entry_steps"][:len(_cp.ENTRY_STEP_ALL_CODES)] == list(_cp.ENTRY_STEP_ALL_CODES)
+        if r["platform"]:
+            key = r["platform"]["key"]
+            hit = [p for p in _cp.PLATFORM_STAGES if p[0] == key]
+            assert len(hit) == 1 and r["stage"] in hit[0][2], (r["stage"], key)
+    #   D25만 추가 기입 단계를 갖는다(275차 매핑을 바꾸지 않았다)
+    extra = {d["code"] for r in f["spine"] for d in r["docs"]
+             if len(d["entry_steps"]) > len(_cp.ENTRY_STEP_ALL_CODES)}
+    assert extra == set(_cp.ENTRY_STEP_OF_CODE), extra
+
+    # ── ④ 🔴 렌즈는 **실재하는 화면**을 가리킨다 ────────────────────────────
+    paths = {s[0] for s in _cp.GUIDE_SCREENS}
+    assert len(f["lenses"]) == 4
+    for l in f["lenses"]:
+        assert l["path"] in paths, "🔴 렌즈 %s 가 사용 안내에 없는 화면을 가리킨다" % l["path"]
+        assert l["label"] != _cp.FLOW_NO_LINK, l
+        assert client.get(l["path"]).status_code == 200, l["path"]
+
+    # ── ⑤ 🔴 잇지 못한 것을 적었다 — 지어내지 않았다 ───────────────────────
+    assert len(f["gaps"]) == 3, f["gaps"]
+    what = {g["무엇"] for g in f["gaps"]}
+    assert "화면 ↔ 단계 대응" in what, "🔴 화면↔단계 공백이 사라졌다 — 배정했다면 그건 판단이다"
+    src = rd("consulting_package.py")
+    assert "**리포 어디에도 정의돼 있지 않다**" in src
+    assert "배정하는 것은 판단이라 이 함수가 만들지 않는다" in src
+
+    # ── ⑥ 🔴 판정·순위를 만들지 않는다 ─────────────────────────────────────
+    r = client.get("/flow")
+    assert r.status_code == 200
+    html = r.text
+    assert _cd.audit(html) == {}, _cd.audit(html)
+    for bad in ("추천", "권장", "최적", "1순위", "가장 중요"):
+        assert bad not in html, "🔴 흐름 화면에 판정 어휘 「%s」" % bad
+    assert "어느 칸이 더 낫다고 하지 않는다" in html
+    assert "어떤 단계도 더 중요하다고 하지 않는다" in html
+    assert "축을 새로 만들지 않았습니다" in html
+
+    # ── ⑦ 화면이 메뉴에 걸려 있다(머리·푸터 2곳) ───────────────────────────
+    for page in ("/", "/design", "/functions"):
+        c_ = client.get(page).text.count('href="/flow"')
+        assert c_ == 2, "🔴 %s 의 흐름 링크가 %d곳이다(머리·푸터 2곳)" % (page, c_)
+    #   사용 안내가 새 화면을 알고 있어야 한다(277차 가드와 겹쳐 지킨다)
+    assert any(x["path"] == "/flow" for x in _cp.guide_index()["screens"]), (
+        "🔴 사용 안내에 /flow 가 없다")
