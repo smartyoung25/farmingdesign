@@ -42,6 +42,19 @@ MAP_SCREENS = ("/flow", "/functions", "/axes", "/for", "/for/{name}")
 # 목표 구조의 1층 — 일하는 화면 둘 + 자료 화면 둘. 홈 본문이 전부 링크해야 한다.
 FIRST_FLOOR = ("/design", "/case/", "/flow", "/refs")
 
+# 🔴 결과가 나오는 상태로 재야 하는 화면 — 빈 폼을 재면 금액이 0으로 잡힌다(295차).
+#   표본은 고정값이다(결정론). 값 자체는 지표가 아니고 **출처 링크의 유무**만 센다.
+RESULT_SAMPLES = {
+    "/design": "/design?addr=%EC%B6%A9%EC%B2%AD%EB%82%A8%EB%8F%84+%EB%85%BC%EC%82%B0%EC%8B%9C"
+                "&crop=%ED%86%A0%EB%A7%88%ED%86%A0&area_m2=3300",
+}
+
+# 수에서 출처로 가는 링크로 인정하는 것 — 참조 카탈로그와 근거 문서다.
+SOURCE_HINTS = ("/refs", "근거")
+
+_MONEY = re.compile(r"[0-9][0-9,]{5,}\s*원")
+_PCT = re.compile(r"[0-9]+(?:\.[0-9]+)?\s*%")
+
 _TAG = re.compile(r"<[^>]+>")
 _HREF = re.compile(r'href="([^"]+)"')
 _MAIN = re.compile(r"<main[^>]*>(.*?)</main>", re.S)
@@ -126,6 +139,25 @@ def measure(fetch=None, flow=None, ssm=None) -> dict:
     m7_screens = sorted(p for p in screens if p.startswith("/entry"))
     m7 = len(m7_screens)
 
+    # ── M9 수를 내면서 출처로 가는 길이 없는 화면 ───────────────────
+    #   인터뷰(2026-10-02)에서 「이 수가 어떻게 나왔는가」를 **네 수 전부**에서 말로
+    #   설명해야 했다고 답했다. 리포에는 근거 문서 84건·참조 179건이 있는데 화면에서
+    #   수 → 출처로 가는 경로가 없다. 그것을 센다.
+    m9_screens = []
+    for path in [p for p in screens if "{" not in p]:
+        probe = RESULT_SAMPLES.get(path, path)
+        st, html = get(probe)
+        if st != 200:
+            continue
+        body = _main_of(html)
+        txt = _text_of(body)
+        if not (_MONEY.search(txt) or _PCT.search(txt)):
+            continue
+        hrefs = _HREF.findall(body)
+        if not any(any(h2 in h for h2 in SOURCE_HINTS) for h in hrefs):
+            m9_screens.append(path)
+    m9 = len(m9_screens)
+
     # ── M8 본문이 자기 말을 뒤집는 곳 ───────────────────────────────
     contradictions = []
     ssm = cp.screen_stage_map() if ssm is None else ssm
@@ -171,6 +203,8 @@ def measure(fetch=None, flow=None, ssm=None) -> dict:
         "M7_detail": m7_screens,
         "M8_contradictions": m8,
         "M8_detail": contradictions,
+        "M9_numbers_without_source": m9,
+        "M9_detail": m9_screens,
         "fields": fields,
     }
 
@@ -185,6 +219,7 @@ METRIC_LABELS = (
     ("M6_map_screens", "같은 산출물 27행을 각자 내는 자료 지도 화면"),
     ("M7_entry_screens", "기입이 흩어진 화면"),
     ("M8_contradictions", "본문이 자기 말을 뒤집는 곳"),
+    ("M9_numbers_without_source", "수를 내면서 출처로 가는 길이 없는 화면"),
 )
 
 
@@ -212,6 +247,11 @@ def main() -> int:
     w("자기 모순 %d건:" % r["M8_contradictions"])
     for s in r["M8_detail"]:
         w("   " + s)
+    w()
+    w()
+    w("수를 내면서 출처로 가는 길이 없는 화면 %d개:" % r["M9_numbers_without_source"])
+    for p2 in r["M9_detail"]:
+        w("   " + p2)
     w()
     w("참고 — 보이는 입력 칸: " + " · ".join(
         "%s %d" % (k, v) for k, v in r["fields"].items()))

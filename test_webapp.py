@@ -3644,6 +3644,9 @@ def test_294cha_prd_baseline_is_remeasured_not_asserted():
         "/guide": '<main><a href="/axes">a</a><a href="/zz">b</a></main>',
         "/": '<main><a href="/design">d</a><a href="/refs">r</a></main>',
         "/refs": "<main>** 하나 ** 둘 ** 셋 `a` `b`</main>",
+        #   🔴 결과 표본으로만 닿는 주소에 금액을 둔다 — 측정기가 표본을 버리면
+        #   기본설계 화면은 수 없는 화면으로 측정되고 M9가 0이 된다(뮤테이션 M13).
+        _mci.RESULT_SAMPLES["/design"]: "<main>163,113,316 원</main>",
     }
     #   자리표시자는 측정기가 실제 값으로 바꿔 부른다 — 죽은 주소도 그 모양으로 적는다
     dead = {"/zz", "/for/농업인"}
@@ -3675,6 +3678,85 @@ def test_294cha_prd_baseline_is_remeasured_not_asserted():
     assert syn["M8_contradictions"] == 1, (
         "🔴 합성 입력의 모순이 1건인데 %d이 나왔다 — 모순 수가 입력에서 나오지 않는다"
         % syn["M8_contradictions"])
+    #   합성 화면 중 금액이 있는 것은 **결과 표본으로 부른 기본설계 하나**이고
+    #   거기에 출처 링크가 없으니 M9는 정확히 1이어야 한다.
+    assert syn["M9_numbers_without_source"] == 1, (
+        "🔴 합성 입력의 출처 없는 화면이 1인데 %d이 나왔다 — 0이면 측정기가 **결과 "
+        "표본을 쓰지 않는 것**이고(뮤테이션 M13), 다른 수면 M9가 입력에서 나오지 "
+        "않는 것이다(뮤테이션 M17)" % syn["M9_numbers_without_source"])
+    assert syn["M9_detail"] == ["/design"], syn["M9_detail"]
+    assert len(syn["M9_detail"]) == syn["M9_numbers_without_source"], syn["M9_detail"]
 
     # 한 행도 없는 표는 통과가 아니다
-    assert len(rows) >= 8, "🔴 지표가 %d개뿐이다 — 294차 기준은 여덟이다" % len(rows)
+    assert len(rows) >= 9, "🔴 지표가 %d개뿐이다 — 295차 기준은 아홉이다" % len(rows)
+
+
+def test_295cha_structure_only_amount_tracks_area_not_address():
+    """295차 — 골조 단독 금액이 **주소에 무관하고 면적에 비례**하는가.
+
+    🔴 왜 가드로 고정하는가: 인터뷰(2026-10-02)에서 *「이 수가 어떻게 나왔는가」*를
+    말로 설명해야 했다고 답했고, 그 첫 수가 골조 단독 금액이다. 294차 기록은
+    **면적을 적지 않고** 163,113,316원만 적었다 — 그 값은 3,300㎡에서 나온다.
+    설명을 화면에 적으려면(WO-021) 그 설명이 **참인지**를 기계가 재야 한다.
+
+    ⚠️ 못 하는 것: 이 금액이 **옳은 금액인지**는 재지 않는다. 평단가의 근거는
+    레지스트리에 있고, 여기서 재는 것은 *무엇에 따라 변하는가*뿐이다.
+    """
+    import re as _re
+
+    def _amount(addr, area):
+        r = client.get("/design", params={"addr": addr, "crop": "토마토",
+                                          "area_m2": str(area)})
+        assert r.status_code == 200, r.status_code
+        txt = _re.sub(r"<[^>]+>", " ", r.text)
+        hit = _re.findall(r"([0-9][0-9,]{5,})\s*원", txt)
+        assert hit, "🔴 금액이 화면에 없다 — 결과가 나오는 상태로 불러야 한다"
+        return int(hit[0].replace(",", ""))
+
+    # ── ① 주소를 바꿔도 같은가(면적 고정) ───────────────────────────
+    addrs = ("충청남도 논산시", "강원 춘천시", "제주 제주시", "전북 김제시")
+    got = {a: _amount(a, 3000) for a in addrs}
+    assert len(set(got.values())) == 1, (
+        "🔴 주소마다 금액이 달라졌다: %s — `structure_only_estimate`는 평수만 받으므로 "
+        "주소에 무관해야 한다. 달라졌다면 다른 경로가 금액을 내고 있다" % got)
+
+    # ── ② 면적을 바꾸면 달라지는가(주소 고정) ───────────────────────
+    by_area = {a: _amount("충청남도 논산시", a) for a in (3000, 3300, 6800)}
+    assert len(set(by_area.values())) == 3, (
+        "🔴 면적을 바꿨는데 금액이 %s다 — 평단가에 평을 곱한 값이면 셋이 모두 달라야 "
+        "한다" % by_area)
+    assert by_area[3000] < by_area[3300] < by_area[6800], (
+        "🔴 면적이 커지는데 금액이 따라 커지지 않는다: %s" % by_area)
+
+    # ── ③ 🔴 **PRD가 적은 수를 실측과 대조한다** ────────────────────
+    #    기록이 면적을 적지 않으면 그 수는 검산되지 않는다(155차 교훈).
+    #    가드가 PRD의 글자를 **실측으로 만들어** 찾는다 — 한쪽만 고치면 실패한다
+    #    (295차 뮤테이션 M20·M21이 PRD만 고쳐도 통과하던 구멍이었다).
+    import io as _io
+    import os as _os
+    prd = _io.open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                 "PRD_콘솔_UIUX재설계_20261002.md"),
+                   encoding="utf-8").read()
+    assert "주소에 무관하고 면적에 비례" in prd, (
+        "🔴 PRD에서 「주소에 무관하고 면적에 비례」가 사라졌다 — 그 문장이 WO-021이 "
+        "화면에 적을 설명의 출처다")
+    assert "전부 {:,}원".format(got[addrs[0]]) in prd, (
+        "🔴 PRD의 네 지역 공통 금액이 실측 {:,}원과 다르다".format(got[addrs[0]]))
+    #   🔴 **쌍**으로 찾는다 — 낱개 금액은 PRD에 두 번 나와서 한 곳을 고쳐도 통과했다
+    #   (295차 뮤테이션 M20). 면적과 금액을 붙인 토큰은 한 곳에만 있다.
+    for area in (3000, 3300, 6800):
+        want = "{:,}㎡ → {:,}원".format(area, by_area[area])
+        assert want in prd, (
+            "🔴 PRD에 「{}」이 없다 — 실측과 기록이 갈라졌다. 값이 바뀌었으면 같은 "
+            "커밋에서 PRD를 고친다".format(want))
+
+    # ── ④ 결과 표본이 실제로 쓰이는가 ───────────────────────────────
+    #    🔴 빈 폼을 재면 금액이 0으로 잡힌다. 측정기가 표본을 버리면(뮤테이션 M13)
+    #    기본설계 화면은 **금액 없는 화면**으로 측정된다.
+    import re as _re2
+    import measure_console_ia as _mci2
+    probe = _mci2.RESULT_SAMPLES["/design"]
+    body = _re2.search(r"<main[^>]*>(.*?)</main>", client.get(probe).text, _re2.S).group(1)
+    assert _mci2._MONEY.search(_re2.sub(r"<[^>]+>", " ", body)), (
+        "🔴 측정기의 결과 표본으로 부른 기본설계 화면에 금액이 없다 — 표본이 "
+        "결과를 내지 못하면 M9는 빈 화면을 재는 것이 된다")
