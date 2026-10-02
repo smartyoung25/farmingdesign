@@ -3186,10 +3186,13 @@ def test_288cha_service_flow_joins_existing_axes_and_invents_none():
     # ── ⑤ 🔴 잇지 못한 것을 적었다 — 지어내지 않았다 ───────────────────────
     assert len(f["gaps"]) == 3, f["gaps"]
     what = {g["무엇"] for g in f["gaps"]}
-    assert "화면 ↔ 단계 대응" in what, "🔴 화면↔단계 공백이 사라졌다 — 배정했다면 그건 판단이다"
+    #   📌291차에 ★사용자 결정(산출물 D 경유)으로 **닫혔다** — 공백 줄은 남되 「닫힘」으로 적는다
+    assert "화면 ↔ 단계 대응 — ✅291차에 닫혔다" in what, what
+    assert "화면 ↔ 단계 대응" not in {x for x in what}, "🔴 열린 채의 옛 문구가 남아 있다"
     src = rd("consulting_package.py")
-    assert "**리포 어디에도 정의돼 있지 않다**" in src
-    assert "배정하는 것은 판단이라 이 함수가 만들지 않는다" in src
+    #   📌291차에 ★결정으로 닫혔다 — 이제 **배정표를 저장하지 않는다**가 그 자리의 경계다
+    assert "**배정표를 저장하지 않는다**" in src
+    assert "템플릿이 바뀌면 매핑도 따라 바뀐다" in src
 
     # ── ⑥ 🔴 판정·순위를 만들지 않는다 ─────────────────────────────────────
     r = client.get("/flow")
@@ -3387,3 +3390,91 @@ def test_290cha_readiness_menu_is_rule_applied_not_a_popularity_guess():
             if "{" in s["path"]:
                 continue
             assert client.get(s["path"]).status_code == 200, s["path"]
+
+
+def test_291cha_screen_stage_is_derived_from_templates_not_stored():
+    """291차 — 화면↔단계가 **코드에서 파생**되는가(★결정: 산출물 D 경유).
+
+    🔴 배정표를 저장하면 실패 — 매핑은 **템플릿이 적은 D코드**에서 매번 나와야 한다.
+    🔴 **단계를 손으로 달지 않는다** — `PACKAGE_SPEC`의 `stage`와 한 글자도 달라선 안 된다.
+    🔴 **확인 필요 한 건**(`/design`)을 숨기지 않는다 — 지어내면 실패.
+    """
+    import os as _o, io as _io, re as _re
+    import consulting_package as _cp
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd = lambda p_: _io.open(_o.path.join(root, p_), encoding="utf-8").read()
+    ss = _cp.screen_stage_map()
+    stage_of = {sp["code"]: sp["stage"] for sp in _cp.PACKAGE_SPEC}
+
+    # ── ① 🔴 템플릿에서 **다시 뽑아** 대조한다 ──────────────────────────────
+    assert ss["total"] == 21
+    for r in ss["rows"]:
+        if not r["template"]:
+            assert r["codes"] == [], r
+            continue
+        txt = rd(_o.path.join("webapp_templates", r["template"]))
+        want = sorted({c for c in _re.findall(r"\bD\d{1,2}\b", txt) if c in stage_of},
+                      key=lambda c: int(c[1:]))
+        assert r["codes"] == want, (
+            "🔴 %s 의 코드가 템플릿과 다르다 — 배정표를 저장했는가? %s vs %s"
+            % (r["path"], r["codes"], want))
+
+    # ── ② 🔴 단계는 PACKAGE_SPEC에서 **파생**된다 ──────────────────────────
+    for r in ss["rows"]:
+        want = [st for st in _cp.STAGE_ORDER
+                if any(stage_of.get(c) == st for c in r["codes"])]
+        assert r["stages"] == want, (r["path"], r["stages"], want)
+        assert r["in_stage"] == bool(r["codes"])
+    #   단계별 역방향도 같은 자료에서 나온다
+    for b in ss["by_stage"]:
+        want = [r["path"] for r in ss["rows"] if b["stage"] in r["stages"]]
+        assert b["screens"] == want, b["stage"]
+    assert [b["stage"] for b in ss["by_stage"]] == list(_cp.STAGE_ORDER)
+
+    # ── ③ 🔴 실측 — 단계 안 5 · 단계 밖 16 ─────────────────────────────────
+    assert ss["in_stage"] == 5 and ss["out_of_stage"] == 16, (ss["in_stage"], ss["out_of_stage"])
+    assert ss["in_stage"] + ss["out_of_stage"] == ss["total"]
+    got = {r["path"]: r["codes"] for r in ss["rows"] if r["codes"]}
+    assert got["/case/{display_code}"] == ["D23", "D24", "D25", "D26", "D27"], got
+    assert got["/entry/site/{display_code}"] == ["D1"]
+    assert got["/entry/docs/{display_code}"] == ["D4", "D19"]
+    #   🔴케이스 상세는 **5단계**에 걸친다 — 긴 라우트 본문을 놓치면 여기가 비었다
+    case = next(r for r in ss["rows"] if r["path"] == "/case/{display_code}")
+    assert len(case["stages"]) == 5, case["stages"]
+    assert case["template"] == "case_detail.html"
+
+    # ── ④ 🔴 확인 필요 한 건을 숨기지 않는다 ───────────────────────────────
+    assert ss["needs_decision"] == ["/design"], ss["needs_decision"]
+    d = next(r for r in ss["rows"] if r["path"] == "/design")
+    assert d["needs_decision"] and not d["codes"]
+    assert d["basis"] == _cp.SCREEN_OUT_OF_STAGE[_cp.SCREEN_NEEDS_DECISION]
+    assert "확인 필요" in d["basis"]
+
+    # ── ⑤ 「단계 밖」을 성격으로 적는다 — 억지 배정 0 ───────────────────────
+    kinds = {r["basis"] for r in ss["rows"] if not r["codes"]}
+    assert kinds <= set(_cp.SCREEN_OUT_OF_STAGE.values()), kinds
+    assert "단계 밖 — 지도·안내" in kinds and "단계 밖 — 기입 축" in kinds
+
+    # ── ⑥ ★결정이 기록돼 있다 · 288차 공백이 닫혔다 ────────────────────────
+    assert "★사용자 결정 2026-10-02" in ss["decided"] and "산출물 D를 경유" in ss["decided"]
+    #   🔴경계 문구는 **이 가드도** 본다 — 288차에만 맡기면 한쪽만 지워도 통과한다
+    src = rd("consulting_package.py")
+    #   🔴같은 문구가 여러 곳에 있다 — **횟수**로 못 박아야 한 곳만 지워도 걸린다
+    assert src.count("배정표를 저장하지 않는다") == 3, src.count("배정표를 저장하지 않는다")
+    assert src.count("템플릿이 바뀌면 매핑도 따라 바뀐다") == 2, (
+        src.count("템플릿이 바뀌면 매핑도 따라 바뀐다"))
+    gaps = {g["무엇"] for g in _cp.service_flow()["gaps"]}
+    assert "화면 ↔ 단계 대응 — ✅291차에 닫혔다" in gaps, gaps
+    assert not any(g == "화면 ↔ 단계 대응" for g in gaps), "🔴 공백이 열린 채로 남아 있다"
+
+    # ── ⑦ 화면 — 전부 뜨고 판정 어휘 0 ─────────────────────────────────────
+    r = client.get("/flow")
+    assert r.status_code == 200
+    html = r.text
+    assert _cd.audit(html) == {}, _cd.audit(html)
+    assert "화면 ↔ 단계 — 어느 화면이 어느 단계에 서나" in html
+    assert "아직 정하지 못한 화면" in html and "/design" in html
+    assert "배정표를 저장하지 않는다" in html
+    for bad in ("추천", "권장", "최적", "가장 중요한 화면"):
+        assert bad not in html, "🔴 화면↔단계 절에 판정 어휘 「%s」" % bad

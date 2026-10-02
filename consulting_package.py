@@ -1005,6 +1005,94 @@ JUDGMENT_CODES: tuple = ("D25", "D26", "D27")
 #   ⚠️ **질문 ↔ 화면 대응은 만들지 않았다** — 관점별 `ask` 9개를 어느 화면에 잇는지는
 #      **배정이라 판단**이다(288차 「화면↔단계」와 같은 이유).
 # ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# 291차 — **화면 ↔ 단계**(★사용자 결정 2026-10-02: *「산출물 D 경유」*).
+#   288차가 *「배정은 판단이라 만들지 않는다」*고 남긴 공백을 닫는다. 사용자가 고른 방식은
+#   **화면 → 산출물(D) → 단계**이고, 이 함수는 그 사슬을 **코드에서 파생**한다.
+#   🔴 **배정표를 저장하지 않는다.** 화면이 어느 D에 걸리는지는 **그 화면의 템플릿이
+#      적은 D코드**에서 매번 뽑는다 — 템플릿이 바뀌면 매핑도 따라 바뀐다(드리프트 0).
+#   🔴 **단계는 손으로 달지 않는다** — `PACKAGE_SPEC`에서 그 D의 `stage`를 가져올 뿐이다.
+#   🔴 **D를 적지 않는 화면은 「단계 밖」**이다. 억지로 배정하지 않고 성격만 적는다.
+#   ⚠️ **한 화면만 「확인 필요」로 남는다**(`/design`) — 산출물을 내는데 템플릿이 코드를
+#      적지 않는다. 지어내지 않고 사용자에게 되돌린다.
+# ─────────────────────────────────────────────────────────────
+import re as _re
+
+SCREEN_OUT_OF_STAGE: dict = {      # readiness 계단 → 「단계 밖」 성격
+    "none": "단계 밖 — 지도·안내",
+    "case": "단계 밖 — 기입 축",
+    "other": "단계 밖 — 관리",
+    "three": "확인 필요 — 산출물을 내는데 코드를 적지 않는다",
+}
+SCREEN_NEEDS_DECISION: str = "three"
+
+
+def _route_templates() -> dict:
+    """`webapp.py`에서 라우트 경로 → 템플릿 파일을 뽑는다(저장하지 않는다)."""
+    import os as _os
+    src = _refs_read(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "webapp.py"))
+    #   🔴길이로 자르지 않는다 — 라우트 본문이 길면(케이스 상세 2,430자) 놓친다.
+    #      **다음 라우트까지**를 본문으로 잘라 그 안의 첫 템플릿을 뽑는다
+    out, marks = {}, [(m.start(), m.group(1))
+                      for m in _re.finditer(r'@app\.(?:get|post)\("([^"]+)"\)', src)]
+    for k, (pos, path) in enumerate(marks):
+        end = marks[k + 1][0] if k + 1 < len(marks) else len(src)
+        hit = _re.search(r'"(\w+\.html)"', src[pos:end])
+        if hit:
+            out.setdefault(path, hit.group(1))
+    return out
+
+
+def _template_codes(tpl: str) -> list:
+    """템플릿이 **적은** 산출물 코드(D1~D27) — 중복 없이 번호 순."""
+    import os as _os
+    root = _os.path.dirname(_os.path.abspath(__file__))
+    try:
+        txt = _refs_read(_os.path.join(root, "webapp_templates", tpl))
+    except Exception:
+        return []
+    known = {sp["code"] for sp in PACKAGE_SPEC}
+    found = {c for c in _re.findall(r"\bD\d{1,2}\b", txt) if c in known}
+    return sorted(found, key=lambda c: int(c[1:]))
+
+
+def screen_stage_map() -> dict:
+    """화면 → 산출물(D) → 단계. **코드에서 파생** · 판정 없음 · 순위 없음."""
+    stage_of = {sp["code"]: sp["stage"] for sp in PACKAGE_SPEC}
+    tpls = _route_templates()
+    tier_of = {s["path"]: _readiness_tier(s["input"]) for s in guide_index()["screens"]}
+
+    rows = []
+    for s in guide_index()["screens"]:
+        tpl = tpls.get(s["path"], "")
+        codes = _template_codes(tpl) if tpl else []
+        stages = [st for st in STAGE_ORDER
+                  if any(stage_of.get(c) == st for c in codes)]
+        rows.append({
+            "path": s["path"], "name": s["name"], "template": tpl,
+            "codes": codes, "stages": stages,
+            "basis": "템플릿이 적은 코드" if codes else SCREEN_OUT_OF_STAGE[tier_of[s["path"]]],
+            "in_stage": bool(codes),
+            "needs_decision": (not codes) and tier_of[s["path"]] == SCREEN_NEEDS_DECISION,
+        })
+
+    by_stage = [{"stage": st,
+                 "screens": [r["path"] for r in rows if st in r["stages"]]}
+                for st in STAGE_ORDER]
+    return {
+        "rows": rows, "by_stage": by_stage,
+        "in_stage": sum(1 for r in rows if r["in_stage"]),
+        "out_of_stage": sum(1 for r in rows if not r["in_stage"]),
+        "needs_decision": [r["path"] for r in rows if r["needs_decision"]],
+        "total": len(rows),
+        "decided": "★사용자 결정 2026-10-02 — 화면 ↔ 단계는 **산출물 D를 경유**한다",
+        "note": ("🔴**배정표를 저장하지 않는다** — 화면이 어느 산출물에 걸리는지는 "
+                 "**그 화면의 템플릿이 적은 D코드**에서 매번 뽑고, 단계는 `PACKAGE_SPEC`에서 "
+                 "가져온다. 템플릿이 바뀌면 매핑도 따라 바뀐다. "
+                 "🔴**D를 적지 않는 화면은 「단계 밖」**이고 억지로 배정하지 않는다. "
+                 "⚠️**산출물을 내는데 코드를 적지 않는 화면은 「확인 필요」**로 남긴다"),
+    }
+
 READINESS_RULE: tuple = (
     # (키, 이름, 한 줄, 판정 규칙 — `input` 원문에 대해 적용)
     ("none", "준비물 없이 바로", "열면 바로 읽힌다",
@@ -1155,9 +1243,11 @@ def service_flow() -> dict:
               for n, p, w in lenses]
 
     gaps = [
-        {"무엇": "화면 ↔ 단계 대응", "왜": (
-            "어느 화면이 어느 단계에 속하는지는 **리포 어디에도 정의돼 있지 않다**. "
-            "배정하는 것은 판단이라 이 함수가 만들지 않는다 — 지금은 **산출물까지만** 잇는다")},
+        {"무엇": "화면 ↔ 단계 대응 — ✅291차에 닫혔다", "왜": (
+            "★사용자 결정 2026-10-02: **산출물 D를 경유**한다. `screen_stage_map()`이 "
+            "**템플릿이 적은 D코드**에서 매번 파생하므로 배정표를 저장하지 않는다. "
+            "⚠️다만 **산출물을 내는데 코드를 적지 않는 화면 하나**(`/design`)는 "
+            "**확인 필요**로 남아 있다")},
         {"무엇": "대상별 진입", "왜": (
             "3대상(부지·시설·기자재)으로 들어가는 화면이 없다. 매트릭스는 **건수**를 보일 뿐 "
             "대상 하나를 골라 따라가는 길은 아직 없다")},
