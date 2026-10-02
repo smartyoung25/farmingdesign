@@ -297,7 +297,8 @@ def axis_map(request: Request):
 @app.get("/flow")
 def service_flow(request: Request):
     return templates.TemplateResponse(request, "service_flow.html",
-                                      {"flow": cpkg.service_flow()})
+                                      {"flow": cpkg.service_flow(),
+                                       "trades": cpkg.trade_map()})
 
 
 # ── 6단계(210차): 케이스 상세 — 산출물이 콘솔에서 닿는다 ────────────────

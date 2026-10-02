@@ -981,6 +981,62 @@ JUDGMENT_CODES: tuple = ("D25", "D26", "D27")
 #      `STAGE_ORDER`가 그 순서다. 이 함수는 그 설계를 화면으로 옮길 뿐이다.
 #   ⚠️ **화면 ↔ 단계 대응은 리포에 없다.** 지어내지 않고 `gaps`로 드러낸다.
 # ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# 289차 — **공종 매핑**. 사용자 지시 — *「부지, 설계감리, 시공 부분도 전체 프로세스에
+#   환경제어, 양액제어 배관, 전기, 양액재활용, 히트펌프 등도 상기의 프로세스
+#   하이어라키를 찾아서 매핑하라」*.
+#   🔴 **하이어라키를 새로 만들지 않았다** — `CAPEX_MAJOR_CATEGORIES` **13공종**이
+#      이미 서 있고(★사용자 제안 채택 2026-07-16), 이 함수는 거기에 **잇기만** 한다.
+#   🔴 **배정하지 않는다** — 요청 낱말이 어느 공종에 속하는지는 **카테고리 설명에서
+#      문자열로 찾는다**. 설명에 없으면 **없다고 적는다**(지어내지 않는다).
+#   🔴 **계산하지 않는다** — 표본 커버리지는 `CAPEX_MAJOR_CASE_CHUNKS`에서 금액이
+#      0보다 큰 케이스를 **세는 것**뿐이다(1절 258차 단서).
+# ─────────────────────────────────────────────────────────────
+TRADE_ASK: tuple = (          # ★사용자 지시 2026-10-02의 낱말 그대로
+    "부지", "설계", "감리", "시공", "환경제어", "양액", "배관", "전기", "재활용", "히트펌프",
+)
+TRADE_NOT_FOUND: str = "공종 설명에 없다"
+TRADE_NO_SAMPLE: str = "표본 금액 0건"
+
+
+def trade_map() -> dict:
+    """요청 낱말 → `CAPEX_MAJOR_CATEGORIES` 13공종(문자열 탐색 · 판정 없음)."""
+    cats = e.CAPEX_MAJOR_CATEGORIES
+    chunks = e.CAPEX_MAJOR_CASE_CHUNKS
+    req = set(e.RFQ_REQUIRED_CATEGORIES_DEFAULT)
+    ev = e.CAPEX_MAJOR_EVIDENCE_STATUS
+
+    rows = []
+    for key, name, desc in cats:
+        nz = sum(1 for c in chunks.values() if (c.get(key) or 0) > 0)
+        rows.append({
+            "key": key, "name": name, "desc": desc,
+            "rfq": key in req,
+            "sample_nonzero": nz,
+            "sample_total": len(chunks),
+            "has_evidence": bool(str(ev.get(key, "")).strip()) and nz > 0,
+            "words": [w for w in TRADE_ASK if (w in desc) or (w in name)],
+        })
+
+    asked = []
+    for w in TRADE_ASK:
+        hit = [{"key": r["key"], "name": r["name"], "sample_nonzero": r["sample_nonzero"]}
+               for r in rows if w in r["words"]]
+        asked.append({"word": w, "cats": hit,
+                      "found": bool(hit),
+                      "note": TRADE_NOT_FOUND if not hit else ""})
+
+    return {
+        "rows": rows, "asked": asked,
+        "cat_total": len(cats), "sample_total": len(chunks),
+        "no_sample": [r["name"] for r in rows if r["sample_nonzero"] == 0],
+        "source": "CAPEX_MAJOR_CATEGORIES(★사용자 제안 채택 2026-07-16) · CAPEX_MAJOR_CASE_CHUNKS",
+        "note": ("🔴**공종 하이어라키를 새로 만들지 않았다** — 13공종은 이미 엔진에 있고 "
+                 "요청 낱말이 **어느 설명에 적혀 있는지 찾기만** 한다. 설명에 없으면 "
+                 "**없다고 적는다**. 표본 수는 **금액이 0보다 큰 케이스 건수**이고 "
+                 "**어느 공종이 더 중요하다고 하지 않는다**"),
+    }
+
 FLOW_TARGETS: tuple = ("부지", "시설", "기자재")      # 설계서 §1의 3대상(순서 그대로)
 FLOW_NO_LINK: str = "대응 정의 없음"
 

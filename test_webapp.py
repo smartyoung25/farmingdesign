@@ -3209,3 +3209,91 @@ def test_288cha_service_flow_joins_existing_axes_and_invents_none():
     #   사용 안내가 새 화면을 알고 있어야 한다(277차 가드와 겹쳐 지킨다)
     assert any(x["path"] == "/flow" for x in _cp.guide_index()["screens"]), (
         "🔴 사용 안내에 /flow 가 없다")
+
+
+def test_289cha_trade_map_finds_not_assigns_and_shows_empty_trades():
+    """289차 — 요청 공종 매핑이 **찾기만** 하는가(배정 0 · 새 하이어라키 0).
+
+    🔴 낱말이 어느 공종인지는 **카테고리 설명에서 문자열로 찾는다** — 손으로 배정한
+       표가 있으면 실패. 엔진 설명을 바꾸면 매핑도 따라 바뀌어야 한다.
+    🔴 **없는 것을 없다고 적는다** — 「시공」·「재활용」은 설명에 없고, 그 사실이
+       화면에서 사라지면 실패.
+    🔴 **표본 금액 0건 공종을 숨기지 않는다**(5종).
+    """
+    import os as _o, io as _io
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd = lambda p_: _io.open(_o.path.join(root, p_), encoding="utf-8").read()
+    t = _cp.trade_map()
+    cats = _e.CAPEX_MAJOR_CATEGORIES
+    chunks = _e.CAPEX_MAJOR_CASE_CHUNKS
+
+    # ── ① 🔴 하이어라키를 새로 만들지 않았다 — 13공종 그대로다 ──────────────
+    assert t["cat_total"] == len(cats) == 13
+    assert [r["key"] for r in t["rows"]] == [c[0] for c in cats]
+    assert [r["name"] for r in t["rows"]] == [c[1] for c in cats]
+    assert t["sample_total"] == len(chunks) == 15
+
+    # ── ② 🔴 배정하지 않는다 — 매핑이 **설명 문자열에서** 나온다 ─────────────
+    for r in t["rows"]:
+        want = [w for w in _cp.TRADE_ASK if (w in r["desc"]) or (w in r["name"])]
+        assert r["words"] == want, (r["key"], r["words"], want)
+    by_key = {r["key"]: r for r in t["rows"]}
+    for a in t["asked"]:
+        keys = {c["key"] for c in a["cats"]}
+        src = {c[0] for c in cats if (a["word"] in c[2]) or (a["word"] in c[1])}
+        assert keys == src, (a["word"], keys, src)
+        #   🔴표본 수도 **행과 같은 값**이어야 한다 — 따로 만들면 두 곳이 갈라진다
+        for c in a["cats"]:
+            assert c["sample_nonzero"] == by_key[c["key"]]["sample_nonzero"], c
+            assert c["name"] == by_key[c["key"]]["name"], c
+    #   요청 낱말은 ★지시 그대로 10개다
+    assert len(_cp.TRADE_ASK) == 10 and t["asked"][0]["word"] == "부지"
+
+    # ── ③ 🔴 없는 것을 없다고 적는다 ───────────────────────────────────────
+    missing = {a["word"] for a in t["asked"] if not a["found"]}
+    assert missing == {"시공", "재활용"}, (
+        "🔴 설명에 없는 낱말이 %s다 — 엔진 설명이 바뀌었으면 결론을 다시 써야 한다" % sorted(missing))
+    for a in t["asked"]:
+        assert a["found"] != bool(a["note"]), a
+        if not a["found"]:
+            assert a["note"] == _cp.TRADE_NOT_FOUND
+
+    # ── ④ 🔴 표본 커버리지를 **원자료에서 다시 센다** ───────────────────────
+    for r in t["rows"]:
+        nz = sum(1 for c in chunks.values() if (c.get(r["key"]) or 0) > 0)
+        assert r["sample_nonzero"] == nz, (r["key"], r["sample_nonzero"], nz)
+    got = {r["name"]: r["sample_nonzero"] for r in t["rows"]}
+    assert got["1. 온실 구조"] == 14 and got["2. 자동개폐 시스템"] == 15
+    assert got["3. 냉·난방 설비"] == 10 and got["4. 양액·관수 설비"] == 14
+    assert got["5. ICT 및 제어설비"] == 6 and got["6. 전기 설비"] == 4
+    assert len(t["no_sample"]) == 5, t["no_sample"]
+    assert set(t["no_sample"]) == {"9. 기자재 구매", "10. 설계·감리비", "11. 부지 조성비",
+                                   "12. 예비비", "13. 부지 매입비"}
+    #   RFQ 필수 4종도 엔진 그대로다
+    assert {r["key"] for r in t["rows"] if r["rfq"]} == set(_e.RFQ_REQUIRED_CATEGORIES_DEFAULT)
+
+    # ── ⑤ 화면 — 비어 있는 공종을 숨기지 않는다 · 판정 어휘 0 ───────────────
+    r = client.get("/flow")
+    assert r.status_code == 200
+    html = r.text
+    assert _cd.audit(html) == {}, _cd.audit(html)
+    assert "공종 설명에 없다" in html, "🔴 「없다」가 화면에서 사라졌다"
+    assert "표본 금액이 0건인 공종" in html
+    for nm in t["no_sample"]:
+        assert nm in html, "🔴 표본 0건 공종 「%s」가 화면에 없다" % nm
+    assert "어느 공종이 더 중요하다고 하지 않는다" in html
+    for bad in ("추천", "권장", "최적", "가장 중요한 공종"):
+        assert bad not in html, "🔴 공종 절에 판정 어휘 「%s」" % bad
+
+    # ── ⑥ 🔴 엔진에 공종 상수를 새로 만들지 않았다 ─────────────────────────
+    esrc = rd("smartfarm_engine.py")
+    code = chr(10).join(l for l in esrc.splitlines() if not l.lstrip().startswith("#"))
+    for made_up in ("TRADE_", "공종_하이어라키", "NUTRIENT_RECYCLE", "HEATPUMP_CATEGORY"):
+        assert made_up not in code, "🔴 엔진에 새 공종 상수 「%s」가 생겼다" % made_up
+    #   조립 계층의 요청 낱말 목록은 **지시 그대로**이고 엔진 값이 아니다
+    src = rd("consulting_package.py")
+    assert "★사용자 지시 2026-10-02의 낱말 그대로" in src
+    assert "**배정하지 않는다**" in src
