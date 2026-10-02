@@ -3297,3 +3297,93 @@ def test_289cha_trade_map_finds_not_assigns_and_shows_empty_trades():
     src = rd("consulting_package.py")
     assert "★사용자 지시 2026-10-02의 낱말 그대로" in src
     assert "**배정하지 않는다**" in src
+
+
+def test_290cha_readiness_menu_is_rule_applied_not_a_popularity_guess():
+    """290차 — 「무엇부터 볼까」가 **규칙 적용**인가, 내가 고른 인기 순위가 아닌가.
+
+    🔴 **수요를 모른다**(사용성 인터뷰 0명 · 실측 0회) — 그래서 「많이 쓰는 것」으로
+       묶으면 실패. 묶음은 각 화면의 `input` 원문에서 나와야 한다.
+    🔴 **규칙을 다시 적용해** 21화면의 계단을 재배치하고 화면 값과 맞춘다.
+    🔴 **근거 행을 함께 낸다**(190차 단서) — 화면마다 `input` 원문이 붙어야 한다.
+    """
+    import os as _o, io as _io
+    import consulting_package as _cp
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd = lambda p_: _io.open(_o.path.join(root, p_), encoding="utf-8").read()
+    m = _cp.readiness_menu()
+    screens = _cp.guide_index()["screens"]
+
+    # ── ① 🔴 규칙을 **다시 적용해** 대조한다 ────────────────────────────────
+    assert m["total"] == len(screens) == 21
+    assert [t["key"] for t in m["tiers"]] == [r[0] for r in _cp.READINESS_RULE]
+    seen = []
+    for t in m["tiers"]:
+        want = [s["path"] for s in screens if _cp._readiness_tier(s["input"]) == t["key"]]
+        assert [x["path"] for x in t["screens"]] == want, (t["key"], want)
+        assert t["n"] == len(want)
+        seen += want
+    #   한 화면이 **정확히 한 계단**에 든다 — 빠지지도 겹치지도 않는다
+    assert sorted(seen) == sorted(s["path"] for s in screens), "🔴 화면이 빠졌거나 겹쳤다"
+    #   🔴행의 모양도 잰다 — 빈 dict가 끼면 경로 집합만으로는 안 걸린다
+    for t in m["tiers"]:
+        for s in t["screens"]:
+            assert s.get("path") and s.get("name") and s.get("input"), (t["key"], s)
+    assert [t["n"] for t in m["tiers"]] == [11, 1, 7, 2], [t["n"] for t in m["tiers"]]
+
+    # ── ② 🔴 결정론 — 같은 입력이면 같은 계단 ───────────────────────────────
+    for s in screens:
+        a = _cp._readiness_tier(s["input"])
+        assert a == _cp._readiness_tier(s["input"]), s["path"]
+    assert _cp._readiness_tier("넣는 것 없음(읽기)") == "none"
+    assert _cp._readiness_tier("케이스 코드(C1~C5)") == "case"
+    assert _cp._readiness_tier("WO 번호") == "other"
+    #   「케이스 파일이 필요 없다」가 「케이스」보다 **먼저** 걸린다(순서가 규칙이다)
+    assert _cp._readiness_tier("주소 · 품목 · 면적 — **케이스 파일이 필요 없다**") == "three"
+
+    # ── ③ 🔴 근거 행이 붙는다 — 왜 그 계단인지 보인다 ───────────────────────
+    for t in m["tiers"]:
+        for s in t["screens"]:
+            assert s["input"], (t["key"], s["path"])
+            assert set(s) == {"path", "name", "what", "input"}, sorted(s)
+
+    # ── ④ 🔴 수요를 안다고 하지 않는다 ─────────────────────────────────────
+    flat = " ".join(m["note"].split())
+    assert "사용성 인터뷰 0명" in flat and "실측 0회" in flat
+    assert "**「많이 쓰는 기능」으로 묶지 않았다**" in flat
+    assert "어느 계단이 더 낫다고 하지 않는다" in flat
+    src = rd("consulting_package.py")
+    assert "수요를 알 수 없다(11-B ⓔ)" in src
+
+    # ── ⑤ 🔴 질문 ↔ 화면을 잇지 않았다(배정은 판단) ─────────────────────────
+    assert len(m["asks"]) == 3
+    assert _cp.READINESS_UNMAPPED == "질문 대응 없음", (  # 🔴빈 값이면 아래가 헛돈다
+        "🔴 미대응 표기가 비었다 — 「없음」이 보이지 않으면 배정한 것과 구분이 안 된다")
+    for a in m["asks"]:
+        assert a["note"] == _cp.READINESS_UNMAPPED and a["note"].strip()
+        assert "/" not in a["note"], "🔴 질문에 화면을 배정했다: %s" % a["note"]
+        assert a["ask"], a
+    assert "질문 ↔ 화면 대응은 만들지 않았다" in flat
+
+    # ── ⑥ 화면 — 전부 뜨고 판정 어휘 0 ─────────────────────────────────────
+    r = client.get("/guide")
+    assert r.status_code == 200
+    html = r.text
+    assert _cd.audit(html) == {}, _cd.audit(html)
+    assert "무엇부터 볼까" in html
+    assert "어느 질문이 어느 화면인지는 잇지 않았습니다" in html, (
+        "🔴 질문 미배정 경고가 화면에서 사라졌다")
+    for a in m["asks"]:
+        assert a["ask"] in html and a["note"] in html, a
+    for t in m["tiers"]:
+        assert t["name"] in html, t["name"]
+        assert t["rule"] in html, "🔴 계단 「%s」의 규칙이 화면에 없다" % t["name"]
+    for bad in ("추천", "권장", "최적", "가장 많이", "인기"):
+        assert bad not in html, "🔴 준비물 사다리에 판정 어휘 「%s」" % bad
+    #   사다리가 가리키는 경로는 **전부 실재한다**(동적 경로는 뺀다)
+    for t in m["tiers"]:
+        for s in t["screens"]:
+            if "{" in s["path"]:
+                continue
+            assert client.get(s["path"]).status_code == 200, s["path"]

@@ -37,6 +37,36 @@
   <div class="banner">{{ g.note }}</div>
 
   <div class="sec">
+    <h2>무엇부터 볼까 — 준비물 사다리<span class="cnt">화면 {{ rm.total }}개</span></h2>
+    <div class="d">{{ rm.note }}</div>
+    {% for t in rm.tiers %}
+    <div style="border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:9px;background:var(--bg)">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-bottom:6px">
+        <b style="font-size:13.5px">{{ t.name }}</b>
+        <span style="font-size:11.5px;color:var(--sub)">{{ t.line }}</span>
+        <span style="font-size:11px;color:var(--mut)">화면 {{ t.n }}개 · 규칙: {{ t.rule }}</span>
+      </div>
+      {% if t.screens %}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:6px">
+        {% for s in t.screens %}
+        <a href="{{ s.path }}" style="display:block;border:1px solid var(--line);border-radius:8px;padding:7px 10px;text-decoration:none;color:inherit;background:var(--card)">
+          <div style="font-size:12.5px;font-weight:500">{{ s.name }}
+            <span style="font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--mut)">{{ s.path }}</span></div>
+          <div style="font-size:11px;color:var(--sub);line-height:1.5;margin-top:2px">{{ s.what }}</div>
+          <div style="font-size:10.5px;color:var(--mut);line-height:1.45;margin-top:3px">넣는 것 · {{ s.input }}</div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}<div style="font-size:12px;color:var(--mut);font-style:italic">해당 화면 없음</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="d" style="margin-top:8px">⚠️ 관점별로 물어보는 것은 아래와 같은데,
+      <b>어느 질문이 어느 화면인지는 잇지 않았습니다</b> — 배정은 판단이라 만들지 않습니다.
+      {% for a in rm.asks %}<br><b>{{ a.name }}</b> · {{ a.ask }} <span style="color:var(--mut)">({{ a.note }})</span>{% endfor %}
+    </div>
+  </div>
+
+  <div class="sec">
     <h2>화면별 안내<span class="cnt">{{ g.counts.screens }}개</span></h2>
     <div class="d">무엇을 하는 화면인가 · 무엇을 넣나 · 무엇이 나오나 · 안 나오면 왜</div>
     {% for s in g.screens %}

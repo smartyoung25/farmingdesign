@@ -269,7 +269,8 @@ def perspective_one(request: Request, name: str):
 @app.get("/guide")
 def guide(request: Request):
     return templates.TemplateResponse(request, "guide.html",
-                                      {"g": cpkg.guide_index()})
+                                      {"g": cpkg.guide_index(),
+                                       "rm": cpkg.readiness_menu()})
 
 
 # ── 276차(WO-012): 참조 전수 카탈로그 — 무엇·어디서·어느 상수에 걸리는가 ─────
