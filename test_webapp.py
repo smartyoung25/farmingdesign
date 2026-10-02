@@ -3498,3 +3498,86 @@ def test_291cha_screen_stage_is_derived_from_templates_not_stored():
     assert "배정표를 저장하지 않는다" in html
     for bad in ("추천", "권장", "최적", "가장 중요한 화면"):
         assert bad not in html, "🔴 화면↔단계 절에 판정 어휘 「%s」" % bad
+
+
+def test_293cha_trade_stage_stays_a_draft_until_the_user_confirms():
+    """293차 — 공종×단계가 **초안으로 남아 있는가**(확정으로 둔갑하면 실패).
+
+    🔴 1절은 판단성을 **초안·참고까지만** 허용한다 — 「초안」 표기가 사라지거나
+       레지스트리에 status 「결정」으로 올라가면 실패.
+    🔴 **엔진에 넣지 않았다** — 판단성 초안은 조립 계층에 둔다.
+    🔴 **근거 넷과 초안 아홉을 가른다** — `RFQ_REQUIRED_CATEGORIES_DEFAULT`에서 다시 센다.
+    """
+    import os as _o, io as _io, json as _j
+    import consulting_package as _cp
+    import smartfarm_engine as _e
+    import case_display as _cd
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+    rd = lambda p_: _io.open(_o.path.join(root, p_), encoding="utf-8").read()
+    t = _cp.trade_stage_draft()
+
+    # ── ① 13공종을 빠짐없이 덮는다 — 엔진 카탈로그에서 다시 센다 ────────────
+    cats = _e.CAPEX_MAJOR_CATEGORIES
+    assert t["total"] == len(cats) == 13
+    assert [r["key"] for r in t["rows"]] == [c[0] for c in cats]
+    assert set(_cp.TRADE_STAGE_DRAFT) == {c[0] for c in cats}, (
+        "🔴 초안이 13공종을 덮지 않는다 — 빠진 공종은 조용히 사라진다")
+    for r in t["rows"]:
+        assert r["stage"] in _cp.STAGE_ORDER, r
+        assert r["why"], r
+
+    # ── ② 🔴 근거 넷과 초안 아홉 — `RFQ_…`에서 다시 센다 ───────────────────
+    req = set(_e.RFQ_REQUIRED_CATEGORIES_DEFAULT)
+    for r in t["rows"]:
+        assert r["derived"] == (r["key"] in req), r["key"]
+        assert r["basis"] == (_cp.TRADE_STAGE_DERIVED if r["derived"]
+                              else _cp.TRADE_STAGE_STATUS)
+    assert t["derived_n"] == len(req) == 4 and t["draft_n"] == 9
+    #   근거 있는 넷은 **전부 ①공종설계**다(발주 사양서가 ①이기 때문)
+    assert {r["stage"] for r in t["rows"] if r["derived"]} == {"①공종설계"}
+    #   🔴근거 문구가 **왜 ①인지**를 말해야 한다 — 「근거 있음」 같은 빈 말이면 실패
+    assert "RFQ 필수 스코프" in _cp.TRADE_STAGE_DERIVED, _cp.TRADE_STAGE_DERIVED
+    assert "D2" in _cp.TRADE_STAGE_DERIVED and "①공종설계" in _cp.TRADE_STAGE_DERIVED
+
+    # ── ③ 🔴 초안이 초안이라고 적혀 있다 ───────────────────────────────────
+    assert "초안" in _cp.TRADE_STAGE_STATUS and "확인요망" in _cp.TRADE_STAGE_STATUS
+    assert "★사용자 확정 전" in _cp.TRADE_STAGE_STATUS
+    flat = " ".join(t["note"].split())
+    assert "**이것은 초안이다 — 확정이 아니다.**" in flat
+    assert "**나머지 아홉은 내 읽기**일 뿐이고" in flat
+    assert "사용자가 고치면 그대로 바뀐다" in flat
+    #   파생이 퇴화했다는 사실을 적었다 — 왜 초안인지의 근거다
+    assert "퇴화했다" in flat and "capex_breakdown" in flat
+
+    # ── ④ 🔴 엔진에도 레지스트리에도 올리지 않았다 ─────────────────────────
+    esrc = rd("smartfarm_engine.py")
+    code = chr(10).join(l for l in esrc.splitlines() if not l.lstrip().startswith("#"))
+    for made_up in ("TRADE_STAGE", "공종_단계", "STAGE_OF_TRADE"):
+        assert made_up not in code, "🔴 엔진에 공종×단계 상수 「%s」가 생겼다" % made_up
+    reg = _j.loads(rd("엔진데이터_레지스트리.json"))["constants"]
+    assert not [k for k in reg if "TRADE_STAGE" in k], "🔴 초안이 레지스트리에 올라갔다"
+    #   조립 계층 주석이 **왜 엔진이 아닌지**를 적는다
+    src = rd("consulting_package.py")
+    assert "🔴 **엔진에 넣지 않는다.**" in src
+    assert "판단성 초안은 조립 계층에 둔다" in src
+
+    # ── ⑤ 단계별 묶음은 행에서 다시 만든다 ─────────────────────────────────
+    for b in t["by_stage"]:
+        want = [r["name"] for r in t["rows"] if r["stage"] == b["stage"]]
+        assert b["trades"] == want and b["n"] == len(want), b["stage"]
+    assert sum(b["n"] for b in t["by_stage"]) == 13
+    assert [b["stage"] for b in t["by_stage"]] == [
+        st for st in _cp.STAGE_ORDER if any(r["stage"] == st for r in t["rows"])]
+
+    # ── ⑥ 화면 — 「초안」이 보이고 확정 어휘가 없다 ─────────────────────────
+    r = client.get("/flow")
+    assert r.status_code == 200
+    html = r.text
+    assert _cd.audit(html) == {}, _cd.audit(html)
+    assert "초안입니다(확정 아님)" in html
+    assert "확정 전이다 — 고쳐 주셔야 합니다" in html
+    assert _cp.TRADE_STAGE_STATUS in html
+    for bad in ("확정되었습니다", "결정됨", "추천", "권장", "최적"):
+        assert bad not in html, "🔴 공종×단계 절에 확정·판정 어휘 「%s」" % bad
+    #   초안 아홉이 화면에서 **초안으로 표시**된다
+    assert html.count("초안") >= t["draft_n"], html.count("초안")

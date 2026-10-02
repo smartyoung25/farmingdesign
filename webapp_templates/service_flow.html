@@ -157,6 +157,33 @@
       설계·감리비는 요율표(지침·건축사대가기준)로 따로 서고, 부지 매입비는 재무 기본값으로 주입받는다.</div>
   </div>
 
+  <div class="fl" style="border-color:#D9B9B9">
+    <h2>공종 × 단계 — <span style="color:#791F1F">초안입니다(확정 아님)</span></h2>
+    <div class="sub">{{ tsd.decided }}<br>{{ tsd.note }}</div>
+    <div style="overflow-x:auto">
+    <table class="mx">
+      <thead><tr><th style="text-align:left">공종 {{ tsd.total }}</th><th>초안 단계</th><th style="text-align:left">왜 그렇게 읽었나</th><th>상태</th></tr></thead>
+      <tbody>
+        {% for r in tsd.rows %}
+        <tr{% if not r.derived %} style="background:#FDF6F6"{% endif %}>
+          <td style="text-align:left">{{ r.name }}</td>
+          <td>{{ r.stage }}</td>
+          <td style="text-align:left;font-size:11.5px;color:var(--sub)">{{ r.why }}</td>
+          <td style="font-size:11px;{% if not r.derived %}color:#791F1F{% else %}color:var(--green){% endif %}">{{ '근거 있음' if r.derived else '초안' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td style="text-align:left">합 {{ tsd.total }}</td><td>—</td>
+        <td style="text-align:left">근거 있음 {{ tsd.derived_n }} · 초안 {{ tsd.draft_n }}</td><td>—</td></tr></tfoot>
+    </table>
+    </div>
+    <div class="gap" style="margin-top:10px"><div class="t">확정 전이다 — 고쳐 주셔야 합니다</div>
+      <div class="w">{{ tsd.status }}. 근거가 있는 것은 <b>{{ tsd.derived_n }}종</b>({{ tsd.rows[0].basis }})이고,
+        나머지 <b>{{ tsd.draft_n }}종</b>은 <b>내 읽기</b>일 뿐입니다. 확정되면 레지스트리에 status 「결정」으로 올립니다.</div></div>
+    <div class="sub" style="margin-top:8px">초안대로라면 단계별로 이렇게 모입니다 —
+      {% for b in tsd.by_stage %}<b>{{ b.stage }}</b> {{ b.n }}종{% if not loop.last %} · {% endif %}{% endfor %}</div>
+  </div>
+
   <div class="fl">
     <h2>렌즈 — 같은 산출물을 다르게 보는 축</h2>
     <div class="sub">척추는 하나이고 아래는 <b>보는 방법</b>입니다 — 축을 새로 만들지 않았습니다</div>

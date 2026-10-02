@@ -1142,6 +1142,68 @@ def readiness_menu() -> dict:
                  "⚠️**질문 ↔ 화면 대응은 만들지 않았다**(배정은 판단이다)"),
     }
 
+# ─────────────────────────────────────────────────────────────
+# 293차 — **공종 × 단계 초안**(★사용자 결정 2026-10-02: *「초안을 받아 고친다」*).
+#   289차가 *「배정이 판단이라 만들지 않는다」*고 남긴 자리다. 292차처럼 **코드에서
+#   파생**해 보려 했으나 **퇴화했다** — 13공종이 전부 `capex_breakdown` 한 함수를
+#   지나 **D6 → ④타당성검증**으로 몰린다(화면과 달리 공종에는 표시가 없다).
+#   🔴 **그래서 이것은 초안이다.** 1절은 판단성을 **초안·참고까지만** 허용한다 —
+#      확정은 사용자가 하고, 그때 레지스트리에 status 「결정」으로 올린다.
+#   🔴 **엔진에 넣지 않는다.** 판단성 초안은 조립 계층에 둔다(1절: 엔진은 계산 출처).
+#   📌 **넷은 근거가 있다** — `RFQ_REQUIRED_CATEGORIES_DEFAULT`가 그 넷을 발주 스코프로
+#      쓰고, 발주 사양서(D2)는 ①공종설계다. 나머지 아홉은 **내 읽기**일 뿐이다.
+# ─────────────────────────────────────────────────────────────
+TRADE_STAGE_STATUS: str = "초안 — 확인요망(★사용자 확정 전)"
+TRADE_STAGE_DERIVED: str = "RFQ 필수 스코프 — 발주 사양서(D2)가 ①공종설계다"
+TRADE_STAGE_DRAFT: dict = {
+    # 공종 키: (초안 단계, 왜 그렇게 읽었나 — **내 읽기**이지 리포의 기록이 아니다)
+    "greenhouse_structure":       ("①공종설계", "철골·기초·피복·도어 — 구조 사양이 설계에서 정해진다"),
+    "auto_opening_system":        ("①공종설계", "천창·스크린·개폐모터 — 설비 사양이 발주 전에 정해진다"),
+    "hvac":                       ("①공종설계", "보일러·히트펌프·난방배관 — 용량 산정이 설계 산출이다"),
+    "irrigation_fertigation":     ("①공종설계", "양액기·펌프·관수 배관 — 배관 계획이 설계 산출이다"),
+    "ict_control":                ("②품질설계", "복합환경제어기·센서 — 기자재 표준 대조(D19)가 ②다"),
+    "electrical":                 ("①공종설계", "인입·배선반·분전함 — 전기 설계가 ①이다"),
+    "auxiliary_facility":         ("①공종설계", "기계실·창고·작업동 — 배치 설계에 들어간다"),
+    "thermal_storage_insulation": ("①공종설계", "축열탱크·단열판 — 난방 설계와 함께 정해진다"),
+    "equipment_procurement":      ("②품질설계", "트롤리·선별대 — 기자재 사양 대조 쪽에 가깝다"),
+    "design_supervision_fee":     ("③감리", "설계·감리 용역비 — 감리 단계의 대가다"),
+    "site_preparation":           ("①공종설계", "성토·배수로·진입로 — 입지 진단(D1) 다음의 기반 공사다"),
+    "contingency":                ("④타당성검증", "예비비 — 공사 공종이 아니라 사업비 항목이다"),
+    "land_acquisition":           ("④타당성검증", "부지 매입비 — 자산이라 재무에서 다룬다"),
+}
+
+
+def trade_stage_draft() -> dict:
+    """공종 × 단계 **초안**(확정 아님) — 근거 있는 넷과 초안 아홉을 갈라 낸다."""
+    req = set(e.RFQ_REQUIRED_CATEGORIES_DEFAULT)
+    rows = []
+    for key, name, desc in e.CAPEX_MAJOR_CATEGORIES:
+        stage, why = TRADE_STAGE_DRAFT[key]
+        derived = key in req
+        rows.append({
+            "key": key, "name": name, "stage": stage, "why": why,
+            "derived": derived,
+            "basis": TRADE_STAGE_DERIVED if derived else TRADE_STAGE_STATUS,
+        })
+    by_stage = []
+    for st in STAGE_ORDER:
+        hit = [r["name"] for r in rows if r["stage"] == st]
+        if hit:
+            by_stage.append({"stage": st, "trades": hit, "n": len(hit)})
+    return {
+        "rows": rows, "by_stage": by_stage,
+        "total": len(rows),
+        "derived_n": sum(1 for r in rows if r["derived"]),
+        "draft_n": sum(1 for r in rows if not r["derived"]),
+        "status": TRADE_STAGE_STATUS,
+        "decided": "★사용자 결정 2026-10-02 — 초안을 내고 사용자가 고쳐 확정한다",
+        "note": ("🔴**이것은 초안이다 — 확정이 아니다.** 292차처럼 코드에서 파생해 보려 했으나 "
+                 "**퇴화했다**(13공종이 전부 `capex_breakdown` 한 함수를 지나 ④로 몰린다). "
+                 "📌**넷만 근거가 있다** — `RFQ_REQUIRED_CATEGORIES_DEFAULT`가 발주 스코프로 쓰고 "
+                 "발주 사양서(D2)가 ①공종설계다. **나머지 아홉은 내 읽기**일 뿐이고 "
+                 "**사용자가 고치면 그대로 바뀐다**. 🔴**엔진에 넣지 않았다**(판단성은 조립 계층에 둔다)"),
+    }
+
 TRADE_ASK: tuple = (          # ★사용자 지시 2026-10-02의 낱말 그대로
     "부지", "설계", "감리", "시공", "환경제어", "양액", "배관", "전기", "재활용", "히트펌프",
 )
