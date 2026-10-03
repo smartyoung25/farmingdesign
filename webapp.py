@@ -27,6 +27,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 from markupsafe import Markup
+from jinja2 import pass_context
 
 import cases as C
 import render_report as rr
@@ -55,10 +56,30 @@ templates = Jinja2Templates(directory=str(ROOT / "webapp_templates"))
 #     2. `__html__`을 가진 값(안전 표시된 결과)은 건너뛴다 — 다시 변환하면 태그가 깨진다
 #     3. `md()`가 이미 escape했으므로 `Markup`으로 감싸 자동 이스케이프를 끈다
 # -------------------------------------------------------------
-def _render_inline(value):
+def _form_templates() -> frozenset:
+    """폼 값을 **되돌려 주는** 템플릿 — 디렉터리에서 도출한다(목록을 손으로 적지 않는다).
+
+    298차 — 297차의 훅이 모든 출력 지점에 걸려 입력칸의 값까지 바꿨다. 전사 근거를
+    담은 칸에서는 그 글자가 **그대로 저장된다** — 저장 한 번으로 근거 필드가 오염되고
+    md()는 멱등이 아니라 되돌릴 수 없다(1절 「근거 없는 값 금지」).
+    목록을 상수로 적으면 새 기입 화면이 조용히 훅을 타므로 **파일에서 도출**한다.
+    """
+    out = set()
+    for q in sorted((ROOT / "webapp_templates").glob("entry_*.html")):
+        t = q.read_text(encoding="utf-8")
+        if "<form" in t and ('value="{{' in t or "<textarea" in t):
+            out.add(q.name)
+    return frozenset(out)
+
+
+FORM_TEMPLATES = _form_templates()
+
+
+@pass_context
+def _render_inline(ctx, value):
     if hasattr(value, "__html__"):
         return value
-    if isinstance(value, str):
+    if isinstance(value, str) and ctx.name not in FORM_TEMPLATES:
         return Markup(bs.md(value))
     return value
 

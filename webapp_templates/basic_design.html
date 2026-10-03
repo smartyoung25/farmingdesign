@@ -40,11 +40,11 @@
   <form class="fm" method="get" action="/design">
     <div class="row">
       <div><label for="addr">주소(시·군·구가 들어가게)</label>
-        <input id="addr" name="addr" value="{{ bd.input['주소'] }}" placeholder="충청남도 논산시 연무읍"></div>
+        <input id="addr" name="addr" value="{{ bd.input['주소'] | e }}" placeholder="충청남도 논산시 연무읍"></div>
       <div><label for="crop">품목</label>
-        <input id="crop" name="crop" value="{{ bd.input['품목'] }}" placeholder="딸기"></div>
+        <input id="crop" name="crop" value="{{ bd.input['품목'] | e }}" placeholder="딸기"></div>
       <div><label for="area_m2">면적(㎡)</label>
-        <input id="area_m2" name="area_m2" value="{{ bd.input['면적_m2'] if bd.input['면적_m2'] else '' }}" placeholder="3300"></div>
+        <input id="area_m2" name="area_m2" value="{{ (bd.input['면적_m2'] if bd.input['면적_m2'] else '') | e }}" placeholder="3300"></div>
       <div><button class="btn" type="submit">조회</button></div>
     </div>
     <div class="hint">{{ bd.note }}</div>

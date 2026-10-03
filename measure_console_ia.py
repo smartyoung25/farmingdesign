@@ -173,9 +173,20 @@ def measure(fetch=None, flow=None, ssm=None) -> dict:
     ssm = cp.screen_stage_map() if ssm is None else ssm
     flow = cp.service_flow() if flow is None else flow
     gaps_text = " ".join(str(g) for g in flow.get("gaps", []))
-    if not ssm.get("needs_decision") and "확인 필요" in gaps_text:
+    #   🔴 298차 — 규칙이 둔했다. 낱말 「확인 필요」만 보면 *「확인 필요로 분류된 화면은
+    #   없다」*처럼 **없다고 적는 문장까지** 잡는다(같은 문장에서 세 번 걸렸다).
+    #   잡아야 하는 것은 **남아 있다는 주장**이다.
+    if (not ssm.get("needs_decision") and "확인 필요" in gaps_text
+            and "남아 있다" in gaps_text):
         contradictions.append(
-            "screen_stage_map의 needs_decision이 비었는데 gaps 본문이 「확인 필요」라 적는다")
+            "needs_decision이 비었는데 gaps 본문이 「확인 필요로 남아 있다」라 적는다")
+    #   🔴 역방향 — 반환이 비었다는 것만으로 **완료를 선언**하는 것도 모순이다.
+    #   `needs_decision == []`은 「분류가 없다」는 뜻이고 「모든 화면이 코드를 적는다」가
+    #   아니다. 단계 밖이 남아 있는데 전체를 단언하면 근거보다 넓은 결론이다.
+    if ssm.get("out_of_stage") and ("모든 화면이 코드를 적는다" in gaps_text
+                                    or "남은 것이 없다" in gaps_text):
+        contradictions.append(
+            "단계 밖이 %d곳인데 gaps 본문이 모든 화면을 단언한다" % ssm["out_of_stage"])
     for lens in flow.get("lenses", []):
         why = str(lens.get("why", ""))
         head = re.split(r"\s—\s", why)[0]

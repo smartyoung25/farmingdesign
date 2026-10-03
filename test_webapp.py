@@ -3835,7 +3835,7 @@ def test_297cha_inline_markdown_renders_at_every_output_point():
     #   🔴 뮤테이션 M4가 찾은 구멍: 「__html__」은 **주석에도** 있어서 코드 줄을
     #   지워도 낱말 검사는 통과했다. 코드 줄 전문을 단언한다(이 세션 여섯 번째 계열).
     for guard in ('if hasattr(value, "__html__"):',
-                  "    if isinstance(value, str):",
+                  "    if isinstance(value, str) and ctx.name not in FORM_TEMPLATES:",
                   "        return Markup(bs.md(value))"):
         assert guard in src, (
             "🔴 훅의 안전장치 「%s」가 사라졌다 — 안전 표시된 값을 다시 변환하면 태그가 "
@@ -3877,7 +3877,7 @@ def test_297cha_inline_markdown_renders_at_every_output_point():
     # ── ⑥ 자기 모순이 없는가 · 문장이 **반환에서 파생**되는가 ───────
     assert got["M8_contradictions"] == 0, got["M8_detail"]
     cp_src = _io_read("consulting_package.py")
-    assert '_nd = screen_stage_map()["needs_decision"]' in cp_src, (
+    assert "_ssm = screen_stage_map()" in cp_src and '_nd = _ssm["needs_decision"]' in cp_src, (
         "🔴 공백 설명이 반환에서 파생되지 않는다 — 상수에 문장을 박으면 292차처럼 "
         "반환이 바뀌어도 문장이 따라오지 않는다")
     # 양쪽을 **주입으로** 확인한다 — 항목이 생기면 그 항목을 적어야 한다
@@ -3892,5 +3892,122 @@ def test_297cha_inline_markdown_renders_at_every_output_point():
     finally:
         _cp3.screen_stage_map = _real
     why0 = _cp3.service_flow()["gaps"][0]["왜"]
-    assert "확인 필요" not in why0, (
+    #   298차 — 낱말 하나로 보면 「확인 필요로 분류된 화면은 없다」까지 잡는다.
+    #   잡아야 하는 것은 **남아 있다는 주장**이므로 짝으로 본다(측정 규칙과 같은 꼴).
+    assert not ("확인 필요" in why0 and "남아 있다" in why0), (
         "🔴 반환이 비었는데 문장이 「확인 필요」라 적는다: %s" % why0[-90:])
+
+
+def test_298cha_form_values_are_sealed_and_claims_match_the_return():
+    """298차 — 폼으로 **되돌아오는 값**이 바뀌지 않는가 · 문장이 반환보다 넓게 말하지 않는가.
+
+    🔴 297차의 `finalize` 훅이 모든 출력 지점에 걸려 **입력칸의 값까지** 바꿨다.
+    전사 근거를 담은 칸에서는 그 글자가 **그대로 저장된다** — `md()`는 멱등이 아니라
+    (`**x**` → `<b>x</b>` → `&lt;b&gt;x&lt;/b&gt;`) 되돌릴 수 없다. 1절 「근거 없는 값 금지」다.
+
+    📌 봉인 목록을 상수로 적지 않는다 — **디렉터리에서 도출**한다. 새 기입 화면이 생기면
+    자동으로 들어오고, 도출이 깨지면 이 가드가 먼저 실패한다.
+
+    ⚠️ 못 하는 것: 거부·미리보기 상태는 재지 않는다(GET만 잰다). 그 상태에서 설명 문구가
+    날것으로 보이는지는 확인하지 않았다.
+    """
+    import glob as _g
+    import io as _i
+    import json as _j
+    import os as _o
+    import re as _re
+
+    import consulting_package as _cp4
+    import measure_console_ia as _mci
+
+    root = _o.path.dirname(_o.path.abspath(webapp.__file__))
+
+    # ── ① 봉인 집합이 **도출**되는가 ────────────────────────────────
+    want = set()
+    for f in sorted(_g.glob(_o.path.join(root, "webapp_templates", "entry_*.html"))):
+        t = _i.open(f, encoding="utf-8").read()
+        if "<form" in t and ('value="{{' in t or "<textarea" in t):
+            want.add(_o.path.basename(f))
+    assert webapp.FORM_TEMPLATES == frozenset(want), (
+        "🔴 봉인 집합이 도출과 다르다: 코드 %s vs 도출 %s — 목록을 손으로 적으면 새 기입 "
+        "화면이 조용히 훅을 탄다" % (sorted(webapp.FORM_TEMPLATES), sorted(want)))
+    assert len(want) >= 7, (
+        "🔴 봉인 대상이 %d개다 — 298차 기준은 7개다. 줄었다면 왜 줄었는지 적으라" % len(want))
+
+    # ── ② 훅이 **그 함수인가** · 동작이 맞는가 ──────────────────────
+    #    🔴 소스 문자열만 보면 함수를 남겨 둔 채 다른 것으로 재지정해도 통과한다.
+    assert webapp.templates.env.finalize is webapp._render_inline, (
+        "🔴 `finalize`가 `_render_inline`이 아니다 — 재지정하면 소스 검사는 통과하고 "
+        "동작은 바뀐다")
+    env = webapp.templates.env
+    assert "<b>" in env.from_string("{{ v }}").render(v="a **b** c"), (
+        "🔴 읽기 자리에서 렌더가 일어나지 않는다")
+    for name in sorted(want):
+        out = env.get_template(name).environment.from_string("{{ v }}").render(v="a **b** c")
+        assert "<b>" in out, "🔴 템플릿 환경이 둘로 갈라졌다"
+
+    # ── ③ 폼 칸이 실제로 **원문 그대로** 나오는가 ──────────────────
+    hit = None
+    for f in sorted(_g.glob(_o.path.join(root, "견적비교_*.json"))):
+        d = _j.load(_i.open(f, encoding="utf-8"))
+        if "**" in (d.get("provenance") or ""):
+            hit = (_o.path.basename(f), d["provenance"])
+            break
+    assert hit, (
+        "🔴 `**`를 품은 전사 근거가 어느 견적비교 파일에도 없다 — 이 가드가 재는 대상이 "
+        "사라졌다. 데이터가 바뀌었으면 왜 바뀌었는지 적으라")
+    r = client.get("/entry/quotes/edit", params={"src": hit[0]})
+    assert r.status_code == 200, r.status_code
+    box = _re.findall(r'<textarea[^>]*name="provenance"[^>]*>(.*?)</textarea>',
+                      r.text, _re.S)
+    assert box, "🔴 전사 근거 칸을 찾지 못했다"
+    for tag in ("<b>", "<code>", "<i>", "<s>"):
+        assert tag not in box[0], (
+            "🔴 전사 근거 칸에 %s가 들어갔다 — 저장하면 그 글자가 파일에 박히고 `md()`는 "
+            "멱등이 아니라 되돌릴 수 없다" % tag)
+    assert box[0].count("**") == hit[1].count("**"), (
+        "🔴 전사 근거 칸의 마커 수가 원문과 다르다: 화면 %d · 원문 %d"
+        % (box[0].count("**"), hit[1].count("**")))
+
+    # ── ④ `/design`은 **칸만** 봉인되고 본문은 렌더되는가 ───────────
+    d2 = client.get("/design", params={"addr": "**충남 논산시**", "crop": "토마토",
+                                       "area_m2": "3300"}).text
+    v = _re.findall(r'name="addr"[^>]*value="([^"]*)"', d2)
+    assert v and v[0] == "**충남 논산시**", (
+        "🔴 기본설계 주소 칸이 원문과 다르다: %r" % (v[0] if v else None))
+    assert "<b>" in d2, "🔴 기본설계 본문의 렌더가 사라졌다 — 칸만 봉인해야 한다"
+    #   🔴 조건식 칸은 **괄호**가 있어야 한다. `A if C else "" | e`는 필터가 else 쪽에만
+    #   붙어 참 분기가 봉인되지 않는다. 지금은 면적이 숫자라 관찰되지 않지만,
+    #   숫자가 아닌 값을 되돌리는 날 조용히 깨진다 — 소스로 못 박는다(뮤테이션 M9).
+    bd_src = _io_read("webapp_templates/basic_design.html")
+    assert ("(bd.input['면적_m2'] if bd.input['면적_m2'] else '') | e" in bd_src), (
+        "🔴 조건식 칸의 괄호가 사라졌다 — 필터가 else 쪽에만 붙어 참 분기가 날것으로 "
+        "되돌아간다")
+
+    # ── ⑤ 문장이 반환보다 넓게 말하지 않는가(양방향 주입) ──────────
+    base = dict(fetch=lambda p: (200, "<main>x</main>"))
+    bad1 = _mci.measure(ssm={"needs_decision": [], "in_stage": 6, "out_of_stage": 15},
+                        flow={"gaps": [{"무엇": "ㄱ", "왜": "📌**모든 화면이 코드를 적는다**"}],
+                              "lenses": []}, **base)
+    assert bad1["M8_contradictions"] == 1, (
+        "🔴 단계 밖이 남았는데 전체를 단언하는 문장을 잡지 못한다 — 근거보다 넓은 결론이 "
+        "통과한다")
+    bad2 = _mci.measure(ssm={"needs_decision": [], "in_stage": 6, "out_of_stage": 0},
+                        flow={"gaps": [{"무엇": "ㄱ", "왜": "⚠️**확인 필요**로 남아 있다"}],
+                              "lenses": []}, **base)
+    assert bad2["M8_contradictions"] == 1, "🔴 남아 있다는 주장을 잡지 못한다"
+    ok = _mci.measure(
+        ssm={"needs_decision": [], "in_stage": 6, "out_of_stage": 15},
+        flow={"gaps": [{"무엇": "ㄱ",
+                        "왜": "📌**「확인 필요」로 분류된 화면은 없다** — 단계 안 6 · 단계 밖 15"}],
+              "lenses": []}, **base)
+    assert ok["M8_contradictions"] == 0, (
+        "🔴 정직한 문장을 모순으로 잡는다 — 낱말만 보는 둔한 규칙으로 돌아갔다")
+
+    # ── ⑥ 살아 있는 문장이 세 수를 **반환에서** 가져오는가 ──────────
+    ssm = _cp4.screen_stage_map()
+    why = _cp4.service_flow()["gaps"][0]["왜"]
+    for n in (ssm["in_stage"], ssm["out_of_stage"]):
+        assert str(n) in why, (
+            "🔴 공백 설명이 반환의 수(%d)를 적지 않는다 — 수를 적지 않으면 그 문장은 "
+            "검산되지 않는다" % n)
